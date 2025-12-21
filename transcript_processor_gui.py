@@ -8,6 +8,7 @@ Provides visual feedback and interactive controls for all processing steps.
 
 import os
 import sys
+import re
 import subprocess
 import threading
 from pathlib import Path
@@ -1123,6 +1124,8 @@ class TranscriptProcessorGUI:
 
     def run_script(self, script: Path, args: list) -> bool:
         """Run a Python script and capture output."""
+        cmd = ["python3", str(script)] + args
+
         self.current_process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -1156,11 +1159,7 @@ class TranscriptProcessorGUI:
         finally:
             self.current_process = None
 
-        return tal_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
-
-        process.wait()
-        return process.returncode == 0
+        return returncode == 0
 
     def display_step_tokens(self, step_num: int, step_name: str):
         """Display token usage summary for a step."""
