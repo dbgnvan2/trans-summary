@@ -1,13 +1,5 @@
 # Transcript Processing Pipeline Dependencies
-
-# Core AI API
 anthropic>=0.39.0
-
-# PDF Generation
 weasyprint>=60.0
-
-# Image processing (required by weasyprint)
 pillow>=10.0.0
-
-# Standard library enhancements (if needed)
 python-dotenv>=1.0.0

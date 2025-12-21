@@ -78,6 +78,96 @@ The GUI provides:
 
 #### Command Line Interface
 
+````bash
+# Format a transcript
+python transcript_format.py "Title - Presenter - Date.txt"
+
+# Generate summaries
+python transcript_summarize.py "Title - Presenter - Date - formatted.md"
+
+# Validate abstracts
+# Transcript Processing Pipeline
+
+A comprehensive Python application for processing academic and professional transcripts using Claude AI. The system formats, analyzes, and generates multiple output formats from raw transcript files.
+
+**Maintainer:** dbgnvan2 (sole maintainer)
+
+## Features
+
+- 🤖 **AI-Powered Formatting**: Uses Claude API to intelligently format raw transcripts
+- ✅ **Validation System**: Ensures word preservation and content integrity
+- 📊 **Multiple Output Formats**: Markdown, HTML, PDF
+- 🎯 **Quality Control**: Iterative abstract validation targeting 4.5/5.0 quality scores
+- 🖥️ **Dual Interface**: GUI for interactive use, CLI for automation
+- 📝 **Comprehensive Summaries**: Extracts key terms, emphasis items, and generates blog posts
+- 🔍 **Smart Highlighting**: Identifies and highlights Bowen theory references
+
+## Workflow
+
+The pipeline consists of 6 main stages:
+
+1. **Format & Validate** - Clean and structure raw transcripts
+2. **Add YAML** - Add metadata front matter
+3. **Generate Summaries** - Create extracts-summary with abstract, topics, and key items
+4. **Generate Blog** - Produce SEO-optimized blog posts
+5. **Validate Abstracts** - Iteratively improve abstract quality
+6. **Generate Web-PDF** - Create HTML and PDF outputs
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- Anthropic API key ([get one here](https://console.anthropic.com/))
+
+### Installation
+
+1. **Clone or download this repository**
+
+2. **Create virtual environment**:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # On macOS/Linux
+````
+
+3. **Install dependencies**:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. **Configure environment**:
+
+```bash
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
+```
+
+5. **Set up transcript directories**:
+
+```bash
+export TRANSCRIPTS_DIR="$HOME/transcripts"
+mkdir -p "$TRANSCRIPTS_DIR"/{source,formatted,summaries,webpages,pdfs,processed,prompts}
+```
+
+### Usage
+
+#### GUI Interface (Recommended)
+
+```bash
+python transcript_processor_gui.py
+```
+
+The GUI provides:
+
+- File selection from source directory
+- Step-by-step workflow with progress indicators
+- Status tracking showing completed stages
+- Clear log output
+
+#### Command Line Interface
+
 ```bash
 # Format a transcript
 python transcript_format.py "Title - Presenter - Date.txt"
@@ -259,6 +349,10 @@ Approximate Claude API costs per transcript (using Claude Sonnet 4):
 ## License
 
 This project is for academic and professional use. See LICENSE file for details.
+
+## Contributing
+
+This repository is maintained by a single developer (the maintainer above). If you'd like to suggest changes or report issues, please open an issue on GitHub; external pull requests will be reviewed by the maintainer.
 
 ## Support
 
