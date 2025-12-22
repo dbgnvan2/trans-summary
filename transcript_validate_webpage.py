@@ -17,6 +17,7 @@ import os
 import re
 from pathlib import Path
 from html import unescape
+from difflib import SequenceMatcher
 
 
 # Directories
@@ -76,11 +77,12 @@ def count_sections_in_html(html_file):
     )
 
     if simple_content_match:
-        # Simple layout - count h2 but exclude "Key Terms" header
+        # Simple layout - count h2 but exclude metadata headers
         main_content = simple_content_match.group(1)
         sections = re.findall(r'<h2>([^<]+)</h2>', main_content)
-        # Filter out "Key Terms" which is metadata, not a transcript section
-        sections = [s for s in sections if s.strip() != 'Key Terms']
+        # Filter out metadata sections (Abstract, Key Terms)
+        sections = [s for s in sections if s.strip() not in [
+            'Abstract', 'Key Terms']]
         return len(sections), sections
 
     return 0, []
@@ -95,6 +97,88 @@ def normalize_for_comparison(text):
     # Remove common punctuation that might differ
     text = re.sub(r'[,;:\.\!\?]', '', text)
     return text.strip()
+
+
+def split_multi_labels(labels):
+    """Split combined labels separated by semicolons."""
+    expanded = []
+    for label in labels:
+        parts = [p.strip() for p in label.split(';') if p.strip()]
+        expanded.extend(parts)
+    return expanded
+
+
+def find_missing_emphasis_items(base_name, html_file):
+    """Identify which specific emphasis items are missing from HTML."""
+    # Use transcript_utils to extract emphasis items the same way the webpage script does
+    from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
+
+    # Try dedicated emphasis file first (more efficient)
+    emphasis_file = SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    if emphasis_file.exists():
+        with open(emphasis_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+    else:
+        # Fall back to extracts-summary for backward compatibility
+        extracts_file = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+    # Extract emphasis items using the same method as webpage generation
+    emphasis_items = extract_emphasis_items(strip_yaml_frontmatter(content))
+    source_labels = [label for label, _ in emphasis_items]
+
+    # Extract emphasis labels that are highlighted in HTML
+    with open(html_file, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    highlighted_labels = re.findall(
+        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
+        html_content
+    )
+    highlighted_labels = [label.strip() for label in highlighted_labels]
+
+    # Find missing items
+    missing = []
+    for label in source_labels:
+        if label not in highlighted_labels:
+            missing.append(label)
+
+    return missing
+
+
+def find_missing_bowen_items(base_name, html_file):
+    """Identify which specific Bowen references are missing from HTML."""
+    from transcript_utils import extract_bowen_references, strip_yaml_frontmatter
+
+    bowen_file = SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    if bowen_file.exists():
+        with open(bowen_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+    else:
+        extracts_file = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+    bowen_refs = extract_bowen_references(strip_yaml_frontmatter(content))
+    source_labels = [label for label, _ in bowen_refs]
+
+    with open(html_file, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+
+    highlighted_labels = re.findall(
+        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
+        html_content
+    )
+    highlighted_labels = [label.strip() for label in highlighted_labels]
+    highlighted_labels = split_multi_labels(highlighted_labels)
+
+    missing = []
+    for label in source_labels:
+        if label not in highlighted_labels:
+            missing.append(label)
+
+    return missing
 
 
 def extract_extracts_summary_metadata(extracts_summary_file):
@@ -198,7 +282,7 @@ def extract_extracts_summary_metadata(extracts_summary_file):
     if emphasis_match:
         emphasis_text = emphasis_match.group(1)
         emphasis_items = re.findall(
-            r'\d+\.\s*\*\*([^*]+):\*\*\s*"([^"]+)"', emphasis_text)
+            r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"', emphasis_text)
         metadata['emphasis_list'] = [
             (label.strip(), quote.strip()) for label, quote in emphasis_items]
         metadata['emphasis_count'] = len(emphasis_items)
@@ -222,7 +306,9 @@ def extract_html_metadata(html_file):
         'has_key_terms': False,
         'key_terms_list': [],
         'bowen_highlights': 0,
-        'emphasis_highlights': 0
+        'emphasis_highlights': 0,
+        'bowen_labels': [],
+        'emphasis_labels': []
     }
 
     # Extract sidebar content
@@ -299,13 +385,34 @@ def extract_html_metadata(html_file):
             metadata['key_terms_list'] = [t.strip()
                                           for t in terms_text.split(',') if t.strip()]
 
-    # Count Bowen reference highlights in main content
-    bowen_marks = re.findall(r'<mark class="bowen-ref">', content)
-    metadata['bowen_highlights'] = len(bowen_marks)
+    # Count Bowen reference highlights in main content (exclude legend)
+    # Extract only the content section, not the legend
+    content_match = re.search(
+        r'<div class="content">(.*?)</div>\s*</div>\s*</body>', content, re.DOTALL)
+    if content_match:
+        main_content = content_match.group(1)
+    else:
+        main_content = content
 
-    # Count emphasis highlights in main content
-    emphasis_marks = re.findall(r'<mark class="emphasis">', content)
+    bowen_marks = re.findall(
+        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title=', main_content)
+    metadata['bowen_highlights'] = len(bowen_marks)
+    metadata['bowen_labels'] = re.findall(
+        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
+        main_content
+    )
+    metadata['bowen_labels'] = [label.strip() for label in metadata['bowen_labels']]
+    metadata['bowen_labels'] = split_multi_labels(metadata['bowen_labels'])
+
+    # Count emphasis highlights in main content (exclude legend) - use title attribute for accurate count
+    emphasis_marks = re.findall(
+        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="Emphasized:', main_content)
     metadata['emphasis_highlights'] = len(emphasis_marks)
+    metadata['emphasis_labels'] = re.findall(
+        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
+        main_content
+    )
+    metadata['emphasis_labels'] = [label.strip() for label in metadata['emphasis_labels']]
 
     return metadata
 
@@ -326,7 +433,9 @@ def extract_html_simple_metadata(html_file):
         'has_key_terms': False,
         'key_terms_list': [],
         'bowen_highlights': 0,
-        'emphasis_highlights': 0
+        'emphasis_highlights': 0,
+        'bowen_labels': [],
+        'emphasis_labels': []
     }
 
     # Extract content div
@@ -375,11 +484,22 @@ def extract_html_simple_metadata(html_file):
     metadata['has_themes'] = True
 
     # Count highlights
-    bowen_marks = re.findall(r'<mark class="bowen-ref">', content)
+    bowen_marks = re.findall(r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*>', content)
     metadata['bowen_highlights'] = len(bowen_marks)
+    metadata['bowen_labels'] = re.findall(
+        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
+        content
+    )
+    metadata['bowen_labels'] = [label.strip() for label in metadata['bowen_labels']]
+    metadata['bowen_labels'] = split_multi_labels(metadata['bowen_labels'])
 
-    emphasis_marks = re.findall(r'<mark class="emphasis">', content)
+    emphasis_marks = re.findall(r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*>', content)
     metadata['emphasis_highlights'] = len(emphasis_marks)
+    metadata['emphasis_labels'] = re.findall(
+        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
+        content
+    )
+    metadata['emphasis_labels'] = [label.strip() for label in metadata['emphasis_labels']]
 
     return metadata
 
@@ -515,35 +635,68 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
     print(f"   Bowen References:")
     print(f"      Source:      {source_meta['bowen_refs_count']} references")
-    print(f"      Highlighted: {html_meta['bowen_highlights']} marks")
+    bowen_label_count = len(set(html_meta['bowen_labels'])) if html_meta.get(
+        'bowen_labels') else html_meta['bowen_highlights']
+    print(f"      Highlighted: {bowen_label_count} references")
 
-    if source_meta['bowen_refs_count'] > 0 and html_meta['bowen_highlights'] == 0:
+    missing_bowen = find_missing_bowen_items(
+        base_name, html_file)
+
+    if source_meta['bowen_refs_count'] > 0 and bowen_label_count == 0:
         issues.append(
             f"No Bowen reference highlights in HTML (should have {source_meta['bowen_refs_count']})"
         )
-    elif html_meta['bowen_highlights'] < source_meta['bowen_refs_count'] * 0.5:
+        print("      ❌ No Bowen references highlighted")
+    elif bowen_label_count < source_meta['bowen_refs_count'] * 0.5:
         warnings.append(
-            f"Only {html_meta['bowen_highlights']} Bowen highlights found, "
+            f"Only {bowen_label_count} Bowen highlights found, "
             f"expected around {source_meta['bowen_refs_count']}"
         )
+        print(
+            f"      ⚠️  Low highlight rate ({bowen_label_count}/{source_meta['bowen_refs_count']})")
     else:
         print("      ✅ Bowen references highlighted")
 
     print(f"\n   Emphasized Items:")
     print(f"      Source:      {source_meta['emphasis_count']} items")
-    print(f"      Highlighted: {html_meta['emphasis_highlights']} marks")
+    emphasis_label_count = len(set(html_meta['emphasis_labels'])) if html_meta.get(
+        'emphasis_labels') else html_meta['emphasis_highlights']
+    print(f"      Highlighted: {emphasis_label_count} items")
 
-    if source_meta['emphasis_count'] > 0 and html_meta['emphasis_highlights'] == 0:
+    # Check for missing emphasis items
+    missing_emphasis = find_missing_emphasis_items(
+        base_name, html_file)
+
+    if source_meta['emphasis_count'] > 0 and emphasis_label_count == 0:
         issues.append(
             f"No emphasis highlights in HTML (should have {source_meta['emphasis_count']})"
         )
-    elif html_meta['emphasis_highlights'] < source_meta['emphasis_count'] * 0.5:
+        print("      ❌ No emphasis items highlighted")
+    elif emphasis_label_count < source_meta['emphasis_count'] * 0.5:
         warnings.append(
-            f"Only {html_meta['emphasis_highlights']} emphasis highlights found, "
+            f"Only {emphasis_label_count} emphasis highlights found, "
             f"expected around {source_meta['emphasis_count']}"
         )
+        print(
+            f"      ⚠️  Low highlight rate ({emphasis_label_count}/{source_meta['emphasis_count']})")
     else:
-        print("      ✅ Emphasis items highlighted")
+        success_rate = emphasis_label_count / \
+            source_meta['emphasis_count'] * \
+            100 if source_meta['emphasis_count'] > 0 else 0
+        print(f"      ✅ Emphasis items highlighted ({success_rate:.0f}%)")
+
+    # Show missing items if any
+    if missing_emphasis:
+        print(f"\n      Missing {len(missing_emphasis)} emphasis item(s):")
+        for i, label in enumerate(missing_emphasis, 1):
+            print(
+                f"         {i}. {label[:60]}{'...' if len(label) > 60 else ''}")
+
+    if missing_bowen:
+        print(f"\n      Missing {len(missing_bowen)} Bowen reference(s):")
+        for i, label in enumerate(missing_bowen, 1):
+            print(
+                f"         {i}. {label[:60]}{'...' if len(label) > 60 else ''}")
 
     # 4. Content Verification (sample 30% rounded up)
     print(f"\n🔍 Content Verification (Sampling)")
@@ -553,15 +706,20 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
     # Verify Abstract content (full text since it's a single item)
     if source_meta['has_abstract'] and html_meta['has_abstract']:
-        source_norm = normalize_for_comparison(
-            source_meta['abstract_text'][:200])
-        html_norm = normalize_for_comparison(html_meta['abstract_text'][:200])
-        if source_norm in html_norm or html_norm in source_norm:
-            print("   Abstract: ✅ Content matches (first 200 chars verified)")
+        # More robust comparison - normalize and compare full abstract
+        source_norm = normalize_for_comparison(source_meta['abstract_text'])
+        html_norm = normalize_for_comparison(html_meta['abstract_text'])
+
+        # Check if content is substantially the same (allowing for minor differences)
+        ratio = SequenceMatcher(None, source_norm, html_norm).ratio()
+
+        if ratio >= 0.95:  # 95% similarity is close enough
+            print(f"   Abstract: ✅ Content matches ({ratio:.1%} similarity)")
         else:
             warnings.append(
-                "Abstract content in HTML doesn't match source (text mismatch)")
-            print("   Abstract: ⚠️  Content mismatch detected")
+                f"Abstract content differs from source ({ratio:.1%} similarity, {abs(len(source_norm) - len(html_norm))} char difference)")
+            print(
+                f"   Abstract: ⚠️  Content mismatch ({ratio:.1%} similarity)")
 
     # Verify Topics (sample 30% rounded up) - skip in simple mode
     if not simple_mode and source_meta['topics_count'] > 0 and len(html_meta['topics_list']) > 0:

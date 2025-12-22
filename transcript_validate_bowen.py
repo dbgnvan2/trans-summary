@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate emphasis items from archival summary against formatted transcript.
+Validate Bowen reference quotes from archival summary against formatted transcript.
 Checks that quoted text actually exists in the source document.
 """
 
@@ -9,7 +9,8 @@ import re
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
+from transcript_utils import extract_bowen_references, strip_yaml_frontmatter
+
 
 def normalize_text(text):
     """Normalize text for comparison by removing tags and punctuation."""
@@ -38,19 +39,19 @@ def normalize_text(text):
     return text.strip()
 
 
-def extract_emphasis_quotes(extracts_summary_file):
-    """Extract all quoted text from Emphasized Items section."""
+def extract_bowen_quotes(extracts_summary_file):
+    """Extract all quoted text from Bowen References section."""
     extracts_path = Path(extracts_summary_file)
     stem = extracts_path.stem.replace(' - extracts-summary', '')
-    emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
+    bowen_file = extracts_path.parent / f"{stem} - bowen-references.md"
 
-    source_file = emphasis_file if emphasis_file.exists() else extracts_path
+    source_file = bowen_file if bowen_file.exists() else extracts_path
     content = source_file.read_text(encoding='utf-8')
     content = strip_yaml_frontmatter(content)
 
-    quotes = extract_emphasis_items(content)
+    quotes = extract_bowen_references(content)
     if not quotes:
-        print("❌ No Emphasized Items section found")
+        print("❌ No Bowen References section found")
 
     return quotes
 
@@ -91,21 +92,18 @@ def find_best_match(needle, haystack, threshold=0.85):
     return (best_ratio, None)
 
 
-def validate_emphasis_items(formatted_file, extracts_summary_file):
-    """Validate all emphasis quotes exist in the formatted transcript."""
-
-    # Read formatted transcript
+def validate_bowen_items(formatted_file, extracts_summary_file):
+    """Validate all Bowen reference quotes exist in the formatted transcript."""
     with open(formatted_file, 'r', encoding='utf-8') as f:
         formatted_content = f.read()
 
-    # Extract emphasis quotes from archival
-    quotes = extract_emphasis_quotes(extracts_summary_file)
+    quotes = extract_bowen_quotes(extracts_summary_file)
 
     if not quotes:
-        print("❌ No emphasis quotes found to validate")
+        print("❌ No Bowen reference quotes found to validate")
         return
 
-    print(f"Found {len(quotes)} emphasis items to validate\n")
+    print(f"Found {len(quotes)} Bowen references to validate\n")
     print("=" * 80)
 
     valid_count = 0
@@ -113,11 +111,9 @@ def validate_emphasis_items(formatted_file, extracts_summary_file):
     partial_count = 0
 
     for i, (label, quote) in enumerate(quotes, 1):
-        # Try to find a substantial portion of the quote (first 50+ chars for matching)
-        # Use smaller snippet to avoid issues with context boundaries
         quote_core = ' '.join(quote.split()[:15])  # First 15 words
 
-        ratio, match = find_best_match(
+        ratio, _match = find_best_match(
             quote_core, formatted_content, threshold=0.80)
 
         print(f"\n{i}. {label}")
@@ -158,33 +154,29 @@ if __name__ == "__main__":
         'TRANSCRIPTS_DIR', Path.home() / 'transcripts'))
 
     if len(sys.argv) < 2:
-        print("Usage: python validate_emphasis.py <base_filename>")
-        print("Example: python validate_emphasis.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
+        print("Usage: python transcript_validate_bowen.py <base_filename>")
+        print("Example: python transcript_validate_bowen.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
         sys.exit(1)
 
     base_name = sys.argv[1]
 
-    # Construct file paths
     formatted_file = TRANSCRIPTS_BASE / \
         "formatted" / f"{base_name} - formatted.md"
     extracts_summary_file = TRANSCRIPTS_BASE / \
         "summaries" / f"{base_name} - extracts-summary.md"
-    emphasis_file = TRANSCRIPTS_BASE / \
-        "summaries" / f"{base_name} - emphasis-items.md"
+    bowen_file = TRANSCRIPTS_BASE / \
+        "summaries" / f"{base_name} - bowen-references.md"
 
-    # Check files exist
     if not formatted_file.exists():
         print(f"❌ Formatted file not found: {formatted_file}")
         sys.exit(1)
 
-    if not extracts_summary_file.exists() and not emphasis_file.exists():
-        print(
-            f"❌ Extracts-summary file not found: {extracts_summary_file}")
+    if not extracts_summary_file.exists() and not bowen_file.exists():
+        print(f"❌ Extracts-summary file not found: {extracts_summary_file}")
         sys.exit(1)
 
-    print(f"Validating emphasis items...")
+    print(f"Validating Bowen references...")
     print(f"  Formatted: {formatted_file.name}")
-    archival_name = emphasis_file.name if emphasis_file.exists() else extracts_summary_file.name
-    print(f"  Archival:  {archival_name}\n")
+    print(f"  Archival:  {bowen_file.name if bowen_file.exists() else extracts_summary_file.name}\n")
 
-    validate_emphasis_items(formatted_file, extracts_summary_file)
+    validate_bowen_items(formatted_file, extracts_summary_file)

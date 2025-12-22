@@ -3,6 +3,7 @@ Shared utilities for transcript processing scripts.
 Reduces code duplication and provides common validation/error handling.
 """
 
+import re
 import os
 import time
 import logging
@@ -444,3 +445,94 @@ def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logg
         return False
 
     return True
+
+
+# ============================================================================
+# CENTRALIZED MARKDOWN EXTRACTION PATTERNS
+# ============================================================================
+# These patterns handle variations in markdown formatting (with/without bold)
+# to avoid hardcoding patterns across multiple files.
+
+
+def extract_section(content: str, section_name: str, allow_bold: bool = True) -> str:
+    """
+    Extract a markdown section by name, handling variations in formatting.
+
+    Args:
+        content: The markdown content to search
+        section_name: The section name (e.g., "Topics", "Abstract", "Key Themes")
+        allow_bold: If True, matches both "## Section" and "## **Section**"
+
+    Returns:
+        The section content (stripped), or empty string if not found
+
+    Examples:
+        >>> extract_section(content, "Topics")  # Matches both:
+        # ## Topics
+        # ## **Topics**
+    """
+    # Build pattern that optionally matches bold markers
+    if allow_bold:
+        # Pattern matches: ## Topics  OR  ## **Topics**
+        pattern = rf'## \*{{0,2}}{re.escape(section_name)}\*{{0,2}}(.*?)(?=^## |\Z)'
+    else:
+        # Exact match only
+        pattern = rf'## {re.escape(section_name)}(.*?)(?=^## |\Z)'
+
+    match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+    return match.group(1).strip() if match else ''
+
+
+def extract_bowen_references(content: str) -> list:
+    """
+    Extract Bowen reference quotes from extracts-summary content.
+    Handles variations in section header formatting.
+
+    Returns:
+        List of tuples: [(concept, quote), ...]
+    """
+    section_content = extract_section(content, "Bowen References")
+    if not section_content:
+        return []
+
+    # Extract quotes in blockquote format: > **Concept:** "Quote"
+    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
+    quotes = re.findall(quote_pattern, section_content)
+
+    return [(concept.strip(), quote.strip()) for concept, quote in quotes]
+
+
+def extract_emphasis_items(content: str) -> list:
+    """
+    Extract emphasized item quotes from extracts-summary content.
+    Handles variations in section header formatting.
+
+    Returns:
+        List of tuples: [(item_name, quote), ...]
+    """
+    section_content = extract_section(content, "Emphasized Items")
+    if not section_content:
+        return []
+
+    # Extract quotes in blockquote format: > **Item:** "Quote"
+    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
+    quotes = re.findall(quote_pattern, section_content)
+
+    return [(item.strip(), quote.strip()) for item, quote in quotes]
+
+
+def strip_yaml_frontmatter(content: str) -> str:
+    """
+    Remove YAML frontmatter from markdown content.
+
+    Args:
+        content: Markdown content that may start with YAML frontmatter
+
+    Returns:
+        Content with YAML frontmatter removed
+    """
+    if content.startswith('---'):
+        parts = content.split('---\n', 2)
+        if len(parts) >= 3:
+            return parts[2]
+    return content

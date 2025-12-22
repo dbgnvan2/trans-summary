@@ -31,6 +31,9 @@ VALIDATE_SCRIPT = SCRIPT_DIR / "transcript_validate_format.py"
 ADD_YAML_SCRIPT = SCRIPT_DIR / "transcript_add_yaml.py"
 SUMMARIZE_SCRIPT = SCRIPT_DIR / "transcript_summarize.py"
 VALIDATE_ABSTRACT_SCRIPT = SCRIPT_DIR / "transcript_validate_abstract.py"
+VALIDATE_WEBPAGE_SCRIPT = SCRIPT_DIR / "transcript_validate_webpage.py"
+VALIDATE_EMPHASIS_SCRIPT = SCRIPT_DIR / "transcript_validate_emphasis.py"
+VALIDATE_BOWEN_SCRIPT = SCRIPT_DIR / "transcript_validate_bowen.py"
 MERGE_ARCHIVAL_SCRIPT = SCRIPT_DIR / "transcript_merge_archival.py"
 WEBPAGE_SCRIPT = SCRIPT_DIR / "transcript_to_webpage.py"
 SIMPLE_WEBPAGE_SCRIPT = SCRIPT_DIR / "transcript_to_simple_webpage.py"
@@ -169,11 +172,11 @@ class TranscriptProcessorGUI:
                                    command=self.do_add_yaml, state=tk.DISABLED)
         self.yaml_btn.grid(row=0, column=1, padx=(0, 5))
 
-        self.summary_btn = ttk.Button(button_frame, text="3. Generate Summaries",
+        self.summary_btn = ttk.Button(button_frame, text="3. Create Summaries",
                                       command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=2, padx=(0, 5))
 
-        self.blog_btn = ttk.Button(button_frame, text="4. Generate Blog",
+        self.blog_btn = ttk.Button(button_frame, text="4. Create Blog",
                                    command=self.do_generate_blog, state=tk.DISABLED)
         self.blog_btn.grid(row=0, column=3, padx=(0, 5))
 
@@ -181,7 +184,7 @@ class TranscriptProcessorGUI:
                                         command=self.do_validate_abstracts, state=tk.DISABLED)
         self.abstracts_btn.grid(row=0, column=4, padx=(0, 5))
 
-        self.webpdf_btn = ttk.Button(button_frame, text="6. Generate Web & PDF",
+        self.webpdf_btn = ttk.Button(button_frame, text="6. Create Web & PDF",
                                      command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=0, column=5, padx=(0, 5))
 
@@ -866,10 +869,25 @@ class TranscriptProcessorGUI:
             self.log("⏳ Step 4b: Validating emphasis item quotes...\n")
             self.log("="*80 + "\n")
 
-            # The validation happens automatically in the script
-            # Just show that we're at this stage
-            self.log("   Checking that all quoted text exists in source...\n")
-            self.log("✅ Emphasis validation complete!\n")
+            success = self.run_script(
+                VALIDATE_EMPHASIS_SCRIPT, [self.base_name])
+            if not success:
+                self.log("\n⚠️  Emphasis validation failed.\n")
+            else:
+                self.log("\n✅ Emphasis validation complete!\n")
+
+            # Step 4b2: Validate Bowen References
+            self.set_status("Step 4b2: Validating Bowen references...", "blue")
+            self.log("\n" + "="*80 + "\n")
+            self.log("⏳ Step 4b2: Validating Bowen reference quotes...\n")
+            self.log("="*80 + "\n")
+
+            success = self.run_script(
+                VALIDATE_BOWEN_SCRIPT, [self.base_name])
+            if not success:
+                self.log("\n⚠️  Bowen validation failed.\n")
+            else:
+                self.log("\n✅ Bowen validation complete!\n")
 
             # Step 4c: Extract Key Terms
             self.set_status(
@@ -1021,10 +1039,10 @@ class TranscriptProcessorGUI:
             self.log("="*80 + "\n\n")
             self.log("⏳ Iteratively improving abstract quality...\n")
             self.log("   Target score: 4.5/5.0\n")
-            self.log("   Max iterations: 5\n\n")
+            self.log("   Max iterations: 3\n\n")
 
             success = self.run_script(
-                VALIDATE_ABSTRACT_SCRIPT, [self.base_name])
+                VALIDATE_ABSTRACT_SCRIPT, [self.base_name, "--auto"])
 
             if not success:
                 self.log("\n❌ Abstract validation failed.\n")
@@ -1095,6 +1113,16 @@ class TranscriptProcessorGUI:
                 else:
                     self.log("\n✅ Simple webpage generated!\n")
 
+                    # Validate webpage highlighting
+                    self.log("\n🔍 Step 1b: Validating webpage highlighting...\n")
+                    validation_success = self.run_script(
+                        VALIDATE_WEBPAGE_SCRIPT, [self.base_name, "--simple"])
+                    if not validation_success:
+                        self.log(
+                            "\n⚠️  Webpage validation found issues - check highlighting!\n")
+                    else:
+                        self.log("\n✅ Webpage validation passed!\n")
+
                 # Generate PDF
                 self.log("\n📄 Step 2: Generating PDF...\n")
                 success = self.run_script(
@@ -1124,7 +1152,11 @@ class TranscriptProcessorGUI:
 
     def run_script(self, script: Path, args: list) -> bool:
         """Run a Python script and capture output."""
-        cmd = ["python3", str(script)] + args
+        # Use virtual environment's Python if available
+        venv_python = Path(__file__).parent / ".venv" / "bin" / "python3"
+        python_exe = str(venv_python) if venv_python.exists() else "python3"
+        # -u for unbuffered output
+        cmd = [python_exe, "-u", str(script)] + args
 
         self.current_process = subprocess.Popen(
             cmd,
@@ -1140,6 +1172,10 @@ class TranscriptProcessorGUI:
 
         # Stream output and parse tokens
         try:
+            if self.current_process is None:
+                self.log(f"\n⚠️  Failed to start process: {' '.join(cmd)}\n")
+                return False
+
             for line in self.current_process.stdout:
                 self.log(line)
 
@@ -1151,8 +1187,13 @@ class TranscriptProcessorGUI:
                     self.total_input_tokens += input_tokens
                     self.total_output_tokens += output_tokens
 
-            self.current_process.wait()
-            returncode = self.current_process.returncode
+            # Store process reference before wait (avoid race condition with on_closing)
+            process = self.current_process
+            if process:
+                process.wait()
+                returncode = process.returncode
+            else:
+                returncode = 1
         except Exception as e:
             self.log(f"\n⚠️  Process error: {e}\n")
             returncode = 1

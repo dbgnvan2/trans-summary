@@ -17,6 +17,12 @@ from pathlib import Path
 from html import escape
 from difflib import SequenceMatcher
 
+from transcript_utils import (
+    extract_bowen_references,
+    extract_emphasis_items,
+    extract_section,
+    strip_yaml_frontmatter,
+)
 
 # Directories (from environment variable)
 TRANSCRIPTS_BASE = Path(
@@ -28,6 +34,9 @@ OUTPUT_DIR = TRANSCRIPTS_BASE / "webpages"
 
 def normalize_text(text):
     """Normalize text for comparison."""
+    # Remove HTML tags that can break matching
+    text = re.sub(r'<[^>]+>', ' ', text)
+
     # Remove extra whitespace
     text = re.sub(r'\s+', ' ', text)
     text = text.strip()
@@ -76,50 +85,28 @@ def find_text_in_content(needle, haystack, context=50):
     return (None, None, 0)
 
 
-def extract_bowen_references(extracts_summary_file):
-    """Extract Bowen reference quotes from extracts-summary document."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def load_bowen_references(base_name, extracts_summary_file):
+    """Load Bowen reference quotes from split file or extracts-summary."""
+    bowen_file = SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    source_file = bowen_file if bowen_file.exists() else extracts_summary_file
+
+    with open(source_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Find Bowen References section (with or without bold markers)
-    match = re.search(
-        r'## (?:\*\*)?Bowen References(?:\*\*)?(.*?)(?=^## |---|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if not match:
-        return []
-
-    bowen_section = match.group(1)
-
-    # Extract quotes: > **Label:** "quote" (Section X)
-    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, bowen_section)
-
-    return [(concept.strip(), quote.strip()) for concept, quote in quotes]
+    content = strip_yaml_frontmatter(content)
+    return extract_bowen_references(content)
 
 
-def extract_emphasis_items(extracts_summary_file):
-    """Extract emphasis item quotes from extracts-summary document."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def load_emphasis_items(base_name, extracts_summary_file):
+    """Load emphasis item quotes from split file or extracts-summary."""
+    emphasis_file = SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    source_file = emphasis_file if emphasis_file.exists() else extracts_summary_file
+
+    with open(source_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Find Emphasized Items section (with or without bold markers)
-    match = re.search(
-        r'## (?:\*\*)?Emphasized Items(?:\*\*)?(.*?)(?=^## |---|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if not match:
-        return []
-
-    emphasis_section = match.group(1)
-
-    # Extract quotes: number. **Label:** "quote" - **[Type]** (Section X)
-    quote_pattern = r'\d+\.\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, emphasis_section)
-
-    return [(label.strip(), quote.strip()) for label, quote in quotes]
+    content = strip_yaml_frontmatter(content)
+    return extract_emphasis_items(content)
 
 
 def extract_metadata(extracts_summary_file):
@@ -128,10 +115,7 @@ def extract_metadata(extracts_summary_file):
         content = f.read()
 
     # Strip YAML front matter if present (at beginning and any embedded blocks)
-    if content.startswith('---'):
-        parts = content.split('---\n', 2)
-        if len(parts) >= 3:
-            content = parts[2]
+    content = strip_yaml_frontmatter(content)
 
     # Remove "TERMINOLOGY EXTRACTION OUTPUT" section with YAML
     content = re.sub(
@@ -148,23 +132,8 @@ def extract_metadata(extracts_summary_file):
         'abstract': ''
     }
 
-    # Extract Topics section (with or without bold markers)
-    topics_match = re.search(
-        r'## (?:\*\*)?Topics(?:\*\*)?(.*?)(?=^## |\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if topics_match:
-        metadata['topics'] = topics_match.group(1).strip()
-
-    # Extract Key Themes section (with or without bold markers)
-    themes_match = re.search(
-        r'## (?:\*\*)?Key Themes(?:\*\*)?(.*?)(?=^## |\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if themes_match:
-        metadata['themes'] = themes_match.group(1).strip()
+    metadata['topics'] = extract_section(content, 'Topics')
+    metadata['themes'] = extract_section(content, 'Key Themes')
 
     # Extract Key Terms (all terms for sidebar)
     # Pattern: ## Term Name (followed by blank line and **Definition Type:**)
@@ -177,14 +146,7 @@ def extract_metadata(extracts_summary_file):
     if term_headings:
         metadata['key_terms'] = ', '.join(term_headings)
 
-    # Extract Abstract (with or without bold markers)
-    abstract_match = re.search(
-        r'## (?:\*\*)?Abstract(?:\*\*)?(.*?)(?=^## |---+|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if abstract_match:
-        metadata['abstract'] = abstract_match.group(1).strip()
+    metadata['abstract'] = extract_section(content, 'Abstract')
 
     return metadata
 
@@ -215,16 +177,56 @@ def highlight_transcript(formatted_content, bowen_refs, emphasis_items):
     # Create a list of (position, length, type, label) for all highlights
     highlights = []
 
-    # Find Bowen references
-    for concept, quote in bowen_refs:
-        # Use first 50 words of quote for matching
-        quote_words = quote.split()
-        search_text = ' '.join(quote_words[:min(50, len(quote_words))])
+    def add_bowen_label(existing, label):
+        if not existing[4]:
+            existing[4] = label
+            return
+        labels = [l.strip() for l in existing[4].split(';') if l.strip()]
+        if label not in labels:
+            labels.append(label)
+            existing[4] = '; '.join(labels)
 
-        start, end, ratio = find_text_in_content(
-            search_text, formatted_content)
-        if start is not None and ratio >= 0.85:
-            highlights.append((start, end, 'bowen', concept))
+    def find_text_in_lines(needle, content, max_words=20):
+        """Find needle in content without crossing line boundaries."""
+        needle_words = normalize_text(needle).split()
+        if not needle_words:
+            return (None, None, 0)
+        offset = 0
+        for line in content.splitlines(keepends=True):
+            line_words = normalize_text(line).split()
+            if not line_words:
+                offset += len(line)
+                continue
+            snippet_words = needle_words[:min(len(needle_words), len(line_words), max_words)]
+            snippet = ' '.join(snippet_words)
+            start, end, ratio = find_text_in_content(snippet, line)
+            if start is not None:
+                return (offset + start, offset + end, ratio)
+            offset += len(line)
+        return (None, None, 0)
+
+    def find_quote_in_lines(quote, content, max_words=20, min_words=6):
+        """Find a quote by scanning windows within each line."""
+        quote_words = quote.split()
+        if len(quote_words) < min_words:
+            return (None, None, 0)
+        offset = 0
+        for line in content.splitlines(keepends=True):
+            line_words = normalize_text(line).split()
+            if not line_words:
+                offset += len(line)
+                continue
+            window_max = min(max_words, len(quote_words))
+            for window in range(window_max, min_words - 1, -1):
+                for start_idx in range(0, len(quote_words) - window + 1):
+                    snippet = ' '.join(quote_words[start_idx:start_idx + window])
+                    start, end, ratio = find_text_in_content(snippet, line)
+                    if start is not None and ratio >= 0.85:
+                        return (offset + start, offset + end, ratio)
+            offset += len(line)
+        return (None, None, 0)
+
+    emphasis_entries = {}
 
     # Find emphasis items
     for label, quote in emphasis_items:
@@ -235,26 +237,78 @@ def highlight_transcript(formatted_content, bowen_refs, emphasis_items):
         start, end, ratio = find_text_in_content(
             search_text, formatted_content)
         if start is not None and ratio >= 0.85:
-            highlights.append((start, end, 'emphasis', label))
+            entry = [start, end, 'emphasis', label, None]
+            highlights.append(entry)
+            emphasis_entries[label] = entry
+
+    # Find Bowen references
+    for concept, quote in bowen_refs:
+        # Use first 50 words of quote for matching
+        quote_words = quote.split()
+        first_sentence = re.split(r'[.!?]', quote, 1)[0].strip()
+        search_text = first_sentence if first_sentence else ' '.join(
+            quote_words[:min(50, len(quote_words))])
+
+        start, end, ratio = find_text_in_lines(
+            search_text, formatted_content)
+        if start is None:
+            start, end, ratio = find_quote_in_lines(
+                quote, formatted_content)
+        if start is not None and ratio >= 0.85:
+            highlights.append([start, end, 'bowen', concept, None])
+            continue
+
+        bowen_norm = normalize_text(quote)
+        for emphasis_label, emphasis_quote in emphasis_items:
+            if bowen_norm in normalize_text(emphasis_quote):
+                entry = emphasis_entries.get(emphasis_label)
+                if entry:
+                    add_bowen_label(entry, concept)
+                break
 
     # Sort by position (reverse order for easier insertion)
     highlights.sort(key=lambda x: x[0], reverse=True)
 
-    # Remove overlaps - keep first (emphasis takes priority over bowen)
+    priority = {
+        'emphasis': 2,
+        'bowen': 1,
+    }
+
+    def overlaps(a, b):
+        return (a[0] >= b[0] and a[0] < b[1]) or \
+               (a[1] > b[0] and a[1] <= b[1])
+
+    # Remove overlaps, preferring higher-priority highlights
     filtered_highlights = []
     for h in highlights:
-        overlaps = False
-        for existing in filtered_highlights:
-            if (h[0] >= existing[0] and h[0] < existing[1]) or \
-               (h[1] > existing[0] and h[1] <= existing[1]):
-                overlaps = True
-                break
-        if not overlaps:
-            filtered_highlights.append(h)
+        remove_indices = []
+        should_skip = False
+        for i, existing in enumerate(filtered_highlights):
+            if overlaps(h, existing):
+                if {h[2], existing[2]} == {'emphasis', 'bowen'}:
+                    if h[2] == 'emphasis':
+                        add_bowen_label(h, existing[3])
+                        remove_indices.append(i)
+                    else:
+                        add_bowen_label(existing, h[3])
+                        should_skip = True
+                        break
+                elif priority.get(h[2], 0) > priority.get(existing[2], 0):
+                    remove_indices.append(i)
+                else:
+                    should_skip = True
+                    break
+        if should_skip:
+            continue
+        for i in reversed(remove_indices):
+            filtered_highlights.pop(i)
+        filtered_highlights.append(h)
+
+    filtered_highlights.sort(key=lambda x: x[0], reverse=True)
 
     # Apply highlights (working backwards to preserve positions)
     result = formatted_content
-    for start, end, htype, label in filtered_highlights:
+    for start, end, htype, label, extra_label in filtered_highlights:
         if htype == 'bowen':
             before = result[:start]
             text = result[start:end]
@@ -266,8 +320,10 @@ def highlight_transcript(formatted_content, bowen_refs, emphasis_items):
             before = result[:start]
             text = result[start:end]
             after = result[end:]
+            bowen_title = f' | Bowen Reference: {escape(extra_label)}' if extra_label else ''
+            bowen_class = ' bowen-ref' if extra_label else ''
             result = (before +
-                      f'<mark class="emphasis" title="Emphasized: {escape(label)}">' +
+                      f'<mark class="emphasis{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}">' +
                       text + '</mark>' + after)
 
     return result
@@ -509,8 +565,8 @@ def generate_webpage(base_name: str) -> bool:
     print("📄 Loading extracts-summary materials...")
 
     # Extract Bowen references and emphasis items
-    bowen_refs = extract_bowen_references(extracts_summary_file)
-    emphasis_items = extract_emphasis_items(extracts_summary_file)
+    bowen_refs = load_bowen_references(base_name, extracts_summary_file)
+    emphasis_items = load_emphasis_items(base_name, extracts_summary_file)
     metadata = extract_metadata(extracts_summary_file)
 
     print(f"   Found {len(bowen_refs)} Bowen references")

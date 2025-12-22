@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Design: Bowen Theory Transcript</title>
+    <style>
+        /* BASE STYLES */
+        :root {
+            --primary: #2c3e50;
+            --accent-bowen: #ffc107; /* Yellow for References */
+            --accent-emphasis: #17a2b8; /* Blue for Emphasis */
+            --bg-light: #f8f9fa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Georgia, serif; /* Modern sans-serif for UI, serif for reading */
+            line-height: 1.6;
+            color: #333;
+            background: #f0f2f5;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* HEADER */
+        header {
+            background: #fff;
+            padding: 2.5rem 3rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        header h1 {
+            font-family: 'Georgia', serif;
+            font-size: 2.2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* --- THE HYBRID "TOP BOX" --- */
+        .takeaways-box {
+            background: #fff;
+            margin: 0 3rem 2rem 3rem;
+            padding: 1.5rem;
+            border: 1px solid #e1e4e8;
+            border-left: 5px solid var(--primary);
+            border-radius: 4px;
+            background-color: #fcfcfc;
+        }
+
+        .takeaways-box h3 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .takeaways-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .takeaways-list li {
+            position: relative;
+            padding-left: 1.5rem;
+        }
+
+        .takeaways-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .takeaways-list a {
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: 600;
+            border-bottom: 1px dotted #ccc;
+            transition: all 0.2s;
+        }
+
+        .takeaways-list a:hover {
+            color: #0056b3;
+            border-bottom: 1px solid #0056b3;
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .tag-pill {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .pill-bowen { background: #fff3cd; color: #856404; }
+        .pill-emphasis { background: #d1ecf1; color: #0c5460; }
+
+        /* CONTENT & TRANSCRIPT */
+        .content { padding: 0 3rem 3rem 3rem; }
+        
+        h2 {
+            font-size: 1.4rem;
+            margin: 2.5rem 0 1rem 0;
+            color: var(--primary);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.3rem;
+        }
+
+        p { margin-bottom: 1.2rem; text-align: justify; }
+
+        /* HIGHLIGHTING STYLES */
+        mark.bowen-ref {
+            background-color: #fff3cd; /* Soft Yellow */
+            color: #2b2b2b;
+            padding: 2px 0;
+            border-radius: 2px;
+        }
+
+        mark.emphasis {
+            background-color: #e2f5f9; /* Soft Cyan */
+            color: #2b2b2b;
+            padding: 2px 0;
+            border-radius: 2px;
+        }
+
+        /* Target Highlighting (When you click a jump link) */
+        mark:target {
+            animation: pulse-highlight 2s ease-out;
+            outline: 2px solid rgba(0,0,0,0.5);
+            outline-offset: 2px;
+        }
+
+        @keyframes pulse-highlight {
+            0% { background-color: #fff3cd; transform: scale(1); }
+            50% { background-color: #ffeeba; transform: scale(1.02); }
+            100% { background-color: #fff3cd; transform: scale(1); }
+        }
+
+        /* SPEAKER TAGS */
+        strong { color: #555; font-size: 0.9em; }
+
+        @media (max-width: 768px) {
+            .container { margin: 0; border-radius: 0; }
+            .content, header, .takeaways-box { padding: 1.5rem; margin: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>This is a test: Bowen Theory</h1>
+        <div style="color: #666;">Dave Galloway | 2025-12-07</div>
+    </header>
+
+    <section style="padding: 1.5rem 3rem; background: #fafafa; font-style: italic;">
+        <p><strong>Abstract:</strong> This presentation provides a systematic examination of triangle dynamics within Bowen Family Systems Theory, emphasizing their function as fundamental units—"molecules"—of emotional systems...</p>
+    </section>
+
+    <div class="takeaways-box">
+        <h3>Core Concepts & Jump Links</h3>
+        <ul class="takeaways-list">
+            <li>
+                <a href="#quote-molecules">Triangles as Molecules</a>
+                <span class="tag-pill pill-bowen">Bowen Ref</span>
+                <div style="font-size: 0.9em; color: #666; margin-top: 4px;">Fundamental unit of the emotional system.</div>
+            </li>
+            <li>
+                <a href="#quote-unstable">Two-Person Instability</a>
+                <span class="tag-pill pill-bowen">Bowen Ref</span>
+                <div style="font-size: 0.9em; color: #666; margin-top: 4px;">Why dyads cannot remain stable under stress.</div>
+            </li>
+            <li>
+                <a href="#quote-interactive">Interactive Process Visibility</a>
+                <span class="tag-pill pill-emphasis">Insight</span>
+                <div style="font-size: 0.9em; color: #666; margin-top: 4px;">Seeing the invisible through functional changes.</div>
+            </li>
+            <li>
+                <a href="#quote-forces">Life Forces Framework</a>
+                <span class="tag-pill pill-emphasis">Insight</span>
+                <div style="font-size: 0.9em; color: #666; margin-top: 4px;">Physics-like forces in human relationships.</div>
+            </li>
+        </ul>
+    </div>
+
+    <div class="content">
+        <h2>Section 4 – Jamie Wyeth Painting Envy and Triangle Dynamics</h2>
+        <p>
+            And this is a main artist, Jamie Wyeth, called this envy. And when I looked at this painting, the way I interpreted it interpreted is that two of these seagulls are involved with each other, and the one below is the outsider...
+        </p>
+        <p>
+            <mark id="quote-molecules" class="bowen-ref" title="Bowen Reference">
+                Triangles are the molecules of an emotional system. It's one of my favorite quotes from Bowen, molecules of an emotional system.
+            </mark> 
+            
+            <mark id="quote-unstable" class="bowen-ref" title="Bowen Reference">
+                A two person system is inherently unstable.
+            </mark> 
+            Another Bowen quote, what makes a two person system unstable?
+        </p>
+
+        <h2>Section 13 – Wind Metaphor for Family Systems</h2>
+        <p>
+            Thanks. Now, this is one of my favorite quotes of all. It's a book I ordered some years ago called defining the wind...
+        </p>
+        <p>
+            You can see it in the impact it's having on the various functional levels of the people in the family system and social system. 
+            
+            <mark id="quote-interactive" class="emphasis">So again, just to emphasize next one talking about the interactive process that you can't really see,</mark>
+            <br>
+            <strong>Unknown Speaker:</strong> 
+            <mark class="emphasis">but you can see</mark> 
+            <br>
+            <strong>Speaker 1:</strong> 
+            <mark class="emphasis">interpret it from the way People in the family system change their functioning.</mark>
+        </p>
+
+        <h2>Section 18 – Two Opposing Life Forces</h2>
+        <p>
+            So this is going to be about the development of the self, all part of the triangle. 
+            <mark

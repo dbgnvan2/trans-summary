@@ -20,6 +20,14 @@ from pathlib import Path
 from html import escape
 from difflib import SequenceMatcher
 
+# Import centralized extraction functions
+from transcript_utils import (
+    extract_section,
+    extract_bowen_references,
+    extract_emphasis_items,
+    strip_yaml_frontmatter
+)
+
 
 # Directories (from environment variable)
 TRANSCRIPTS_BASE = Path(
@@ -31,6 +39,9 @@ OUTPUT_DIR = TRANSCRIPTS_BASE / "pdfs"
 
 def normalize_text(text):
     """Normalize text for comparison."""
+    # Remove HTML tags that can break matching
+    text = re.sub(r'<[^>]+>', ' ', text)
+
     text = re.sub(r'\s+', ' ', text)
     text = text.strip()
     return text.lower()
@@ -62,6 +73,10 @@ def find_text_in_content(needle, haystack, context=50):
             best_ratio = ratio
             best_pos = i
 
+            # Early termination if we find a perfect or near-perfect match
+            if ratio >= 0.98:
+                break
+
     if best_pos is not None:
         words_before = ' '.join(haystack_words[:best_pos])
         approx_start = len(words_before)
@@ -72,44 +87,49 @@ def find_text_in_content(needle, haystack, context=50):
     return (None, None, 0)
 
 
-def extract_bowen_references(extracts_summary_file):
-    """Extract Bowen reference quotes from extracts-summary document."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def load_bowen_references(extracts_summary_file):
+    """Load Bowen reference quotes from extracts-summary file."""
+    extracts_path = Path(extracts_summary_file)
+    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    bowen_file = extracts_path.parent / f"{stem} - bowen-references.md"
+    source_file = bowen_file if bowen_file.exists() else extracts_path
+
+    with open(source_file, 'r', encoding='utf-8') as f:
         content = f.read()
-
-    match = re.search(
-        r'## \*\*Bowen References\*\*(.*?)(?=^## \*\*|---|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if not match:
-        return []
-
-    bowen_section = match.group(1)
-    quote_pattern = r'>\s*\*\*Concept:\s*([^*]+)\*\*[^"]*"([^"]+)"'
-    quotes = re.findall(quote_pattern, bowen_section)
-
-    return [(concept.strip(), quote.strip()) for concept, quote in quotes]
+    content = strip_yaml_frontmatter(content)
+    return extract_bowen_references(content)
 
 
-def extract_emphasis_items(extracts_summary_file):
-    """Extract emphasis item quotes from extracts-summary document."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def load_emphasis_items(extracts_summary_file):
+    """Load emphasis item quotes from extracts-summary file."""
+    extracts_path = Path(extracts_summary_file)
+    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
+    source_file = emphasis_file if emphasis_file.exists() else extracts_path
+
+    with open(source_file, 'r', encoding='utf-8') as f:
         content = f.read()
+    content = strip_yaml_frontmatter(content)
+    return extract_emphasis_items(content)
 
-    match = re.search(
-        r'## \*\*Emphasized Items\*\*(.*?)(?=^## \*\*|---|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if not match:
-        return []
 
-    emphasis_section = match.group(1)
-    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, emphasis_section)
+def load_definitions_content(extracts_summary_file):
+    """Load key term definitions from a split file when available."""
+    extracts_path = Path(extracts_summary_file)
+    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    summaries_dir = extracts_path.parent
 
-    return [(label.strip(), quote.strip()) for label, quote in quotes]
+    candidates = [
+        summaries_dir / f"{stem} - key-terms.md",
+        summaries_dir / f"{stem} - definitions.md",
+        summaries_dir / f"{stem} - key-term-definitions.md",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.read_text(encoding='utf-8')
+
+    return None
 
 
 def extract_metadata(extracts_summary_file):
@@ -118,10 +138,7 @@ def extract_metadata(extracts_summary_file):
         content = f.read()
 
     # Strip YAML front matter if present
-    if content.startswith('---'):
-        parts = content.split('---\n', 2)
-        if len(parts) >= 3:
-            content = parts[2]
+    content = strip_yaml_frontmatter(content)
 
     # Remove "TERMINOLOGY EXTRACTION OUTPUT" section with YAML
     content = re.sub(
@@ -134,138 +151,60 @@ def extract_metadata(extracts_summary_file):
     metadata = {
         'topics': '',
         'themes': '',
-        'key_terms': [],
+        'key_terms': '',
         'abstract': ''
     }
 
-    # Extract Topics section
-    topics_match = re.search(
-        r'## \*\*Topics\*\*(.*?)(?=^## \*\*|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if topics_match:
-        metadata['topics'] = topics_match.group(1).strip()
+    # Extract sections using centralized functions
+    metadata['topics'] = extract_section(content, 'Topics')
+    metadata['themes'] = extract_section(content, 'Key Themes')
+    metadata['abstract'] = extract_section(content, 'Abstract')
+    metadata['key_terms'] = extract_section(content, 'Key Terms')
 
-    # Extract Key Themes section
-    themes_match = re.search(
-        r'## \*\*Key Themes\*\*(.*?)(?=^## [^*]|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if themes_match:
-        metadata['themes'] = themes_match.group(1).strip()
-
-    # Extract Key Terms (all terms with definitions)
-    key_terms_section = re.search(
-        r'# Key Terms(.*?)(?=^## \*\*|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-
-    if key_terms_section:
-        terms_content = key_terms_section.group(1)
-
-        # Try new format with <<<TERM_START>>> and <<<TERM_END>>> markers first
-        if '<<<TERM_START>>>' in terms_content:
-            # Split by term markers
-            term_blocks = re.split(r'<<<TERM_START>>>', terms_content)
-
-            for block in term_blocks[1:]:  # Skip first empty split
-                if '<<<TERM_END>>>' not in block:
-                    continue
-                block = block.split('<<<TERM_END>>>')[0].strip()
-
-                # Extract term name
-                name_match = re.search(r'^## (.+?)$', block, re.MULTILINE)
-                if not name_match:
-                    continue
-                term_name = name_match.group(1).strip()
-
-                # Extract definition type
-                def_type_match = re.search(
-                    r'\*\*Definition Type:\*\*\s*(.+?)$', block, re.MULTILINE)
-                def_type = def_type_match.group(
-                    1).strip() if def_type_match else 'Not Specified'
-
-                # Extract definition
-                def_match = re.search(
-                    r'\*\*Definition:\*\*\s*(.+?)(?=\*\*Source Location:|$)', block, re.DOTALL)
-                definition = def_match.group(1).strip() if def_match else ''
-
-                # Extract source location
-                source_match = re.search(
-                    r'\*\*Source Location:\*\*\s*(.+?)(?=\*\*Context/Usage Notes:|$)', block, re.DOTALL)
-                source = source_match.group(1).strip() if source_match else ''
-
-                # Extract context/usage notes
-                context_match = re.search(
-                    r'\*\*Context/Usage Notes:\*\*\s*(.+?)$', block, re.DOTALL)
-                context = context_match.group(
-                    1).strip() if context_match else ''
-
-                metadata['key_terms'].append({
-                    'name': term_name,
-                    'type': def_type,
-                    'definition': definition,
-                    'source': source,
-                    'context': context
-                })
-        else:
-            # Fallback to old format with --- separators
-            term_blocks = re.split(r'\n---\n', terms_content)
-
-            for block in term_blocks:
-                block = block.strip()
-                if not block or not block.startswith('##'):
-                    continue
-
-                # Extract term name
-                name_match = re.search(r'^## (.+?)$', block, re.MULTILINE)
-                if not name_match:
-                    continue
-                term_name = name_match.group(1).strip()
-
-                # Extract definition type
-                def_type_match = re.search(
-                    r'\*\*Definition Type:\*\*\s*(.+?)$', block, re.MULTILINE)
-                def_type = def_type_match.group(
-                    1).strip() if def_type_match else 'Not Specified'
-
-                # Extract definition
-                def_match = re.search(
-                    r'\*\*Definition:\*\*\s*(.+?)(?=\*\*Source Location:|$)', block, re.DOTALL)
-                definition = def_match.group(1).strip() if def_match else ''
-
-                # Extract source location
-                source_match = re.search(
-                    r'\*\*Source Location:\*\*\s*(.+?)(?=\*\*Context/Usage Notes:|$)', block, re.DOTALL)
-                source = source_match.group(1).strip() if source_match else ''
-
-                # Extract context/usage notes
-                context_match = re.search(
-                    r'\*\*Context/Usage Notes:\*\*\s*(.+?)$', block, re.DOTALL)
-                context = context_match.group(
-                    1).strip() if context_match else ''
-
-                metadata['key_terms'].append({
-                    'name': term_name,
-                    'type': def_type,
-                    'definition': definition,
-                    'source': source,
-                    'context': context
-                })
-
-    # Extract Abstract
-    abstract_match = re.search(
-        r'## \*\*Abstract\*\*(.*?)(?=^## \*\*|\Z)',
-        content,
-        re.MULTILINE | re.DOTALL
-    )
-    if abstract_match:
-        metadata['abstract'] = abstract_match.group(1).strip()
+    definitions_content = load_definitions_content(extracts_summary_file)
+    if definitions_content:
+        definitions_content = strip_yaml_frontmatter(definitions_content)
+        # Drop fenced YAML blocks if present
+        definitions_content = re.sub(
+            r'```yaml.*?```',
+            '',
+            definitions_content,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+        definitions_content = re.sub(
+            r'^## (Part 2: Key Term Definitions|Key Terms)\s*',
+            '',
+            definitions_content,
+            flags=re.MULTILINE
+        ).strip()
+        if definitions_content:
+            metadata['key_terms'] = sort_key_term_sections(definitions_content)
 
     return metadata
+
+
+def sort_key_term_sections(content: str) -> str:
+    """Sort key term sections alphabetically by heading."""
+    sections = []
+    current = None
+    for line in content.splitlines():
+        if line.startswith('## '):
+            if current:
+                sections.append(current)
+            current = {'title': line[3:].strip(), 'lines': [line]}
+        else:
+            if current is None:
+                # Skip any leading content without a heading
+                continue
+            current['lines'].append(line)
+    if current:
+        sections.append(current)
+
+    if not sections:
+        return content
+
+    sections.sort(key=lambda s: s['title'].lower())
+    return '\n'.join('\n'.join(section['lines']) for section in sections).strip()
 
 
 def markdown_to_html(text):
@@ -287,50 +226,158 @@ def highlight_transcript(formatted_content, bowen_refs, emphasis_items):
     """Add HTML highlighting to transcript for Bowen refs and emphasis."""
     highlights = []
 
-    for concept, quote in bowen_refs:
+    # Find section header positions to exclude them from highlighting
+    section_headers = []
+    for match in re.finditer(r'^##[^\n]+$', formatted_content, re.MULTILINE):
+        section_headers.append((match.start(), match.end()))
+
+    def is_in_section_header(start, end):
+        """Check if a position overlaps with any section header."""
+        for header_start, header_end in section_headers:
+            if (start >= header_start and start < header_end) or \
+               (end > header_start and end <= header_end) or \
+               (start <= header_start and end >= header_end):
+                return True
+        return False
+
+    def add_bowen_label(existing, label):
+        if not existing[4]:
+            existing[4] = label
+            return
+        labels = [l.strip() for l in existing[4].split(';') if l.strip()]
+        if label not in labels:
+            labels.append(label)
+            existing[4] = '; '.join(labels)
+
+    def find_text_in_lines(needle, content, max_words=20):
+        """Find needle in content without crossing line boundaries."""
+        needle_words = normalize_text(needle).split()
+        if not needle_words:
+            return (None, None, 0)
+        offset = 0
+        for line in content.splitlines(keepends=True):
+            line_words = normalize_text(line).split()
+            if not line_words:
+                offset += len(line)
+                continue
+            snippet_words = needle_words[:min(len(needle_words), len(line_words), max_words)]
+            snippet = ' '.join(snippet_words)
+            start, end, ratio = find_text_in_content(snippet, line)
+            if start is not None:
+                return (offset + start, offset + end, ratio)
+            offset += len(line)
+        return (None, None, 0)
+
+    def find_quote_in_lines(quote, content, max_words=20, min_words=6):
+        """Find a quote by scanning windows within each line."""
         quote_words = quote.split()
-        search_text = ' '.join(quote_words[:min(50, len(quote_words))])
-        start, end, ratio = find_text_in_content(
-            search_text, formatted_content)
-        if start is not None and ratio >= 0.85:
-            highlights.append((start, end, 'bowen', concept))
+        if len(quote_words) < min_words:
+            return (None, None, 0)
+        offset = 0
+        for line in content.splitlines(keepends=True):
+            line_words = normalize_text(line).split()
+            if not line_words:
+                offset += len(line)
+                continue
+            window_max = min(max_words, len(quote_words))
+            for window in range(window_max, min_words - 1, -1):
+                for start_idx in range(0, len(quote_words) - window + 1):
+                    snippet = ' '.join(quote_words[start_idx:start_idx + window])
+                    start, end, ratio = find_text_in_content(snippet, line)
+                    if start is not None and ratio >= 0.85:
+                        return (offset + start, offset + end, ratio)
+            offset += len(line)
+        return (None, None, 0)
+
+    emphasis_entries = {}
 
     for label, quote in emphasis_items:
         quote_words = quote.split()
         search_text = ' '.join(quote_words[:min(50, len(quote_words))])
         start, end, ratio = find_text_in_content(
             search_text, formatted_content)
-        if start is not None and ratio >= 0.85:
-            highlights.append((start, end, 'emphasis', label))
+        if start is not None and ratio >= 0.85 and not is_in_section_header(start, end):
+            entry = [start, end, 'emphasis', label, None]
+            highlights.append(entry)
+            emphasis_entries[label] = entry
+
+    for concept, quote in bowen_refs:
+        quote_words = quote.split()
+        first_sentence = re.split(r'[.!?]', quote, 1)[0].strip()
+        search_text = first_sentence if first_sentence else ' '.join(
+            quote_words[:min(50, len(quote_words))])
+        start, end, ratio = find_text_in_lines(
+            search_text, formatted_content)
+        if start is None:
+            start, end, ratio = find_quote_in_lines(
+                quote, formatted_content)
+        if start is not None and ratio >= 0.85 and not is_in_section_header(start, end):
+            highlights.append([start, end, 'bowen', concept, None])
+            continue
+
+        bowen_norm = normalize_text(quote)
+        for emphasis_label, emphasis_quote in emphasis_items:
+            if bowen_norm in normalize_text(emphasis_quote):
+                entry = emphasis_entries.get(emphasis_label)
+                if entry:
+                    add_bowen_label(entry, concept)
+                break
 
     highlights.sort(key=lambda x: x[0], reverse=True)
 
+    priority = {
+        'emphasis': 2,
+        'bowen': 1,
+    }
+
+    def overlaps(a, b):
+        return (a[0] >= b[0] and a[0] < b[1]) or \
+               (a[1] > b[0] and a[1] <= b[1])
+
     filtered_highlights = []
     for h in highlights:
-        overlaps = False
-        for existing in filtered_highlights:
-            if (h[0] >= existing[0] and h[0] < existing[1]) or \
-               (h[1] > existing[0] and h[1] <= existing[1]):
-                overlaps = True
-                break
-        if not overlaps:
-            filtered_highlights.append(h)
+        remove_indices = []
+        should_skip = False
+        for i, existing in enumerate(filtered_highlights):
+            if overlaps(h, existing):
+                if {h[2], existing[2]} == {'emphasis', 'bowen'}:
+                    if h[2] == 'emphasis':
+                        add_bowen_label(h, existing[3])
+                        remove_indices.append(i)
+                    else:
+                        add_bowen_label(existing, h[3])
+                        should_skip = True
+                        break
+                elif priority.get(h[2], 0) > priority.get(existing[2], 0):
+                    remove_indices.append(i)
+                else:
+                    should_skip = True
+                    break
+        if should_skip:
+            continue
+        for i in reversed(remove_indices):
+            filtered_highlights.pop(i)
+        filtered_highlights.append(h)
+
+    filtered_highlights.sort(key=lambda x: x[0], reverse=True)
 
     result = formatted_content
-    for start, end, htype, label in filtered_highlights:
+    for start, end, htype, label, extra_label in filtered_highlights:
         if htype == 'bowen':
             before = result[:start]
             text = result[start:end]
             after = result[end:]
             result = (before +
-                      f'<mark class="bowen-ref">' +
+                      f'<mark class="bowen-ref" title="Bowen Reference: {escape(label)}">' +
                       text + '</mark>' + after)
         elif htype == 'emphasis':
             before = result[:start]
             text = result[start:end]
             after = result[end:]
+            bowen_title = f' | Bowen Reference: {escape(extra_label)}' if extra_label else ''
+            bowen_class = ' bowen-ref' if extra_label else ''
             result = (before +
-                      f'<mark class="emphasis">' +
+                      f'<mark class="emphasis{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}">' +
                       text + '</mark>' + after)
 
     return result
@@ -348,26 +395,7 @@ def generate_html_for_pdf(base_name, formatted_content, metadata):
     topics_html = markdown_to_html(metadata['topics'])
     themes_html = markdown_to_html(metadata['themes'])
     abstract_html = markdown_to_html(metadata['abstract'])
-
-    # Generate key terms HTML
-    key_terms_html = ''
-    if metadata['key_terms']:
-        key_terms_html = '<div class="key-terms">'
-        for term in metadata['key_terms']:
-            # Determine definition type class for styling
-            def_type_class = 'explicit' if 'Explicit' in term['type'] else 'implicit'
-            def_type_label = term['type']
-
-            key_terms_html += f'''
-            <div class="term">
-                <h3>{escape(term['name'])}</h3>
-                <p class="def-type {def_type_class}"><strong>Definition Type:</strong> <span class="badge">{escape(def_type_label)}</span></p>
-                <p class="definition"><strong>Definition:</strong> {escape(term['definition'])}</p>
-                <p class="source"><strong>Source Location:</strong> {escape(term['source'])}</p>
-                {f'<p class="context"><strong>Context/Usage Notes:</strong> {escape(term["context"])}</p>' if term['context'] else ''}
-            </div>
-            '''
-        key_terms_html += '</div>'
+    key_terms_html = markdown_to_html(metadata['key_terms'])
 
     html = f'''<!DOCTYPE html>
 <html lang="en">
@@ -401,13 +429,37 @@ def generate_html_for_pdf(base_name, formatted_content, metadata):
 
         .cover h1 {{
             font-size: 28pt;
-            margin-bottom: 1in;
+            margin-bottom: 0.5in;
             color: #2c3e50;
         }}
 
         .cover .meta {{
             font-size: 14pt;
-            margin-bottom: 0.5in;
+            margin-bottom: 0.3in;
+        }}
+
+        .cover .toc {{
+            text-align: left;
+            margin: 0 auto;
+            max-width: 4in;
+            font-size: 12pt;
+            line-height: 1.6;
+        }}
+
+        .cover .toc h2 {{
+            font-size: 16pt;
+            margin-bottom: 0.3in;
+            color: #2c3e50;
+            text-align: center;
+        }}
+
+        .cover .toc ol {{
+            margin-left: 0.3in;
+            padding-left: 0;
+        }}
+
+        .cover .toc li {{
+            margin-bottom: 8pt;
         }}
 
         .section {{
@@ -446,64 +498,6 @@ def generate_html_for_pdf(base_name, formatted_content, metadata):
             margin-bottom: 24pt;
         }}
 
-        .term {{
-            margin-bottom: 24pt;
-            padding: 12pt;
-            background: #f8f9fa;
-            border-left: 4px solid #2c3e50;
-            page-break-inside: avoid;
-        }}
-
-        .term h3 {{
-            color: #2c3e50;
-            margin-bottom: 8pt;
-            font-size: 14pt;
-        }}
-
-        .term p {{
-            margin: 6pt 0;
-            line-height: 1.4;
-        }}
-
-        .term .def-type {{
-            margin-bottom: 8pt;
-        }}
-
-        .term .badge {{
-            padding: 2pt 8pt;
-            border-radius: 3pt;
-            font-weight: 600;
-            font-size: 9pt;
-        }}
-
-        .term .def-type.explicit .badge {{
-            background: #d4edda;
-            color: #155724;
-        }}
-
-        .term .def-type.implicit .badge {{
-            background: #d1ecf1;
-            color: #0c5460;
-        }}
-
-        .term .definition {{
-            font-style: italic;
-            margin-left: 8pt;
-        }}
-
-        .term .source {{
-            font-size: 9pt;
-            color: #666;
-        }}
-
-        .term .context {{
-            font-size: 9pt;
-            color: #555;
-            margin-left: 8pt;
-            border-left: 2pt solid #ccc;
-            padding-left: 8pt;
-        }}
-
         mark.bowen-ref {{
             background-color: #fff3cd;
             padding: 2px 4px;
@@ -533,6 +527,16 @@ def generate_html_for_pdf(base_name, formatted_content, metadata):
             <p><strong>{escape(author)}</strong></p>
             <p>{escape(date)}</p>
         </div>
+        <div class="toc">
+            <h2>Contents</h2>
+            <ol>
+                <li>Abstract</li>
+                <li>Topics</li>
+                <li>Key Themes</li>
+                <li>Key Terms</li>
+                <li>Transcript</li>
+            </ol>
+        </div>
     </div>
 
     <div class="section">
@@ -558,7 +562,9 @@ def generate_html_for_pdf(base_name, formatted_content, metadata):
 
     <div class="section">
         <h1>Key Terms</h1>
-        {key_terms_html}
+        <div class="metadata-section">
+            {key_terms_html}
+        </div>
     </div>
 
     <div class="section">
@@ -587,7 +593,8 @@ def generate_pdf(base_name: str) -> bool:
         return False
 
     formatted_file = FORMATTED_DIR / f"{base_name} - formatted.md"
-    extracts_summary_file = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    extracts_summary_file = SUMMARIES_DIR / \
+        f"{base_name} - extracts-summary.md"
     output_file = OUTPUT_DIR / f"{base_name}.pdf"
 
     if not formatted_file.exists():
@@ -611,13 +618,14 @@ def generate_pdf(base_name: str) -> bool:
     print("📄 Loading extracts-summary materials...")
 
     # Extract all metadata
-    bowen_refs = extract_bowen_references(extracts_summary_file)
-    emphasis_items = extract_emphasis_items(extracts_summary_file)
+    bowen_refs = load_bowen_references(extracts_summary_file)
+    emphasis_items = load_emphasis_items(extracts_summary_file)
     metadata = extract_metadata(extracts_summary_file)
 
     print(f"   Found {len(bowen_refs)} Bowen references")
     print(f"   Found {len(emphasis_items)} emphasis items")
-    print(f"   Found {len(metadata['key_terms'])} key terms")
+    if metadata['key_terms']:
+        print(f"   Found key terms section")
 
     print("🖍️  Highlighting transcript...")
 

@@ -269,8 +269,13 @@ def main():
     parser.add_argument(
         "--max-iterations",
         type=int,
-        default=5,
-        help="Maximum number of improvement iterations (default: 5)"
+        default=3,
+        help="Maximum number of improvement iterations (default: 3)"
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="Run without interactive prompts (auto-continue until target reached)"
     )
 
     args = parser.parse_args()
@@ -350,24 +355,28 @@ def main():
             print(
                 f"\n🤔 Initial score: {overall_score}/5.0 (target: {args.target_score})")
 
-            try:
-                response = input(
-                    "\n   Continue to improvement iterations? (Y/n): ").strip().lower()
-                if response in ['n', 'no']:
+            if args.auto:
+                # Auto mode: continue without prompting
+                iteration = 1
+            else:
+                try:
+                    response = input(
+                        "\n   Continue to improvement iterations? (Y/n): ").strip().lower()
+                    if response in ['n', 'no']:
+                        print(
+                            f"\n⏹️  Stopping at user request after initial evaluation")
+                        print(
+                            f"   Using initial abstract (score: {best_score}/5.0)")
+                        # Skip to saving results
+                        iteration = args.max_iterations + 1
+                    else:
+                        iteration = 1
+                except (KeyboardInterrupt, EOFError):
                     print(
-                        f"\n⏹️  Stopping at user request after initial evaluation")
+                        f"\n\n⏹️  Interrupted by user after initial evaluation")
                     print(
                         f"   Using initial abstract (score: {best_score}/5.0)")
-                    # Skip to saving results
                     iteration = args.max_iterations + 1
-                else:
-                    iteration = 1
-            except (KeyboardInterrupt, EOFError):
-                print(
-                    f"\n\n⏹️  Interrupted by user after initial evaluation")
-                print(
-                    f"   Using initial abstract (score: {best_score}/5.0)")
-                iteration = args.max_iterations + 1
 
         # Improvement iterations (1 to max_iterations)
         while iteration <= args.max_iterations:
@@ -441,6 +450,11 @@ def main():
                 f"\n🤔 Current score: {overall_score}/5.0 (target: {args.target_score})")
             print(
                 f"   Best score so far: {best_score}/5.0 (iteration {best_iteration})")
+
+            if args.auto:
+                # Auto mode: continue without prompting
+                iteration += 1
+                continue
 
             try:
                 response = input(

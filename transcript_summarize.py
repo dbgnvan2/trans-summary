@@ -53,23 +53,17 @@ def normalize_text(text):
 
 def extract_emphasis_quotes(extracts_summary_file):
     """Extract all quoted text from Emphasized Items section."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
-        content = f.read()
+    from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
 
-    # Find the Emphasized Items section
-    match = re.search(
-        r'## \*\*Emphasized Items\*\*(.*?)(?=---|\Z)', content, re.DOTALL)
-    if not match:
-        return []
+    extracts_path = Path(extracts_summary_file)
+    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
 
-    emphasis_section = match.group(1)
+    source_file = emphasis_file if emphasis_file.exists() else extracts_path
+    content = source_file.read_text(encoding='utf-8')
+    content = strip_yaml_frontmatter(content)
 
-    # Extract all quotes (text between quotes after >)
-    # Pattern: > **[Label]:** "quote text" - **[Type]**
-    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, emphasis_section)
-
-    return [(label.strip(), quote.strip()) for label, quote in quotes]
+    return extract_emphasis_items(content)
 
 
 def find_best_match(needle, haystack, threshold=0.85):
@@ -354,6 +348,67 @@ def save_summary(content: str, original_filename: str, summary_type: str) -> Pat
     return output_path
 
 
+def split_extracts_summary(extracts_summary_path: Path) -> None:
+    """Split extracts-summary into focused extract files for efficient processing."""
+    from transcript_utils import (
+        extract_bowen_references,
+        extract_emphasis_items,
+        strip_yaml_frontmatter
+    )
+
+    print("\n📦 Splitting extracts into focused files...")
+
+    # Read the extracts-summary file
+    content = extracts_summary_path.read_text(encoding='utf-8')
+    clean_content = strip_yaml_frontmatter(content)
+
+    # Get base name for output files
+    stem = extracts_summary_path.stem.replace(' - extracts-summary', '')
+
+    # Extract and save Bowen references
+    bowen_refs = extract_bowen_references(clean_content)
+    if bowen_refs:
+        bowen_output = "## Bowen References\n\n"
+        for label, quote in bowen_refs:
+            bowen_output += f'> **{label}:** "{quote}"\n\n'
+
+        bowen_path = SUMMARIES_DIR / f"{stem} - bowen-references.md"
+        bowen_path.write_text(bowen_output, encoding='utf-8')
+        print(f"   ✓ {len(bowen_refs)} Bowen references → {bowen_path.name}")
+
+    # Extract and save emphasis items
+    emphasis_items = extract_emphasis_items(clean_content)
+    if emphasis_items:
+        emphasis_output = "## Emphasized Items\n\n"
+        for label, quote in emphasis_items:
+            emphasis_output += f'> **{label}:** "{quote}"\n\n'
+
+        emphasis_path = SUMMARIES_DIR / f"{stem} - emphasis-items.md"
+        emphasis_path.write_text(emphasis_output, encoding='utf-8')
+        print(
+            f"   ✓ {len(emphasis_items)} emphasis items → {emphasis_path.name}")
+
+    # Extract and save key term definitions (from Part 2 of extracts-summary)
+    import re
+    definitions_match = re.search(
+        r'## Part 2: Key Term Definitions(.*?)(?=^## |\Z)',
+        clean_content,
+        re.MULTILINE | re.DOTALL
+    )
+
+    if definitions_match:
+        definitions_content = definitions_match.group(0)
+        # Count definitions
+        def_count = len(re.findall(r'^## ', definitions_content,
+                        re.MULTILINE)) - 1  # Subtract the header
+
+        defs_path = SUMMARIES_DIR / f"{stem} - definitions.md"
+        defs_path.write_text(definitions_content, encoding='utf-8')
+        print(f"   ✓ {def_count} term definitions → {defs_path.name}")
+
+    print("   Done! Extract files ready for efficient processing.")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate summaries from a formatted transcript using Claude."
@@ -430,6 +485,9 @@ def main():
                 extracts_summary_output, args.formatted_filename, "extracts-summary")
             print(
                 f"✓ Extracts summary analysis saved to: {extracts_summary_path}")
+
+            # Split into focused extract files for efficient processing
+            split_extracts_summary(extracts_summary_path)
 
         # Part 2: Key Terms Extraction
         if not args.skip_terms:
