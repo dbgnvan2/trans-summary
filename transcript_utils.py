@@ -270,10 +270,7 @@ def call_claude_with_retry(
                     temperature=temperature,
                     messages=messages
                 ) as stream_response:
-                    # Consume the stream to ensure completion and get the final message
-                    for chunk in stream_response:
-                        pass
-                    message = stream_response.current_message
+                    message = stream_response.until_done()
             else:
                 message = client.messages.create(
                     model=model,
