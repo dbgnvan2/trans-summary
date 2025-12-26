@@ -14,14 +14,20 @@ import argparse
 import os
 from pathlib import Path
 import anthropic
+import config
 
 
-# Directories (from environment variable)
+# Get the directory of the currently executing script to determine project root
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+# Prompts are now stored inside the project
+PROMPTS_DIR = PROJECT_ROOT / "prompts"
+
+# External transcript directories remain the same
 TRANSCRIPTS_BASE = Path(
     os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
 FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
 SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
-PROMPTS_DIR = TRANSCRIPTS_BASE / "prompts"
 
 # Prompt file name
 KEY_TERMS_PROMPT = "Transcript Summary Key Terms v1.md"
@@ -99,8 +105,8 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
     print("⏳ Waiting for Claude response (typically 1-2 minutes)...", flush=True)
 
     message = client.messages.create(
-        model="claude-sonnet-4-5-20250929",
-        max_tokens=8000,
+        model=config.DEFAULT_MODEL,
+        max_tokens=8192,
         temperature=0.4,  # Moderate temperature for balanced extraction/synthesis
         messages=[
             {"role": "user", "content": prompt}
@@ -117,9 +123,9 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
         raise RuntimeError("Output truncated at max_tokens limit")
 
     # Warn if close to limit
-    if message.usage.output_tokens > 7200:  # 90% of 8000
+    if message.usage.output_tokens > 7200:  # ~90% of 8192
         print(
-            f"   ⚠️  Warning: Used {message.usage.output_tokens:,}/8,000 output tokens ({message.usage.output_tokens/80:.0f}%)")
+            f"   ⚠️  Warning: Used {message.usage.output_tokens:,}/8,192 output tokens ({message.usage.output_tokens/81.92:.0f}%)")
 
     return message.content[0].text
 

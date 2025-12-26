@@ -15,10 +15,16 @@ Example:
 import argparse
 import os
 import re
+import sys
 from pathlib import Path
 from html import unescape
 from difflib import SequenceMatcher
 
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    print("❌ Error: beautifulsoup4 is not installed. Run: pip install beautifulsoup4")
+    sys.exit(1)
 
 # Directories
 TRANSCRIPTS_BASE = Path(
@@ -26,13 +32,6 @@ TRANSCRIPTS_BASE = Path(
 FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
 SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
 WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
-
-
-def strip_html_tags(text):
-    """Remove HTML tags from text."""
-    text = re.sub(r'<[^>]+>', '', text)
-    text = unescape(text)
-    return text.strip()
 
 
 def count_sections_in_formatted(formatted_file):
@@ -53,36 +52,24 @@ def count_sections_in_formatted(formatted_file):
 
 def count_sections_in_html(html_file):
     """Count sections in HTML file (works for both sidebar and simple layouts)."""
-    with open(html_file, 'r', encoding='utf-8') as f:
-        content = f.read()
+    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
 
-    # Try sidebar layout first (main-content class)
-    main_content_match = re.search(
-        r'<main class="main-content">(.*?)</main>',
-        content,
-        re.DOTALL
-    )
-
-    if main_content_match:
+    # Try sidebar layout first
+    main_content = soup.find('main', class_='main-content')
+    if main_content:
         # Sidebar layout - count h2 in main content area
-        main_content = main_content_match.group(1)
-        sections = re.findall(r'<h2>([^<]+)</h2>', main_content)
+        sections = [h2.get_text(strip=True)
+                    for h2 in main_content.find_all('h2')]
         return len(sections), sections
 
     # Try simple layout (content class, no sidebar)
-    simple_content_match = re.search(
-        r'<div class="content">(.*?)</div>\s*</div>\s*</body>',
-        content,
-        re.DOTALL
-    )
-
-    if simple_content_match:
+    content_div = soup.find('div', class_='content')
+    if content_div:
         # Simple layout - count h2 but exclude metadata headers
-        main_content = simple_content_match.group(1)
-        sections = re.findall(r'<h2>([^<]+)</h2>', main_content)
+        sections = [h2.get_text(strip=True)
+                    for h2 in content_div.find_all('h2')]
         # Filter out metadata sections (Abstract, Key Terms)
-        sections = [s for s in sections if s.strip() not in [
-            'Abstract', 'Key Terms']]
+        sections = [s for s in sections if s not in ['Abstract', 'Key Terms']]
         return len(sections), sections
 
     return 0, []
@@ -129,14 +116,13 @@ def find_missing_emphasis_items(base_name, html_file):
     source_labels = [label for label, _ in emphasis_items]
 
     # Extract emphasis labels that are highlighted in HTML
-    with open(html_file, 'r', encoding='utf-8') as f:
-        html_content = f.read()
-
-    highlighted_labels = re.findall(
-        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
-        html_content
-    )
-    highlighted_labels = [label.strip() for label in highlighted_labels]
+    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
+    highlighted_labels = []
+    for mark in soup.find_all('mark', class_='emphasis'):
+        title = mark.get('title', '')
+        if 'Emphasized:' in title:
+            label = title.split('Emphasized:', 1)[1].split('|')[0].strip()
+            highlighted_labels.append(label)
 
     # Find missing items
     missing = []
@@ -163,14 +149,14 @@ def find_missing_bowen_items(base_name, html_file):
     bowen_refs = extract_bowen_references(strip_yaml_frontmatter(content))
     source_labels = [label for label, _ in bowen_refs]
 
-    with open(html_file, 'r', encoding='utf-8') as f:
-        html_content = f.read()
+    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
+    highlighted_labels = []
+    for mark in soup.find_all('mark', class_='bowen-ref'):
+        title = mark.get('title', '')
+        if 'Bowen Reference:' in title:
+            label = title.split('Bowen Reference:', 1)[1].strip()
+            highlighted_labels.append(label)
 
-    highlighted_labels = re.findall(
-        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
-        html_content
-    )
-    highlighted_labels = [label.strip() for label in highlighted_labels]
     highlighted_labels = split_multi_labels(highlighted_labels)
 
     missing = []
@@ -292,8 +278,7 @@ def extract_extracts_summary_metadata(extracts_summary_file):
 
 def extract_html_metadata(html_file):
     """Extract metadata from HTML sidebar."""
-    with open(html_file, 'r', encoding='utf-8') as f:
-        content = f.read()
+    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
 
     metadata = {
         'has_abstract': False,
@@ -312,115 +297,103 @@ def extract_html_metadata(html_file):
     }
 
     # Extract sidebar content
-    sidebar_match = re.search(
-        r'<aside class="sidebar">(.*?)</aside>',
-        content,
-        re.DOTALL
-    )
-
-    if not sidebar_match:
+    sidebar = soup.find('aside', class_='sidebar')
+    if not sidebar:
         return metadata
 
-    sidebar = sidebar_match.group(1)
+    # Helper to find section content
+    def get_sidebar_section(heading_text):
+        h2 = sidebar.find('h2', string=heading_text)
+        if not h2:
+            return None
+        content = []
+        curr = h2.find_next_sibling()
+        while curr and curr.name != 'h2':
+            content.append(curr)
+            curr = curr.find_next_sibling()
+        return content
 
-    # Check Abstract
-    abstract_match = re.search(
-        r'<h2>Abstract</h2>(.*?)(?=<h2>|\Z)',
-        sidebar,
-        re.DOTALL
-    )
-    if abstract_match:
-        abstract_html = abstract_match.group(1).strip()
-        abstract_text = strip_html_tags(abstract_html)
-        if abstract_text:
+    # Abstract
+    abstract_elems = get_sidebar_section('Abstract')
+    if abstract_elems:
+        text = " ".join(e.get_text(strip=True) for e in abstract_elems)
+        if text:
             metadata['has_abstract'] = True
-            metadata['abstract_text'] = abstract_text
-            metadata['abstract_length'] = len(abstract_text)
+            metadata['abstract_text'] = text
+            metadata['abstract_length'] = len(text)
 
-    # Check Topics
-    topics_match = re.search(
-        r'<h2>Topics</h2>(.*?)(?=<h2>|\Z)',
-        sidebar,
-        re.DOTALL
-    )
-    if topics_match:
-        topics_html = topics_match.group(1).strip()
-        topics_text = strip_html_tags(topics_html)
-        if topics_text:
-            metadata['has_topics'] = True
-            # Extract topic names from h3 tags
-            topics = re.findall(r'<h3>([^<]+)</h3>', topics_html)
-            metadata['topics_list'] = [t.strip() for t in topics]
+    # Topics
+    topics_elems = get_sidebar_section('Topics')
+    if topics_elems:
+        metadata['has_topics'] = True
+        for elem in topics_elems:
+            metadata['topics_list'].extend(
+                [h3.get_text(strip=True) for h3 in elem.find_all('h3')])
 
-    # Check Key Themes
-    themes_match = re.search(
-        r'<h2>Key Themes</h2>(.*?)(?=<h2>|\Z)',
-        sidebar,
-        re.DOTALL
-    )
-    if themes_match:
-        themes_html = themes_match.group(1).strip()
-        themes_text = strip_html_tags(themes_html)
-        if themes_text:
-            metadata['has_themes'] = True
-            # Extract theme names from h3 tags or numbered lists
-            themes = re.findall(r'<h3>([^<]+)</h3>', themes_html)
-            # Also check for numbered items
-            numbered = re.findall(
-                r'<p>\d+\.\s+<strong>([^<]+)</strong>', themes_html)
-            metadata['themes_list'] = [t.strip() for t in (themes + numbered)]
+    # Key Themes
+    themes_elems = get_sidebar_section('Key Themes')
+    if themes_elems:
+        metadata['has_themes'] = True
+        for elem in themes_elems:
+            metadata['themes_list'].extend(
+                [h3.get_text(strip=True) for h3 in elem.find_all('h3')])
+            # Also check numbered items
+            for p in elem.find_all('p'):
+                if re.match(r'\d+\.', p.get_text()):
+                    strong = p.find('strong')
+                    if strong:
+                        metadata['themes_list'].append(
+                            strong.get_text(strip=True))
 
-    # Check Key Terms
-    terms_match = re.search(
-        r'<h2>Key Terms</h2>(.*?)(?=</aside>|\Z)',
-        sidebar,
-        re.DOTALL
-    )
-    if terms_match:
-        terms_html = terms_match.group(1).strip()
-        terms_text = strip_html_tags(terms_html)
-        if terms_text:
+    # Key Terms
+    terms_elems = get_sidebar_section('Key Terms')
+    if terms_elems:
+        text = " ".join(e.get_text(strip=True) for e in terms_elems)
+        if text:
             metadata['has_key_terms'] = True
-            # Split comma-separated terms
             metadata['key_terms_list'] = [t.strip()
-                                          for t in terms_text.split(',') if t.strip()]
+                                          for t in text.split(',') if t.strip()]
 
     # Count Bowen reference highlights in main content (exclude legend)
-    # Extract only the content section, not the legend
-    content_match = re.search(
-        r'<div class="content">(.*?)</div>\s*</div>\s*</body>', content, re.DOTALL)
-    if content_match:
-        main_content = content_match.group(1)
-    else:
-        main_content = content
+    main_content = soup.find('div', class_='transcript') or soup.find(
+        'div', class_='content')
+    if not main_content:
+        main_content = soup
 
-    bowen_marks = re.findall(
-        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title=', main_content)
+    bowen_marks = main_content.find_all('mark', class_='bowen-ref')
     metadata['bowen_highlights'] = len(bowen_marks)
-    metadata['bowen_labels'] = re.findall(
-        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
-        main_content
-    )
-    metadata['bowen_labels'] = [label.strip() for label in metadata['bowen_labels']]
+
+    metadata['bowen_labels'] = []
+    for mark in bowen_marks:
+        title = mark.get('title', '')
+        if 'Bowen Reference:' in title:
+            label = title.split('Bowen Reference:', 1)[1].strip()
+            metadata['bowen_labels'].append(label)
+
+    metadata['bowen_labels'] = [label.strip()
+                                for label in metadata['bowen_labels']]
     metadata['bowen_labels'] = split_multi_labels(metadata['bowen_labels'])
 
     # Count emphasis highlights in main content (exclude legend) - use title attribute for accurate count
-    emphasis_marks = re.findall(
-        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="Emphasized:', main_content)
+    emphasis_marks = main_content.find_all('mark', class_='emphasis')
     metadata['emphasis_highlights'] = len(emphasis_marks)
-    metadata['emphasis_labels'] = re.findall(
-        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
-        main_content
-    )
-    metadata['emphasis_labels'] = [label.strip() for label in metadata['emphasis_labels']]
+
+    metadata['emphasis_labels'] = []
+    for mark in emphasis_marks:
+        title = mark.get('title', '')
+        if 'Emphasized:' in title:
+            label = title.split('Emphasized:', 1)[1].split('|')[0].strip()
+            metadata['emphasis_labels'].append(label)
+
+    metadata['emphasis_labels'] = [label.strip()
+                                   for label in metadata['emphasis_labels']]
 
     return metadata
 
 
 def extract_html_simple_metadata(html_file):
     """Extract metadata from simple HTML (single column, no sidebar)."""
-    with open(html_file, 'r', encoding='utf-8') as f:
-        content = f.read()
+    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
 
     metadata = {
         'has_abstract': False,
@@ -439,44 +412,29 @@ def extract_html_simple_metadata(html_file):
     }
 
     # Extract content div
-    content_match = re.search(
-        r'<div class="content">(.*?)</div>\s*</div>\s*</body>',
-        content,
-        re.DOTALL
-    )
-
-    if not content_match:
+    main_content = soup.find('div', class_='content')
+    if not main_content:
         return metadata
 
-    main_content = content_match.group(1)
-
     # Check Abstract - should be present in simple format too
-    abstract_match = re.search(
-        r'<section class="abstract">(.*?)</section>',
-        main_content,
-        re.DOTALL
-    )
-    if abstract_match:
-        abstract_html = abstract_match.group(1).strip()
-        abstract_text = strip_html_tags(abstract_html)
+    abstract_section = main_content.find('section', class_='abstract')
+    if abstract_section:
+        abstract_text = abstract_section.get_text(
+            strip=True).replace('Abstract', '', 1).strip()
         if abstract_text:
             metadata['has_abstract'] = True
             metadata['abstract_text'] = abstract_text
             metadata['abstract_length'] = len(abstract_text)
 
     # Check Key Terms - in simple format, look for <section class="key-terms">
-    terms_match = re.search(
-        r'<section class="key-terms">(.*?)</section>',
-        main_content,
-        re.DOTALL
-    )
-    if terms_match:
-        terms_html = terms_match.group(1).strip()
+    terms_section = main_content.find('section', class_='key-terms')
+    if terms_section:
         # Extract bold terms from paragraph
-        term_items = re.findall(r'<strong>([^<]+)</strong>', terms_html)
+        term_items = [strong.get_text(strip=True)
+                      for strong in terms_section.find_all('strong')]
         if term_items:
             metadata['has_key_terms'] = True
-            metadata['key_terms_list'] = [t.strip() for t in term_items]
+            metadata['key_terms_list'] = term_items
 
     # Topics and Themes are not in simple webpage format
     # So we mark them as present but empty lists (to skip validation)
@@ -484,22 +442,32 @@ def extract_html_simple_metadata(html_file):
     metadata['has_themes'] = True
 
     # Count highlights
-    bowen_marks = re.findall(r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*>', content)
+    bowen_marks = main_content.find_all('mark', class_='bowen-ref')
     metadata['bowen_highlights'] = len(bowen_marks)
-    metadata['bowen_labels'] = re.findall(
-        r'<mark class="[^"]*\bbowen-ref\b[^"]*"[^>]*title="[^"]*Bowen Reference:\s*([^"|]+)',
-        content
-    )
-    metadata['bowen_labels'] = [label.strip() for label in metadata['bowen_labels']]
+
+    metadata['bowen_labels'] = []
+    for mark in bowen_marks:
+        title = mark.get('title', '')
+        if 'Bowen Reference:' in title:
+            label = title.split('Bowen Reference:', 1)[1].strip()
+            metadata['bowen_labels'].append(label)
+
+    metadata['bowen_labels'] = [label.strip()
+                                for label in metadata['bowen_labels']]
     metadata['bowen_labels'] = split_multi_labels(metadata['bowen_labels'])
 
-    emphasis_marks = re.findall(r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*>', content)
+    emphasis_marks = main_content.find_all('mark', class_='emphasis')
     metadata['emphasis_highlights'] = len(emphasis_marks)
-    metadata['emphasis_labels'] = re.findall(
-        r'<mark class="[^"]*\bemphasis\b[^"]*"[^>]*title="[^"]*Emphasized:\s*([^"|]+)',
-        content
-    )
-    metadata['emphasis_labels'] = [label.strip() for label in metadata['emphasis_labels']]
+
+    metadata['emphasis_labels'] = []
+    for mark in emphasis_marks:
+        title = mark.get('title', '')
+        if 'Emphasized:' in title:
+            label = title.split('Emphasized:', 1)[1].split('|')[0].strip()
+            metadata['emphasis_labels'].append(label)
+
+    metadata['emphasis_labels'] = [label.strip()
+                                   for label in metadata['emphasis_labels']]
 
     return metadata
 

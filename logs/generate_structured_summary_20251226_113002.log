@@ -1,0 +1,24 @@
+2025-12-26 11:30:02,849 - generate_structured_summary - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_structured_summary_20251226_113002.log
+2025-12-26 11:30:02,852 - generate_structured_summary - INFO - DEBUG: In generate_structured_summary:
+2025-12-26 11:30:02,852 - generate_structured_summary - INFO - DEBUG:   Type of summary_target_word_count: <class '__main__.GuiLoggerAdapter'>
+2025-12-26 11:30:02,852 - generate_structured_summary - INFO - DEBUG:   Value of summary_target_word_count: <__main__.GuiLoggerAdapter object at 0x10c856850>
+2025-12-26 11:30:02,852 - generate_structured_summary - INFO - DEBUG:   Type of gen_summary_logger (param): <class 'logging.Logger'>
+2025-12-26 11:30:02,852 - generate_structured_summary - INFO - DEBUG:   Value of gen_summary_logger (param): <Logger generate_structured_summary (INFO)>
+2025-12-26 11:30:02,852 - generate_structured_summary - ERROR - Error generating structured summary: prepare_summary_input() got an unexpected keyword argument 'target_word_count'
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 2305, in generate_structured_summary
+    summary_input = summary_pipeline.prepare_summary_input(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: prepare_summary_input() got an unexpected keyword argument 'target_word_count'
+2025-12-26 11:32:37,085 - generate_structured_summary - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_structured_summary_20251226_113237.log
+2025-12-26 11:32:37,086 - generate_structured_summary - INFO - DEBUG: In generate_structured_summary:
+2025-12-26 11:32:37,086 - generate_structured_summary - INFO - DEBUG:   Type of summary_target_word_count: <class '__main__.GuiLoggerAdapter'>
+2025-12-26 11:32:37,086 - generate_structured_summary - INFO - DEBUG:   Value of summary_target_word_count: <__main__.GuiLoggerAdapter object at 0x10c856850>
+2025-12-26 11:32:37,086 - generate_structured_summary - INFO - DEBUG:   Type of gen_summary_logger (param): <class 'logging.Logger'>
+2025-12-26 11:32:37,086 - generate_structured_summary - INFO - DEBUG:   Value of gen_summary_logger (param): <Logger generate_structured_summary (INFO)>
+2025-12-26 11:32:37,086 - generate_structured_summary - ERROR - Error generating structured summary: prepare_summary_input() got an unexpected keyword argument 'target_word_count'
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 2305, in generate_structured_summary
+    # DEBUG statements to diagnose TypeError
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: prepare_summary_input() got an unexpected keyword argument 'target_word_count'

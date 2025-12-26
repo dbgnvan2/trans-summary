@@ -3,3 +3,8 @@ anthropic>=0.39.0
 weasyprint>=60.0
 pillow>=10.0.0
 python-dotenv>=1.0.0
+PyYAML>=6.0.1
+
+# Development and Testing
+pytest>=8.0.0
+pytest-cov>=4.1.0

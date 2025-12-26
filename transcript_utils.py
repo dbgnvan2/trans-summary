@@ -9,14 +9,20 @@ import time
 import logging
 from pathlib import Path
 from typing import Optional
+from difflib import SequenceMatcher
+from html import unescape
+import yaml
 from anthropic import (
     APIError,
     RateLimitError,
     APIConnectionError,
     APITimeoutError,
     AuthenticationError,
-    BadRequestError
+    BadRequestError,
+    NotFoundError
 )
+
+import config
 
 
 # Configure logging
@@ -305,6 +311,15 @@ def call_claude_with_retry(
                 "Get a new key from https://console.anthropic.com/"
             ) from e
 
+        except NotFoundError as e:
+            # Don't retry - model not found
+            if logger:
+                logger.error(f"Model not found: {e}")
+            raise ValueError(
+                f"The model '{model}' is not available (404). "
+                "Please check config.py or your API key permissions."
+            ) from e
+
         except BadRequestError as e:
             # Don't retry - request is malformed
             if logger:
@@ -358,38 +373,46 @@ def call_claude_with_retry(
             raise
 
 
-def extract_metadata_from_filename(filename: str) -> tuple[str, str, str]:
+def parse_filename_metadata(filename: str) -> dict:
     """
-    Extract title, author, date from filename.
+    Extract metadata from filename pattern: 'Title - Presenter - Date.ext'
 
-    Args:
-        filename: Filename in format "Title - Author - Date.ext"
-
-    Returns:
-        Tuple of(title, author, date)
-
-    Raises:
-        ValueError: If filename doesn't match expected pattern
+    Returns a dictionary with title, presenter, author, date, year, and stem.
     """
     stem = Path(filename).stem
+    if ' - formatted' in stem:
+        stem = stem.replace(' - formatted', '')
+    if '_yaml' in stem:
+        stem = stem.replace('_yaml', '')
+    if ' - simple' in stem:
+        stem = stem.replace(' - simple', '')
+
     parts = [p.strip() for p in stem.split(' - ')]
 
     if len(parts) < 3:
         raise ValueError(
-            f"Filename must follow pattern 'Title - Author - Date.ext'\n"
-            f"Got: {filename}"
-        )
+            f"Filename must follow pattern 'Title - Presenter - Date.ext', got: {filename}")
 
-    # Handle case where title or author contains ' - '
+    # Handle case where title or presenter contains ' - '
     if len(parts) > 3:
-        # Date is last, author is second-to-last, rest is title
         date = parts[-1]
-        author = parts[-2]
+        presenter = parts[-2]
         title = ' - '.join(parts[:-2])
     else:
-        title, author, date = parts
+        title, presenter, date = parts
 
-    return title, author, date
+    year_match = re.search(r'(\d{4})', date)
+    year = year_match.group(1) if year_match else "unknown"
+
+    return {
+        "title": title,
+        "presenter": presenter,
+        "author": presenter,  # for backward compatibility
+        "date": date,
+        "year": year,
+        "filename": filename,
+        "stem": stem
+    }
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -502,6 +525,35 @@ def extract_bowen_references(content: str) -> list:
     return [(concept.strip(), quote.strip()) for concept, quote in quotes]
 
 
+def load_bowen_references(base_name: str) -> list:
+    """
+    Load Bowen reference quotes from dedicated file, with fallback to extracts-summary.
+
+    Args:
+        base_name: The base name of the transcript
+
+    Returns:
+        List of tuples: [(concept, quote), ...]
+    """
+    # Try dedicated file first
+    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    if bowen_file.exists():
+        with open(bowen_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_bowen_references(content)
+
+    # Fall back to extracts-summary for backward compatibility
+    extracts_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    if extracts_file.exists():
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_bowen_references(content)
+
+    return []
+
+
 def extract_emphasis_items(content: str) -> list:
     """
     Extract emphasized item quotes from extracts-summary content.
@@ -521,6 +573,35 @@ def extract_emphasis_items(content: str) -> list:
     return [(item.strip(), quote.strip()) for item, quote in quotes]
 
 
+def load_emphasis_items(base_name: str) -> list:
+    """
+    Load emphasis item quotes from dedicated file, with fallback to extracts-summary.
+
+    Args:
+        base_name: The base name of the transcript
+
+    Returns:
+        List of tuples: [(item_name, quote), ...]
+    """
+    # Try dedicated file first
+    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    if emphasis_file.exists():
+        with open(emphasis_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_emphasis_items(content)
+
+    # Fall back to extracts-summary for backward compatibility
+    extracts_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    if extracts_file.exists():
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_emphasis_items(content)
+
+    return []
+
+
 def strip_yaml_frontmatter(content: str) -> str:
     """
     Remove YAML frontmatter from markdown content.
@@ -531,8 +612,137 @@ def strip_yaml_frontmatter(content: str) -> str:
     Returns:
         Content with YAML frontmatter removed
     """
-    if content.startswith('---'):
-        parts = content.split('---\n', 2)
-        if len(parts) >= 3:
-            return parts[2]
+    # Use regex to match YAML block at start, handling potential whitespace/newlines
+    # Matches --- at start, any content (non-greedy), then --- followed by newline
+    match = re.match(r'^\s*---\s*\n.*?\n---\s*\n', content, re.DOTALL)
+    if match:
+        return content[match.end():]
     return content
+
+
+# ============================================================================
+# MARKDOWN UTILITIES
+# ============================================================================
+
+def markdown_to_html(text: str) -> str:
+    """
+    Convert basic markdown to HTML.
+
+    Args:
+        text: Markdown text
+
+    Returns:
+        HTML formatted text
+    """
+    # Handle section headings
+    text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+    text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
+    text = re.sub(r'^# (.+)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
+
+    # Handle bold
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+
+    # Handle italic
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+
+    # Handle paragraphs
+    paragraphs = text.split('\n\n')
+    paragraphs = [f'<p>{p.strip()}</p>' if not p.strip().startswith('<') else p.strip()
+                  for p in paragraphs if p.strip()]
+
+    return '\n'.join(paragraphs)
+
+
+# ============================================================================
+# TEXT PROCESSING UTILITIES
+# ============================================================================
+
+def normalize_text(text: str, aggressive: bool = False) -> str:
+    """
+    Normalize text for comparison.
+
+    Args:
+        text: The text to normalize.
+        aggressive: If True, performs more aggressive cleaning,
+                    including removing punctuation and speaker tags.
+
+    Returns:
+        Normalized text.
+    """
+    # Unescape HTML entities (e.g. &apos; -> ')
+    text = unescape(text)
+
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', ' ', text)
+
+    if aggressive:
+        # Remove speaker tags (Markdown and plain text)
+        text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)
+        text = re.sub(r'(Speaker \d+|Unknown Speaker):\s*',
+                      '', text, flags=re.IGNORECASE)
+        # Remove punctuation
+        text = re.sub(r'[.,!?;:—\-\'\"()]', ' ', text)
+
+    # Collapse whitespace
+    text = re.sub(r'\s+', ' ', text)
+    text = text.strip()
+    return text.lower()
+
+
+def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False) -> tuple[Optional[int], Optional[int], float]:
+    """
+    Find needle in haystack and return (start_pos, end_pos, match_ratio).
+    Uses fuzzy matching to find the best fit.
+
+    Args:
+        needle: The text to search for.
+        haystack: The text to search within.
+        aggressive_normalization: Whether to use aggressive normalization.
+
+    Returns:
+        A tuple containing (start_pos, end_pos, match_ratio).
+        Returns (None, None, 0) if no good match is found.
+    """
+    needle_normalized = normalize_text(
+        needle, aggressive=aggressive_normalization)
+    haystack_normalized = normalize_text(
+        haystack, aggressive=aggressive_normalization)
+
+    # Try exact match first
+    if needle_normalized in haystack_normalized:
+        # Find position in original (non-normalized) text
+        # Use first 20 chars to locate in original
+        search_start = needle[:min(20, len(needle))].strip()
+        pos = haystack.lower().find(search_start.lower())
+        if pos >= 0:
+            return (pos, pos + len(needle), 1.0)
+
+    # Fuzzy match - try sliding window
+    needle_words = needle_normalized.split()
+    haystack_words = haystack_normalized.split()
+    needle_len = len(needle_words)
+
+    best_ratio = 0
+    best_pos = None
+
+    for i in range(len(haystack_words) - needle_len + 1):
+        window = ' '.join(haystack_words[i:i + needle_len])
+        ratio = SequenceMatcher(None, needle_normalized, window).ratio()
+
+        if ratio > best_ratio and ratio >= 0.85:
+            best_ratio = ratio
+            best_pos = i
+            # Early termination for near-perfect match
+            if ratio >= 0.98:
+                break
+
+    if best_pos is not None:
+        # Approximate position in original text
+        # This is rough but works for highlighting
+        words_before = ' '.join(haystack_words[:best_pos])
+        approx_start = len(words_before)
+        approx_end = approx_start + \
+            len(' '.join(haystack_words[best_pos:best_pos + needle_len]))
+        return (approx_start, approx_end, best_ratio)
+
+    return (None, None, 0)

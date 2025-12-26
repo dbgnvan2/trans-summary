@@ -1,0 +1,39 @@
+2025-12-26 11:10:33,782 - generate_structured_summary - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_structured_summary_20251226_111033.log
+2025-12-26 11:10:33,789 - generate_structured_summary - ERROR - Error generating structured summary: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 2295, in generate_structured_summary
+    summary_input = summary_pipeline.prepare_summary_input(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 580, in prepare_summary_input
+    allocations = calculate_word_allocations(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 112, in calculate_word_allocations
+    "opening": int(target_word_count * opening_pct),
+                   ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
+2025-12-26 11:13:52,621 - generate_structured_summary - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_structured_summary_20251226_111352.log
+2025-12-26 11:13:52,627 - generate_structured_summary - ERROR - Error generating structured summary: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 2295, in generate_structured_summary
+    metadata=metadata,
+                ^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 580, in prepare_summary_input
+    allocations = calculate_word_allocations(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 112, in calculate_word_allocations
+    "opening": int(target_word_count * opening_pct),
+                   ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+TypeError: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
+2025-12-26 11:16:02,969 - generate_structured_summary - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_structured_summary_20251226_111602.log
+2025-12-26 11:16:02,974 - generate_structured_summary - ERROR - Error generating structured summary: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 2295, in generate_structured_summary
+    _logger.error("Could not find Topics in extracts summary.")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 580, in prepare_summary_input
+    allocations = calculate_word_allocations(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/summary_pipeline.py", line 112, in calculate_word_allocations
+    "opening": int(total_words_for_summary * opening_pct),
+                   ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~
+TypeError: unsupported operand type(s) for *: 'GuiLoggerAdapter' and 'float'
