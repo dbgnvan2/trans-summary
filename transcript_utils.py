@@ -279,6 +279,11 @@ def call_claude_with_retry(
                     messages=messages
                 )
 
+            if message is None:
+                raise RuntimeError("Claude API call returned an empty message object (None).")
+            if not hasattr(message, 'type'):
+                raise RuntimeError("Claude API call returned a malformed message object (missing 'type' attribute).")
+
             # Comprehensive response validation
             try:
                 validate_api_response(
