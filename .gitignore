@@ -6,3 +6,10 @@
 
 # Old files 
 oldfiles
+
+# macOS system files
+.DS_Store
+
+# Python cache directories
+__pycache__/
+*.pyc
