@@ -1,0 +1,786 @@
+"""
+Summary Generation Pipeline
+Prepares structured input for LLM summary generation from transcript extractions.
+
+Handles proportional word allocation based on topic coverage percentages.
+
+Usage:
+    from summary_pipeline import prepare_summary_input, generate_summary
+    
+    # From extraction outputs
+    input_data = prepare_summary_input(
+        metadata=yaml_metadata,
+        topics_markdown=topics_section,
+        themes_markdown=themes_section,
+        transcript=full_transcript,
+        target_word_count=500
+    )
+    
+    summary = generate_summary(input_data, api_client)
+"""
+
+import json
+import re
+from dataclasses import dataclass, field, asdict
+from typing import Optional
+
+
+@dataclass
+class TopicAllocation:
+    """Topic with word allocation for summary."""
+    name: str
+    percentage: int
+    word_allocation: int
+    sections: str
+    key_points: list[str] = field(default_factory=list)
+
+
+@dataclass 
+class OpeningSection:
+    word_allocation: int
+    stated_purpose: str
+    content_preview: list[str]
+
+
+@dataclass
+class BodySection:
+    word_allocation: int
+    topics: list[TopicAllocation]
+
+
+@dataclass
+class QASection:
+    include: bool
+    word_allocation: int
+    percentage: int
+    question_types: list[str]
+    notable_exchanges: list[str]
+
+
+@dataclass
+class ClosingSection:
+    word_allocation: int
+    conclusion: str
+    open_questions: str
+    future_direction: str
+
+
+@dataclass
+class SummaryInput:
+    metadata: dict
+    target_word_count: int
+    opening: OpeningSection
+    body: BodySection
+    qa: QASection
+    closing: ClosingSection
+    themes: list[dict] = field(default_factory=list)
+    
+    def to_json(self) -> str:
+        """Serialize for API prompt injection."""
+        data = {
+            "metadata": self.metadata,
+            "target_word_count": self.target_word_count,
+            "themes": self.themes,
+            "opening": asdict(self.opening),
+            "body": {
+                "word_allocation": self.body.word_allocation,
+                "topics": [asdict(t) for t in self.body.topics]
+            },
+            "qa": asdict(self.qa),
+            "closing": asdict(self.closing)
+        }
+        return json.dumps(data, indent=2)
+
+
+# === Word Allocation Logic ===
+
+def calculate_word_allocations(
+    total_words_for_summary: int,
+    topic_percentages: list[int],
+    qa_percentage: int
+) -> dict:
+    """Calculate word allocations for each section."""
+    include_qa = qa_percentage > 15
+    
+    # Base allocations
+    opening_pct = 0.14
+    closing_pct = 0.06  # Reduced from 0.10 to better match typical conclusion length
+    qa_pct = 0.10 if include_qa else 0.0
+    body_pct = 1.0 - opening_pct - closing_pct - qa_pct
+    
+    allocations = {
+        "opening": int(total_words_for_summary * opening_pct),
+        "body_total": int(total_words_for_summary * body_pct),
+        "qa": int(total_words_for_summary * qa_pct) if include_qa else 0,
+        "closing": int(total_words_for_summary * closing_pct),
+        "include_qa": include_qa
+    }
+    
+    # Allocate body words to topics proportionally
+    total_topic_pct = sum(topic_percentages)
+    if total_topic_pct > 0:
+        allocations["topic_allocations"] = [
+            int(allocations["body_total"] * (pct / total_topic_pct))
+            for pct in topic_percentages
+        ]
+    else:
+        # Equal distribution if no percentages
+        per_topic = allocations["body_total"] // len(topic_percentages) if topic_percentages else 0
+        allocations["topic_allocations"] = [per_topic] * len(topic_percentages)
+    
+    return allocations
+
+
+# === Extraction Parsing ===
+
+def parse_topics_with_details(
+    topics_markdown: str,
+    transcript: str
+) -> list[dict]:
+    """Parse Topics section and extract key points from transcript using robust block parsing."""
+    topics = []
+    
+    # Split by level 3 headers
+    blocks = [b.strip() for b in re.split(r'(?:^|\n)###\s+', topics_markdown) if b.strip()]
+    
+    print(f"DEBUG: Found {len(blocks)} potential topic blocks")
+    
+    for block in blocks:
+        lines = block.split('\n')
+        if not lines:
+            continue
+            
+        # First line is title
+        name = lines[0].strip()
+        
+        percentage = 0
+        sections = ""
+        description_lines = []
+        
+        metadata_found = False
+        
+        # Check lines for metadata pattern
+        for line in lines[1:]:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check if line looks like metadata (contains % and Section)
+            if re.search(r'\d+%', line) and re.search(r'Sections?', line, re.IGNORECASE):
+                pct_match = re.search(r'(\d+)\%', line)
+                sect_match = re.search(r'Sections?\s*[:\-]?\s*([0-9\-\s,]+)', line, re.IGNORECASE)
+                
+                if pct_match:
+                    percentage = int(pct_match.group(1))
+                    sections = sect_match.group(1).strip() if sect_match else ""
+                    metadata_found = True
+            else:
+                # If not metadata, it's part of description
+                # Clean up potential markdown formatting if it was just a wrapper line
+                if not re.match(r'^[\*_\-()[\]]+$', line): 
+                   description_lines.append(line)
+        
+        if metadata_found and percentage >= 5:
+            description = " ".join(description_lines).strip()
+            
+            # Extract key points from the description and transcript sections
+            key_points = extract_key_points(description, sections, transcript)
+            
+            topics.append({
+                "name": name,
+                "percentage": percentage,
+                "sections": sections,
+                "description": description,
+                "key_points": key_points
+            })
+        elif not metadata_found:
+             print(f"DEBUG: Metadata not found for block '{name[:20]}...'\n")
+    
+    # Sort by percentage descending
+    topics.sort(key=lambda t: t["percentage"], reverse=True)
+    return topics
+
+
+def extract_key_points(
+    description: str,
+    sections_str: str,
+    transcript: str
+) -> list[str]:
+    """Extract 3-5 key points for a topic from its description and transcript sections."""
+    key_points = []
+    
+    # Split description into sentences
+    sentences = re.split(r'(?<=[.!?])\s+', description)
+    
+    for sentence in sentences:
+        # Clean and validate
+        sentence = sentence.strip()
+        if len(sentence) > 20 and len(sentence) < 200:
+            # Simplify to key point format
+            point = simplify_to_key_point(sentence)
+            if point and point not in key_points:
+                key_points.append(point)
+    
+    # If we need more points, scan transcript sections
+    if len(key_points) < 3:
+        section_points = extract_points_from_sections(sections_str, transcript)
+        for point in section_points:
+            if point not in key_points:
+                key_points.append(point)
+                if len(key_points) >= 5:
+                    break
+    
+    return key_points[:5]
+
+
+def simplify_to_key_point(sentence: str) -> Optional[str]:
+    """Convert a sentence to a concise key point."""
+    # Remove common filler phrases
+    fillers = [
+        r'^The speaker\s+',
+        r'^Kerr\s+',
+        r'^He\s+',
+        r'^She\s+',
+        r'^This\s+',
+        r'^It\s+',
+        r'in this section,?\s*',
+        r'here,?\s*',
+    ]
+    
+    point = sentence
+    for filler in fillers:
+        point = re.sub(filler, '', point, flags=re.IGNORECASE)
+    
+    # Capitalize first letter
+    if point:
+        point = point[0].upper() + point[1:] if len(point) > 1 else point.upper()
+    
+    # Remove trailing period for consistency
+    point = point.rstrip('.')
+    
+    return point if len(point) > 15 else None
+
+
+def extract_points_from_sections(sections_str: str, transcript: str) -> list[str]:
+    """Extract key points from transcript sections using emphasis detection."""
+    points = []
+    
+    # Parse section range (e.g., "6-14" or "6, 8, 10")
+    section_nums = parse_section_range(sections_str)
+    
+    # Build pattern to match these sections
+    for section_num in section_nums:
+        pattern = rf'## Section {section_num}[^\n]*\n(.*?)(?=## Section|\Z)'
+        match = re.search(pattern, transcript, re.DOTALL)
+        
+        if match:
+            section_text = match.group(1)
+            
+            # Look for emphasis markers
+            emphasis_patterns = [
+                r'[Tt]he key (?:thing|point|idea)[^.]+\.',
+                r'[Ii]mportant(?:ly)?[^.]+\.',
+                r'[Tt]his (?:is|was|means)[^.]+\.',
+                r'[Ii] think[^.]+\.',
+                r'[Ww]hat\'s (?:interesting|significant)[^.]+\.',
+            ]
+            
+            for pattern in emphasis_patterns:
+                matches = re.findall(pattern, section_text)
+                for m in matches[:1]:  # Take first match per pattern
+                    point = simplify_to_key_point(m)
+                    if point and point not in points:
+                        points.append(point)
+        
+        if len(points) >= 3:
+            break
+    
+    return points
+
+
+def parse_section_range(sections_str: str) -> list[int]:
+    """Parse section string like '6-14' or '6, 8, 10' into list of ints."""
+    sections = []
+    
+    # Handle ranges like "6-14"
+    range_match = re.match(r'(\d+)\s*-\s*(\d+)', sections_str)
+    if range_match:
+        start, end = int(range_match.group(1)), int(range_match.group(2))
+        sections = list(range(start, end + 1))
+    else:
+        # Handle comma-separated like "6, 8, 10"
+        nums = re.findall(r'\d+', sections_str)
+        sections = [int(n) for n in nums]
+    
+    return sections
+
+
+def parse_themes(themes_markdown: str) -> list[dict]:
+    """Parse Key Themes using a robust line-based approach."""
+    themes = []
+    
+    # Regex to find the start of a theme
+    header_pattern = r'(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*'
+    
+    matches = list(re.finditer(header_pattern, themes_markdown))
+    print(f"DEBUG: Found {len(matches)} theme headers")
+    
+    for i, match in enumerate(matches):
+        name = match.group(2).strip()
+        
+        start_idx = match.end()
+        end_idx = matches[i+1].start() if i + 1 < len(matches) else len(themes_markdown)
+        
+        raw_content = themes_markdown[start_idx:end_idx].strip()
+        
+        lines = raw_content.split('\n')
+        description_lines = []
+        sections = ""
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check for Source Sections indicator
+            if "Source Section" in line:
+                # Extract sections if possible
+                sect_match = re.search(r'Sections:?\s*([^*]+)', line, re.IGNORECASE)
+                if sect_match:
+                    sections = sect_match.group(1).strip().rstrip('*_')
+                continue
+            
+            description_lines.append(line)
+            
+        description = " ".join(description_lines).strip()
+        
+        if name and description:
+            themes.append({
+                "name": name,
+                "description": description,
+                "sections": sections
+            })
+    
+    return themes
+
+
+# === Transcript Analysis ===
+
+def extract_opening_content(transcript: str, section_count: int) -> dict:
+    """Extract opening content: stated purpose and content preview."""
+    opening_sections = max(section_count // 10, 2)
+    
+    # Get text from opening sections
+    opening_text = ""
+    for i in range(1, opening_sections + 1):
+        pattern = rf'## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)'
+        match = re.search(pattern, transcript, re.DOTALL)
+        if match:
+            opening_text += match.group(1) + " "
+    
+    # Extract stated purpose
+    purpose_patterns = [
+        r"[Mm]y intent[^.]+\.",
+        r"[Ii]'m going to[^.]+\.",
+        r"[Tt]oday[^.]+(?:explore|discuss|examine|present)[^.]+\.",
+        r"[Tt]he purpose[^.]+\.",
+        r"[Ii] want to[^.]+\.",
+        r"[Ww]hat are[^.]+\?",
+    ]
+    
+    stated_purpose = "Not explicitly stated"
+    for pattern in purpose_patterns:
+        match = re.search(pattern, opening_text)
+        if match:
+            stated_purpose = match.group(0).strip()
+            break
+    
+    # Extract content preview (topics mentioned in opening)
+    preview_patterns = [
+        r"going to (?:talk about|discuss|explore|present)[^.]+\.",
+        r"two (?:presentations|parts|sections)[^.]+\.",
+        r"first[^.]+second[^.]+\.",
+    ]
+    
+    content_preview = []
+    for pattern in preview_patterns:
+        match = re.search(pattern, opening_text, re.IGNORECASE)
+        if match:
+            # Extract noun phrases as preview items
+            text = match.group(0)
+            nouns = re.findall(r'(?:the |a )?([a-z]+(?:\s+[a-z]+)?(?:\s+[a-z]+)?)', text.lower())
+            content_preview.extend([n for n in nouns if len(n) > 5][:3])
+    
+    return {
+        "stated_purpose": stated_purpose,
+        "content_preview": content_preview[:4]
+    }
+
+
+def extract_closing_content(transcript: str, section_count: int) -> dict:
+    """Extract closing content: conclusion, open questions, future direction."""
+    closing_start = max(section_count - (section_count // 10), section_count - 3)
+    
+    # Get text from closing sections
+    closing_text = ""
+    for i in range(closing_start, section_count + 1):
+        pattern = rf'## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)'
+        match = re.search(pattern, transcript, re.DOTALL)
+        if match:
+            closing_text += match.group(1) + " "
+    
+    # Extract conclusion
+    conclusion_patterns = [
+        r"[Ii] think we can safely say[^.]+\.",
+        r"[Ii]n conclusion[^.]+\.",
+        r"[Tt]o conclude[^.]+\.",
+        r"[Ss]o[,]? (?:the |my )?(?:answer|conclusion|point)[^.]+\.",
+        r"[Ii] (?:conclude|believe|think)[^.]+\.",
+    ]
+    
+    conclusion = "No explicit conclusion stated"
+    for pattern in conclusion_patterns:
+        match = re.search(pattern, closing_text)
+        if match:
+            conclusion = match.group(0).strip()
+            break
+    
+    # Extract open questions
+    question_patterns = [
+        r"[Qq]uestion[^.]+\?",
+        r"[Ww]hether[^.]+\.",
+        r"[Ii] don't know[^.]+\.",
+        r"[Rr]emains to be seen[^.]+\.",
+    ]
+    
+    open_questions = ""
+    for pattern in question_patterns:
+        match = re.search(pattern, closing_text)
+        if match:
+            open_questions = match.group(0).strip()
+            break
+    
+    # Extract future direction
+    future_patterns = [
+        r"[Ff]uture[^.]+\.",
+        r"[Nn]ext[^.]+\.",
+        r"[Pp]ath forward[^.]+\.",
+        r"[Ww]ill (?:ultimately |eventually )?[^.]+\.",
+    ]
+    
+    future_direction = ""
+    for pattern in future_patterns:
+        match = re.search(pattern, closing_text)
+        if match:
+            future_direction = match.group(0).strip()
+            break
+    
+    return {
+        "conclusion": conclusion,
+        "open_questions": open_questions,
+        "future_direction": future_direction
+    }
+
+
+def analyze_qa_content(transcript: str) -> dict:
+    """Analyze Q&A sections for summary input."""
+    # Identify Q&A sections
+    qa_indicators = [
+        r'\*\*[A-Z][a-z]+\s*:\*\*',  # **Name:** pattern
+        r'\*\*Dr[.\s]+\w+:\*\*',
+        r'\*\*Audience',
+        r'question',
+        r'comment'
+    ]
+    
+    sections = re.split(r'(## Section \d+[^\n]+\n)', transcript)
+    
+    qa_sections = []
+    total_sections = len([s for s in sections if s.startswith('## Section')])
+    
+    current_section = None
+    for part in sections:
+        if part.startswith('## Section'):
+            current_section = part
+        elif current_section:
+            qa_count = sum(len(re.findall(p, part, re.IGNORECASE)) for p in qa_indicators)
+            if qa_count >= 2:
+                qa_sections.append({
+                    "header": current_section,
+                    "content": part
+                })
+    
+    qa_percentage = int((len(qa_sections) / total_sections) * 100) if total_sections > 0 else 0
+    
+    # Extract question types and notable exchanges
+    question_types = []
+    notable_exchanges = []
+    
+    for qa in qa_sections:
+        content = qa["content"]
+        
+        # Extract question topics
+        topic_matches = re.findall(
+            r'(?:about|on|regarding|thinking about)\s+([^.,?]+)',
+            content,
+            re.IGNORECASE
+        )
+        question_types.extend([t.strip()[:50] for t in topic_matches[:2]])
+        
+        # Look for notable exchanges (longer responses with insight)
+        speaker_pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|\Z)'
+        speakers = re.findall(speaker_pattern, content, re.DOTALL)
+        
+        for speaker, text in speakers:
+            if len(text) > 200 and 'Dr' not in speaker:  # Audience member with substantial comment
+                # Extract first sentence as summary
+                first_sentence = re.match(r'[^.!?]+[.!?]', text.strip())
+                if first_sentence:
+                    notable_exchanges.append(f"{speaker.strip()}: {first_sentence.group(0)[:100]}")
+    
+    # Deduplicate
+    question_types = list(dict.fromkeys(question_types))[:6]
+    notable_exchanges = notable_exchanges[:3]
+    
+    return {
+        "percentage": qa_percentage,
+        "question_types": question_types,
+        "notable_exchanges": notable_exchanges
+    }
+
+
+def count_sections(transcript: str) -> int:
+    """Count total sections in formatted transcript."""
+    return len(re.findall(r'## Section \d+', transcript))
+
+
+# === Main Preparation Function ===
+
+def prepare_summary_input(
+    metadata: dict,
+    topics_markdown: str,
+    themes_markdown: str,
+    transcript: str,
+    word_count_for_allocation: int = 500
+) -> SummaryInput:
+    """
+    Prepare structured input for summary generation API call.
+    """
+    section_count = count_sections(transcript)
+    
+    # Parse extractions
+    topics = parse_topics_with_details(topics_markdown, transcript)
+    themes = parse_themes(themes_markdown)
+    
+    # Analyze Q&A
+    qa_analysis = analyze_qa_content(transcript)
+    
+    # Calculate word allocations
+    topic_percentages = [t["percentage"] for t in topics]
+    allocations = calculate_word_allocations(
+        word_count_for_allocation,
+        topic_percentages,
+        qa_analysis["percentage"]
+    )
+    
+    # Extract opening and closing content
+    opening_content = extract_opening_content(transcript, section_count)
+    closing_content = extract_closing_content(transcript, section_count)
+    
+    # Build content preview from topic names
+    content_preview = opening_content.get("content_preview", [])
+    if not content_preview:
+        content_preview = [t["name"][:40] for t in topics[:3]]
+    
+    # Build topic allocations
+    topic_allocations = []
+    for i, topic in enumerate(topics):
+        word_alloc = allocations["topic_allocations"][i] if i < len(allocations["topic_allocations"]) else 50
+        topic_allocations.append(TopicAllocation(
+            name=topic["name"],
+            percentage=topic["percentage"],
+            word_allocation=word_alloc,
+            sections=topic["sections"],
+            key_points=topic["key_points"]
+        ))
+    
+    return SummaryInput(
+        metadata=metadata,
+        target_word_count=word_count_for_allocation,
+        opening=OpeningSection(
+            word_allocation=allocations["opening"],
+            stated_purpose=opening_content["stated_purpose"],
+            content_preview=content_preview
+        ),
+        body=BodySection(
+            word_allocation=allocations["body_total"],
+            topics=topic_allocations
+        ),
+        qa=QASection(
+            include=allocations["include_qa"],
+            word_allocation=allocations["qa"],
+            percentage=qa_analysis["percentage"],
+            question_types=qa_analysis["question_types"],
+            notable_exchanges=qa_analysis["notable_exchanges"]
+        ),
+        closing=ClosingSection(
+            word_allocation=allocations["closing"],
+            conclusion=closing_content["conclusion"],
+            open_questions=closing_content["open_questions"],
+            future_direction=closing_content["future_direction"]
+        ),
+        themes=themes
+    )
+
+
+# === API Integration ===
+
+SUMMARY_PROMPT_TEMPLATE = """
+You will receive a JSON object with structured data extracted from a transcript, including word allocations for each section.
+
+Generate a summary as continuous prose with clearly separated paragraphs following this structure:
+
+**Opening Paragraph** (~{opening_words} words)
+- Identify speaker with credentials
+- State event type and context  
+- Present the stated_purpose as thesis
+- Preview major content areas (referencing the 'topics')
+
+**Body Paragraphs** (~{body_words} words total)
+For each topic in order:
+- Allocate approximately the specified word_allocation to each topic
+- State what the speaker addresses
+- Include 2-3 key points
+- **Weave in the Key Themes** where relevant to connect topics or deepen analysis
+- Connect to next topic with transitional phrase
+
+**Q&A Paragraph** (~{qa_words} words, {qa_instruction})
+- State types of questions
+- Mention 1-2 notable exchanges
+
+**Closing Paragraph** (~{closing_words} words)
+- State the conclusion
+- Mention open questions and future direction if present
+
+Constraints:
+- Third person, present tense
+- Chronological order—do not reorganize
+- No citations, quotations, or section numbers
+- No evaluation of content quality
+- No bullet points or lists
+- Preserve technical terminology
+- Output only the summary paragraphs—no headers or commentary
+
+Input data:
+{input_json}
+"""
+
+
+def generate_summary(
+    summary_input: SummaryInput,
+    api_client,
+    model: str = "claude-sonnet-4-20250514"
+) -> str:
+    """
+    Generate summary via API call.
+    """
+    qa_instruction = "include this section" if summary_input.qa.include else "skip this section"
+    
+    prompt = SUMMARY_PROMPT_TEMPLATE.format(
+        opening_words=summary_input.opening.word_allocation,
+        body_words=summary_input.body.word_allocation,
+        qa_words=summary_input.qa.word_allocation,
+        qa_instruction=qa_instruction,
+        closing_words=summary_input.closing.word_allocation,
+        input_json=summary_input.to_json()
+    )
+    
+    response = api_client.messages.create(
+        model=model,
+        max_tokens=1000,
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
+    )
+    
+    return response.content[0].text.strip()
+
+
+# === Example Usage ===
+
+if __name__ == "__main__":
+    sample_metadata = {
+        "speaker": "Dr. Michael Kerr",
+        "credentials": "50+ years practicing Bowen family systems theory",
+        "event_type": "webinar",
+        "title": "Roots of Bowen Theory",
+        "domain": "Bowen family systems theory"
+    }
+    
+    sample_topics = """
+### Paradigm Shifts in Astronomy: Geocentric to Heliocentric Models
+
+Kerr traces the 2,000-year journey from Aristotle's geocentric model through Aristarchus, 
+Copernicus, Kepler, Galileo, and Newton, culminating in Einstein. He emphasizes that paradigm 
+shifts can take extraordinarily long to achieve acceptance, drawing parallels to systems theory.
+
+*_(~28% of transcript; Sections 6-14)_*
+
+### Physical to Biological Carryover
+
+The presentation examines how principles from physics—particularly forces and 
+complementarity—have been preserved in biological systems. Kerr references Frank Wilczek's 
+work on fundamental particles and physical laws as universal and precise.
+
+*_(~22% of transcript; Sections 15-20)_*
+
+### Cancer Research Parallels with Bowen Theory
+
+Kerr discusses Marta Bertolaso's work on cancer as blocked ontogeny rather than mere cell 
+multiplication. He draws parallels between counterbalancing forces in cellular systems 
+and Bowen's individuality/togetherness concepts.
+
+*_(~18% of transcript; Sections 21-28)_*
+"""
+    
+    sample_themes = """
+1. **Cross-disciplinary foundations**: Physical sciences provide essential context for 
+understanding biological and behavioral phenomena, including Bowen theory concepts.
+*Source Sections: 4, 13, 15, 29*
+
+2. **Counterbalancing forces**: Differentiation and stability/togetherness operate as 
+opposing forces at multiple levels—cellular, individual, and family.
+*Source Sections: 3, 19, 25, 26, 28*
+"""
+    
+    sample_transcript = """
+## Section 1 – Introduction
+My intent here today is to explore where the roots of Bowen theory reside.
+
+## Section 32 – Amy's Question
+**Amy:** I was thinking about chronic anxiety and this idea of regression.
+**Dr. Kerr:** Yeah, I think something equivalent has got to be there.
+
+## Section 60 – Conclusion
+I think we can safely say the answers extend beyond the boundaries of our species.
+"""
+    
+    # Prepare input
+    summary_input = prepare_summary_input(
+        metadata=sample_metadata,
+        topics_markdown=sample_topics,
+        themes_markdown=sample_themes,
+        transcript=sample_transcript,
+        target_word_count=500
+    )
+    
+    print("Prepared input:")
+    print(summary_input.to_json())
+    print("\n" + "="*50 + "\n")
+    print("Word allocations:")
+    print(f"  Opening: {summary_input.opening.word_allocation}")
+    print(f"  Body: {summary_input.body.word_allocation}")
+    for topic in summary_input.body.topics:
+        print(f"    - {topic.name[:40]}...: {topic.word_allocation} words")
+    print(f"  Q&A: {summary_input.qa.word_allocation} (include: {summary_input.qa.include})")
+    print(f"  Closing: {summary_input.closing.word_allocation}")
