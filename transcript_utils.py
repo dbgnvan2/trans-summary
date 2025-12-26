@@ -8,10 +8,12 @@ import os
 import time
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any # Added List, Dict, Any for dataclasses
 from difflib import SequenceMatcher
 from html import unescape
 import yaml
+from dataclasses import dataclass, field # Added for MockMessage
+
 from anthropic import (
     APIError,
     RateLimitError,
@@ -46,6 +48,93 @@ def setup_logging(script_name: str) -> logging.Logger:
     logger = logging.getLogger(script_name)
     logger.info("Logging initialized: %s", log_file)
     return logger
+
+
+@dataclass
+class MockContentBlock:
+    type: str
+    text: str
+
+@dataclass
+class MockUsage:
+    input_tokens: int
+    output_tokens: int
+
+@dataclass
+class MockMessage:
+    id: str = "msg_mock"
+    type: str = "message"
+    role: str = "assistant"
+    model: str = ""
+    stop_reason: Optional[str] = None
+    content: list[MockContentBlock] = field(default_factory=list)
+    usage: MockUsage = field(default_factory=lambda: MockUsage(input_tokens=0, output_tokens=0))
+    stop_sequence: Optional[str] = None # Added for completeness
+
+
+def _process_stream_response(stream_response, logger: Optional[logging.Logger] = None) -> Optional[MockMessage]:
+    """
+    Processes a MessageStream response and reconstructs a Message object.
+    """
+    full_text = []
+    final_message_data: Dict[str, Any] = {} # Use Dict[str, Any] for flexibility
+    
+    try:
+        # Iterate over stream events
+        for event in stream_response:
+            if logger:
+                logger.debug(f"Stream event received: {event.type}")
+            
+            if event.type == "message_start":
+                final_message_data['id'] = event.message.id
+                final_message_data['type'] = event.message.type
+                final_message_data['role'] = event.message.role
+                final_message_data['model'] = event.message.model
+            elif event.type == "content_block_delta":
+                if event.delta.type == "text_delta":
+                    full_text.append(event.delta.text)
+            elif event.type == "message_delta":
+                if event.delta.stop_reason:
+                    final_message_data['stop_reason'] = event.delta.stop_reason
+                if event.delta.stop_sequence:
+                    final_message_data['stop_sequence'] = event.delta.stop_sequence
+                if event.usage:
+                    # Update usage if provided in message_delta
+                    if hasattr(event.usage, 'input_tokens'):
+                        final_message_data['usage_input_tokens'] = event.usage.input_tokens
+                    if hasattr(event.usage, 'output_tokens'):
+                        final_message_data['usage_output_tokens'] = event.usage.output_tokens
+            elif event.type == "message_stop":
+                pass # Stream finished
+            else:
+                if logger:
+                    logger.warning(f"Unhandled stream event type: {event.type}")
+
+        # Construct the MockMessage
+        if not final_message_data:
+            if logger:
+                logger.error("No message data collected from stream.")
+            return None
+
+        mock_message = MockMessage(
+            id=final_message_data.get('id', 'msg_mock'),
+            type=final_message_data.get('type', 'message'),
+            role=final_message_data.get('role', 'assistant'),
+            model=final_message_data.get('model', ''),
+            stop_reason=final_message_data.get('stop_reason'),
+            stop_sequence=final_message_data.get('stop_sequence')
+        )
+        mock_message.content.append(MockContentBlock(type="text", text="".join(full_text)))
+        mock_message.usage = MockUsage(
+            input_tokens=final_message_data.get('usage_input_tokens', 0),
+            output_tokens=final_message_data.get('usage_output_tokens', 0)
+        )
+        return mock_message
+        
+    except Exception as e:
+        if logger:
+            logger.error(f"Error processing stream response: {e}", exc_info=True)
+        return None
 
 
 def validate_api_key() -> str:
@@ -270,7 +359,9 @@ def call_claude_with_retry(
                     temperature=temperature,
                     messages=messages
                 ) as stream_response:
-                    message = stream_response.until_done()
+                    message = _process_stream_response(stream_response, logger)
+                    if message is None:
+                        raise RuntimeError("Failed to process streamed message.")
             else:
                 message = client.messages.create(
                     model=model,

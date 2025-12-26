@@ -320,13 +320,13 @@ class TranscriptProcessorGUI:
                                 skip_extracts_summary=False, 
                                 skip_terms=False, 
                                 skip_blog=True,
-                                trans_summary_logger=self.logger)
+                                logger=self.logger)
 
     def do_generate_structured_summary(self):
         if not self.base_name:
             return
         self.log("STEP 4: Generating Structured Summary...")
-        self.run_task_in_thread(pipeline.generate_structured_summary, base_name=self.base_name, summary_target_word_count=500, gen_summary_logger=self.logger)
+        self.run_task_in_thread(pipeline.generate_structured_summary, self.base_name, summary_target_word_count=500, gen_summary_logger=self.logger)
 
     def do_validate_summary(self):
         if not self.base_name:
@@ -417,7 +417,7 @@ class TranscriptProcessorGUI:
         # Run all parts (skips=False)
         if not pipeline.summarize_transcript(f"{self.base_name}_yaml.md",
                                              config.DEFAULT_MODEL, "Family Systems", "General public",
-                                             False, False, False, trans_summary_logger=self.logger):
+                                             False, False, False, logger=self.logger):
             return False
 
         # Step 4: Generate Summary
