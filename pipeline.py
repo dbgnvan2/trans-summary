@@ -19,6 +19,7 @@ from transcript_utils import (
     extract_section,
     extract_bowen_references,
     estimate_token_count,
+    check_token_budget, # <--- Added this import
 )
 import anthropic
 import os
@@ -127,6 +128,14 @@ def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logg
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
+
+        # Construct full prompt to check token budget before API call
+        full_prompt_for_budget_check = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
+        MAX_TOKENS_FOR_FORMATTING = 8192 # This should match max_tokens in format_transcript_with_claude
+
+        if not check_token_budget(full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger):
+            logger.error("Token budget exceeded for formatting. Aborting API call.")
+            return False
 
         formatted_content = format_transcript_with_claude(
             raw_transcript, prompt_template, model=model, logger=logger)
