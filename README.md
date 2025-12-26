@@ -14,14 +14,89 @@ A comprehensive Python application for processing academic and professional tran
 
 ## Workflow
 
+
+
 The pipeline consists of 6 main stages:
 
-1. **Format & Validate** - Clean and structure raw transcripts
-2. **Add YAML** - Add metadata front matter
-3. **Generate Summaries** - Create extracts-summary with abstract, topics, and key items
-4. **Generate Blog** - Produce SEO-optimized blog posts
-5. **Validate Abstracts** - Iteratively improve abstract quality
-6. **Generate Web-PDF** - Create HTML and PDF outputs
+
+
+1.  **Format & Validate** - Clean and structure raw transcripts
+
+2.  **Add YAML** - Add metadata front matter
+
+3.  **Generate Summaries** - Create extracts-summary with abstract, topics, and key items
+
+4.  **Generate Blog** - Produce SEO-optimized blog posts
+
+5.  **Validate Abstracts** - Iteratively improve abstract quality
+
+6.  **Generate Web-PDF** - Create HTML and PDF outputs
+
+
+
+## Detailed Workflow
+
+
+
+The full processing pipeline, as implemented in the GUI, follows these steps:
+
+
+
+1.  **Format & Validate**
+
+    *   **Format Transcript**: Cleans and structures the raw text file using the Claude API. (`transcript_format.py`)
+
+    *   **Validate Formatting**: Ensures no words were lost during formatting by comparing the source and formatted files. (`transcript_validate_format.py`)
+
+
+
+2.  **Add YAML**
+
+    *   Adds a YAML front-matter block to the formatted transcript for metadata. (`transcript_add_yaml.py`)
+
+
+
+3.  **Generate Summaries & Initial Webpage**
+
+    *   **Create Extracts Summary**: Generates a summary document containing an abstract, key discussion points, and emphasized items. (`transcript_summarize.py`)
+
+    *   **Validate Emphasis & Bowen Items**: Checks that all quoted "emphasis" and "Bowen" items in the summary exist in the original transcript. (`transcript_validate_emphasis.py`, `transcript_validate_bowen.py`)
+
+    *   **Extract Key Terms**: Identifies and defines key terminology from the transcript. (`transcript_summarize.py`)
+
+    *   **Merge Terms into Summary**: Merges the key terms into the main extracts-summary document. (`transcript_merge_archival.py`)
+
+    *   **Generate Main Webpage**: Creates the primary, two-column HTML version of the transcript with a sidebar. (`transcript_to_webpage.py`)
+
+
+
+4.  **Create Blog Post**
+
+    *   Generates a separate, SEO-optimized blog post from the transcript content. (`transcript_summarize.py`)
+
+
+
+5.  **Validate Abstracts**
+
+    *   Iteratively refines and scores the generated abstract for quality, aiming for a score of 4.5/5.0 or higher. (`transcript_validate_abstract.py`)
+
+
+
+6.  **Generate Final Outputs (Web & PDF)**
+
+    *   **Generate Simple Webpage**: Creates a single-column, simplified HTML version of the transcript. (`transcript_to_simple_webpage.py`)
+
+    *   **Validate Webpage Content**: Verifies that all content from the formatted transcript is present in the simple webpage. (`transcript_validate_webpage.py`)
+
+    *   **Generate PDF**: Creates a PDF version of the transcript from the simple webpage. (`transcript_to_pdf.py`)
+
+
+
+7.  **Archive Source File**
+
+    *   Moves the original source `.txt` file to the `processed` directory to prevent reprocessing.
+
+
 
 ## Quick Start
 
@@ -295,6 +370,7 @@ Run with: `python transcript_validate_webpage.py "basename" [--simple]`
 ```
 trans-summary/
 ├── transcript_*.py        # Core processing scripts
+├── ARCHITECTURE_DESIGN.md # High-level architecture and design overview
 ├── CODE_REVIEW.md         # Detailed code review and recommendations
 ├── DOCUMENT_REFERENCE.md  # Output format specifications
 ├── requirements.txt       # Python dependencies
