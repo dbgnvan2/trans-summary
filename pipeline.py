@@ -92,7 +92,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         client=client,
         model=model,
         messages=[{"role": "user", "content": full_prompt}],
-        max_tokens=8192,
+        max_tokens=32000,
         logger=logger,
     )
 
@@ -131,7 +131,7 @@ def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logg
 
         # Construct full prompt to check token budget before API call
         full_prompt_for_budget_check = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
-        MAX_TOKENS_FOR_FORMATTING = 8192 # This should match max_tokens in format_transcript_with_claude
+        MAX_TOKENS_FOR_FORMATTING = 32000 # This should match max_tokens in format_transcript_with_claude
 
         if not check_token_budget(full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger):
             logger.error("Token budget exceeded for formatting. Aborting API call.")
@@ -286,7 +286,7 @@ def _generate_summary_with_claude(prompt: str, model: str, temperature: float, l
         client=client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=8192,
+        max_tokens=32000,
         temperature=temperature,
         logger=logger,
     )
