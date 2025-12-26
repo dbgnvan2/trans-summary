@@ -389,6 +389,10 @@ def call_claude_with_retry(
             if logger:
                 logger.error(f"API error: {e}")
             raise
+        except Exception as e:
+            if logger:
+                logger.error(f"An unexpected error occurred during Claude API call: {e}", exc_info=True)
+            raise RuntimeError(f"An unexpected error occurred during Claude API call: {e}") from e
 
 
 def parse_filename_metadata(filename: str) -> dict:
