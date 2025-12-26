@@ -236,6 +236,7 @@ def call_claude_with_retry(
     messages: list,
     max_tokens: int,
     temperature: float = 0.3,
+    stream: bool = False, # Added stream parameter
     max_retries: int = 3,
     logger: Optional[logging.Logger] = None
 ):
@@ -248,6 +249,7 @@ def call_claude_with_retry(
         messages: Message list
         max_tokens: Maximum tokens
         temperature: Temperature setting
+        stream: Whether to use streaming for the API call (required for long requests)
         max_retries: Maximum retry attempts
         logger: Optional logger
 
@@ -261,12 +263,24 @@ def call_claude_with_retry(
     """
     for attempt in range(max_retries):
         try:
-            message = client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                messages=messages
-            )
+            if stream:
+                with client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    messages=messages
+                ) as stream_response:
+                    # Consume the stream to ensure completion and get the final message
+                    for chunk in stream_response:
+                        pass
+                    message = stream_response.current_message
+            else:
+                message = client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    messages=messages
+                )
 
             # Comprehensive response validation
             try:

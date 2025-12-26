@@ -93,6 +93,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         model=model,
         messages=[{"role": "user", "content": full_prompt}],
         max_tokens=32000,
+        stream=True, # Added stream=True
         logger=logger,
     )
 
@@ -288,6 +289,7 @@ def _generate_summary_with_claude(prompt: str, model: str, temperature: float, l
         messages=[{"role": "user", "content": prompt}],
         max_tokens=32000,
         temperature=temperature,
+        stream=True, # Added stream=True
         logger=logger,
     )
     return message.content[0].text
