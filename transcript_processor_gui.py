@@ -417,7 +417,7 @@ class TranscriptProcessorGUI:
         # Run all parts (skips=False)
         if not pipeline.summarize_transcript(f"{self.base_name}_yaml.md",
                                              config.DEFAULT_MODEL, "Family Systems", "General public",
-                                             False, False, False, logger=self.logger):
+                                             False, False, False, trans_summary_logger=self.logger):
             return False
 
         # Step 4: Generate Summary
