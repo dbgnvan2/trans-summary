@@ -279,6 +279,8 @@ def call_claude_with_retry(
                     messages=messages
                 )
 
+            if logger:
+                logger.debug(f"DEBUG: message object before checks: {message}")
             if message is None:
                 raise RuntimeError("Claude API call returned an empty message object (None).")
             if not hasattr(message, 'type'):
