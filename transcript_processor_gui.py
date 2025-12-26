@@ -244,19 +244,19 @@ class TranscriptProcessorGUI:
         self.status_label.config(text=message, foreground=color)
         self.root.update()
 
-    def run_task_in_thread(self, task_function, *args):
+    def run_task_in_thread(self, task_function, *args, **kwargs):
         self.processing = True
         self.progress.start()
         self.update_button_states()
 
         thread = threading.Thread(
-            target=self._execute_task, args=(task_function, *args))
+            target=self._execute_task, args=(task_function, *args), kwargs=kwargs)
         thread.daemon = True
         thread.start()
 
-    def _execute_task(self, task_function, *args):
+    def _execute_task(self, task_function, *args, **kwargs):
         try:
-            success = task_function(*args)
+            success = task_function(*args, **kwargs)
             if success:
                 self.set_status(f"Task completed successfully.", "green")
                 self.log(f"✅ {task_function.__name__} completed successfully.")
