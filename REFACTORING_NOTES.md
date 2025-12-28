@@ -91,3 +91,28 @@ Consider adding to `transcript_utils.py`:
 - `extract_all_metadata()` - One function to extract all sections
 - Configuration file for section names and patterns
 - Schema validation for extracted content
+
+## HTML Generation Refactoring
+
+### Problem
+`pipeline.py` was becoming a monolithic file (~2500 lines) containing business logic for formatting, summarization, validation, AND extensive HTML generation code for webpages and PDFs. This violated the Single Responsibility Principle and made the file hard to navigate.
+
+### Solution
+Moved all HTML, Webpage, and PDF generation logic to a new dedicated module: `html_generator.py`.
+
+### Files Updated
+- **`html_generator.py`**: New module containing:
+    - `generate_webpage()` & `_generate_html_page()`
+    - `generate_simple_webpage()` & `_generate_simple_html_page()`
+    - `generate_pdf()` & `_generate_html_for_pdf()`
+    - `_highlight_html_content()` (Moved complex highlighting logic here)
+    - Helper functions for metadata extraction.
+- **`pipeline.py`**:
+    - Removed ~600 lines of code.
+    - Imported generation functions from `html_generator` to maintain backward compatibility.
+    - Cleaned up unused imports (`weasyprint`, `html.escape`, etc.).
+
+### Benefits
+1. **Reduced Complexity**: `pipeline.py` is now focused on orchestration and core processing logic.
+2. **Improved Maintainability**: HTML structure and styling logic is isolated in one file.
+3. **Testability**: `html_generator.py` can be tested independently (added `tests/test_html_generator.py`).

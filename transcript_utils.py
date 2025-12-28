@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Optional
 from difflib import SequenceMatcher
 from html import unescape
-import yaml
 from anthropic import (
     APIError,
     RateLimitError,

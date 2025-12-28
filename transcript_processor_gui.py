@@ -249,29 +249,30 @@ class TranscriptProcessorGUI:
         self.status_label.config(text=message, foreground=color)
         self.root.update()
 
-    def run_task_in_thread(self, task_function, *args):
+    def run_task_in_thread(self, task_function, *args, task_name=None):
         self.processing = True
         self.progress.start()
         self.update_button_states()
 
         thread = threading.Thread(
-            target=self._execute_task, args=(task_function, *args))
+            target=self._execute_task, args=(task_function, task_name, *args))
         thread.daemon = True
         thread.start()
 
-    def _execute_task(self, task_function, *args):
+    def _execute_task(self, task_function, task_name, *args):
+        name = task_name if task_name else task_function.__name__
         try:
             success = task_function(*args)
             if success:
                 self.set_status(f"Task completed successfully.", "green")
-                self.log(f"✅ {task_function.__name__} completed successfully.")
+                self.log(f"✅ {name} completed successfully.")
             else:
                 self.set_status(f"Task failed.", "red")
                 self.log(
-                    f"❌ {task_function.__name__} failed. Check logs for details.")
+                    f"❌ {name} failed. Check logs for details.")
         except Exception as e:
             self.set_status(f"Error: {e}", "red")
-            self.log(f"❌ Error during {task_function.__name__}: {e}")
+            self.log(f"❌ Error during {name}: {e}")
         finally:
             self.processing = False
             self.progress.stop()
@@ -316,9 +317,9 @@ class TranscriptProcessorGUI:
                 messagebox.showwarning(
                     "Not Ready", "Please format and add YAML first.")
                 return
-        self.log("STEP 3: Generating Summaries...")
+        self.log("STEP 3: Generating Key Items...")
         self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
-                                config.DEFAULT_MODEL, "Family Systems", "General public", False, False, True, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
+                                config.DEFAULT_MODEL, "Family Systems", "General public", False, False, True, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Key Item Generation")
 
     def do_generate_structured_summary(self):
         if not self.base_name:
@@ -339,7 +340,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 8: Generating Blog Post...")
         self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
-                                config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
+                                config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Blog Post generation")
 
     def do_generate_structured_abstract(self):
         if not self.base_name:

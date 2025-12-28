@@ -35,7 +35,7 @@ MAX_TOKENS_AUDIT = 2000
 
 # Prompt Filenames
 PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v11.md"
-PROMPT_EXTRACTS_FILENAME = "Transcript Summary Abstract Key Items v1.md"
+PROMPT_EXTRACTS_FILENAME = "Transcript Summary Key Items v1.md"
 PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
 PROMPT_BLOG_FILENAME = "Transcript Summary Blog Post v1.md"
 PROMPT_ABSTRACT_VALIDATION_FILENAME = "abstract_quality_assessment_prompt_v2.md"
