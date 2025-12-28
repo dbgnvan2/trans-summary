@@ -6,6 +6,7 @@ import sys
 import re
 from pathlib import Path
 from difflib import SequenceMatcher
+import config
 
 # Import from existing modules
 from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
@@ -89,19 +90,14 @@ def main():
 
     base_name = sys.argv[1]
 
-    # File paths following the actual script structure
-    transcripts_base = Path(
-        os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-    summaries_dir = transcripts_base / "summaries"
-    formatted_dir = transcripts_base / "formatted"
+    topics_themes_file = config.SUMMARIES_DIR / \
+        f"{base_name} - topics-themes.md"
+    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
 
-    extracts_file = summaries_dir / f"{base_name} - extracts-summary.md"
-    emphasis_file = summaries_dir / f"{base_name} - emphasis-items.md"
-    formatted_file = formatted_dir / f"{base_name} - formatted.md"
-
-    if not extracts_file.exists() and not emphasis_file.exists():
+    if not topics_themes_file.exists() and not emphasis_file.exists():
         print(
-            f"Error: {extracts_file} and {emphasis_file} not found")
+            f"Error: {topics_themes_file} and {emphasis_file} not found")
         sys.exit(1)
 
     if not formatted_file.exists():
@@ -109,10 +105,10 @@ def main():
         sys.exit(1)
 
     print(f"Using files:")
-    source_file = emphasis_file if emphasis_file.exists() else extracts_file
-    print(f"  Extracts: {source_file}")
+    source_file = emphasis_file if emphasis_file.exists() else topics_themes_file
+    print(f"  Topics-Themes: {source_file}")
 
-    # Load emphasis items from extracts-summary
+    # Load emphasis items from topics-themes
     with open(source_file, 'r', encoding='utf-8') as f:
         content = f.read()
 

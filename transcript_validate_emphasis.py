@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate emphasis items from archival summary against formatted transcript.
+Validate emphasis items from topics-themes against formatted transcript.
 Checks that quoted text actually exists in the source document.
 """
 
@@ -10,6 +10,7 @@ from pathlib import Path
 from difflib import SequenceMatcher
 
 from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
+
 
 def normalize_text(text):
     """Normalize text for comparison by removing tags and punctuation."""
@@ -38,10 +39,10 @@ def normalize_text(text):
     return text.strip()
 
 
-def extract_emphasis_quotes(extracts_summary_file):
+def extract_emphasis_quotes(topics_themes_file):
     """Extract all quoted text from Emphasized Items section."""
-    extracts_path = Path(extracts_summary_file)
-    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    extracts_path = Path(topics_themes_file)
+    stem = extracts_path.stem.replace(' - topics-themes', '')
     emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
 
     source_file = emphasis_file if emphasis_file.exists() else extracts_path
@@ -91,15 +92,15 @@ def find_best_match(needle, haystack, threshold=0.85):
     return (best_ratio, None)
 
 
-def validate_emphasis_items(formatted_file, extracts_summary_file):
+def validate_emphasis_items(formatted_file, topics_themes_file):
     """Validate all emphasis quotes exist in the formatted transcript."""
 
     # Read formatted transcript
     with open(formatted_file, 'r', encoding='utf-8') as f:
         formatted_content = f.read()
 
-    # Extract emphasis quotes from archival
-    quotes = extract_emphasis_quotes(extracts_summary_file)
+    # Extract emphasis quotes from topics-themes
+    quotes = extract_emphasis_quotes(topics_themes_file)
 
     if not quotes:
         print("❌ No emphasis quotes found to validate")
@@ -153,38 +154,51 @@ def validate_emphasis_items(formatted_file, extracts_summary_file):
 
 if __name__ == "__main__":
     import sys
-
-    TRANSCRIPTS_BASE = Path(os.environ.get(
-        'TRANSCRIPTS_DIR', Path.home() / 'transcripts'))
+    import config
 
     if len(sys.argv) < 2:
         print("Usage: python validate_emphasis.py <base_filename>")
         print("Example: python validate_emphasis.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
+  if    len(sys.argv) < 2:
+        print("Usage: python validate_emphasis.py <base_filename>")
+        print("Example: python validate_emphasis.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
+  if    len(sys.argv) < 2:
+        print("Usage: python validate_emphasis.py <base_filename>")
+        print("Example: python validate_emphasis.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
+        sys.exit(1)
+nfig.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+
+    # Check files exist
+    if ntformatted_file.exists():
+        print(f"❌ Formatted file not found: {formatted_file}")
         sys.exit(1)
 
     base_name = sys.argv[1]
 
-    # Construct file paths
-    formatted_file = TRANSCRIPTS_BASE / \
-        "formatted" / f"{base_name} - formatted.md"
-    extracts_summary_file = TRANSCRIPTS_BASE / \
-        "summaries" / f"{base_name} - extracts-summary.md"
-    emphasis_file = TRANSCRIPTS_BASE / \
-        "summaries" / f"{base_name} - emphasis-items.md"
+    # Construct file pnfig.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+
+    # Check files exist
+    if nattformatted_file.exists():
+        print(f"❌ Formatted file not found: {formatted_file}")
+        sys.exit(1)
+hs
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    topics_themes_file = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
+    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
 
     # Check files exist
     if not formatted_file.exists():
         print(f"❌ Formatted file not found: {formatted_file}")
         sys.exit(1)
 
-    if not extracts_summary_file.exists() and not emphasis_file.exists():
+    if not topics_themes_file.exists() and not emphasis_file.exists():
         print(
-            f"❌ Extracts-summary file not found: {extracts_summary_file}")
+            f"❌ Topics-Themes file not found: {topics_themes_file}")
         sys.exit(1)
 
     print(f"Validating emphasis items...")
     print(f"  Formatted: {formatted_file.name}")
-    archival_name = emphasis_file.name if emphasis_file.exists() else extracts_summary_file.name
+    archival_name = emphasis_file.name if emphasis_file.exists() else topics_themes_file.name
     print(f"  Archival:  {archival_name}\n")
 
-    validate_emphasis_items(formatted_file, extracts_summary_file)
+    validate_emphasis_items(formatted_file, topics_themes_file)

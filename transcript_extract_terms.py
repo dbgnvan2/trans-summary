@@ -15,71 +15,38 @@ import os
 from pathlib import Path
 import anthropic
 import config
-
-
-# Get the directory of the currently executing script to determine project root
-PROJECT_ROOT = Path(__file__).resolve().parent
-
-# Prompts are now stored inside the project
-PROMPTS_DIR = PROJECT_ROOT / "prompts"
-
-# External transcript directories remain the same
-TRANSCRIPTS_BASE = Path(
-    os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
-
-# Prompt file name
-KEY_TERMS_PROMPT = "Transcript Summary Key Terms v1.md"
+from transcript_utils import parse_filename_metadata
 
 
 def load_prompt() -> str:
     """Load the key terms extraction prompt template."""
-    prompt_path = PROMPTS_DIR / KEY_TERMS_PROMPT
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_KEY_TERMS_FILENAME
     if not prompt_path.exists():
         raise FileNotFoundError(
             f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: $TRANSCRIPTS_DIR/prompts/{KEY_TERMS_PROMPT}"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_KEY_TERMS_FILENAME}"
         )
     return prompt_path.read_text(encoding='utf-8')
 
 
 def load_formatted_transcript(filename: str) -> str:
     """Load the formatted transcript."""
+    # Allow - yaml.md as well
+    if filename.endswith(" - yaml.md"):
+        pass
     # Handle both with and without - formatted suffix
-    if not filename.endswith(" - formatted.md"):
+    elif not filename.endswith(" - formatted.md"):
         # Strip .txt or other extensions and add - formatted.md
         base = filename.replace(".txt", "").replace(".md", "")
         filename = f"{base} - formatted.md"
 
-    transcript_path = FORMATTED_DIR / filename
+    transcript_path = config.FORMATTED_DIR / filename
     if not transcript_path.exists():
         raise FileNotFoundError(
             f"Formatted transcript not found: {transcript_path}\n"
-            f"Expected location: $TRANSCRIPTS_DIR/formatted/{filename}"
+            f"Expected location: {config.FORMATTED_DIR}/{filename}"
         )
     return transcript_path.read_text(encoding='utf-8')
-
-
-def parse_filename(filename: str) -> dict:
-    """Extract metadata from filename."""
-    stem = Path(filename).stem
-    # Remove " - formatted" suffix if present
-    stem = stem.replace(" - formatted", "")
-
-    parts = [p.strip() for p in stem.split(" - ")]
-
-    if len(parts) < 3:
-        raise ValueError(
-            f"Filename must follow pattern 'Title - Presenter - Date', got: {filename}"
-        )
-
-    return {
-        "title": parts[0],
-        "author": parts[1],
-        "date": parts[2],
-        "filename": filename
-    }
 
 
 def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_template: str) -> str:
@@ -106,7 +73,7 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
 
     message = client.messages.create(
         model=config.DEFAULT_MODEL,
-        max_tokens=8192,
+        max_tokens=config.MAX_TOKENS_EXTRACTION,
         temperature=0.4,  # Moderate temperature for balanced extraction/synthesis
         messages=[
             {"role": "user", "content": prompt}
@@ -136,10 +103,10 @@ def save_key_terms(content: str, original_filename: str) -> Path:
     stem = Path(original_filename).stem
     stem = stem.replace(" - formatted", "")
     output_filename = f"{stem} - key-terms.md"
-    output_path = SUMMARIES_DIR / output_filename
+    output_path = config.SUMMARIES_DIR / output_filename
 
     # Ensure summaries directory exists
-    SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+    config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
 
     # Clean up any marker tags that might have appeared
     content = content.replace("<<<TERM_START>>>", "")
@@ -176,7 +143,7 @@ def main():
         transcript = load_formatted_transcript(args.formatted_filename)
 
         # Parse metadata
-        metadata = parse_filename(args.formatted_filename)
+        metadata = parse_filename_metadata(args.formatted_filename)
         print("Transcript metadata:", flush=True)
         print(f"  Title: {metadata['title']}", flush=True)
         print(f"  Author: {metadata['author']}", flush=True)

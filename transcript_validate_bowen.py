@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Validate Bowen reference quotes from archival summary against formatted transcript.
+Validate Bowen reference quotes from topics-themes against formatted transcript.
 Checks that quoted text actually exists in the source document.
 """
 
@@ -39,10 +39,10 @@ def normalize_text(text):
     return text.strip()
 
 
-def extract_bowen_quotes(extracts_summary_file):
+def extract_bowen_quotes(topics_themes_file):
     """Extract all quoted text from Bowen References section."""
-    extracts_path = Path(extracts_summary_file)
-    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    extracts_path = Path(topics_themes_file)
+    stem = extracts_path.stem.replace(' - topics-themes', '')
     bowen_file = extracts_path.parent / f"{stem} - bowen-references.md"
 
     source_file = bowen_file if bowen_file.exists() else extracts_path
@@ -92,12 +92,12 @@ def find_best_match(needle, haystack, threshold=0.85):
     return (best_ratio, None)
 
 
-def validate_bowen_items(formatted_file, extracts_summary_file):
+def validate_bowen_items(formatted_file, topics_themes_file):
     """Validate all Bowen reference quotes exist in the formatted transcript."""
     with open(formatted_file, 'r', encoding='utf-8') as f:
         formatted_content = f.read()
 
-    quotes = extract_bowen_quotes(extracts_summary_file)
+    quotes = extract_bowen_quotes(topics_themes_file)
 
     if not quotes:
         print("❌ No Bowen reference quotes found to validate")
@@ -149,9 +149,7 @@ def validate_bowen_items(formatted_file, extracts_summary_file):
 
 if __name__ == "__main__":
     import sys
-
-    TRANSCRIPTS_BASE = Path(os.environ.get(
-        'TRANSCRIPTS_DIR', Path.home() / 'transcripts'))
+    import config
 
     if len(sys.argv) < 2:
         print("Usage: python transcript_validate_bowen.py <base_filename>")
@@ -160,23 +158,22 @@ if __name__ == "__main__":
 
     base_name = sys.argv[1]
 
-    formatted_file = TRANSCRIPTS_BASE / \
-        "formatted" / f"{base_name} - formatted.md"
-    extracts_summary_file = TRANSCRIPTS_BASE / \
-        "summaries" / f"{base_name} - extracts-summary.md"
-    bowen_file = TRANSCRIPTS_BASE / \
-        "summaries" / f"{base_name} - bowen-references.md"
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    topics_themes_file = config.SUMMARIES_DIR / \
+        f"{base_name} - topics-themes.md"
+    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
 
     if not formatted_file.exists():
         print(f"❌ Formatted file not found: {formatted_file}")
         sys.exit(1)
 
-    if not extracts_summary_file.exists() and not bowen_file.exists():
-        print(f"❌ Extracts-summary file not found: {extracts_summary_file}")
+    if not topics_themes_file.exists() and not bowen_file.exists():
+        print(f"❌ Topics-Themes file not found: {topics_themes_file}")
         sys.exit(1)
 
     print(f"Validating Bowen references...")
     print(f"  Formatted: {formatted_file.name}")
-    print(f"  Archival:  {bowen_file.name if bowen_file.exists() else extracts_summary_file.name}\n")
+    print(
+        f"  Archival:  {bowen_file.name if bowen_file.exists() else topics_themes_file.name}\n")
 
-    validate_bowen_items(formatted_file, extracts_summary_file)
+    validate_bowen_items(formatted_file, topics_themes_file)

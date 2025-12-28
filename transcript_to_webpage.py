@@ -8,7 +8,29 @@ Usage:
 
 import argparse
 import sys
+from pathlib import Path
 from pipeline import generate_webpage
+
+
+def resolve_base_name(input_name: str) -> str:
+    """
+    Resolve input string to a base name by stripping extensions and suffixes.
+    Example: "Title - Presenter - Date - formatted.md" -> "Title - Presenter - Date"
+    """
+    # Remove extension
+    name = input_name
+    if name.endswith('.md') or name.endswith('.txt'):
+        name = Path(name).stem
+
+    # Remove known suffixes
+    suffixes = [' - formatted', ' - yaml', '_yaml', ' - simple']
+    for suffix in suffixes:
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+
+    return name
+
 
 def main():
     """
@@ -24,9 +46,11 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Starting webpage generation for: {args.base_name}")
-    
-    success = generate_webpage(args.base_name)
+    base_name = resolve_base_name(args.base_name)
+
+    print(f"Starting webpage generation for: {base_name}")
+
+    success = generate_webpage(base_name)
 
     if success:
         print("\nWebpage generation completed successfully.")
@@ -34,6 +58,7 @@ def main():
     else:
         print("\nWebpage generation failed. Check the logs for details.")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

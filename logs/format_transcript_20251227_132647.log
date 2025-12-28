@@ -1,0 +1,11 @@
+2025-12-27 13:26:47,855 - format_transcript - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/format_transcript_20251227_132647.log
+2025-12-27 13:26:47,855 - format_transcript - INFO - Loading prompt template from: /Users/davemini2/transcripts/prompts
+2025-12-27 13:26:47,855 - format_transcript - INFO - Loading raw transcript: Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15.txt
+2025-12-27 13:26:47,888 - format_transcript - INFO - Sending transcript to Claude...
+2025-12-27 13:26:47,889 - format_transcript - INFO - Transcript length: 12,098 words, 74,728 characters
+2025-12-27 13:26:47,889 - format_transcript - INFO - Waiting for Claude response...
+2025-12-27 13:26:50,322 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2025-12-27 13:35:00,135 - format_transcript - INFO - API call successful - Input: 21160 tokens, Output: 14191 tokens, Stop reason: end_turn
+2025-12-27 13:35:00,139 - format_transcript - INFO - Removed 3 [sic] annotation(s).
+2025-12-27 13:35:00,140 - format_transcript - INFO - ✓ Success!
+2025-12-27 13:35:00,140 - format_transcript - INFO - Formatted transcript saved to: /Users/davemini2/transcripts/formatted/Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15 - formatted.md

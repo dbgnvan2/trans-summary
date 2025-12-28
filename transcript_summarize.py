@@ -3,13 +3,43 @@
 CLI wrapper for generating summaries from a formatted transcript.
 
 Usage:
-    python transcript_summarize.py "Title - Presenter - Date - formatted.md" [--skip-extracts-summary] [--skip-terms] [--skip-blog] [--generate-structured] [--structured-word-count WORDS]
+    python transcript_summarize.py "Title - Presenter - Date - yaml.md" [--skip-extracts-summary] [--skip-terms] [--skip-blog]
 """
 
 import argparse
 import sys
-from pipeline import summarize_transcript, setup_logging
+from pathlib import Path
+from pipeline import summarize_transcript
 import config
+
+
+def resolve_filename(filename: str) -> str:
+    """
+    Resolve filename to support base names and ' - yaml.md' extension.
+    Prioritizes ' - yaml.md' as it contains the metadata needed for summaries.
+    """
+    # If exact match exists in formatted dir, return it
+    if (config.FORMATTED_DIR / filename).exists():
+        return filename
+
+    # Clean up base name
+    base = filename
+    for suffix in [' - yaml.md', ' - formatted.md', '.md', '.txt']:
+        if base.endswith(suffix):
+            base = base[:-len(suffix)]
+            break
+
+    # Try - yaml.md first (preferred for summaries)
+    yaml_name = f"{base} - yaml.md"
+    if (config.FORMATTED_DIR / yaml_name).exists():
+        return yaml_name
+
+    # Try - formatted.md (fallback)
+    formatted_name = f"{base} - formatted.md"
+    if (config.FORMATTED_DIR / formatted_name).exists():
+        return formatted_name
+
+    return filename
 
 
 def main():
@@ -21,7 +51,7 @@ def main():
     )
     parser.add_argument(
         "formatted_filename",
-        help="Filename of formatted transcript (e.g., 'Title - Presenter - Date - formatted.md')"
+        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)"
     )
     parser.add_argument(
         "--focus-keyword",
@@ -53,42 +83,28 @@ def main():
         action="store_true",
         help="Skip blog post generation (Part 3)"
     )
-    parser.add_argument(
-        "--generate-structured",
-        action="store_true",
-        help="Generate a structured summary using the new pipeline (requires extracts-summary)"
-    )
-    parser.add_argument(
-        "--structured-word-count",
-        type=int,
-        default=500,
-        help="Target word count for the structured summary (default: 500)"
-    )
-
 
     args = parser.parse_args()
 
-    logger = setup_logging('transcript_summarize_cli') # Initialize logger
-    logger.info(f"Starting transcript summarization for: {args.formatted_filename}") # Use logger.info
+    resolved_filename = resolve_filename(args.formatted_filename)
+
+    print(f"Starting transcript summarization for: {resolved_filename}")
 
     success = summarize_transcript(
-        formatted_filename=args.formatted_filename,
+        formatted_filename=resolved_filename,
         model=args.model,
         focus_keyword=args.focus_keyword,
         target_audience=args.target_audience,
         skip_extracts_summary=args.skip_extracts_summary,
         skip_terms=args.skip_terms,
-        skip_blog=args.skip_blog,
-        generate_structured=args.generate_structured,
-        structured_word_count=args.structured_word_count,
-        trans_summary_logger=logger # Pass logger via new parameter
+        skip_blog=args.skip_blog
     )
 
     if success:
-        logger.info("\nSummarization completed successfully.")
+        print("\nSummarization completed successfully.")
         return 0
     else:
-        logger.error("\nSummarization failed. Check the logs for details.")
+        print("\nSummarization failed. Check the logs for details.")
         return 1
 
 

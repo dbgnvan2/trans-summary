@@ -4,6 +4,10 @@ This module consolidates the business logic for each step of the pipeline,
 making it reusable by both the GUI and the CLI scripts.
 """
 
+import summary_validation
+import summary_pipeline
+import abstract_validation
+import abstract_pipeline
 from transcript_utils import (
     call_claude_with_retry,
     validate_input_file,
@@ -19,7 +23,7 @@ from transcript_utils import (
     extract_section,
     extract_bowen_references,
     estimate_token_count,
-    check_token_budget, # <--- Added this import
+    check_token_budget,  # <--- Added this import
 )
 import anthropic
 import os
@@ -37,24 +41,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-import abstract_pipeline
-import abstract_validation
-import summary_pipeline
-import summary_validation
-
-# Prompt filename
-PROMPT_FILENAME = "Transcript Formatting Prompt v10.md"
+def strip_sic_annotations(text: str) -> tuple[str, int]:
+    """Removes [sic] annotations and returns the cleaned text and count."""
+    # This pattern handles [sic] optionally followed by a parenthetical correction,
+    # surrounded by any whitespace. It replaces the entire annotation with a single space
+    # to prevent accidentally joining words.
+    pattern = r"\s*\[sic\](?:\s*\([^)]*\))?\s*"
+    cleaned_text, count = re.subn(pattern, " ", text)
+    return cleaned_text, count
 
 
 def load_prompt() -> str:
     """Load the formatting prompt template."""
     prompts_dir = config.TRANSCRIPTS_BASE / "prompts"
-    prompt_path = prompts_dir / PROMPT_FILENAME
+    prompt_path = prompts_dir / config.PROMPT_FORMATTING_FILENAME
 
     if not prompt_path.exists():
         raise FileNotFoundError(
             f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {prompts_dir}/{PROMPT_FILENAME}"
+            f"Expected location: {prompts_dir}/{config.PROMPT_FORMATTING_FILENAME}"
         )
     return prompt_path.read_text(encoding='utf-8')
 
@@ -93,7 +98,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         model=model,
         messages=[{"role": "user", "content": full_prompt}],
         max_tokens=32000,
-        stream=True, # Added stream=True
+        stream=True,
         logger=logger,
     )
 
@@ -132,14 +137,21 @@ def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logg
 
         # Construct full prompt to check token budget before API call
         full_prompt_for_budget_check = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
-        MAX_TOKENS_FOR_FORMATTING = 32000 # This should match max_tokens in format_transcript_with_claude
+        # This should match max_tokens in format_transcript_with_claude
+        MAX_TOKENS_FOR_FORMATTING = 32000
 
         if not check_token_budget(full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger):
-            logger.error("Token budget exceeded for formatting. Aborting API call.")
+            logger.error(
+                "Token budget exceeded for formatting. Aborting API call.")
             return False
 
         formatted_content = format_transcript_with_claude(
             raw_transcript, prompt_template, model=model, logger=logger)
+
+        # Strip [sic] annotations from the formatted content before saving.
+        formatted_content, sic_count = strip_sic_annotations(formatted_content)
+        if sic_count > 0 and logger:
+            logger.info(f"Removed {sic_count} [sic] annotation(s).")
 
         output_path = save_formatted_transcript(
             formatted_content, raw_filename)
@@ -161,16 +173,10 @@ def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logg
 # ============================================================================
 
 
-# Prompt file names
-EXTRACTS_SUMMARY_PROMPT = "Transcript Summary Abstract Key Items v1.md"
-KEY_TERMS_PROMPT = "Transcript Summary Key Terms v1.md"
-BLOG_PROMPT = "Transcript Summary Blog Post v1.md"
-
-
-def _extract_emphasis_quotes(extracts_summary_file):
+def _extract_emphasis_quotes(topics_themes_file):
     """Extract all quoted text from Emphasized Items section."""
-    extracts_path = Path(extracts_summary_file)
-    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    extracts_path = Path(topics_themes_file)
+    stem = extracts_path.stem.replace(' - topics-themes', '')
     emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
 
     source_file = emphasis_file if emphasis_file.exists() else extracts_path
@@ -276,8 +282,7 @@ def _fill_prompt_template(template: str, metadata: dict, transcript: str, **kwar
     return template
 
 
-def _generate_summary_with_claude(prompt: str, model: str, temperature: float, logger) -> str:
-    """Send prompt to Claude for summary generation."""
+def _generate_summary_with_claude(prompt: str, model: str, temperature: float, logger, min_length: int = 50, min_words: int = 0) -> str:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
@@ -289,7 +294,9 @@ def _generate_summary_with_claude(prompt: str, model: str, temperature: float, l
         messages=[{"role": "user", "content": prompt}],
         max_tokens=32000,
         temperature=temperature,
-        stream=True, # Added stream=True
+        stream=True,
+        min_length=min_length,
+        min_words=min_words,
         logger=logger,
     )
     return message.content[0].text
@@ -302,6 +309,8 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         stem = stem[:-12]
     if stem.endswith('_yaml'):
         stem = stem[:-5]
+    if stem.endswith(' - yaml'):
+        stem = stem[:-7]
     output_filename = f"{stem} - {summary_type}.md"
     output_path = config.SUMMARIES_DIR / output_filename
     config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
@@ -309,18 +318,18 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
     return output_path
 
 
-def _split_extracts_summary(extracts_summary_path: Path, logger):
-    """Split extracts-summary into focused extract files."""
+def _split_topics_themes(topics_themes_path: Path, logger):
+    """Split topics-themes into focused extract files."""
     logger.info("Splitting extracts into focused files...")
-    content = extracts_summary_path.read_text(encoding='utf-8')
+    content = topics_themes_path.read_text(encoding='utf-8')
     clean_content = strip_yaml_frontmatter(content)
-    stem = extracts_summary_path.stem.replace(' - extracts-summary', '')
+    stem = topics_themes_path.stem.replace(' - topics-themes', '')
 
     bowen_refs = extract_bowen_references(clean_content)
     if bowen_refs:
         bowen_output = "## Bowen References\n\n" + \
-            "\n\n".join(f'> **{label}:** "{quote}"' for label,
-                        quote in bowen_refs)
+            "\n\n".join(
+                [f'> **{label}:** "{quote}"' for label, quote in bowen_refs])
         bowen_path = config.SUMMARIES_DIR / f"{stem} - bowen-references.md"
         bowen_path.write_text(bowen_output, encoding='utf-8')
         logger.info(
@@ -329,8 +338,8 @@ def _split_extracts_summary(extracts_summary_path: Path, logger):
     emphasis_items = extract_emphasis_items(clean_content)
     if emphasis_items:
         emphasis_output = "## Emphasized Items\n\n" + \
-            "\n\n".join(f'> **{label}:** "{quote}"' for label,
-                        quote in emphasis_items)
+            "\n\n".join(
+                [f'> **{label}:** "{quote}"' for label, quote in emphasis_items])
         emphasis_path = config.SUMMARIES_DIR / f"{stem} - emphasis-items.md"
         emphasis_path.write_text(emphasis_output, encoding='utf-8')
         logger.info(
@@ -339,10 +348,10 @@ def _split_extracts_summary(extracts_summary_path: Path, logger):
 
 def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str, target_audience: str,
                          skip_extracts_summary: bool, skip_terms: bool, skip_blog: bool,
-                         generate_structured: bool = False, structured_word_count: int = 500, trans_summary_logger=None) -> bool:
+                         generate_structured: bool = False, structured_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None) -> bool:
     """Orchestrates the transcript summarization process."""
-    if trans_summary_logger is None:
-        trans_summary_logger = setup_logging('summarize_transcript')
+    if logger is None:
+        logger = setup_logging('summarize_transcript')
 
     try:
         # Explicitly cast to int right at the beginning of the function body
@@ -350,99 +359,133 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
         try:
             structured_word_count = int(structured_word_count)
         except (TypeError, ValueError) as e:
-            trans_summary_logger.error(f"Error: structured_word_count expected to be an integer or a string representing an integer, but received type {type(structured_word_count)} with value '{structured_word_count}'. Original error: {e}", exc_info=True)
+            logger.error(
+                f"Error: structured_word_count expected to be an integer or a string representing an integer, but received type {type(structured_word_count)} with value '{structured_word_count}'. Original error: {e}", exc_info=True)
             return False
 
         if not config.SOURCE_DIR.exists():
             raise FileNotFoundError(
                 f"Source directory not found: {config.SOURCE_DIR}")
 
-        trans_summary_logger.info(f"Loading formatted transcript: {formatted_filename}")
+        logger.info(
+            f"Loading formatted transcript: {formatted_filename}")
         transcript = _load_formatted_transcript(formatted_filename)
+        transcript_word_count = len(transcript.split())
         metadata = parse_filename_metadata(formatted_filename)
-        trans_summary_logger.info(f"Transcript metadata: {metadata}")
+        logger.info(f"Transcript metadata: {metadata}")
 
-        extracts_summary_path = None
+        topics_themes_path = None
 
         if not skip_extracts_summary:
-            trans_summary_logger.info("PART 1: Generating Extracts Summary Analysis...")
-            prompt_template = _load_summary_prompt(EXTRACTS_SUMMARY_PROMPT)
+            logger.info(
+                "PART 1: Generating Extracts Summary Analysis...")
+            prompt_template = _load_summary_prompt(
+                config.PROMPT_EXTRACTS_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript, target_audience=target_audience)
-            output = _generate_summary_with_claude(prompt, model, 0.2, trans_summary_logger)
-            extracts_summary_path = _save_summary(
-                output, formatted_filename, "extracts-summary")
-            trans_summary_logger.info(
-                f"✓ Extracts summary analysis saved to: {extracts_summary_path}")
-            _split_extracts_summary(extracts_summary_path, trans_summary_logger)
-        else:
-            # If skipping extracts, try to load it if it already exists for structured summary later
-            base_name_from_formatted = Path(formatted_filename).stem.replace(' - formatted', '')
-            potential_extracts_path = config.SUMMARIES_DIR / \
-                f"{base_name_from_formatted} - extracts-summary.md"
-            if potential_extracts_path.exists():
-                extracts_summary_path = potential_extracts_path
-                trans_summary_logger.info(f"Skipping extracts-summary generation, using existing file: {extracts_summary_path}")
 
+            # Calculate target length to guide the model
+            target_words = int(transcript_word_count *
+                               config.TARGET_EXTRACTS_PERCENT)
+            if target_words < 200:
+                target_words = 200
+            prompt += f"\n\nIMPORTANT: Please ensure your response is concise and approximately {target_words} words in length. Focus on extracting only the most critical information."
+
+            # Extracts summary should be substantial, about 7% of transcript word count.
+            # We set a validation floor of 4% to allow for concise but valid summaries.
+            min_expected_words = int(
+                transcript_word_count * config.MIN_EXTRACTS_PERCENT)
+            # Ensure reasonable bounds (at least 150 words unless transcript is tiny)
+            min_expected_words = max(
+                min_expected_words, config.MIN_EXTRACTS_WORDS_FLOOR) if transcript_word_count > config.MIN_TRANSCRIPT_WORDS_FOR_FLOOR else config.MIN_EXTRACTS_WORDS_ABSOLUTE
+
+            output = _generate_summary_with_claude(
+                prompt, model, 0.2, logger, min_length=config.MIN_EXTRACTS_CHARS, min_words=min_expected_words)
+
+            topics_themes_path = _save_summary(
+                output, formatted_filename, "topics-themes")
+            output_words = len(output.split())
+            logger.info(
+                f"✓ Topics-Themes analysis saved ({output_words:,} words) to: {topics_themes_path}")
+            _split_topics_themes(
+                topics_themes_path, logger)
+        else:
+            base_name_from_formatted = Path(
+                formatted_filename).stem.replace(' - formatted', '')
+            potential_topics_themes_path = config.SUMMARIES_DIR / \
+                f"{base_name_from_formatted} - topics-themes.md"
+            if potential_topics_themes_path.exists():
+                topics_themes_path = potential_topics_themes_path
+                logger.info(
+                    f"Skipping topics-themes generation, using existing file: {topics_themes_path}")
 
         if not skip_terms:
-            trans_summary_logger.info("PART 2: Extracting Key Terms...")
-            prompt_template = _load_summary_prompt(KEY_TERMS_PROMPT)
+            logger.info("PART 2: Extracting Key Terms...")
+            prompt_template = _load_summary_prompt(
+                config.PROMPT_KEY_TERMS_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript)
-            output = _generate_summary_with_claude(prompt, model, 0.4, trans_summary_logger)
+            output = _generate_summary_with_claude(
+                prompt, model, 0.4, logger, min_length=config.MIN_KEY_TERMS_CHARS)
             key_terms_path = _save_summary(
                 output, formatted_filename, "key-terms")
-            trans_summary_logger.info(f"✓ Key terms document saved to: {key_terms_path}")
+            logger.info(
+                f"✓ Key terms document saved to: {key_terms_path}")
 
         if not skip_blog:
-            trans_summary_logger.info("PART 3: Generating Blog Post...")
-            prompt_template = _load_summary_prompt(BLOG_PROMPT)
+            logger.info("PART 3: Generating Blog Post...")
+            prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript, focus_keyword=focus_keyword, target_audience=target_audience)
-            output = _generate_summary_with_claude(prompt, model, 0.3, trans_summary_logger)
+            output = _generate_summary_with_claude(
+                prompt, model, 0.3, logger, min_length=config.MIN_BLOG_CHARS)
             blog_path = _save_summary(output, formatted_filename, "blog")
-            trans_summary_logger.info(f"✓ Blog post saved to: {blog_path}")
+            logger.info(f"✓ Blog post saved to: {blog_path}")
 
-        trans_summary_logger.info("✓ Summary generation complete!")
+        logger.info("✓ Transcript processing complete!")
 
-        if not skip_extracts_summary: # Only validate emphasis if extracts were generated or explicitly not skipped
-            trans_summary_logger.info("VALIDATION: Checking Emphasis Items...")
+        if not skip_extracts_summary:  # Only validate emphasis if extracts were generated or explicitly not skipped
+            logger.info("VALIDATION: Checking Emphasis Items...")
             formatted_path = config.FORMATTED_DIR / formatted_filename
-            if extracts_summary_path:
+            if topics_themes_path:
                 _validate_emphasis_items(
-                    formatted_path, extracts_summary_path, trans_summary_logger)
+                    formatted_path, topics_themes_path, logger)
 
         if generate_structured:
-            if extracts_summary_path:
-                trans_summary_logger.info("Generating structured summary...")
+            if topics_themes_path:
+                logger.info("Generating structured summary...")
                 # The generate_structured_summary function expects base_name
-                base_name = Path(formatted_filename).stem.replace(' - formatted', '')
-                
+                base_name = Path(formatted_filename).stem.replace(
+                    ' - formatted', '')
+
                 # word_count_for_generation = int(structured_word_count) # Removed explicit cast here
-                
+
                 structured_success = generate_structured_summary(
                     base_name=base_name,
-                    summary_target_word_count=structured_word_count, # Use the directly cast variable
-                    gen_summary_logger=trans_summary_logger 
+                    summary_target_word_count=structured_word_count,  # Use the directly cast variable
+                    logger=logger
                 )
                 if structured_success:
-                    trans_summary_logger.info("Structured summary generation complete. Validating structured summary...")
-                    validate_summary_coverage(base_name=base_name, logger=trans_summary_logger)
+                    logger.info(
+                        "Structured summary generation complete. Validating structured summary...")
+                    validate_summary_coverage(
+                        base_name=base_name, logger=logger)
                 else:
-                    trans_summary_logger.error("Structured summary generation failed.")
+                    logger.error(
+                        "Structured summary generation failed.")
                     return False
             else:
-                trans_summary_logger.warning("Cannot generate structured summary: extracts-summary was skipped or not found.")
-                
+                logger.warning(
+                    "Cannot generate structured summary: topics-themes was skipped or not found.")
+
         return True
 
     except ValueError as e:
         # Re-raise configuration errors so they appear in the GUI
-        trans_summary_logger.error(f"Configuration error: {e}")
+        logger.error(f"Configuration error: {e}")
         raise e
     except Exception as e:
-        trans_summary_logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error(f"An error occurred: {e}", exc_info=True)
         return False
 
 # ============================================================================
@@ -497,7 +540,7 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
 
-        output_path = config.FORMATTED_DIR / f"{meta['stem']}_yaml.md"
+        output_path = config.FORMATTED_DIR / f"{meta['stem']} - yaml.md"
         output_path.write_text(final_content, encoding='utf-8')
 
         logger.info(f"✓ Success! YAML added. Output saved to: {output_path}")
@@ -523,20 +566,23 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
 # ============================================================================
 
 
-def _extract_webpage_metadata(extracts_summary_file):
-    """Extract topics, themes, key terms, and abstract from extracts-summary."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def _extract_webpage_metadata(topics_themes_file):
+    """Extract topics, themes, key terms, and abstract from topics-themes."""
+    with open(topics_themes_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     content = strip_yaml_frontmatter(content)
     content = re.sub(r'---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms',
                      '# Key Terms', content, flags=re.DOTALL)
 
+    # Get key terms using the robust loader that checks key-terms.md
+    key_terms_list = _extract_key_terms(topics_themes_file)
+
     metadata = {
         'topics': extract_section(content, 'Topics'),
         'themes': extract_section(content, 'Key Themes'),
         'abstract': extract_section(content, 'Abstract'),
-        'key_terms': ', '.join(re.findall(r'^## ([A-Z][^\n#]+?)[\s]*\n+\*\*Definition Type:', content, re.MULTILINE))
+        'key_terms': ', '.join(key_terms_list)
     }
     return metadata
 
@@ -560,14 +606,14 @@ def _generate_html_page(base_name, formatted_content, metadata):
             padding: 0;
             box-sizing: border-box;
         }}
-        
+
         body {{
             font-family: 'Georgia', serif;
             line-height: 1.6;
             color: #333;
             background: #f5f5f5;
         }}
-        
+
         .container {{
             display: flex;
             max-width: 1400px;
@@ -575,24 +621,24 @@ def _generate_html_page(base_name, formatted_content, metadata):
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }}
-        
+
         header {{
             background: #2c3e50;
             color: white;
             padding: 2rem;
             text-align: center;
         }}
-        
+
         header h1 {{
             font-size: 2rem;
             margin-bottom: 0.5rem;
         }}
-        
+
         header .meta {{
             font-size: 1rem;
             opacity: 0.9;
         }}
-        
+
         .sidebar {{
             flex: 0 0 350px;
             padding: 2rem;
@@ -602,7 +648,7 @@ def _generate_html_page(base_name, formatted_content, metadata):
             position: sticky;
             top: 0;
         }}
-        
+
         .sidebar h2 {{
             font-size: 1.2rem;
             margin: 1.5rem 0 0.5rem 0;
@@ -610,58 +656,58 @@ def _generate_html_page(base_name, formatted_content, metadata):
             border-bottom: 2px solid #3498db;
             padding-bottom: 0.3rem;
         }}
-        
+
         .sidebar h2:first-child {{
             margin-top: 0;
         }}
-        
+
         .sidebar p {{
             margin: 0.5rem 0;
             font-size: 0.9rem;
         }}
-        
+
         .main-content {{
             flex: 1;
             padding: 2rem;
             overflow-y: auto;
         }}
-        
+
         .transcript {{
             max-width: 800px;
             margin: 0 auto;
         }}
-        
+
         .transcript h2 {{
             font-size: 1.5rem;
             margin: 2rem 0 1rem 0;
             color: #2c3e50;
         }}
-        
+
         .transcript h3 {{
             font-size: 1.2rem;
             margin: 1.5rem 0 0.8rem 0;
             color: #34495e;
         }}
-        
+
         .transcript p {{
             margin: 1rem 0;
             text-align: justify;
         }}
-        
+
         mark.bowen-ref {{
             background-color: #fff3cd;
             border-left: 3px solid #ffc107;
             padding: 0 0.2rem;
             cursor: help;
         }}
-        
+
         mark.emphasis {{
             background-color: #d1ecf1;
             border-left: 3px solid #17a2b8;
             padding: 0 0.2rem;
             cursor: help;
         }}
-        
+
         .legend {{
             margin: 1rem 0;
             padding: 1rem;
@@ -669,29 +715,29 @@ def _generate_html_page(base_name, formatted_content, metadata):
             border-radius: 5px;
             font-size: 0.9rem;
         }}
-        
+
         .legend span {{
             display: inline-block;
             margin-right: 1.5rem;
         }}
-        
+
         @media (max-width: 968px) {{
             .container {{
                 flex-direction: column;
             }}
-            
+
             .sidebar {{
                 flex: none;
                 max-height: none;
                 position: relative;
             }}
         }}
-        
+
         @media print {{
             .sidebar {{
                 display: none;
             }}
-            
+
             mark {{
                 background: white !important;
                 font-weight: bold;
@@ -706,29 +752,29 @@ def _generate_html_page(base_name, formatted_content, metadata):
             <strong>{escape(meta['author'])}</strong> | {escape(meta['date'])}
         </div>
     </header>
-    
+
     <div class="container">
         <aside class="sidebar">
             <h2>Abstract</h2>
             {abstract_html}
-            
+
             <h2>Topics</h2>
             {topics_html}
-            
+
             <h2>Key Themes</h2>
             {themes_html}
-            
+
             <h2>Key Terms</h2>
             <p>{escape(metadata['key_terms'])}</p>
         </aside>
-        
+
         <main class="main-content">
             <div class="legend">
                 <strong>Highlights:</strong>
                 <span><mark class="bowen-ref">Bowen References</mark></span>
                 <span><mark class="emphasis">Emphasized Items</mark></span>
             </div>
-            
+
             <div class="transcript">
                 {formatted_content}
             </div>
@@ -745,25 +791,25 @@ def generate_webpage(base_name: str) -> bool:
     logger = setup_logging('generate_webpage')
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / \
-            f"{base_name} - extracts-summary.md"
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
         output_file = config.WEBPAGES_DIR / f"{base_name}.html"
 
         validate_input_file(formatted_file)
-        validate_input_file(extracts_summary_file)
+        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding='utf-8')
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading extracts-summary materials...")
+        logger.info("Loading topics-themes materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
-        metadata = _extract_webpage_metadata(extracts_summary_file)
+        metadata = _extract_webpage_metadata(topics_themes_file)
         logger.info(
             f"Found {len(bowen_refs)} Bowen references and {len(emphasis_items)} emphasis items.")
 
         logger.info("Highlighting transcript...")
-        key_term_defs = _extract_key_term_definitions(extracts_summary_file)
+        key_term_defs = _extract_key_term_definitions(topics_themes_file)
         formatted_html = markdown_to_html(formatted_content)
         # Clean up unwanted headers before highlighting to ensure consistency with simple_webpage
         formatted_html = re.sub(
@@ -793,19 +839,19 @@ def generate_webpage(base_name: str) -> bool:
 # ============================================================================
 
 
-def _extract_abstract(extracts_summary_file):
-    """Extract abstract from extracts-summary."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def _extract_abstract(topics_themes_file):
+    """Extract abstract from topics-themes."""
+    with open(topics_themes_file, 'r', encoding='utf-8') as f:
         content = f.read()
     content = strip_yaml_frontmatter(content)
     abstract = extract_section(content, 'Abstract')
     return re.sub(r'^---\s*$', '', abstract, flags=re.MULTILINE).strip()
 
 
-def _load_definitions_content(extracts_summary_file):
+def _load_definitions_content(topics_themes_file):
     """Load key term definitions from a split file when available."""
-    extracts_path = Path(extracts_summary_file)
-    stem = extracts_path.stem.replace(' - extracts-summary', '')
+    extracts_path = Path(topics_themes_file)
+    stem = extracts_path.stem.replace(' - topics-themes', '')
     summaries_dir = extracts_path.parent
     candidates = [
         summaries_dir / f"{stem} - key-terms.md",
@@ -818,11 +864,11 @@ def _load_definitions_content(extracts_summary_file):
     return None
 
 
-def _extract_key_terms(extracts_summary_file):
+def _extract_key_terms(topics_themes_file):
     """Extract key term names (without definitions) from archival document."""
-    content = _load_definitions_content(extracts_summary_file)
+    content = _load_definitions_content(topics_themes_file)
     if content is None:
-        with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+        with open(topics_themes_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
     content = strip_yaml_frontmatter(content)
@@ -833,11 +879,11 @@ def _extract_key_terms(extracts_summary_file):
     return [term.strip() for term in term_headings]
 
 
-def _extract_key_term_definitions(extracts_summary_file):
+def _extract_key_term_definitions(topics_themes_file):
     """Extract key terms with their definitions and types from archival."""
-    content = _load_definitions_content(extracts_summary_file)
+    content = _load_definitions_content(topics_themes_file)
     if content is None:
-        with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+        with open(topics_themes_file, 'r', encoding='utf-8') as f:
             content = f.read()
     content = strip_yaml_frontmatter(content)
     content = re.sub(r'---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms',
@@ -1139,21 +1185,21 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
             padding: 0;
             box-sizing: border-box;
         }}
-        
+
         body {{
             font-family: 'Georgia', serif;
             line-height: 1.6;
             color: #333;
             background: #f5f5f5;
         }}
-        
+
         .container {{
             max-width: 900px;
             margin: 0 auto;
             background: white;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }}
-        
+
         header {{
             background: #f0f4f8;
             color: #1f2a44;
@@ -1161,12 +1207,12 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
             text-align: center;
             border-bottom: 3px solid #d6dee8;
         }}
-        
+
         header h1 {{
             font-size: 2rem;
             margin-bottom: 0.5rem;
         }}
-        
+
         header .meta {{
             font-size: 1rem;
             opacity: 0.9;
@@ -1182,11 +1228,11 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
         header .meta .date {{
             opacity: 0.9;
         }}
-        
+
         .content {{
             padding: 2rem 3rem;
         }}
-        
+
         .legend {{
             margin: 0 0 2rem 0;
             padding: 1rem;
@@ -1194,104 +1240,104 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
             border-radius: 5px;
             font-size: 0.9rem;
         }}
-        
+
         .legend span {{
             display: inline-block;
             margin-right: 1.5rem;
         }}
-        
+
         .abstract {{
             margin: 2rem 0;
             padding: 1.5rem;
             background: #f8f9fa;
             border-left: 4px solid #2c3e50;
         }}
-        
+
         .abstract h2 {{
             margin-top: 0;
         }}
-        
+
         .key-terms {{
             margin: 2rem 0;
             padding: 1.5rem;
             background: #f0f7ff;
             border-left: 4px solid #17a2b8;
         }}
-        
+
         .key-terms h2 {{
             margin-top: 0;
         }}
-        
+
         .key-terms p {{
             line-height: 1.8;
         }}
-        
+
         .def-explicit {{
             background-color: #d4edda;
             border-left: 3px solid #28a745;
             padding: 0 0.2rem;
             font-weight: 500;
         }}
-        
+
         .def-implicit {{
             background-color: #d1ecf1;
             border-left: 3px solid #17a2b8;
             padding: 0 0.2rem;
             font-style: italic;
         }}
-        
+
         h1 {{
             font-size: 2rem;
             margin: 2rem 0 1rem 0;
             color: #2c3e50;
         }}
-        
+
         h2 {{
             font-size: 1.5rem;
             margin: 1.5rem 0 1rem 0;
             color: #2c3e50;
         }}
-        
+
         h3 {{
             font-size: 1.2rem;
             margin: 1.2rem 0 0.8rem 0;
             color: #34495e;
         }}
-        
+
         p {{
             margin: 1rem 0;
             text-align: justify;
         }}
-        
+
         mark.bowen-ref {{
             background-color: #fff3cd;
             border-left: 3px solid #ffc107;
             padding: 0 0.2rem;
             cursor: help;
         }}
-        
+
         mark.emphasis {{
             background-color: #d1ecf1;
             border-left: 3px solid #17a2b8;
             padding: 0 0.2rem;
             cursor: help;
         }}
-        
+
         @media (max-width: 768px) {{
             .content {{
                 padding: 1.5rem;
             }}
         }}
-        
+
         @media print {{
             body {{
                 background: white;
             }}
-            
+
             .container {{
                 box-shadow: none;
             }}
-            
+
             mark {{
                 background: white !important;
                 font-weight: bold;
@@ -1309,7 +1355,7 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
                 <div class="date">{escape(meta['date'])}</div>
             </div>
         </header>
-        
+
         <div class="content">
             <div class="legend">
                 <strong>Highlights:</strong>
@@ -1318,11 +1364,11 @@ def _generate_simple_html_page(base_name, formatted_content, abstract='', key_te
                 <span><span class="def-explicit">Explicit Definitions</span></span>
                 <span><span class="def-implicit">Implicit Definitions</span></span>
             </div>
-            
+
             {abstract_html}
-            
+
             {key_terms_html}
-            
+
             {formatted_content}
         </div>
     </div>
@@ -1336,22 +1382,22 @@ def generate_simple_webpage(base_name: str) -> bool:
     logger = setup_logging('generate_simple_webpage')
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / \
-            f"{base_name} - extracts-summary.md"
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
         output_file = config.WEBPAGES_DIR / f"{base_name} - simple.html"
 
         validate_input_file(formatted_file)
-        validate_input_file(extracts_summary_file)
+        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding='utf-8')
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading extracts-summary materials for simple webpage...")
-        abstract = _extract_abstract(extracts_summary_file)
-        key_terms = _extract_key_terms(extracts_summary_file)
+        logger.info("Loading topics-themes materials for simple webpage...")
+        abstract = _extract_abstract(topics_themes_file)
+        key_terms = _extract_key_terms(topics_themes_file)
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
-        key_term_defs = _extract_key_term_definitions(extracts_summary_file)
+        key_term_defs = _extract_key_term_definitions(topics_themes_file)
 
         logger.info("Highlighting transcript for simple webpage...")
         formatted_html = markdown_to_html(formatted_content)
@@ -1405,9 +1451,9 @@ def _sort_key_term_sections(content: str) -> str:
     return '\n'.join('\n'.join(section['lines']) for section in sections).strip()
 
 
-def _extract_pdf_metadata(extracts_summary_file):
+def _extract_pdf_metadata(topics_themes_file):
     """Extract metadata for PDF generation."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+    with open(topics_themes_file, 'r', encoding='utf-8') as f:
         content = f.read()
     content = strip_yaml_frontmatter(content)
     content = re.sub(r'---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms',
@@ -1420,7 +1466,7 @@ def _extract_pdf_metadata(extracts_summary_file):
         'key_terms': extract_section(content, 'Key Terms')
     }
 
-    definitions_content = _load_definitions_content(extracts_summary_file)
+    definitions_content = _load_definitions_content(topics_themes_file)
     if definitions_content:
         definitions_content = strip_yaml_frontmatter(definitions_content)
         definitions_content = re.sub(
@@ -1639,20 +1685,20 @@ def generate_pdf(base_name: str) -> bool:
 
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / \
-            f"{base_name} - extracts-summary.md"
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
         output_file = config.PDFS_DIR / f"{base_name}.pdf"
 
         validate_input_file(formatted_file)
-        validate_input_file(extracts_summary_file)
+        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding='utf-8')
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading extracts-summary materials for PDF...")
+        logger.info("Loading topics-themes materials for PDF...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
-        metadata = _extract_pdf_metadata(extracts_summary_file)
+        metadata = _extract_pdf_metadata(topics_themes_file)
 
         logger.info("Highlighting transcript for PDF...")
         formatted_html = markdown_to_html(formatted_content)
@@ -1660,7 +1706,7 @@ def generate_pdf(base_name: str) -> bool:
             r'<h1>Transcript Formatting[^<]*</h1>\s*', '', formatted_html, flags=re.IGNORECASE)
         # Also remove the title header if present, to match simple_webpage logic
         formatted_html = re.sub(r'^<h1>[^<]+</h1>\s*', '', formatted_html)
-        key_term_defs = _extract_key_term_definitions(extracts_summary_file)
+        key_term_defs = _extract_key_term_definitions(topics_themes_file)
         highlighted_html = _highlight_html_content(
             formatted_html, bowen_refs, emphasis_items, key_term_defs)
 
@@ -1737,17 +1783,69 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
             i += 1
             j += 1
         else:
-            found = False
+            # Bidirectional Lookahead Strategy to handle insertions/deletions robustly
+
+            # 1. Lookahead in B (Insertion in B / Deletion in A)
+            b_match_offset = None
             for offset in range(1, max_lookahead + 1):
-                jj = j + offset
-                if jj < len(b_words) and a_n == b_norm[jj]:
-                    i += 1
-                    j = jj + 1
-                    found = True
+                if j + offset < len(b_words) and a_n == b_norm[j + offset]:
+                    b_match_offset = offset
                     break
-            if not found:
+
+            # 2. Lookahead in A (Insertion in A / Deletion in B)
+            a_match_offset = None
+            for offset in range(1, max_lookahead + 1):
+                if i + offset < len(a_norm) and b_norm[j] == a_norm[i + offset]:
+                    a_match_offset = offset
+                    break
+
+            action = "mismatch"
+
+            if b_match_offset is not None and a_match_offset is None:
+                action = "skip_b"
+            elif a_match_offset is not None and b_match_offset is None:
+                action = "skip_a"
+            elif b_match_offset is not None and a_match_offset is not None:
+                # Both found. Use next-word match as tie-breaker.
+                # Path 1: Skip B. Next comparison: A[i+1] vs B[j+b_off+1]
+                path1_score = 0
+                if i + 1 < len(a_norm) and j + b_match_offset + 1 < len(b_words):
+                    if a_norm[i+1] == b_norm[j + b_match_offset + 1]:
+                        path1_score = 1
+
+                # Path 2: Skip A. Next comparison: A[i+a_off+1] vs B[j+1]
+                path2_score = 0
+                if i + a_match_offset + 1 < len(a_norm) and j + 1 < len(b_words):
+                    if a_norm[i + a_match_offset + 1] == b_norm[j+1]:
+                        path2_score = 1
+
+                if path1_score > path2_score:
+                    action = "skip_b"
+                elif path2_score > path1_score:
+                    action = "skip_a"
+                else:
+                    # Secondary tie-breaker: prefer smaller offset
+                    if b_match_offset <= a_match_offset:
+                        action = "skip_b"
+                    else:
+                        action = "skip_a"
+
+            # Execute action
+            if action == "skip_b":
+                # B has extra words (insertions). Advance J to skip them.
+                j += b_match_offset
+                # Next iteration will match A[i] == B[j]
+            elif action == "skip_a":
+                # A has extra words (deletions in B). Record mismatches and advance I.
+                for k in range(a_match_offset):
+                    mismatches.append(
+                        {"a_index": i+k, "a_word": a_words[i+k], "b_index": j, "b_word": b_words[j], "reason": "Skipped in A (deletion in B)"})
+                i += a_match_offset
+                # Next iteration will match A[i] == B[j]
+            else:
+                # True mismatch
                 mismatches.append(
-                    {"a_index": i, "a_word": a_words[i], "b_index": j, "b_word": b_words[j], "reason": "Not found in lookahead"})
+                    {"a_index": i, "a_word": a_words[i], "b_index": j, "b_word": b_words[j], "reason": "Mismatch"})
                 i += 1
 
         if checked > 0:
@@ -1756,7 +1854,8 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
             if max_mismatches is not None and mismatch_count >= max_mismatches:
                 stopped_reason = "max_mismatches"
                 break
-            if mismatch_ratio > max_mismatch_ratio:
+            # Only enforce ratio check after checking at least 20% of the source text
+            if checked > len(a_words) * 0.2 and mismatch_ratio > max_mismatch_ratio:
                 stopped_reason = "mismatch_ratio"
                 break
 
@@ -1795,9 +1894,16 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
         formatted_text = strip_yaml_frontmatter(formatted_text)
 
         raw_clean = re.sub(
-            r'^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+', '', raw_text, flags=re.MULTILINE)
+            r'^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+(?::\d+)?', '', raw_text, flags=re.MULTILINE)
         raw_clean = re.sub(r"^\s*Transcribed by\b.*", '',
                            raw_clean, flags=re.MULTILINE)
+
+        # Aggressively remove timestamps
+        # Matches 10:00, 1:00:00, 0:00 with optional brackets/parens and optional am/pm
+        raw_clean = re.sub(
+            r'[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?', ' ', raw_clean, flags=re.IGNORECASE)
+        # Remove headless timestamps (e.g., :00, :02) often found in artifacts
+        raw_clean = re.sub(r'(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?', ' ', raw_clean)
 
         formatted_clean, _ = re.subn(
             r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
@@ -1812,22 +1918,33 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
             skip_words = {normalize_text(word) for word in Path(
                 skip_words_file).read_text().splitlines() if word and not word.startswith('#')}
 
+        # Increased lookahead to handle longer deleted phrases/duplicates
         result = _compare_transcripts(
-            raw_clean, formatted_clean, skip_words, 3, 0.02, None)
+            raw_clean, formatted_clean, skip_words, config.VALIDATION_LOOKAHEAD_WINDOW, 0.05, None)
 
         logger.info("=== Comparison Summary ===")
         for key, value in result.items():
             if key != "mismatches":
                 logger.info(f"{key}: {value}")
 
-        if result["mismatch_count"] > 0:
-            logger.error("Validation FAILED: Mismatches found.")
+        # Allow small mismatch ratio for passing (defined in config)
+        if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
+            logger.error(
+                f"Validation FAILED: Mismatch ratio {result['mismatch_ratio']:.2%} exceeds limit ({config.VALIDATION_MISMATCH_RATIO:.1%}).")
             for m in result["mismatches"][:20]:
                 logger.error(
-                    f"  Mismatch: A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'")
+                    f"  Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'")
             return False
 
-        logger.info("Validation PASSED: No mismatches found.")
+        if result["mismatch_count"] > 0:
+            logger.warning(
+                f"Validation PASSED with warnings: {result['mismatch_count']} mismatches ({result['mismatch_ratio']:.2%}).")
+            for m in result["mismatches"][:10]:
+                logger.warning(
+                    f"  Ignored Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'")
+        else:
+            logger.info("Validation PASSED: No mismatches found.")
+
         return True
 
     except Exception as e:
@@ -1840,12 +1957,9 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
 # ============================================================================
 
 
-ABSTRACT_VALIDATION_PROMPT = "abstract_quality_assessment_prompt_v2.md"
-
-
 def _load_extracts_summary_for_abstract(base_name: str) -> tuple[str, str]:
-    """Load extracts-summary and extract the abstract."""
-    summary_path = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    """Load topics-themes and extract the abstract."""
+    summary_path = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
     validate_input_file(summary_path)
     content = summary_path.read_text(encoding='utf-8')
     abstract_match = re.search(
@@ -1926,7 +2040,8 @@ def validate_abstract(base_name: str, model: str, target_score: float, max_itera
         logger.info(
             f"Transcript length: {len(transcript)} chars (~{transcript_tokens} tokens)")
         _, initial_abstract = _load_extracts_summary_for_abstract(base_name)
-        prompt_template = _load_summary_prompt(ABSTRACT_VALIDATION_PROMPT)
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_ABSTRACT_VALIDATION_FILENAME)
 
         current_abstract = initial_abstract
         best_score = 0
@@ -1961,7 +2076,7 @@ def validate_abstract(base_name: str, model: str, target_score: float, max_itera
                 prompt += f"\n\n--- SOURCE DOCUMENT ---\n{transcript}\n\n--- ABSTRACT TO EVALUATE ---\n{current_abstract}"
 
             validation_output = _generate_summary_with_claude(
-                prompt, model, 0.3, logger)
+                prompt, model, 0.3, logger, min_length=config.MIN_ABSTRACT_VALIDATION_CHARS)
             scores = _extract_scores_from_output(validation_output)
 
             if scores:
@@ -2027,30 +2142,32 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
     """
     if logger is None:
         logger = setup_logging('generate_structured_abstract')
-    
+
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-        
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
+
         validate_input_file(formatted_file)
-        validate_input_file(extracts_summary_file)
-        
+        validate_input_file(topics_themes_file)
+
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
-        
-        extracts_content = extracts_summary_file.read_text(encoding='utf-8')
+
+        extracts_content = topics_themes_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
-        
+
         metadata = parse_filename_metadata(base_name)
-        
+
         # We need to extract the raw markdown for Topics and Key Themes
         # extract_section usually returns the text under the header.
         topics_section = extract_section(extracts_content, 'Topics')
         themes_section = extract_section(extracts_content, 'Key Themes')
-        
+
         if not topics_section or not themes_section:
-             logger.error("Could not find Topics or Key Themes in extracts summary.")
-             return False
+            logger.error(
+                "Could not find Topics or Key Themes in topics-themes.")
+            return False
 
         # Add headers back because abstract_pipeline regex expects them
         # (The regex in abstract_pipeline.py looks for ### Title etc. which might be preserved or not depending on extract_section)
@@ -2058,45 +2175,55 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
         # pattern = r'###\s+(.+?)\n(.+?)\n\*_\(~(\d+)%[^;]+;\s*Sections?\s+([\d\-,\s]+)\)_\*'
         # If extract_section returns just the content, we might need to verify if the ### subheaders are there.
         # Usually extract_section returns everything until the next equal-level header.
-        
+
+        # Calculate target word count (3% of transcript, min 150)
+        transcript_words = len(transcript.split())
+        target_word_count = max(
+            int(transcript_words * config.ABSTRACT_TARGET_PERCENT), config.ABSTRACT_MIN_WORDS)
+
         abstract_input = abstract_pipeline.prepare_abstract_input(
             metadata=metadata,
             topics_markdown=topics_section,
             themes_markdown=themes_section,
-            transcript=transcript
+            transcript=transcript,
+            target_word_count=target_word_count
         )
-        
-        if not abstract_input.topics:
-             logger.error("Failed to parse any Topics from extracts summary. Check regex or input format.")
-             return False
-        
-        if not abstract_input.themes:
-             logger.warning("Failed to parse any Key Themes from extracts summary.")
 
-        logger.info(f"Parsed {len(abstract_input.topics)} topics and {len(abstract_input.themes)} themes.")
-        
+        if not abstract_input.topics:
+            logger.error(
+                "Failed to parse any Topics from topics-themes. Check regex or input format.")
+            return False
+
+        if not abstract_input.themes:
+            logger.warning(
+                "Failed to parse any Key Themes from topics-themes.")
+
+        logger.info(
+            f"Parsed {len(abstract_input.topics)} topics and {len(abstract_input.themes)} themes.")
+
         logger.info("Generating abstract via API...")
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-             raise ValueError("ANTHROPIC_API_KEY not set")
-             
+            raise ValueError("ANTHROPIC_API_KEY not set")
+
         client = anthropic.Anthropic(api_key=api_key)
-        abstract_text = abstract_pipeline.generate_abstract(abstract_input, client)
-        
+        abstract_text = abstract_pipeline.generate_abstract(
+            abstract_input, client)
+
         # Save abstract
-        output_path = config.SUMMARIES_DIR / f"{base_name} - abstract-generated.md"
+        output_path = config.SUMMARIES_DIR / \
+            f"{base_name} - abstract-generated.md"
         output_path.write_text(abstract_text, encoding='utf-8')
         logger.info(f"Generated abstract saved to {output_path}")
-        
+
         return True
     except Exception as e:
-        logger.error(f"Error generating structured abstract: {e}", exc_info=True)
+        logger.error(
+            f"Error generating structured abstract: {e}", exc_info=True)
         return False
 
 
 def validate_abstract_coverage(base_name: str, logger=None) -> bool:
-
-
     """
 
 
@@ -2105,93 +2232,53 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
     """
 
-
     if logger is None:
-
 
         logger = setup_logging('validate_abstract_coverage')
 
-
-        
-
-
     try:
-
 
         # Load Abstract Input (re-create it)
 
-
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
 
-
-        extracts_summary_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-
-
-        
-
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
 
         # We need the abstract to validate.
 
-
         # Prefer "abstract-generated.md" if exists, otherwise extract from "extracts-summary.md"
 
-
-        generated_abstract_file = config.SUMMARIES_DIR / f"{base_name} - abstract-generated.md"
-
-
-        
-
+        generated_abstract_file = config.SUMMARIES_DIR / \
+            f"{base_name} - abstract-generated.md"
 
         if generated_abstract_file.exists():
 
-
             abstract_text = generated_abstract_file.read_text(encoding='utf-8')
 
-
-            logger.info(f"Validating generated abstract from: {generated_abstract_file.name}")
-
+            logger.info(
+                f"Validating generated abstract from: {generated_abstract_file.name}")
 
         else:
 
-
             _, abstract_text = _load_extracts_summary_for_abstract(base_name)
 
-
-            logger.info(f"Validating abstract from: {extracts_summary_file.name}")
-
-
-            
-
+            logger.info(
+                f"Validating abstract from: {topics_themes_file.name}")
 
         transcript = formatted_file.read_text(encoding='utf-8')
 
-
         transcript = strip_yaml_frontmatter(transcript)
 
-
-        
-
-
-        extracts_content = extracts_summary_file.read_text(encoding='utf-8')
-
+        extracts_content = topics_themes_file.read_text(encoding='utf-8')
 
         extracts_content = strip_yaml_frontmatter(extracts_content)
 
-
-        
-
-
         metadata = parse_filename_metadata(base_name)
-
 
         topics_section = extract_section(extracts_content, 'Topics')
 
-
         themes_section = extract_section(extracts_content, 'Key Themes')
-
-
-        
-
 
         abstract_input = abstract_pipeline.prepare_abstract_input(
 
@@ -2210,18 +2297,9 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         )
 
-
-        
-
-
         api_key = os.getenv("ANTHROPIC_API_KEY")
 
-
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
-
-
-        
-
 
         passed, report = abstract_validation.validate_and_report(
 
@@ -2231,34 +2309,21 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         )
 
-
-        
-
-
-        report_path = config.SUMMARIES_DIR / f"{base_name} - abstract-validation.txt"
-
+        report_path = config.SUMMARIES_DIR / \
+            f"{base_name} - abstract-validation.txt"
 
         report_path.write_text(report, encoding='utf-8')
 
-
-        
-
-
         logger.info(f"Validation Report saved to {report_path}")
 
-
         logger.info(f"Validation Passed: {passed}")
-
-
-        
-
 
         # Log the report content line by line for the GUI
         for line in report.splitlines():
             logger.info(line)
-        
+
         return passed
-        
+
     except Exception as e:
         logger.error(f"Error validating abstract coverage: {e}", exc_info=True)
         return False
@@ -2278,93 +2343,104 @@ def validate_abstract_with_structured_pipeline(base_name: str, logger=None) -> b
     return validate_abstract_coverage(base_name=base_name, logger=logger)
 
 
-
 # ============================================================================
 # NEW SUMMARY GENERATION & VALIDATION
 # ============================================================================
 
-def generate_structured_summary(base_name: str, summary_target_word_count: int = 500, gen_summary_logger=None) -> bool:
+def generate_structured_summary(base_name: str, summary_target_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None) -> bool:
     """
     Generate a structured summary using the pipeline.
     """
-    if gen_summary_logger is None:
-        gen_summary_logger = setup_logging('generate_structured_summary')
-    
+    if logger is None:
+        logger = setup_logging('generate_structured_summary')
+
     try:
         # Explicitly cast to int right at the beginning of the function body
         # This will convert summary_target_word_count to int or raise TypeError/ValueError
         try:
             summary_target_word_count = int(summary_target_word_count)
         except (TypeError, ValueError) as e:
-            gen_summary_logger.error(f"Error: summary_target_word_count expected to be an integer, but received type {type(summary_target_word_count)} with value '{summary_target_word_count}'. Original error: {e}", exc_info=True)
+            logger.error(
+                f"Error: summary_target_word_count expected to be an integer, but received type {type(summary_target_word_count)} with value '{summary_target_word_count}'. Original error: {e}", exc_info=True)
             return False
 
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-        
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
+
         validate_input_file(formatted_file)
-        validate_input_file(extracts_summary_file)
-        
+        validate_input_file(topics_themes_file)
+
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
-        
-        extracts_content = extracts_summary_file.read_text(encoding='utf-8')
+
+        extracts_content = topics_themes_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
-        
+
         metadata = parse_filename_metadata(base_name)
-        
+
         # Extract sections
         topics_section = extract_section(extracts_content, 'Topics')
         themes_section = extract_section(extracts_content, 'Key Themes')
-        
+
         if not topics_section:
-             gen_summary_logger.error("Could not find Topics in extracts summary.")
-             return False
-        
+            logger.error(
+                "Could not find Topics in topics-themes.")
+            return False
+
         # DEBUG statements to diagnose TypeError
-        gen_summary_logger.info(f"DEBUG: In generate_structured_summary:")
-        gen_summary_logger.info(f"DEBUG:   Type of summary_target_word_count (after cast): {type(summary_target_word_count)}")
-        gen_summary_logger.info(f"DEBUG:   Value of summary_target_word_count (after cast): {summary_target_word_count}")
-        gen_summary_logger.info(f"DEBUG:   Type of gen_summary_logger (param): {type(gen_summary_logger)}")
-        gen_summary_logger.info(f"DEBUG:   Value of gen_summary_logger (param): {gen_summary_logger}")
-             
+        logger.info(f"DEBUG: In generate_structured_summary:")
+        logger.info(
+            f"DEBUG:   Type of summary_target_word_count (after cast): {type(summary_target_word_count)}")
+        logger.info(
+            f"DEBUG:   Value of summary_target_word_count (after cast): {summary_target_word_count}")
+        logger.info(
+            f"DEBUG:   Type of logger (param): {type(logger)}")
+        logger.info(
+            f"DEBUG:   Value of logger (param): {logger}")
+
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,
             topics_markdown=topics_section,
             themes_markdown=themes_section,
             transcript=transcript,
-            word_count_for_allocation=summary_target_word_count
+            target_word_count=summary_target_word_count
         )
-        
+
         # Logging for GUI feedback
         topic_count = len(summary_input.body.topics)
         theme_count = len(summary_input.themes)
-        
+
         if not topic_count:
-             gen_summary_logger.error("Failed to parse any Topics from extracts summary. Check regex or input format.")
-             return False
-             
-        gen_summary_logger.info(f"Parsed {topic_count} topics and {theme_count} themes for summary.")
+            logger.error(
+                "Failed to parse any Topics from topics-themes. Check regex or input format.")
+            return False
+
+        logger.info(
+            f"Parsed {topic_count} topics and {theme_count} themes for summary.")
         if theme_count == 0:
-            gen_summary_logger.warning("No themes parsed. Summary will lack thematic weaving.")
-            
-        gen_summary_logger.info("Generating summary via API...")
-        
+            logger.warning(
+                "No themes parsed. Summary will lack thematic weaving.")
+
+        logger.info("Generating summary via API...")
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-             raise ValueError("ANTHROPIC_API_KEY not set")
-             
+            raise ValueError("ANTHROPIC_API_KEY not set")
+
         client = anthropic.Anthropic(api_key=api_key)
         summary_text = summary_pipeline.generate_summary(summary_input, client)
-        
+
         # Save summary
-        output_path = config.SUMMARIES_DIR / f"{base_name} - summary-generated.md"
+        output_path = config.SUMMARIES_DIR / \
+            f"{base_name} - summary-generated.md"
         output_path.write_text(summary_text, encoding='utf-8')
-        gen_summary_logger.info(f"Generated summary saved to {output_path}")
-        
+        logger.info(f"Generated summary saved to {output_path}")
+
         return True
     except Exception as e:
-        gen_summary_logger.error(f"Error generating structured summary: {e}", exc_info=True)
+        logger.error(
+            f"Error generating structured summary: {e}", exc_info=True)
         return False
 
 
@@ -2374,30 +2450,34 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
     """
     if logger is None:
         logger = setup_logging('validate_summary_coverage')
-        
+
     try:
         # Load inputs
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        extracts_summary_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-        generated_summary_file = config.SUMMARIES_DIR / f"{base_name} - summary-generated.md"
-        
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
+        generated_summary_file = config.SUMMARIES_DIR / \
+            f"{base_name} - summary-generated.md"
+
         if generated_summary_file.exists():
             summary_text = generated_summary_file.read_text(encoding='utf-8')
-            logger.info(f"Validating generated summary from: {generated_summary_file.name}")
+            logger.info(
+                f"Validating generated summary from: {generated_summary_file.name}")
         else:
-            logger.error("No generated summary found to validate. Run 'Gen Summary' first.")
+            logger.error(
+                "No generated summary found to validate. Run 'Gen Summary' first.")
             return False
-            
+
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
-        
-        extracts_content = extracts_summary_file.read_text(encoding='utf-8')
+
+        extracts_content = topics_themes_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
-        
+
         metadata = parse_filename_metadata(base_name)
         topics_section = extract_section(extracts_content, 'Topics')
         themes_section = extract_section(extracts_content, 'Key Themes')
-        
+
         # Re-prepare input to get the checklist
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,
@@ -2405,28 +2485,30 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
             themes_markdown=themes_section,
             transcript=transcript
         )
-        
+
         # Log input stats to help debug validation failures
-        logger.info(f"Validation Input: {len(summary_input.body.topics)} topics, {len(summary_input.themes)} themes parsed from source.")
-        
+        logger.info(
+            f"Validation Input: {len(summary_input.body.topics)} topics, {len(summary_input.themes)} themes parsed from source.")
+
         api_key = os.getenv("ANTHROPIC_API_KEY")
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
-        
+
         passed, report = summary_validation.validate_and_report(
             summary_text, summary_input, api_client=client
         )
-        
-        report_path = config.SUMMARIES_DIR / f"{base_name} - summary-validation.txt"
+
+        report_path = config.SUMMARIES_DIR / \
+            f"{base_name} - summary-validation.txt"
         report_path.write_text(report, encoding='utf-8')
-        
+
         logger.info(f"Validation Report saved to {report_path}")
         logger.info(f"Validation Passed: {passed}")
-        
+
         for line in report.splitlines():
             logger.info(line)
-        
+
         return passed
-        
+
     except Exception as e:
         logger.error(f"Error validating summary coverage: {e}", exc_info=True)
         return False

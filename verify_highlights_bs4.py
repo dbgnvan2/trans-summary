@@ -94,12 +94,12 @@ def verify(base_name):
     emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
     if not emphasis_file.exists():
         emphasis_file = config.SUMMARIES_DIR / \
-            f"{base_name}_yaml - emphasis-items.md"
+            f"{base_name} - yaml - emphasis-items.md"
 
     bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
     if not bowen_file.exists():
         bowen_file = config.SUMMARIES_DIR / \
-            f"{base_name}_yaml - bowen-references.md"
+            f"{base_name} - yaml - bowen-references.md"
 
     # 2. Load Data
     html_highlights = extract_html_highlights(html_file)

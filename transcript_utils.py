@@ -8,12 +8,10 @@ import os
 import time
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any # Added List, Dict, Any for dataclasses
+from typing import Optional
 from difflib import SequenceMatcher
 from html import unescape
 import yaml
-from dataclasses import dataclass, field # Added for MockMessage
-
 from anthropic import (
     APIError,
     RateLimitError,
@@ -30,7 +28,7 @@ import config
 # Configure logging
 def setup_logging(script_name: str) -> logging.Logger:
     """Set up logging for a script."""
-    logs_dir = Path(__file__).parent / "logs"
+    logs_dir = config.LOGS_DIR
     logs_dir.mkdir(exist_ok=True)
 
     from datetime import datetime
@@ -48,93 +46,6 @@ def setup_logging(script_name: str) -> logging.Logger:
     logger = logging.getLogger(script_name)
     logger.info("Logging initialized: %s", log_file)
     return logger
-
-
-@dataclass
-class MockContentBlock:
-    type: str
-    text: str
-
-@dataclass
-class MockUsage:
-    input_tokens: int
-    output_tokens: int
-
-@dataclass
-class MockMessage:
-    id: str = "msg_mock"
-    type: str = "message"
-    role: str = "assistant"
-    model: str = ""
-    stop_reason: Optional[str] = None
-    content: list[MockContentBlock] = field(default_factory=list)
-    usage: MockUsage = field(default_factory=lambda: MockUsage(input_tokens=0, output_tokens=0))
-    stop_sequence: Optional[str] = None # Added for completeness
-
-
-def _process_stream_response(stream_response, logger: Optional[logging.Logger] = None) -> Optional[MockMessage]:
-    """
-    Processes a MessageStream response and reconstructs a Message object.
-    """
-    full_text = []
-    final_message_data: Dict[str, Any] = {} # Use Dict[str, Any] for flexibility
-    
-    try:
-        # Iterate over stream events
-        for event in stream_response:
-            if logger:
-                logger.debug(f"Stream event received: {event.type}")
-            
-            if event.type == "message_start":
-                final_message_data['id'] = event.message.id
-                final_message_data['type'] = event.message.type
-                final_message_data['role'] = event.message.role
-                final_message_data['model'] = event.message.model
-            elif event.type == "content_block_delta":
-                if event.delta.type == "text_delta":
-                    full_text.append(event.delta.text)
-            elif event.type == "message_delta":
-                if event.delta.stop_reason:
-                    final_message_data['stop_reason'] = event.delta.stop_reason
-                if event.delta.stop_sequence:
-                    final_message_data['stop_sequence'] = event.delta.stop_sequence
-                if event.usage:
-                    # Update usage if provided in message_delta
-                    if hasattr(event.usage, 'input_tokens'):
-                        final_message_data['usage_input_tokens'] = event.usage.input_tokens
-                    if hasattr(event.usage, 'output_tokens'):
-                        final_message_data['usage_output_tokens'] = event.usage.output_tokens
-            elif event.type == "message_stop":
-                pass # Stream finished
-            else:
-                if logger:
-                    logger.warning(f"Unhandled stream event type: {event.type}")
-
-        # Construct the MockMessage
-        if not final_message_data:
-            if logger:
-                logger.error("No message data collected from stream.")
-            return None
-
-        mock_message = MockMessage(
-            id=final_message_data.get('id', 'msg_mock'),
-            type=final_message_data.get('type', 'message'),
-            role=final_message_data.get('role', 'assistant'),
-            model=final_message_data.get('model', ''),
-            stop_reason=final_message_data.get('stop_reason'),
-            stop_sequence=final_message_data.get('stop_sequence')
-        )
-        mock_message.content.append(MockContentBlock(type="text", text="".join(full_text)))
-        mock_message.usage = MockUsage(
-            input_tokens=final_message_data.get('usage_input_tokens', 0),
-            output_tokens=final_message_data.get('usage_output_tokens', 0)
-        )
-        return mock_message
-        
-    except Exception as e:
-        if logger:
-            logger.error(f"Error processing stream response: {e}", exc_info=True)
-        return None
 
 
 def validate_api_key() -> str:
@@ -183,6 +94,7 @@ def validate_api_response(
     message,
     expected_model: str,
     min_length: int = 50,
+    min_words: int = 0,
     logger: Optional[logging.Logger] = None
 ) -> str:
     """
@@ -200,6 +112,7 @@ def validate_api_response(
         message: API response message object
         expected_model: Model name that was requested
         min_length: Minimum expected text length in characters
+        min_words: Minimum expected text length in words
         logger: Optional logger for warnings
 
     Returns:
@@ -297,6 +210,13 @@ def validate_api_response(
                 f"(expected at least {min_length})"
             )
 
+    if min_words > 0:
+        word_count = len(text.split())
+        if word_count < min_words:
+            if logger:
+                logger.warning(
+                    f"Response suspiciously short: {word_count} words (expected at least {min_words})")
+
     # 6. Validate token usage exists
     if not hasattr(message, 'usage'):
         raise ValueError("Response missing 'usage' field")
@@ -325,9 +245,11 @@ def call_claude_with_retry(
     messages: list,
     max_tokens: int,
     temperature: float = 0.3,
-    stream: bool = False, # Added stream parameter
     max_retries: int = 3,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
+    min_length: int = 50,
+    min_words: int = 0,
+    **kwargs
 ):
     """
     Call Claude API with retry logic and comprehensive validation.
@@ -338,9 +260,10 @@ def call_claude_with_retry(
         messages: Message list
         max_tokens: Maximum tokens
         temperature: Temperature setting
-        stream: Whether to use streaming for the API call (required for long requests)
         max_retries: Maximum retry attempts
         logger: Optional logger
+        min_length: Minimum expected length of response text
+        min_words: Minimum expected length of response in words
 
     Returns:
         API response message
@@ -352,42 +275,55 @@ def call_claude_with_retry(
     """
     for attempt in range(max_retries):
         try:
-            if stream:
+            call_kwargs = kwargs.copy()
+            is_streaming = call_kwargs.pop('stream', False)
+
+            if is_streaming:
                 with client.messages.stream(
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    messages=messages
-                ) as stream_response:
-                    message = _process_stream_response(stream_response, logger)
-                    if message is None:
-                        raise RuntimeError("Failed to process streamed message.")
+                    messages=messages,
+                    **call_kwargs
+                ) as stream:
+                    message = stream.get_final_message()
             else:
                 message = client.messages.create(
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    messages=messages
+                    messages=messages,
+                    **call_kwargs
                 )
-
-            if logger:
-                logger.debug(f"DEBUG: message object before checks: {message}")
-            if message is None:
-                raise RuntimeError("Claude API call returned an empty message object (None).")
-            if not hasattr(message, 'type'):
-                raise RuntimeError("Claude API call returned a malformed message object (missing 'type' attribute).")
 
             # Comprehensive response validation
             try:
                 validate_api_response(
                     message,
                     expected_model=model,
+                    min_length=min_length,
+                    min_words=min_words,
                     logger=logger
                 )
+                # Enforce minimum length with retry
+                text_content = message.content[0].text
+                if len(text_content) < min_length:
+                    raise ValueError(
+                        f"Response text too short: {len(text_content)} chars (expected >= {min_length})")
+
+                if min_words > 0:
+                    if len(text_content.split()) < min_words:
+                        raise ValueError(
+                            f"Response text too short: {len(text_content.split())} words (expected >= {min_words})")
             except (ValueError, RuntimeError) as e:
-                # Validation failed - don't retry, this is a logic error
+                # Validation failed
                 if logger:
                     logger.error(f"Response validation failed: {e}")
+                # If we have retries left, continue to next attempt
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Retrying due to validation failure ({attempt + 1}/{max_retries})...")
+                    continue
                 raise
 
             # Warn if close to limit
@@ -404,8 +340,8 @@ def call_claude_with_retry(
             if logger:
                 logger.info(
                     f"API call successful - "
-                    f"Input: {message.usage.input_tokens} tokens, "
-                    f"Output: {message.usage.output_tokens} tokens, "
+                    f"Prompt: {message.usage.input_tokens} tokens, "
+                    f"Response: {message.usage.output_tokens} tokens, "
                     f"Stop reason: {message.stop_reason}"
                 )
 
@@ -433,6 +369,11 @@ def call_claude_with_retry(
             # Don't retry - request is malformed
             if logger:
                 logger.error(f"Bad request: {e}")
+            if "credit balance is too low" in str(e):
+                raise ValueError(
+                    "Anthropic API credit balance is too low. "
+                    "Please go to Plans & Billing to upgrade or purchase credits."
+                ) from e
             raise ValueError(
                 f"API request was malformed: {e}\n"
                 "Check that model name, max_tokens, and message format are valid."
@@ -480,10 +421,6 @@ def call_claude_with_retry(
             if logger:
                 logger.error(f"API error: {e}")
             raise
-        except Exception as e:
-            if logger:
-                logger.error(f"An unexpected error occurred during Claude API call: {e}", exc_info=True)
-            raise RuntimeError(f"An unexpected error occurred during Claude API call: {e}") from e
 
 
 def parse_filename_metadata(filename: str) -> dict:
@@ -493,12 +430,14 @@ def parse_filename_metadata(filename: str) -> dict:
     Returns a dictionary with title, presenter, author, date, year, and stem.
     """
     stem = Path(filename).stem
-    if ' - formatted' in stem:
-        stem = stem.replace(' - formatted', '')
-    if '_yaml' in stem:
-        stem = stem.replace('_yaml', '')
-    if ' - simple' in stem:
-        stem = stem.replace(' - simple', '')
+    if stem.endswith(' - formatted'):
+        stem = stem[:-12]
+    if stem.endswith('_yaml'):
+        stem = stem[:-5]
+    if stem.endswith(' - yaml'):
+        stem = stem[:-7]
+    if stem.endswith(' - simple'):
+        stem = stem[:-9]
 
     parts = [p.strip() for p in stem.split(' - ')]
 
@@ -656,8 +595,8 @@ def load_bowen_references(base_name: str) -> list:
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
 
-    # Fall back to extracts-summary for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    # Fall back to topics-themes for backward compatibility
+    extracts_file = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -704,8 +643,8 @@ def load_emphasis_items(base_name: str) -> list:
         content = strip_yaml_frontmatter(content)
         return extract_emphasis_items(content)
 
-    # Fall back to extracts-summary for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    # Fall back to topics-themes for backward compatibility
+    extracts_file = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -787,6 +726,12 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
 
     # Remove HTML tags
     text = re.sub(r'<[^>]+>', ' ', text)
+
+    # Remove timestamps (e.g. [00:00:00], 10:00, 1:10:10)
+    # Matches n:nn, nn:nn, n:nn:nn, nn:nn:nn with optional brackets/parens
+    text = re.sub(
+        r'[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?', ' ', text)
 
     if aggressive:
         # Remove speaker tags (Markdown and plain text)

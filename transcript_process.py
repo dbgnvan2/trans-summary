@@ -20,14 +20,7 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import Optional, Tuple
-
-
-# Directories (from environment variable)
-TRANSCRIPTS_BASE = Path(
-    os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-SOURCE_DIR = TRANSCRIPTS_BASE / "source"
-FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
+import config
 
 # Script paths (in same directory as this script)
 SCRIPT_DIR = Path(__file__).parent
@@ -42,16 +35,16 @@ PYTHON = sys.executable
 
 def setup_directories():
     """Ensure all required directories exist."""
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-    SOURCE_DIR.mkdir(parents=True, exist_ok=True)
-    FORMATTED_DIR.mkdir(parents=True, exist_ok=True)
+    config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    config.SOURCE_DIR.mkdir(parents=True, exist_ok=True)
+    config.FORMATTED_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def list_source_files() -> list[Path]:
     """Get all .txt files in source directory."""
-    if not SOURCE_DIR.exists():
+    if not config.SOURCE_DIR.exists():
         return []
-    return sorted(SOURCE_DIR.glob("*.txt"))
+    return sorted(config.SOURCE_DIR.glob("*.txt"))
 
 
 def display_files(files: list[Path]) -> None:
@@ -153,13 +146,13 @@ def move_to_processed(source_file: Path) -> Path:
     # Create new filename with 'Processed' suffix
     stem = source_file.stem
     new_name = f"{stem} - Processed{source_file.suffix}"
-    dest_path = PROCESSED_DIR / new_name
+    dest_path = config.PROCESSED_DIR / new_name
 
     # Handle duplicate filenames
     counter = 1
     while dest_path.exists():
         new_name = f"{stem} - Processed ({counter}){source_file.suffix}"
-        dest_path = PROCESSED_DIR / new_name
+        dest_path = config.PROCESSED_DIR / new_name
         counter += 1
 
     # Move file
@@ -180,7 +173,7 @@ def main():
     source_files = list_source_files()
 
     if not source_files:
-        print(f"\n❌ No .txt files found in {SOURCE_DIR}")
+        print(f"\n❌ No .txt files found in {config.SOURCE_DIR}")
         print("Please add transcript files to process.")
         return 1
 
@@ -201,12 +194,12 @@ def main():
     base_name = f"{title} - {author} - {date}"
 
     # Check existing files to determine starting point
-    formatted_file = FORMATTED_DIR / f"{base_name} - formatted.md"
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
     has_formatted = formatted_file.exists()
     has_yaml = False
 
     # Check for YAML - either separate _yaml.md file or in formatted.md
-    yaml_file = FORMATTED_DIR / f"{base_name} - formatted_yaml.md"
+    yaml_file = config.FORMATTED_DIR / f"{base_name} - yaml.md"
     if yaml_file.exists():
         has_yaml = True
     elif has_formatted:
@@ -324,9 +317,9 @@ def main():
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
     print(
-        f"📊 Summaries: {TRANSCRIPTS_BASE / 'summaries' / f'{base_name} - extracts-summary.md'}")
+        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name} - topics-themes.md'}")
     print(
-        f"           : {TRANSCRIPTS_BASE / 'summaries' / f'{base_name} - blog.md'}")
+        f"           : {config.SUMMARIES_DIR / f'{base_name} - blog.md'}")
 
     if confirm("\n✅ Everything looks good. Move source file to processed/?"):
         processed_path = move_to_processed(source_file)

@@ -116,20 +116,20 @@ class TranscriptProcessorGUI:
         # Action Buttons
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=5, column=0, sticky=(tk.W, tk.E))
-        
+
         # Row 1
         self.format_btn = ttk.Button(
             button_frame, text="1. Format", command=self.do_format_validate, state=tk.DISABLED)
         self.format_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
-        
+
         self.yaml_btn = ttk.Button(
             button_frame, text="2. YAML", command=self.do_add_yaml, state=tk.DISABLED)
         self.yaml_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
-        
+
         self.summary_btn = ttk.Button(
             button_frame, text="3. Extracts", command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
-        
+
         self.gen_summary_btn = ttk.Button(
             button_frame, text="4. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
         self.gen_summary_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
@@ -146,22 +146,23 @@ class TranscriptProcessorGUI:
         self.abstracts_btn = ttk.Button(
             button_frame, text="7. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
         self.abstracts_btn.grid(row=1, column=1, padx=(0, 5), pady=2)
-        
+
         self.blog_btn = ttk.Button(
             button_frame, text="8. Blog", command=self.do_generate_blog, state=tk.DISABLED)
         self.blog_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
-        
+
         self.webpdf_btn = ttk.Button(
             button_frame, text="9. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
-        
+
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
         self.clear_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=5, rowspan=2, padx=(10, 5), sticky=(tk.N, tk.S))
+        self.do_all_btn.grid(row=0, column=5, rowspan=2,
+                             padx=(10, 5), sticky=(tk.N, tk.S))
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
@@ -215,15 +216,19 @@ class TranscriptProcessorGUI:
         checks = [
             ("Source", self.selected_file),
             ("Formatted", config.FORMATTED_DIR / f"{base} - formatted.md"),
-            ("YAML", config.FORMATTED_DIR / f"{base}_yaml.md"),
-                        ("Extracts", config.SUMMARIES_DIR / f"{base} - extracts-summary.md"),
-                        ("Key Terms", config.SUMMARIES_DIR / f"{base} - key-terms.md"),
-                        ("Gen Summary", config.SUMMARIES_DIR / f"{base} - summary-generated.md"),
-                        ("Summary Val", config.SUMMARIES_DIR / f"{base} - summary-validation.txt"),
-                        ("Blog", config.SUMMARIES_DIR / f"{base} - blog.md"),
-                        ("Gen Abstract", config.SUMMARIES_DIR / f"{base} - abstract-generated.md"),
-                        ("Abstracts Val", config.SUMMARIES_DIR / f"{base} - abstract-validation.txt"),
-                        ("Webpage", config.WEBPAGES_DIR / f"{base}.html"),
+            ("YAML", config.FORMATTED_DIR / f"{base} - yaml.md"),
+            ("Extracts", config.SUMMARIES_DIR / f"{base} - topics-themes.md"),
+            ("Key Terms", config.SUMMARIES_DIR / f"{base} - key-terms.md"),
+            ("Gen Summary", config.SUMMARIES_DIR /
+             f"{base} - summary-generated.md"),
+            ("Summary Val", config.SUMMARIES_DIR /
+             f"{base} - summary-validation.txt"),
+            ("Blog", config.SUMMARIES_DIR / f"{base} - blog.md"),
+            ("Gen Abstract", config.SUMMARIES_DIR /
+             f"{base} - abstract-generated.md"),
+            ("Abstracts Val", config.SUMMARIES_DIR /
+             f"{base} - abstract-validation.txt"),
+            ("Webpage", config.WEBPAGES_DIR / f"{base}.html"),
             ("Simple Web", config.WEBPAGES_DIR / f"{base} - simple.html"),
             ("PDF", config.PDFS_DIR / f"{base}.pdf"),
         ]
@@ -244,19 +249,19 @@ class TranscriptProcessorGUI:
         self.status_label.config(text=message, foreground=color)
         self.root.update()
 
-    def run_task_in_thread(self, task_function, *args, **kwargs):
+    def run_task_in_thread(self, task_function, *args):
         self.processing = True
         self.progress.start()
         self.update_button_states()
 
         thread = threading.Thread(
-            target=self._execute_task, args=(task_function, *args), kwargs=kwargs)
+            target=self._execute_task, args=(task_function, *args))
         thread.daemon = True
         thread.start()
 
-    def _execute_task(self, task_function, *args, **kwargs):
+    def _execute_task(self, task_function, *args):
         try:
-            success = task_function(*args, **kwargs)
+            success = task_function(*args)
             if success:
                 self.set_status(f"Task completed successfully.", "green")
                 self.log(f"✅ {task_function.__name__} completed successfully.")
@@ -298,7 +303,7 @@ class TranscriptProcessorGUI:
             pipeline.add_yaml, f"{self.base_name} - formatted.md", "mp4", self.logger)
 
     def do_summaries(self):
-        yaml_file = config.FORMATTED_DIR / f"{self.base_name}_yaml.md"
+        yaml_file = config.FORMATTED_DIR / f"{self.base_name} - yaml.md"
         if not yaml_file.exists():
             if self.formatted_file.exists():
                 with open(self.formatted_file, 'r', encoding='utf-8') as f:
@@ -312,54 +317,44 @@ class TranscriptProcessorGUI:
                     "Not Ready", "Please format and add YAML first.")
                 return
         self.log("STEP 3: Generating Summaries...")
-        self.run_task_in_thread(pipeline.summarize_transcript, 
-                                formatted_filename=f"{self.base_name}_yaml.md",
-                                model=config.DEFAULT_MODEL, 
-                                focus_keyword="Family Systems", 
-                                target_audience="General public", 
-                                skip_extracts_summary=False, 
-                                skip_terms=False, 
-                                skip_blog=True,
-                                logger=self.logger)
+        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
+                                config.DEFAULT_MODEL, "Family Systems", "General public", False, False, True, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
 
     def do_generate_structured_summary(self):
         if not self.base_name:
             return
         self.log("STEP 4: Generating Structured Summary...")
-        self.run_task_in_thread(pipeline.generate_structured_summary, self.base_name, summary_target_word_count=500, gen_summary_logger=self.logger)
+        self.run_task_in_thread(
+            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
 
     def do_validate_summary(self):
         if not self.base_name:
             return
         self.log("STEP 5: Validating Summary (Coverage & Proportion)...")
-        self.run_task_in_thread(pipeline.validate_summary_coverage, self.base_name, self.logger)
+        self.run_task_in_thread(
+            pipeline.validate_summary_coverage, self.base_name, self.logger)
 
     def do_generate_blog(self):
         if not self.base_name:
             return
         self.log("STEP 8: Generating Blog Post...")
-        self.run_task_in_thread(pipeline.summarize_transcript,
-                                formatted_filename=f"{self.base_name}_yaml.md",
-                                model=config.DEFAULT_MODEL,
-                                focus_keyword="Family Systems",
-                                target_audience="General public",
-                                skip_extracts_summary=True, # Skip extracts summary
-                                skip_terms=True,            # Skip key terms
-                                skip_blog=False,            # Generate blog
-                                trans_summary_logger=self.logger)
+        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
+                                config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
 
     def do_generate_structured_abstract(self):
         if not self.base_name:
             return
         self.log("STEP 6: Generating Structured Abstract...")
-        self.run_task_in_thread(pipeline.generate_structured_abstract, self.base_name, self.logger)
+        self.run_task_in_thread(
+            pipeline.generate_structured_abstract, self.base_name, self.logger)
 
     def do_validate_abstracts(self):
         if not self.base_name:
             return
         self.log("STEP 7: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
-        self.run_task_in_thread(pipeline.validate_abstract_coverage, self.base_name, self.logger)
+        self.run_task_in_thread(
+            pipeline.validate_abstract_coverage, self.base_name, self.logger)
 
     def do_generate_web_pdf(self):
         if not self.base_name:
@@ -415,15 +410,15 @@ class TranscriptProcessorGUI:
         # Step 3: Extracts (Summaries)
         self.log("\n--- STEP 3: Extracts & Terms ---")
         # Run all parts (skips=False)
-        if not pipeline.summarize_transcript(f"{self.base_name}_yaml.md",
+        if not pipeline.summarize_transcript(f"{self.base_name} - yaml.md",
                                              config.DEFAULT_MODEL, "Family Systems", "General public",
                                              False, False, False, logger=self.logger):
             return False
 
         # Step 4: Generate Summary
         self.log("\n--- STEP 4: Generate Structured Summary ---")
-        if not pipeline.generate_structured_summary(base_name=self.base_name, summary_target_word_count=500, gen_summary_logger=self.logger):
-             self.log("⚠️ Summary generation failed or skipped.")
+        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger):
+            self.log("⚠️ Summary generation failed or skipped.")
 
         # Step 5: Validate Summary
         self.log("\n--- STEP 5: Validate Summary ---")
@@ -432,7 +427,7 @@ class TranscriptProcessorGUI:
         # Step 6: Generate Abstract
         self.log("\n--- STEP 6: Generate Structured Abstract ---")
         if not pipeline.generate_structured_abstract(self.base_name, self.logger):
-             self.log("⚠️ Abstract generation failed or skipped.")
+            self.log("⚠️ Abstract generation failed or skipped.")
 
         # Step 7: Validate Abstracts
         self.log("\n--- STEP 7: Validating Abstracts ---")

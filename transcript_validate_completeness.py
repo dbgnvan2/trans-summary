@@ -21,13 +21,7 @@ import os
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
-
-
-# Directories
-TRANSCRIPTS_BASE = Path(
-    os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
+import config
 
 
 class ValidationResult:
@@ -73,8 +67,8 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     result = ValidationResult("Formatted Transcript")
 
     # Check for either formatted.md or formatted_yaml.md
-    formatted_file = FORMATTED_DIR / f"{base_name} - formatted.md"
-    yaml_file = FORMATTED_DIR / f"{base_name} - formatted_yaml.md"
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    yaml_file = config.FORMATTED_DIR / f"{base_name} - yaml.md"
 
     file_to_check = yaml_file if yaml_file.exists() else formatted_file
 
@@ -126,11 +120,11 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     return result
 
 
-def validate_extracts_summary(base_name: str) -> ValidationResult:
-    """Validate extracts-summary contains all required sections."""
-    result = ValidationResult("Extracts Summary")
+def validate_topics_themes(base_name: str) -> ValidationResult:
+    """Validate topics-themes contains all required sections."""
+    result = ValidationResult("Topics-Themes")
 
-    file_path = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -177,7 +171,7 @@ def validate_key_terms(base_name: str) -> ValidationResult:
     """Validate key terms file."""
     result = ValidationResult("Key Terms")
 
-    file_path = SUMMARIES_DIR / f"{base_name} - key-terms.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name} - key-terms.md"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -202,7 +196,7 @@ def validate_blog(base_name: str) -> ValidationResult:
     """Validate blog post completeness."""
     result = ValidationResult("Blog Post")
 
-    file_path = SUMMARIES_DIR / f"{base_name} - blog.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name} - blog.md"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -236,7 +230,7 @@ def validate_abstracts(base_name: str) -> ValidationResult:
     """Validate abstracts file from quality validation."""
     result = ValidationResult("Validated Abstracts")
 
-    file_path = SUMMARIES_DIR / f"{base_name} - abstracts.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name} - abstracts.md"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -282,7 +276,7 @@ def validate_all(base_name: str) -> Dict[str, ValidationResult]:
 
     # Run all validators
     results['formatted'] = validate_formatted_file(base_name)
-    results['extracts'] = validate_extracts_summary(base_name)
+    results['topics_themes'] = validate_topics_themes(base_name)
     results['terms'] = validate_key_terms(base_name)
     results['blog'] = validate_blog(base_name)
     results['abstracts'] = validate_abstracts(base_name)

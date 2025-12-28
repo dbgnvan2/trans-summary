@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Validate generated HTML webpage against source materials.
-Checks that all expected content from extracts-summary appears in the webpage.
+Checks that all expected content from topics-themes appears in the webpage.
 Supports both sidebar layout and simple single-column layout.
 
 Usage:
@@ -19,19 +19,13 @@ import sys
 from pathlib import Path
 from html import unescape
 from difflib import SequenceMatcher
+import config
 
 try:
     from bs4 import BeautifulSoup
 except ImportError:
     print("❌ Error: beautifulsoup4 is not installed. Run: pip install beautifulsoup4")
     sys.exit(1)
-
-# Directories
-TRANSCRIPTS_BASE = Path(
-    os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
-WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
 
 
 def count_sections_in_formatted(formatted_file):
@@ -101,14 +95,15 @@ def find_missing_emphasis_items(base_name, html_file):
     from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
 
     # Try dedicated emphasis file first (more efficient)
-    emphasis_file = SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
             content = f.read()
     else:
-        # Fall back to extracts-summary for backward compatibility
-        extracts_file = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        # Fall back to topics-themes for backward compatibility
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
+        with open(topics_themes_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
     # Extract emphasis items using the same method as webpage generation
@@ -137,13 +132,14 @@ def find_missing_bowen_items(base_name, html_file):
     """Identify which specific Bowen references are missing from HTML."""
     from transcript_utils import extract_bowen_references, strip_yaml_frontmatter
 
-    bowen_file = SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
     if bowen_file.exists():
         with open(bowen_file, 'r', encoding='utf-8') as f:
             content = f.read()
     else:
-        extracts_file = SUMMARIES_DIR / f"{base_name} - extracts-summary.md"
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        topics_themes_file = config.SUMMARIES_DIR / \
+            f"{base_name} - topics-themes.md"
+        with open(topics_themes_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
     bowen_refs = extract_bowen_references(strip_yaml_frontmatter(content))
@@ -167,9 +163,9 @@ def find_missing_bowen_items(base_name, html_file):
     return missing
 
 
-def extract_extracts_summary_metadata(extracts_summary_file):
-    """Extract key metadata from extracts-summary file."""
-    with open(extracts_summary_file, 'r', encoding='utf-8') as f:
+def extract_topics_themes_metadata(topics_themes_file):
+    """Extract key metadata from topics-themes file."""
+    with open(topics_themes_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Strip YAML front matter
@@ -482,22 +478,22 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print(f"{'='*70}\n")
 
     # File paths
-    formatted_file = FORMATTED_DIR / f"{base_name} - formatted.md"
-    extracts_summary_file = SUMMARIES_DIR / \
-        f"{base_name} - extracts-summary.md"
+    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    topics_themes_file = config.SUMMARIES_DIR / \
+        f"{base_name} - topics-themes.md"
 
     # Use correct HTML filename based on mode
     if simple_mode:
-        html_file = WEBPAGES_DIR / f"{base_name} - simple.html"
+        html_file = config.WEBPAGES_DIR / f"{base_name} - simple.html"
     else:
-        html_file = WEBPAGES_DIR / f"{base_name}.html"
+        html_file = config.WEBPAGES_DIR / f"{base_name}.html"
 
     # Check files exist
     missing_files = []
     if not formatted_file.exists():
         missing_files.append(f"Formatted: {formatted_file}")
-    if not extracts_summary_file.exists():
-        missing_files.append(f"Extracts-summary: {extracts_summary_file}")
+    if not topics_themes_file.exists():
+        missing_files.append(f"Topics-Themes: {topics_themes_file}")
     if not html_file.exists():
         missing_files.append(f"HTML: {html_file}")
 
@@ -533,7 +529,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print(f"\n📝 Metadata Validation")
     print("-" * 70)
 
-    source_meta = extract_extracts_summary_metadata(extracts_summary_file)
+    source_meta = extract_topics_themes_metadata(topics_themes_file)
 
     # Use appropriate extraction function based on mode
     if simple_mode:
@@ -788,6 +784,26 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     return len(issues) == 0
 
 
+def resolve_base_name(input_name: str) -> str:
+    """
+    Resolve input string to a base name by stripping extensions and suffixes.
+    Example: "Title - Presenter - Date - formatted.md" -> "Title - Presenter - Date"
+    """
+    # Remove extension
+    name = input_name
+    if name.endswith('.md') or name.endswith('.txt'):
+        name = Path(name).stem
+
+    # Remove known suffixes
+    suffixes = [' - formatted', ' - yaml', '_yaml', ' - simple']
+    for suffix in suffixes:
+        if name.endswith(suffix):
+            name = name[:-len(suffix)]
+            break
+
+    return name
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Validate generated HTML webpage against source materials. '
@@ -805,7 +821,9 @@ def main():
 
     args = parser.parse_args()
 
-    success = validate_webpage(args.base_name, simple_mode=args.simple)
+    base_name = resolve_base_name(args.base_name)
+
+    success = validate_webpage(base_name, simple_mode=args.simple)
     exit(0 if success else 1)
 
 

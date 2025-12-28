@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Merge key terms into extracts-summary document.
+Merge key terms into topics-themes document.
 Inserts key terms section after Key Themes, before Bowen References.
 
 Usage:
@@ -13,24 +13,19 @@ Example:
 import argparse
 import os
 from pathlib import Path
+import config
 
 
-# Directories (from environment variable)
-TRANSCRIPTS_BASE = Path(
-    os.getenv("TRANSCRIPTS_DIR", Path.home() / "transcripts"))
-SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
+def merge_key_terms_into_topics_themes(base_name: str) -> bool:
+    """Merge key-terms.md into topics-themes.md document."""
 
-
-def merge_key_terms_into_extracts_summary(base_name: str) -> bool:
-    """Merge key-terms.md into extracts-summary.md document."""
-
-    extracts_summary_path = SUMMARIES_DIR / \
-        f"{base_name} - extracts-summary.md"
-    key_terms_path = SUMMARIES_DIR / f"{base_name} - key-terms.md"
+    topics_themes_path = config.SUMMARIES_DIR / \
+        f"{base_name} - topics-themes.md"
+    key_terms_path = config.SUMMARIES_DIR / f"{base_name} - key-terms.md"
 
     # Check both files exist
-    if not extracts_summary_path.exists():
-        print(f"❌ Extracts-summary file not found: {extracts_summary_path}")
+    if not topics_themes_path.exists():
+        print(f"❌ Topics-Themes file not found: {topics_themes_path}")
         return False
 
     if not key_terms_path.exists():
@@ -38,8 +33,8 @@ def merge_key_terms_into_extracts_summary(base_name: str) -> bool:
         return False
 
     # Read both files
-    with open(extracts_summary_path, 'r', encoding='utf-8') as f:
-        extracts_summary_content = f.read()
+    with open(topics_themes_path, 'r', encoding='utf-8') as f:
+        topics_themes_content = f.read()
 
     with open(key_terms_path, 'r', encoding='utf-8') as f:
         key_terms_content = f.read()
@@ -63,13 +58,13 @@ def merge_key_terms_into_extracts_summary(base_name: str) -> bool:
     else:
         key_terms_section = key_terms_content
 
-    # Find insertion point in extracts-summary (after Key Themes, before Bowen References)
+    # Find insertion point in topics-themes (after Key Themes, before Bowen References)
     # Look for the "## **Bowen References**" heading
     insertion_marker = "## **Bowen References**"
 
-    if insertion_marker in extracts_summary_content:
+    if insertion_marker in topics_themes_content:
         # Insert key terms before Bowen References
-        parts = extracts_summary_content.split(insertion_marker, 1)
+        parts = topics_themes_content.split(insertion_marker, 1)
         merged_content = (
             parts[0] +
             "\n---\n\n" +
@@ -80,22 +75,22 @@ def merge_key_terms_into_extracts_summary(base_name: str) -> bool:
         )
     else:
         print("⚠️  Could not find insertion point (## **Bowen References**)")
-        print("   Appending key terms to end of extracts-summary document")
-        merged_content = extracts_summary_content + "\n\n---\n\n" + key_terms_section
+        print("   Appending key terms to end of topics-themes document")
+        merged_content = topics_themes_content + "\n\n---\n\n" + key_terms_section
 
-    # Save merged content back to extracts-summary file
-    with open(extracts_summary_path, 'w', encoding='utf-8') as f:
+    # Save merged content back to topics-themes file
+    with open(topics_themes_path, 'w', encoding='utf-8') as f:
         f.write(merged_content)
 
-    print(f"✅ Key terms merged into extracts-summary document")
-    print(f"   File: {extracts_summary_path}")
+    print(f"✅ Key terms merged into topics-themes document")
+    print(f"   File: {topics_themes_path}")
 
     return True
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Merge key terms into extracts-summary document"
+        description="Merge key terms into topics-themes document"
     )
     parser.add_argument(
         "base_name",
@@ -105,7 +100,7 @@ def main():
     args = parser.parse_args()
 
     try:
-        success = merge_key_terms_into_extracts_summary(args.base_name)
+        success = merge_key_terms_into_topics_themes(args.base_name)
         return 0 if success else 1
 
     except (OSError, IOError) as e:
