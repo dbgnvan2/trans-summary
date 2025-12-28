@@ -327,7 +327,7 @@ def call_claude_with_retry(
                 raise
 
             # Warn if close to limit
-            if message.usage.output_tokens > max_tokens * 0.9:
+            if message.usage.output_tokens > max_tokens * config.TOKEN_USAGE_WARNING_THRESHOLD:
                 warning = (
                     f"⚠️  Nearly hit token limit: "
                     f"{message.usage.output_tokens}/{max_tokens} tokens used"
@@ -487,7 +487,7 @@ def estimate_token_count(text: str) -> int:
     Returns:
         Estimated token count
     """
-    return len(text) // 4
+    return len(text) // config.CHARS_PER_TOKEN
 
 
 def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logger] = None) -> bool:
@@ -505,13 +505,13 @@ def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logg
     estimated = estimate_token_count(text)
 
     # Leave 20% margin for safety
-    safe_limit = max_tokens * 0.8
+    safe_limit = max_tokens * config.TOKEN_BUDGET_SAFETY_MARGIN
 
     if estimated > safe_limit:
         warning = (
             f"⚠️  Input may exceed token limit:\n"
             f"   Estimated tokens: {estimated:,}\n"
-            f"   Safe limit: {int(safe_limit):,} (80% of {max_tokens:,})\n"
+            f"   Safe limit: {int(safe_limit):,} ({config.TOKEN_BUDGET_SAFETY_MARGIN:.0%} of {max_tokens:,})\n"
             f"   Consider processing in smaller chunks."
         )
         if logger:
@@ -770,7 +770,8 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     if needle_normalized in haystack_normalized:
         # Find position in original (non-normalized) text
         # Use first 20 chars to locate in original
-        search_start = needle[:min(20, len(needle))].strip()
+        search_start = needle[:min(
+            config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
         if pos >= 0:
             return (pos, pos + len(needle), 1.0)
@@ -787,11 +788,11 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         window = ' '.join(haystack_words[i:i + needle_len])
         ratio = SequenceMatcher(None, needle_normalized, window).ratio()
 
-        if ratio > best_ratio and ratio >= 0.85:
+        if ratio > best_ratio and ratio >= config.FUZZY_MATCH_THRESHOLD:
             best_ratio = ratio
             best_pos = i
             # Early termination for near-perfect match
-            if ratio >= 0.98:
+            if ratio >= config.FUZZY_MATCH_EARLY_STOP:
                 break
 
     if best_pos is not None:

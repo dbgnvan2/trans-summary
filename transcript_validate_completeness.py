@@ -82,9 +82,9 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     word_count = len(content.split())
     result.add_info(f"Word count: {word_count:,}")
 
-    if word_count < 1500:
+    if word_count < config.TRANSCRIPT_MIN_WORDS:
         result.add_error(
-            f"Transcript too short ({word_count} words, minimum 1500 required)")
+            f"Transcript too short ({word_count} words, minimum {config.TRANSCRIPT_MIN_WORDS} required)")
     elif word_count < 2000:
         result.add_warning(
             f"Transcript shorter than typical ({word_count} words)")
@@ -217,9 +217,9 @@ def validate_blog(base_name: str) -> ValidationResult:
     word_count = len(content.split())
     result.add_info(f"Word count: {word_count:,}")
 
-    if word_count < 800:
+    if word_count < config.BLOG_MIN_WORDS:
         result.add_error(
-            f"Blog too short ({word_count} words, minimum 800 required)")
+            f"Blog too short ({word_count} words, minimum {config.BLOG_MIN_WORDS} required)")
     elif word_count < 1000:
         result.add_warning(f"Blog shorter than typical ({word_count} words)")
 

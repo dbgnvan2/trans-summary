@@ -105,9 +105,9 @@ def calculate_word_allocations(
     include_qa = qa_percentage > 15
 
     # Base allocations
-    opening_pct = 0.14
-    closing_pct = 0.06  # Reduced from 0.10 to better match typical conclusion length
-    qa_pct = 0.10 if include_qa else 0.0
+    opening_pct = config.SUMMARY_OPENING_PCT
+    closing_pct = config.SUMMARY_CLOSING_PCT
+    qa_pct = config.SUMMARY_QA_PCT if include_qa else 0.0
     body_pct = 1.0 - opening_pct - closing_pct - qa_pct
 
     allocations = {
@@ -644,45 +644,15 @@ def prepare_summary_input(
 
 # === API Integration ===
 
-SUMMARY_PROMPT_TEMPLATE = """
-You will receive a JSON object with structured data extracted from a transcript, including word allocations for each section.
-
-Generate a summary as continuous prose with clearly separated paragraphs following this structure:
-
-**Opening Paragraph** (~{opening_words} words)
-- Identify speaker with credentials
-- State event type and context  
-- Present the stated_purpose as thesis
-- Preview major content areas (referencing the 'topics')
-
-**Body Paragraphs** (~{body_words} words total)
-For each topic in order:
-- Allocate approximately the specified word_allocation to each topic
-- State what the speaker addresses
-- Include 2-3 key points
-- **Weave in the Key Themes** where relevant to connect topics or deepen analysis
-- Connect to next topic with transitional phrase
-
-**Q&A Paragraph** (~{qa_words} words, {qa_instruction})
-- State types of questions
-- Mention 1-2 notable exchanges
-
-**Closing Paragraph** (~{closing_words} words)
-- State the conclusion
-- Mention open questions and future direction if present
-
-Constraints:
-- Third person, present tense
-- Chronological order—do not reorganize
-- No citations, quotations, or section numbers
-- No evaluation of content quality
-- No bullet points or lists
-- Preserve technical terminology
-- Output only the summary paragraphs—no headers or commentary
-
-Input data:
-{input_json}
-"""
+def load_prompt() -> str:
+    """Load the summary generation prompt template."""
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_STRUCTURED_SUMMARY_FILENAME
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_SUMMARY_FILENAME}"
+        )
+    return prompt_path.read_text(encoding='utf-8')
 
 
 def generate_summary(
@@ -695,7 +665,8 @@ def generate_summary(
     """
     qa_instruction = "include this section" if summary_input.qa.include else "skip this section"
 
-    prompt = SUMMARY_PROMPT_TEMPLATE.format(
+    prompt_template = load_prompt()
+    prompt = prompt_template.format(
         opening_words=summary_input.opening.word_allocation,
         body_words=summary_input.body.word_allocation,
         qa_words=summary_input.qa.word_allocation,

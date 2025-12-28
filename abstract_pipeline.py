@@ -342,28 +342,15 @@ def prepare_abstract_input(
 
 # === API Integration ===
 
-ABSTRACT_PROMPT_TEMPLATE = """
-You will receive a JSON object with structured data extracted from a transcript.
-
-Generate a ~{target_word_count} word abstract as a single paragraph containing these components in sequence:
-
-1. **Context** (1-2 sentences): Speaker, event type, subject domain
-2. **Central Argument** (1-2 sentences): The `opening_purpose` restated as thesis
-3. **Key Content** (2-3 sentences): Cover the `topics` in order, stating what the speaker does with each
-4. **Conclusions** (1-2 sentences): The `closing_conclusion` restated
-5. **Q&A note** (1 sentence, only if qa_percentage > 20): Mention `qa_topics`
-
-Constraints:
-- Third person, present tense
-- No citations, quotations, or section numbers
-- No evaluation of content quality
-- No bullet points or lists
-- Preserve technical terminology from input
-- Output only the abstract paragraph—no headers, labels, or commentary
-
-Input data:
-{input_json}
-"""
+def load_prompt() -> str:
+    """Load the abstract generation prompt template."""
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_STRUCTURED_ABSTRACT_FILENAME
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_ABSTRACT_FILENAME}"
+        )
+    return prompt_path.read_text(encoding='utf-8')
 
 
 def generate_abstract(
@@ -382,7 +369,8 @@ def generate_abstract(
     Returns:
         Generated abstract text
     """
-    prompt = ABSTRACT_PROMPT_TEMPLATE.format(
+    prompt_template = load_prompt()
+    prompt = prompt_template.format(
         input_json=abstract_input.to_json(),
         target_word_count=abstract_input.target_word_count)
 
@@ -409,7 +397,7 @@ def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
     issues = []
 
     word_count = len(abstract.split())
-    
+
     # Allow 20% tolerance
     min_words = int(target_word_count * 0.8)
     max_words = int(target_word_count * 1.2)

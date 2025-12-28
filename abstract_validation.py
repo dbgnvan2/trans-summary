@@ -288,16 +288,18 @@ def verify_with_llm(
         for i, item in enumerate(items)
     ])
 
-    prompt = f"""Review this abstract and determine if it covers each listed item.
-For each item, respond with only YES or NO.
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_VALIDATION_COVERAGE_FILENAME}"
+        )
+    template = prompt_path.read_text(encoding='utf-8')
 
-ABSTRACT:
-{abstract}
-
-ITEMS TO VERIFY:
-{items_text}
-
-Respond with one YES or NO per line, in order:"""
+    prompt = template.replace("{{content_type}}", "abstract") \
+                     .replace("{{content_type_upper}}", "ABSTRACT") \
+                     .replace("{{content}}", abstract) \
+                     .replace("{{items_text}}", items_text)
 
     response = api_client.messages.create(
         model=config.AUX_MODEL,

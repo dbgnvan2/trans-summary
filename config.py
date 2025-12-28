@@ -40,6 +40,9 @@ PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
 PROMPT_BLOG_FILENAME = "Transcript Summary Blog Post v1.md"
 PROMPT_ABSTRACT_VALIDATION_FILENAME = "abstract_quality_assessment_prompt_v2.md"
 PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
+PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
+PROMPT_STRUCTURED_ABSTRACT_FILENAME = "Abstract Generation Prompt v1.md"
+PROMPT_VALIDATION_COVERAGE_FILENAME = "Validation Coverage Prompt v1.md"
 
 # Validation Settings
 VALIDATION_MISMATCH_RATIO = 0.015  # 1.5% tolerance
@@ -59,6 +62,26 @@ MIN_ABSTRACT_VALIDATION_CHARS = 50
 # Abstract Settings
 ABSTRACT_TARGET_PERCENT = 0.03  # 3% of transcript word count
 ABSTRACT_MIN_WORDS = 150
+
+# Summary Structure Allocations
+SUMMARY_OPENING_PCT = 0.14
+SUMMARY_CLOSING_PCT = 0.06
+SUMMARY_QA_PCT = 0.10
+
+# Validation Thresholds
+TRANSCRIPT_MIN_WORDS = 1500
+BLOG_MIN_WORDS = 800
+EVALUATIVE_TERMS = ['valuable', 'insightful', 'excellent']
+
+# Token Estimation & Safety
+CHARS_PER_TOKEN = 4
+TOKEN_BUDGET_SAFETY_MARGIN = 0.8
+TOKEN_USAGE_WARNING_THRESHOLD = 0.9
+
+# Fuzzy Matching Settings
+FUZZY_MATCH_THRESHOLD = 0.85
+FUZZY_MATCH_EARLY_STOP = 0.98
+FUZZY_MATCH_PREFIX_LEN = 20
 
 
 def set_transcripts_base(path: str | Path):

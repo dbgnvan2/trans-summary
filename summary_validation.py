@@ -401,16 +401,18 @@ def verify_with_llm(
         for i, item in enumerate(items)
     ])
 
-    prompt = f"""Review this summary and determine if it covers each listed item.
-For each item, respond with only YES or NO.
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_VALIDATION_COVERAGE_FILENAME}"
+        )
+    template = prompt_path.read_text(encoding='utf-8')
 
-SUMMARY:
-{summary}
-
-ITEMS TO VERIFY:
-{items_text}
-
-Respond with one YES or NO per line, in order:"""
+    prompt = template.replace("{{content_type}}", "summary") \
+                     .replace("{{content_type_upper}}", "SUMMARY") \
+                     .replace("{{content}}", summary) \
+                     .replace("{{items_text}}", items_text)
 
     response = api_client.messages.create(
         model=config.AUX_MODEL,
@@ -593,7 +595,7 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
         issues.append("Contains bullet points")
 
     # Removed 'important', 'significant', 'crucial' as they often reflect speaker's emphasis
-    evaluative_terms = ['valuable', 'insightful', 'excellent']
+    evaluative_terms = config.EVALUATIVE_TERMS
     found_evaluative = [
         t for t in evaluative_terms if t.lower() in summary.lower()]
     if found_evaluative:
