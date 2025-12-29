@@ -90,14 +90,15 @@ def main():
 
     base_name = sys.argv[1]
 
-    topics_themes_file = config.SUMMARIES_DIR / \
-        f"{base_name} - topics-themes.md"
+    # Point to the main raw extracts file
+    all_key_items_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
     formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
 
-    if not topics_themes_file.exists() and not emphasis_file.exists():
+    if not all_key_items_file.exists() and not emphasis_file.exists():
         print(
-            f"Error: {topics_themes_file} and {emphasis_file} not found")
+            f"Error: {all_key_items_file} and {emphasis_file} not found")
         sys.exit(1)
 
     if not formatted_file.exists():
@@ -105,8 +106,8 @@ def main():
         sys.exit(1)
 
     print(f"Using files:")
-    source_file = emphasis_file if emphasis_file.exists() else topics_themes_file
-    print(f"  Topics-Themes: {source_file}")
+    source_file = emphasis_file if emphasis_file.exists() else all_key_items_file
+    print(f"  Source for Emphasis Items: {source_file.name}")
 
     # Load emphasis items from topics-themes
     with open(source_file, 'r', encoding='utf-8') as f:

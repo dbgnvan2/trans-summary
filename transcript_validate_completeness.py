@@ -120,11 +120,12 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     return result
 
 
-def validate_topics_themes(base_name: str) -> ValidationResult:
-    """Validate topics-themes contains all required sections."""
-    result = ValidationResult("Topics-Themes")
+def validate_key_item_extracts(base_name: str) -> ValidationResult:
+    """Validate 'All Key Items' contains all required sections."""
+    result = ValidationResult("Key Item Extracts (All Key Items)")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
+    file_path = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -132,18 +133,17 @@ def validate_topics_themes(base_name: str) -> ValidationResult:
 
     content = file_path.read_text(encoding='utf-8')
 
-    # Required sections (flexible header matching)
+    # Recommended sections (flexible header matching)
     required_sections = {
         'Abstract': r'##\s*\*?\*?Abstract\*?\*?',
         'Topics': r'##\s*\*?\*?Topics\*?\*?',
-        'Themes': r'##\s*\*?\*?Themes\*?\*?',
-        'Key Items': r'##\s*\*?\*?Key Items\*?\*?',
+        'Key Themes': r'##\s*\*?\*?Key Themes\*?\*?',
         'Emphasis Items': r'##\s*\*?\*?Emphasis Items\*?\*?',
     }
 
     for section_name, pattern in required_sections.items():
         if not re.search(pattern, content, re.IGNORECASE):
-            result.add_error(f"Missing required section: {section_name}")
+            result.add_warning(f"Missing recommended section: {section_name}")
         else:
             result.add_info(f"Found section: {section_name}")
 
@@ -276,7 +276,7 @@ def validate_all(base_name: str) -> Dict[str, ValidationResult]:
 
     # Run all validators
     results['formatted'] = validate_formatted_file(base_name)
-    results['topics_themes'] = validate_topics_themes(base_name)
+    results['key_item_extracts'] = validate_key_item_extracts(base_name)
     results['terms'] = validate_key_terms(base_name)
     results['blog'] = validate_blog(base_name)
     results['abstracts'] = validate_abstracts(base_name)

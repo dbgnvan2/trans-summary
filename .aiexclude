@@ -1,0 +1,24 @@
+# Python Environment and Cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Configuration and Secrets
+.env
+
+# Logs
+logs/
+*.log
+
+# Generated Artifacts and Data
+# These directories contain output files or raw data, not source code.
+source/
+formatted/
+summaries/
+webpages/
+pdfs/
+processed/
+
+# System Files
+.DS_Store

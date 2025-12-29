@@ -24,9 +24,9 @@ from transcript_utils import (
 )
 
 
-# ============================================================================ 
+# ============================================================================
 # WEBPAGE GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _extract_webpage_metadata(topics_themes_file):
@@ -255,7 +255,7 @@ def generate_webpage(base_name: str) -> bool:
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
         topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         output_file = config.WEBPAGES_DIR / f"{base_name}.html"
 
         validate_input_file(formatted_file)
@@ -298,9 +298,9 @@ def generate_webpage(base_name: str) -> bool:
         return False
 
 
-# ============================================================================ 
+# ============================================================================
 # SIMPLE WEBPAGE GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _extract_abstract(topics_themes_file):
@@ -532,12 +532,14 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items, key_term
         start_tok, start_off, end_tok, end_off = span
         if start_tok == end_tok:
             text = tokens[start_tok]
-            tokens[start_tok] = text[:start_off] + open_tag + text[start_off:end_off] + close_tag + text[end_off:]
+            tokens[start_tok] = text[:start_off] + open_tag + \
+                text[start_off:end_off] + close_tag + text[end_off:]
             return
         end_text = tokens[end_tok]
         tokens[end_tok] = end_text[:end_off] + close_tag + end_text[end_off:]
         start_text = tokens[start_tok]
-        tokens[start_tok] = start_text[:start_off] + open_tag + start_text[start_off:]
+        tokens[start_tok] = start_text[:start_off] + \
+            open_tag + start_text[start_off:]
 
     def add_bowen_label(existing, label):
         if not existing[3]:
@@ -845,7 +847,7 @@ def generate_simple_webpage(base_name: str) -> bool:
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
         topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         output_file = config.WEBPAGES_DIR / f"{base_name} - simple.html"
 
         validate_input_file(formatted_file)
@@ -886,9 +888,9 @@ def generate_simple_webpage(base_name: str) -> bool:
         return False
 
 
-# ============================================================================ 
+# ============================================================================
 # PDF GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _sort_key_term_sections(content: str) -> str:
@@ -934,7 +936,7 @@ def _extract_pdf_metadata(topics_themes_file):
         definitions_content = strip_yaml_frontmatter(definitions_content)
         definitions_content = re.sub(
             r'```yaml.*?```', '', definitions_content, flags=re.DOTALL | re.IGNORECASE)
-        definitions_content = re.sub(r'^## (Part 2: Key Term Definitions|Key Terms)\s*', 
+        definitions_content = re.sub(r'^## (Part 2: Key Term Definitions|Key Terms)\s*',
                                      '', definitions_content, flags=re.MULTILINE).strip()
         if definitions_content:
             metadata['key_terms'] = _sort_key_term_sections(
@@ -1149,7 +1151,7 @@ def generate_pdf(base_name: str) -> bool:
     try:
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
         topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         output_file = config.PDFS_DIR / f"{base_name}.pdf"
 
         validate_input_file(formatted_file)

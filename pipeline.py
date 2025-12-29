@@ -4,6 +4,9 @@ This module consolidates the business logic for each step of the pipeline,
 making it reusable by both the GUI and the CLI scripts.
 """
 
+from html_generator import generate_webpage
+from html_generator import generate_pdf
+from html_generator import generate_simple_webpage
 import summary_validation
 import summary_pipeline
 import abstract_validation
@@ -105,7 +108,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
 def save_formatted_transcript(content: str, original_filename: str) -> Path:
     """Save formatted transcript with naming convention."""
     stem = Path(original_filename).stem
-    output_filename = f"{stem} - formatted.md"
+    output_filename = f"{stem}{config.SUFFIX_FORMATTED}"
     output_path = config.FORMATTED_DIR / output_filename
 
     config.FORMATTED_DIR.mkdir(parents=True, exist_ok=True)
@@ -170,11 +173,12 @@ def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logg
 # ============================================================================
 
 
-def _extract_emphasis_quotes(topics_themes_file):
+def _extract_emphasis_quotes(all_key_items_file):
     """Extract all quoted text from Emphasized Items section."""
-    extracts_path = Path(topics_themes_file)
-    stem = extracts_path.stem.replace(' - topics-themes', '')
-    emphasis_file = extracts_path.parent / f"{stem} - emphasis-items.md"
+    extracts_path = Path(all_key_items_file)
+    stem = extracts_path.stem.replace(
+        config.SUFFIX_KEY_ITEMS_ALL.replace('.md', ''), '')
+    emphasis_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS}"
 
     source_file = emphasis_file if emphasis_file.exists() else extracts_path
     content = source_file.read_text(encoding='utf-8')
@@ -302,45 +306,121 @@ def _generate_summary_with_claude(prompt: str, model: str, temperature: float, l
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
     """Save summary output."""
     stem = Path(original_filename).stem
-    if stem.endswith(' - formatted'):
-        stem = stem[:-12]
+    if stem.endswith(config.SUFFIX_FORMATTED.replace('.md', '')):
+        stem = stem.replace(config.SUFFIX_FORMATTED.replace('.md', ''), '')
     if stem.endswith('_yaml'):
         stem = stem[:-5]
-    if stem.endswith(' - yaml'):
-        stem = stem[:-7]
-    output_filename = f"{stem} - {summary_type}.md"
+    if stem.endswith(config.SUFFIX_YAML.replace('.md', '')):
+        stem = stem.replace(config.SUFFIX_YAML.replace('.md', ''), '')
+
+    # Handle the summary_type parameter mapping to constants if needed,
+    # or just rely on the caller passing the right suffix if we refactored further.
+    # For now, let's keep it simple and just construct the filename,
+    # assuming summary_type matches the constant usage or is passed correctly.
+    # But wait, summary_type is passed as "All Key Items", "key-terms", "blog".
+
+    suffix = f" - {summary_type}.md"
+    if summary_type == "All Key Items":
+        suffix = config.SUFFIX_KEY_ITEMS_ALL
+    elif summary_type == "key-terms":
+        suffix = config.SUFFIX_KEY_TERMS
+    elif summary_type == "blog":
+        suffix = config.SUFFIX_BLOG
+    elif summary_type == "topics-themes":  # Legacy
+        suffix = config.SUFFIX_KEY_ITEMS_RAW_LEGACY
+
+    output_filename = f"{stem}{suffix}"
     output_path = config.SUMMARIES_DIR / output_filename
     config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding='utf-8')
     return output_path
 
 
-def _split_topics_themes(topics_themes_path: Path, logger):
-    """Split topics-themes into focused extract files."""
-    logger.info("Processing generated Key Items...")
-    content = topics_themes_path.read_text(encoding='utf-8')
+def _process_key_items_output(all_key_items_path: Path, logger):
+    """
+    Split the raw Key Items output into focused extract files.
+    Generates:
+    - bowen-references.md
+    - emphasis-items.md
+    - abstract-initial.md
+    - summary-initial.md
+    - topics-themes-terms.md
+    """
+    logger.info("Processing generated Key Items into separate files...")
+    content = all_key_items_path.read_text(encoding='utf-8')
     clean_content = strip_yaml_frontmatter(content)
-    stem = topics_themes_path.stem.replace(' - topics-themes', '')
+    stem = all_key_items_path.stem.replace(
+        config.SUFFIX_KEY_ITEMS_ALL.replace('.md', ''), '')
 
+    # 1. Bowen References
     bowen_refs = extract_bowen_references(clean_content)
     if bowen_refs:
         bowen_output = "## Bowen References\n\n" + \
             "\n\n".join(
                 [f'> **{label}:** "{quote}"' for label, quote in bowen_refs])
-        bowen_path = config.SUMMARIES_DIR / f"{stem} - bowen-references.md"
+        bowen_path = config.SUMMARIES_DIR / f"{stem}{config.SUFFIX_BOWEN}"
         bowen_path.write_text(bowen_output, encoding='utf-8')
         logger.info(
             f"  ✓ {len(bowen_refs)} Bowen references → {bowen_path.name}")
+    else:
+        logger.warning("  ⚠️ No Bowen references found in output.")
 
+    # 2. Emphasized Items
     emphasis_items = extract_emphasis_items(clean_content)
     if emphasis_items:
         emphasis_output = "## Emphasized Items\n\n" + \
             "\n\n".join(
                 [f'> **{label}:** "{quote}"' for label, quote in emphasis_items])
-        emphasis_path = config.SUMMARIES_DIR / f"{stem} - emphasis-items.md"
+        emphasis_path = config.SUMMARIES_DIR / \
+            f"{stem}{config.SUFFIX_EMPHASIS}"
         emphasis_path.write_text(emphasis_output, encoding='utf-8')
         logger.info(
             f"  ✓ {len(emphasis_items)} emphasis items → {emphasis_path.name}")
+
+    # 3. Initial Abstract
+    abstract = extract_section(clean_content, "Abstract")
+    if abstract:
+        abstract_output = f"## Abstract\n\n{abstract}"
+        abstract_path = config.SUMMARIES_DIR / \
+            f"{stem}{config.SUFFIX_ABSTRACT_INIT}"
+        abstract_path.write_text(abstract_output, encoding='utf-8')
+        logger.info(f"  ✓ Initial Abstract → {abstract_path.name}")
+
+    # 4. Initial Summary
+    summary = extract_section(clean_content, "Summary")
+    if summary:
+        summary_output = f"## Summary\n\n{summary}"
+        summary_path = config.SUMMARIES_DIR / \
+            f"{stem}{config.SUFFIX_SUMMARY_INIT}"
+        summary_path.write_text(summary_output, encoding='utf-8')
+        logger.info(f"  ✓ Initial Summary → {summary_path.name}")
+
+    # 5. Topics, Themes, Terms (Combined)
+    topics = extract_section(clean_content, "Topics")
+    themes = extract_section(clean_content, "Key Themes")
+    key_terms = extract_section(clean_content, "Key Terms")
+
+    if topics or themes or key_terms:
+        combined_output = ""
+        if topics:
+            combined_output += f"## Topics\n\n{topics}\n\n"
+        if themes:
+            combined_output += f"## Key Themes\n\n{themes}\n\n"
+        if key_terms:
+            combined_output += f"## Key Terms\n\n{key_terms}\n\n"
+
+        combined_path = config.SUMMARIES_DIR / \
+            f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
+        combined_path.write_text(combined_output, encoding='utf-8')
+        logger.info(f"  ✓ Topics, Themes, Terms → {combined_path.name}")
+
+        # Also save separate Key Terms file for backward compatibility/specific access
+        if key_terms:
+            key_terms_output = "## Key Terms\n\n" + key_terms
+            key_terms_path = config.SUMMARIES_DIR / \
+                f"{stem}{config.SUFFIX_KEY_TERMS}"
+            key_terms_path.write_text(key_terms_output, encoding='utf-8')
+            logger.info(f"  ✓ Key Terms (standalone) → {key_terms_path.name}")
 
 
 def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str, target_audience: str,
@@ -352,12 +432,11 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
 
     try:
         # Explicitly cast to int right at the beginning of the function body
-        # This will convert structured_word_count to int or raise TypeError/ValueError
         try:
             structured_word_count = int(structured_word_count)
         except (TypeError, ValueError) as e:
             logger.error(
-                f"Error: structured_word_count expected to be an integer or a string representing an integer, but received type {type(structured_word_count)} with value '{structured_word_count}'. Original error: {e}", exc_info=True)
+                f"Error: structured_word_count expected to be an integer, but received type {type(structured_word_count)} with value '{structured_word_count}'. Original error: {e}", exc_info=True)
             return False
 
         if not config.SOURCE_DIR.exists():
@@ -375,59 +454,62 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
 
         if not skip_extracts_summary:
             logger.info(
-                "PART 1: Generating Key Items (Topics, Themes, Emphasis)...")
+                "PART 1: Generating Key Items (Topics, Themes, Terms, Emphasis, Bowen)...")
             prompt_template = _load_summary_prompt(
                 config.PROMPT_EXTRACTS_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript, target_audience=target_audience)
 
-            # Calculate target length to guide the model
-            target_words = int(transcript_word_count *
-                               config.TARGET_EXTRACTS_PERCENT)
-            if target_words < 200:
-                target_words = 200
-            prompt += f"\n\nIMPORTANT: Please ensure your response is concise and approximately {target_words} words in length. Focus on extracting only the most critical information."
-
             # Extracts summary should be substantial, about 7% of transcript word count.
-            # We set a validation floor of 4% to allow for concise but valid summaries.
             min_expected_words = int(
                 transcript_word_count * config.MIN_EXTRACTS_PERCENT)
-            # Ensure reasonable bounds (at least 150 words unless transcript is tiny)
             min_expected_words = max(
                 min_expected_words, config.MIN_EXTRACTS_WORDS_FLOOR) if transcript_word_count > config.MIN_TRANSCRIPT_WORDS_FOR_FLOOR else config.MIN_EXTRACTS_WORDS_ABSOLUTE
 
             output = _generate_summary_with_claude(
                 prompt, model, 0.2, logger, min_length=config.MIN_EXTRACTS_CHARS, min_words=min_expected_words)
 
-            topics_themes_path = _save_summary(
-                output, formatted_filename, "topics-themes")
+            all_key_items_path = _save_summary(
+                output, formatted_filename, "All Key Items")
             output_words = len(output.split())
             logger.info(
-                f"✓ Topics-Themes analysis saved ({output_words:,} words) to: {topics_themes_path}")
-            _split_topics_themes(
-                topics_themes_path, logger)
+                f"✓ Key Items raw analysis saved ({output_words:,} words) to: {all_key_items_path}")
+
+            _process_key_items_output(all_key_items_path, logger)
+
         else:
             base_name_from_formatted = Path(
                 formatted_filename).stem.replace(' - formatted', '')
-            potential_topics_themes_path = config.SUMMARIES_DIR / \
-                f"{base_name_from_formatted} - topics-themes.md"
-            if potential_topics_themes_path.exists():
-                topics_themes_path = potential_topics_themes_path
+            potential_all_key_items_path = config.SUMMARIES_DIR / \
+                f"{base_name_from_formatted} - All Key Items.md"
+            if potential_all_key_items_path.exists():
+                all_key_items_path = potential_all_key_items_path
                 logger.info(
-                    f"Skipping topics-themes generation, using existing file: {topics_themes_path}")
+                    f"Skipping Key Items generation, using existing file: {all_key_items_path}")
 
         if not skip_terms:
-            logger.info("PART 2: Extracting Key Terms...")
-            prompt_template = _load_summary_prompt(
-                config.PROMPT_KEY_TERMS_FILENAME)
-            prompt = _fill_prompt_template(
-                prompt_template, metadata, transcript)
-            output = _generate_summary_with_claude(
-                prompt, model, 0.4, logger, min_length=config.MIN_KEY_TERMS_CHARS)
-            key_terms_path = _save_summary(
-                output, formatted_filename, "key-terms")
-            logger.info(
-                f"✓ Key terms document saved to: {key_terms_path}")
+            # Check if key terms were already extracted during splitting
+            base_name = Path(formatted_filename).stem.replace(
+                ' - formatted', '')
+            key_terms_path = config.SUMMARIES_DIR / \
+                f"{base_name} - key-terms.md"
+
+            if key_terms_path.exists() and not skip_extracts_summary:
+                logger.info(
+                    f"✓ Key terms extracted from main analysis. Skipping separate API call.")
+            else:
+                logger.info(
+                    "PART 2: Extracting Key Terms (Separate API Call)...")
+                prompt_template = _load_summary_prompt(
+                    config.PROMPT_KEY_TERMS_FILENAME)
+                prompt = _fill_prompt_template(
+                    prompt_template, metadata, transcript)
+                output = _generate_summary_with_claude(
+                    prompt, model, 0.4, logger, min_length=config.MIN_KEY_TERMS_CHARS)
+                key_terms_path = _save_summary(
+                    output, formatted_filename, "key-terms")
+                logger.info(
+                    f"✓ Key terms document saved to: {key_terms_path}")
 
         if not skip_blog:
             logger.info("PART 3: Generating Blog Post...")
@@ -444,12 +526,12 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
         if not skip_extracts_summary:  # Only validate emphasis if extracts were generated or explicitly not skipped
             logger.info("VALIDATION: Checking Emphasis Items...")
             formatted_path = config.FORMATTED_DIR / formatted_filename
-            if topics_themes_path:
+            if all_key_items_path:
                 _validate_emphasis_items(
-                    formatted_path, topics_themes_path, logger)
+                    formatted_path, all_key_items_path, logger)
 
         if generate_structured:
-            if topics_themes_path:
+            if all_key_items_path:
                 logger.info("Generating structured summary...")
                 # The generate_structured_summary function expects base_name
                 base_name = Path(formatted_filename).stem.replace(
@@ -473,7 +555,7 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                     return False
             else:
                 logger.warning(
-                    "Cannot generate structured summary: topics-themes was skipped or not found.")
+                    "Cannot generate structured summary: Key Items file (All Key Items) was skipped or not found.")
 
         return True
 
@@ -537,7 +619,8 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
 
-        output_path = config.FORMATTED_DIR / f"{meta['stem']} - yaml.md"
+        output_path = config.FORMATTED_DIR / \
+            f"{meta['stem']}{config.SUFFIX_YAML}"
         output_path.write_text(final_content, encoding='utf-8')
 
         logger.info(f"✓ Success! YAML added. Output saved to: {output_path}")
@@ -562,18 +645,16 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
 # WEBPAGE GENERATION
 # ============================================================================
 
-from html_generator import generate_webpage
+
 # ============================================================================
 # SIMPLE WEBPAGE GENERATION
 # ============================================================================
 
 
-from html_generator import generate_simple_webpage
 # PDF GENERATION
 # ============================================================================
 
 
-from html_generator import generate_pdf
 # FORMAT VALIDATION
 # ============================================================================
 
@@ -728,7 +809,7 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
         else:
             stem = Path(raw_filename).stem
             formatted_file_path = config.FORMATTED_DIR / \
-                f"{stem} - formatted.md"
+                f"{stem}{config.SUFFIX_FORMATTED}"
 
         validate_input_file(raw_file_path)
         validate_input_file(formatted_file_path)
@@ -805,8 +886,8 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
 
 
 def _load_extracts_summary_for_abstract(base_name: str) -> tuple[str, str]:
-    """Load topics-themes and extract the abstract."""
-    summary_path = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
+    """Load All Key Items and extract the abstract."""
+    summary_path = config.SUMMARIES_DIR / f"{base_name} - All Key Items.md"
     validate_input_file(summary_path)
     content = summary_path.read_text(encoding='utf-8')
     abstract_match = re.search(
@@ -869,7 +950,13 @@ def _extract_extended_abstract(output: str) -> str:
 
 def _save_abstracts(content: str, base_name: str) -> Path:
     """Save the abstracts validation output."""
-    output_path = config.SUMMARIES_DIR / f"{base_name} - abstracts.md"
+    output_path = config.SUMMARIES_DIR / \
+        f"{base_name} - abstracts.md"  # Keeping legacy name or update?
+    # Actually, let's look at `validate_abstract` it writes to ` - abstracts.md`.
+    # Let's see if we defined a constant for it. Not explicitly, but `SUFFIX_ABSTRACT_VAL` is ` - abstract-validation.txt`.
+    # The `validate_abstract` function seems to be an older iterate-and-improve loop.
+    # Let's leave this one hardcoded if it's not the primary path, or define a new constant if we want to be thorough.
+    # The prompt didn't ask to refactor *every* single legacy file if it's not being used, but let's be safe.
     config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
     output_path.write_text(content, encoding='utf-8')
     return output_path
@@ -882,7 +969,8 @@ def validate_abstract(base_name: str, model: str, target_score: float, max_itera
 
     try:
         logger.info(f"Loading files for: {base_name}")
-        transcript = _load_formatted_transcript(f"{base_name} - formatted.md")
+        transcript = _load_formatted_transcript(
+            f"{base_name}{config.SUFFIX_FORMATTED}")
         transcript_tokens = estimate_token_count(transcript)
         logger.info(
             f"Transcript length: {len(transcript)} chars (~{transcript_tokens} tokens)")
@@ -991,17 +1079,18 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
         logger = setup_logging('generate_structured_abstract')
 
     try:
-        formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        all_key_items_file = config.SUMMARIES_DIR / \
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
+        validate_input_file(all_key_items_file)
 
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = topics_themes_file.read_text(encoding='utf-8')
+        extracts_content = all_key_items_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
 
         metadata = parse_filename_metadata(base_name)
@@ -1013,7 +1102,7 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
 
         if not topics_section or not themes_section:
             logger.error(
-                "Could not find Topics or Key Themes in topics-themes.")
+                "Could not find Topics or Key Themes in All Key Items file.")
             return False
 
         # Add headers back because abstract_pipeline regex expects them
@@ -1059,7 +1148,7 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
 
         # Save abstract
         output_path = config.SUMMARIES_DIR / \
-            f"{base_name} - abstract-generated.md"
+            f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
         output_path.write_text(abstract_text, encoding='utf-8')
         logger.info(f"Generated abstract saved to {output_path}")
 
@@ -1087,17 +1176,18 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         # Load Abstract Input (re-create it)
 
-        formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
 
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+        all_key_items_file = config.SUMMARIES_DIR / \
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         # We need the abstract to validate.
 
         # Prefer "abstract-generated.md" if exists, otherwise extract from "extracts-summary.md"
 
         generated_abstract_file = config.SUMMARIES_DIR / \
-            f"{base_name} - abstract-generated.md"
+            f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
 
         if generated_abstract_file.exists():
 
@@ -1111,13 +1201,13 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
             _, abstract_text = _load_extracts_summary_for_abstract(base_name)
 
             logger.info(
-                f"Validating abstract from: {topics_themes_file.name}")
+                f"Validating abstract from: {all_key_items_file.name}")
 
         transcript = formatted_file.read_text(encoding='utf-8')
 
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = topics_themes_file.read_text(encoding='utf-8')
+        extracts_content = all_key_items_file.read_text(encoding='utf-8')
 
         extracts_content = strip_yaml_frontmatter(extracts_content)
 
@@ -1157,7 +1247,7 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
         )
 
         report_path = config.SUMMARIES_DIR / \
-            f"{base_name} - abstract-validation.txt"
+            f"{base_name}{config.SUFFIX_ABSTRACT_VAL}"
 
         report_path.write_text(report, encoding='utf-8')
 
@@ -1211,17 +1301,18 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
                 f"Error: summary_target_word_count expected to be an integer, but received type {type(summary_target_word_count)} with value '{summary_target_word_count}'. Original error: {e}", exc_info=True)
             return False
 
-        formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        all_key_items_file = config.SUMMARIES_DIR / \
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
+        validate_input_file(all_key_items_file)
 
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = topics_themes_file.read_text(encoding='utf-8')
+        extracts_content = all_key_items_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
 
         metadata = parse_filename_metadata(base_name)
@@ -1232,7 +1323,7 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
 
         if not topics_section:
             logger.error(
-                "Could not find Topics in topics-themes.")
+                "Could not find Topics in All Key Items file.")
             return False
 
         # DEBUG statements to diagnose TypeError
@@ -1280,7 +1371,7 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
 
         # Save summary
         output_path = config.SUMMARIES_DIR / \
-            f"{base_name} - summary-generated.md"
+            f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
         output_path.write_text(summary_text, encoding='utf-8')
         logger.info(f"Generated summary saved to {output_path}")
 
@@ -1300,11 +1391,12 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
 
     try:
         # Load inputs
-        formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        all_key_items_file = config.SUMMARIES_DIR / \
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         generated_summary_file = config.SUMMARIES_DIR / \
-            f"{base_name} - summary-generated.md"
+            f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
 
         if generated_summary_file.exists():
             summary_text = generated_summary_file.read_text(encoding='utf-8')
@@ -1318,7 +1410,7 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
         transcript = formatted_file.read_text(encoding='utf-8')
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = topics_themes_file.read_text(encoding='utf-8')
+        extracts_content = all_key_items_file.read_text(encoding='utf-8')
         extracts_content = strip_yaml_frontmatter(extracts_content)
 
         metadata = parse_filename_metadata(base_name)
@@ -1345,7 +1437,7 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
         )
 
         report_path = config.SUMMARIES_DIR / \
-            f"{base_name} - summary-validation.txt"
+            f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
         report_path.write_text(report, encoding='utf-8')
 
         logger.info(f"Validation Report saved to {report_path}")
@@ -1358,4 +1450,64 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
 
     except Exception as e:
         logger.error(f"Error validating summary coverage: {e}", exc_info=True)
+        return False
+
+
+# ============================================================================
+# HEADER VALIDATION
+# ============================================================================
+
+def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, logger=None) -> bool:
+    """
+    Validate that the section headers in the formatted transcript make sense
+    given the content of those sections.
+    """
+    if logger is None:
+        logger = setup_logging('validate_headers')
+
+    try:
+        formatted_path = config.FORMATTED_DIR / formatted_filename
+        validate_input_file(formatted_path)
+
+        logger.info(f"Loading formatted transcript: {formatted_filename}")
+        transcript = formatted_path.read_text(encoding='utf-8')
+
+        # Load the specific validation prompt
+        prompt_filename = config.PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME
+        prompt_path = config.PROMPTS_DIR / prompt_filename
+
+        if not prompt_path.exists():
+            raise FileNotFoundError(
+                f"Validation prompt not found: {prompt_path}")
+
+        prompt_template = prompt_path.read_text(encoding='utf-8')
+
+        # Prepare the prompt
+        full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT TO VALIDATE:\n\n{transcript}"
+
+        logger.info("Sending transcript to Claude for header validation...")
+
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        response = _generate_summary_with_claude(
+            full_prompt, model, 0.0, logger, min_length=100
+        )
+
+        # Save the validation report
+        base_name = Path(formatted_filename).stem.replace(
+            ' - formatted', '').replace(' - yaml', '')
+        report_path = config.SUMMARIES_DIR / \
+            f"{base_name} - headers-validation.md"
+        report_path.write_text(response, encoding='utf-8')
+
+        logger.info(f"✓ Header validation report saved to: {report_path}")
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"An error occurred during header validation: {e}", exc_info=True)
         return False

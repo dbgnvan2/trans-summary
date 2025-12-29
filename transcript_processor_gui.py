@@ -13,6 +13,7 @@ from tkinter import ttk, scrolledtext, messagebox, filedialog
 import pipeline
 import config
 import transcript_validate_webpage
+import transcript_validate_headers
 import io
 from contextlib import redirect_stdout
 
@@ -122,51 +123,56 @@ class TranscriptProcessorGUI:
             button_frame, text="1. Format", command=self.do_format_validate, state=tk.DISABLED)
         self.format_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
 
+        self.headers_btn = ttk.Button(
+            button_frame, text="2. Val Headers", command=self.do_validate_headers, state=tk.DISABLED)
+        self.headers_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
+
         self.yaml_btn = ttk.Button(
-            button_frame, text="2. YAML", command=self.do_add_yaml, state=tk.DISABLED)
-        self.yaml_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
+            button_frame, text="3. YAML", command=self.do_add_yaml, state=tk.DISABLED)
+        self.yaml_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
 
         self.summary_btn = ttk.Button(
-            button_frame, text="3. Extracts", command=self.do_summaries, state=tk.DISABLED)
-        self.summary_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
-
-        self.gen_summary_btn = ttk.Button(
-            button_frame, text="4. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
-        self.gen_summary_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
-
-        self.val_summary_btn = ttk.Button(
-            button_frame, text="5. Val Summary", command=self.do_validate_summary, state=tk.DISABLED)
-        self.val_summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
+            button_frame, text="4. Key Items", command=self.do_summaries, state=tk.DISABLED)
+        self.summary_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
         # Row 2
+        self.gen_summary_btn = ttk.Button(
+            button_frame, text="5. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
+        self.gen_summary_btn.grid(row=1, column=0, padx=(0, 5), pady=2)
+
+        self.val_summary_btn = ttk.Button(
+            button_frame, text="6. Val Summary", command=self.do_validate_summary, state=tk.DISABLED)
+        self.val_summary_btn.grid(row=1, column=1, padx=(0, 5), pady=2)
+
         self.gen_abstract_btn = ttk.Button(
-            button_frame, text="6. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
-        self.gen_abstract_btn.grid(row=1, column=0, padx=(0, 5), pady=2)
+            button_frame, text="7. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
+        self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
 
         self.abstracts_btn = ttk.Button(
-            button_frame, text="7. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
-        self.abstracts_btn.grid(row=1, column=1, padx=(0, 5), pady=2)
+            button_frame, text="8. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
+        self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
 
+        # Row 3
         self.blog_btn = ttk.Button(
-            button_frame, text="8. Blog", command=self.do_generate_blog, state=tk.DISABLED)
-        self.blog_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
+            button_frame, text="9. Blog", command=self.do_generate_blog, state=tk.DISABLED)
+        self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
         self.webpdf_btn = ttk.Button(
-            button_frame, text="9. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
-        self.webpdf_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
+            button_frame, text="10. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
+        self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=5, rowspan=2,
+        self.do_all_btn.grid(row=0, column=5, rowspan=3,
                              padx=(10, 5), sticky=(tk.N, tk.S))
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=6, column=0, pady=(5, 0), sticky=tk.W)
+        self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W)
 
     def select_transcripts_directory(self):
         dir_path = filedialog.askdirectory(
@@ -203,7 +209,7 @@ class TranscriptProcessorGUI:
         self.selected_file = config.SOURCE_DIR / filename
         self.base_name = self.selected_file.stem
         self.formatted_file = config.FORMATTED_DIR / \
-            f"{self.base_name} - formatted.md"
+            f"{self.base_name}{config.SUFFIX_FORMATTED}"
         self.check_file_status()
         self.update_button_states()
 
@@ -215,22 +221,37 @@ class TranscriptProcessorGUI:
         base = self.base_name
         checks = [
             ("Source", self.selected_file),
-            ("Formatted", config.FORMATTED_DIR / f"{base} - formatted.md"),
-            ("YAML", config.FORMATTED_DIR / f"{base} - yaml.md"),
-            ("Extracts", config.SUMMARIES_DIR / f"{base} - topics-themes.md"),
-            ("Key Terms", config.SUMMARIES_DIR / f"{base} - key-terms.md"),
+            ("Formatted", config.FORMATTED_DIR /
+             f"{base}{config.SUFFIX_FORMATTED}"),
+            ("Header Val", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
+            ("YAML", config.FORMATTED_DIR / f"{base}{config.SUFFIX_YAML}"),
+            ("Key Items (Raw)", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
+            ("  - Clean T/T/T", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
+            ("  - Bowen", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_BOWEN}"),
+            ("  - Emphasis", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_EMPHASIS}"),
+            ("  - Abstract (Init)", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_ABSTRACT_INIT}"),
+            ("  - Summary (Init)", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_SUMMARY_INIT}"),
             ("Gen Summary", config.SUMMARIES_DIR /
-             f"{base} - summary-generated.md"),
+             f"{base}{config.SUFFIX_SUMMARY_GEN}"),
             ("Summary Val", config.SUMMARIES_DIR /
-             f"{base} - summary-validation.txt"),
-            ("Blog", config.SUMMARIES_DIR / f"{base} - blog.md"),
+             f"{base}{config.SUFFIX_SUMMARY_VAL}"),
             ("Gen Abstract", config.SUMMARIES_DIR /
-             f"{base} - abstract-generated.md"),
+             f"{base}{config.SUFFIX_ABSTRACT_GEN}"),
             ("Abstracts Val", config.SUMMARIES_DIR /
-             f"{base} - abstract-validation.txt"),
-            ("Webpage", config.WEBPAGES_DIR / f"{base}.html"),
-            ("Simple Web", config.WEBPAGES_DIR / f"{base} - simple.html"),
-            ("PDF", config.PDFS_DIR / f"{base}.pdf"),
+             f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
+            ("Blog", config.SUMMARIES_DIR / f"{base}{config.SUFFIX_BLOG}"),
+            ("Webpage", config.WEBPAGES_DIR /
+             f"{base}{config.SUFFIX_WEBPAGE}"),
+            ("Simple Web", config.WEBPAGES_DIR /
+             f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"),
+            ("PDF", config.PDFS_DIR / f"{base}{config.SUFFIX_PDF}"),
         ]
 
         status_lines = [
@@ -294,6 +315,23 @@ class TranscriptProcessorGUI:
             return False
         return True
 
+    def do_validate_headers(self):
+        if not self.formatted_file or not self.formatted_file.exists():
+            messagebox.showwarning(
+                "Not Ready", "Please format the transcript first.")
+            return
+        self.log("STEP 2: Validating Headers...")
+        self.run_task_in_thread(self._run_header_validation)
+
+    def _run_header_validation(self):
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            return False
+        validator = transcript_validate_headers.HeaderValidator(
+            api_key, self.logger)
+        return validator.run(self.formatted_file)
+
     def do_add_yaml(self):
         if not self.formatted_file or not self.formatted_file.exists():
             messagebox.showwarning(
@@ -301,10 +339,11 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 2: Adding YAML Front Matter...")
         self.run_task_in_thread(
-            pipeline.add_yaml, f"{self.base_name} - formatted.md", "mp4", self.logger)
+            pipeline.add_yaml, f"{self.base_name}{config.SUFFIX_FORMATTED}", "mp4", self.logger)
 
     def do_summaries(self):
-        yaml_file = config.FORMATTED_DIR / f"{self.base_name} - yaml.md"
+        yaml_file = config.FORMATTED_DIR / \
+            f"{self.base_name}{config.SUFFIX_YAML}"
         if not yaml_file.exists():
             if self.formatted_file.exists():
                 with open(self.formatted_file, 'r', encoding='utf-8') as f:
@@ -317,8 +356,8 @@ class TranscriptProcessorGUI:
                 messagebox.showwarning(
                     "Not Ready", "Please format and add YAML first.")
                 return
-        self.log("STEP 3: Generating Key Items...")
-        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
+        self.log("STEP 3: Key Items...")
+        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
                                 config.DEFAULT_MODEL, "Family Systems", "General public", False, False, True, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Key Item Generation")
 
     def do_generate_structured_summary(self):
@@ -339,7 +378,7 @@ class TranscriptProcessorGUI:
         if not self.base_name:
             return
         self.log("STEP 8: Generating Blog Post...")
-        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name} - yaml.md",
+        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
                                 config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Blog Post generation")
 
     def do_generate_structured_abstract(self):
@@ -403,15 +442,20 @@ class TranscriptProcessorGUI:
         if not self._run_format_and_validate():
             return False
 
+        # Step 1b: Header Validation
+        self.log("\n--- STEP 1b: Header Validation ---")
+        if not self._run_header_validation():
+            self.log("⚠️ Header validation failed or found issues.")
+
         # Step 2: Add YAML
         self.log("\n--- STEP 2: Adding YAML ---")
-        if not pipeline.add_yaml(f"{self.base_name} - formatted.md", "mp4", self.logger):
+        if not pipeline.add_yaml(f"{self.base_name}{config.SUFFIX_FORMATTED}", "mp4", self.logger):
             return False
 
         # Step 3: Extracts (Summaries)
         self.log("\n--- STEP 3: Extracts & Terms ---")
         # Run all parts (skips=False)
-        if not pipeline.summarize_transcript(f"{self.base_name} - yaml.md",
+        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
                                              config.DEFAULT_MODEL, "Family Systems", "General public",
                                              False, False, False, logger=self.logger):
             return False
@@ -449,6 +493,7 @@ class TranscriptProcessorGUI:
     def update_button_states(self):
         state = tk.NORMAL if not self.processing and self.selected_file else tk.DISABLED
         self.format_btn.config(state=state)
+        self.headers_btn.config(state=state)
         self.yaml_btn.config(state=state)
         self.summary_btn.config(state=state)
         self.gen_summary_btn.config(state=state)

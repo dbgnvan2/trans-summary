@@ -1,0 +1,24 @@
+2025-12-28 22:33:00,310 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20251228_223300.log
+2025-12-28 22:33:00,310 - generate_simple_webpage - ERROR - An error occurred: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/html_generator.py", line 852, in generate_simple_webpage
+    validate_input_file(topics_themes_file)
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/transcript_utils.py", line 83, in validate_input_file
+    raise FileNotFoundError(f"Input file not found: {file_path}")
+FileNotFoundError: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md
+2025-12-28 22:33:00,344 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20251228_223300.log
+2025-12-28 22:33:00,344 - generate_webpage - ERROR - An error occurred: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/html_generator.py", line 262, in generate_webpage
+    validate_input_file(topics_themes_file)
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/transcript_utils.py", line 83, in validate_input_file
+    raise FileNotFoundError(f"Input file not found: {file_path}")
+FileNotFoundError: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md
+2025-12-28 22:33:00,378 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20251228_223300.log
+2025-12-28 22:33:00,686 - generate_pdf - ERROR - An error occurred during PDF generation: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/html_generator.py", line 1156, in generate_pdf
+    validate_input_file(topics_themes_file)
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/transcript_utils.py", line 83, in validate_input_file
+    raise FileNotFoundError(f"Input file not found: {file_path}")
+FileNotFoundError: Input file not found: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - topics-themes.md

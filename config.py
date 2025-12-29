@@ -18,11 +18,34 @@ PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
 PROMPTS_DIR = TRANSCRIPTS_BASE / "prompts"
 LOGS_DIR = Path(__file__).parent / "logs"
 
+# File Suffixes
+SUFFIX_FORMATTED = " - formatted.md"
+SUFFIX_YAML = " - yaml.md"
+SUFFIX_KEY_ITEMS_ALL = " - All Key Items.md"
+SUFFIX_KEY_ITEMS_RAW_LEGACY = " - topics-themes.md"
+SUFFIX_KEY_ITEMS_CLEAN = " - topics-themes-terms.md"
+SUFFIX_KEY_TERMS = " - key-terms.md"
+SUFFIX_BOWEN = " - bowen-references.md"
+SUFFIX_EMPHASIS = " - emphasis-items.md"
+SUFFIX_ABSTRACT_INIT = " - abstract-initial.md"
+SUFFIX_SUMMARY_INIT = " - summary-initial.md"
+SUFFIX_SUMMARY_GEN = " - summary-generated.md"
+SUFFIX_SUMMARY_VAL = " - summary-validation.txt"
+SUFFIX_ABSTRACT_GEN = " - abstract-generated.md"
+SUFFIX_ABSTRACT_VAL = " - abstract-validation.txt"
+SUFFIX_BLOG = " - blog.md"
+SUFFIX_WEBPAGE = ".html"
+SUFFIX_WEBPAGE_SIMPLE = " - simple.html"
+SUFFIX_PDF = ".pdf"
+SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
+SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
+SUFFIX_VOICE_AUDIT = " - voice-audit.json"
+
 # Default Model
-DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+DEFAULT_MODEL = "claude-opus-4-5-20251101"
 
 # Auxiliary Model (used for validation and specific generation tasks)
-AUX_MODEL = "claude-sonnet-4-20250514"
+AUX_MODEL = "claude-haiku-4-5-20251001"
 
 # Default Summary Word Count
 DEFAULT_SUMMARY_WORD_COUNT = 500
@@ -32,9 +55,11 @@ MAX_TOKENS_FORMATTING = 32000
 MAX_TOKENS_SUMMARY = 32000
 MAX_TOKENS_EXTRACTION = 8192
 MAX_TOKENS_AUDIT = 2000
+MAX_TOKENS_HEADER_VALIDATION = 32000
 
 # Prompt Filenames
-PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v11.md"
+PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = "Transcript Formatting Headers Validation Prompt 12.md"
+PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v12-Lite.md"
 PROMPT_EXTRACTS_FILENAME = "Transcript Summary Key Items v1.md"
 PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
 PROMPT_BLOG_FILENAME = "Transcript Summary Blog Post v1.md"
@@ -43,6 +68,7 @@ PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
 PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
 PROMPT_STRUCTURED_ABSTRACT_FILENAME = "Abstract Generation Prompt v1.md"
 PROMPT_VALIDATION_COVERAGE_FILENAME = "Validation Coverage Prompt v1.md"
+PROMPT_PROBLEMATIC_HEADER_TERMS_FILENAME = "problematic_header_terms.md"
 
 # Validation Settings
 VALIDATION_MISMATCH_RATIO = 0.015  # 1.5% tolerance

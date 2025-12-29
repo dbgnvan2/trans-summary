@@ -317,7 +317,7 @@ def main():
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
     print(
-        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name} - topics-themes.md'}")
+        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name} - All Key Items.md'}")
     print(
         f"           : {config.SUMMARIES_DIR / f'{base_name} - blog.md'}")
 

@@ -20,6 +20,7 @@ from pathlib import Path
 from html import unescape
 from difflib import SequenceMatcher
 import config
+from transcript_utils import load_bowen_references, load_emphasis_items
 
 try:
     from bs4 import BeautifulSoup
@@ -91,23 +92,8 @@ def split_multi_labels(labels):
 
 def find_missing_emphasis_items(base_name, html_file):
     """Identify which specific emphasis items are missing from HTML."""
-    # Use transcript_utils to extract emphasis items the same way the webpage script does
-    from transcript_utils import extract_emphasis_items, strip_yaml_frontmatter
-
-    # Try dedicated emphasis file first (more efficient)
-    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
-    if emphasis_file.exists():
-        with open(emphasis_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-    else:
-        # Fall back to topics-themes for backward compatibility
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
-        with open(topics_themes_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-    # Extract emphasis items using the same method as webpage generation
-    emphasis_items = extract_emphasis_items(strip_yaml_frontmatter(content))
+    # Use the centralized loader from transcript_utils
+    emphasis_items = load_emphasis_items(base_name)
     source_labels = [label for label, _ in emphasis_items]
 
     # Extract emphasis labels that are highlighted in HTML
@@ -130,19 +116,8 @@ def find_missing_emphasis_items(base_name, html_file):
 
 def find_missing_bowen_items(base_name, html_file):
     """Identify which specific Bowen references are missing from HTML."""
-    from transcript_utils import extract_bowen_references, strip_yaml_frontmatter
-
-    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
-    if bowen_file.exists():
-        with open(bowen_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-    else:
-        topics_themes_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
-        with open(topics_themes_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-    bowen_refs = extract_bowen_references(strip_yaml_frontmatter(content))
+    # Use the centralized loader from transcript_utils
+    bowen_refs = load_bowen_references(base_name)
     source_labels = [label for label, _ in bowen_refs]
 
     soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
@@ -480,7 +455,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     # File paths
     formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
     topics_themes_file = config.SUMMARIES_DIR / \
-        f"{base_name} - topics-themes.md"
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     # Use correct HTML filename based on mode
     if simple_mode:
@@ -493,7 +468,9 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     if not formatted_file.exists():
         missing_files.append(f"Formatted: {formatted_file}")
     if not topics_themes_file.exists():
-        missing_files.append(f"Topics-Themes: {topics_themes_file}")
+        # The primary file is missing, report it.
+        missing_files.append(
+            f"All Key Items file not found: {topics_themes_file.name}")
     if not html_file.exists():
         missing_files.append(f"HTML: {html_file}")
 

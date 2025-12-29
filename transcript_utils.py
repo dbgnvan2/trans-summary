@@ -429,14 +429,21 @@ def parse_filename_metadata(filename: str) -> dict:
     Returns a dictionary with title, presenter, author, date, year, and stem.
     """
     stem = Path(filename).stem
-    if stem.endswith(' - formatted'):
-        stem = stem[:-12]
-    if stem.endswith('_yaml'):
-        stem = stem[:-5]
-    if stem.endswith(' - yaml'):
-        stem = stem[:-7]
-    if stem.endswith(' - simple'):
-        stem = stem[:-9]
+    
+    # Strip known suffixes to get the base stem
+    # We iterate through known suffix constants that start with " - "
+    # Note: iterating explicitly might be safer than relying on arbitrary order if suffixes overlap
+    suffixes_to_strip = [
+        config.SUFFIX_FORMATTED.replace('.md', ''),
+        '_yaml', # special case intermediate
+        config.SUFFIX_YAML.replace('.md', ''),
+        config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
+    ]
+    
+    for suffix in suffixes_to_strip:
+        if stem.endswith(suffix):
+            stem = stem[:-len(suffix)]
+            break # Assume only one suffix type applies
 
     parts = [p.strip() for p in stem.split(' - ')]
 
@@ -569,11 +576,15 @@ def extract_bowen_references(content: str) -> list:
     if not section_content:
         return []
 
-    # Extract quotes in blockquote format: > **Concept:** "Quote"
-    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, section_content)
+    # Relaxed pattern using MULTILINE mode
+    # Handles:
+    # - **Label:** "Quote" (colon inside bold)
+    # - **Label**: "Quote" (colon outside bold)
+    # - Label: "Quote" (no bold)
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
+    quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
-    return [(concept.strip(), quote.strip()) for concept, quote in quotes]
+    return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
 
 def load_bowen_references(base_name: str) -> list:
@@ -587,15 +598,23 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
-    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    bowen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
         with open(bowen_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
 
+    # Fall back to All Key Items
+    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    if extracts_file.exists():
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_bowen_references(content)
+        
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
+    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -617,11 +636,11 @@ def extract_emphasis_items(content: str) -> list:
     if not section_content:
         return []
 
-    # Extract quotes in blockquote format: > **Item:** "Quote"
-    quote_pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    quotes = re.findall(quote_pattern, section_content)
+    # Relaxed pattern using MULTILINE mode
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
+    quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
-    return [(item.strip(), quote.strip()) for item, quote in quotes]
+    return [(item.strip().rstrip(':'), quote.strip()) for item, quote in quotes]
 
 
 def load_emphasis_items(base_name: str) -> list:
@@ -635,15 +654,23 @@ def load_emphasis_items(base_name: str) -> list:
         List of tuples: [(item_name, quote), ...]
     """
     # Try dedicated file first
-    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    emphasis_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_emphasis_items(content)
 
+    # Fall back to All Key Items
+    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    if extracts_file.exists():
+        with open(extracts_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        content = strip_yaml_frontmatter(content)
+        return extract_emphasis_items(content)
+
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name} - topics-themes.md"
+    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()

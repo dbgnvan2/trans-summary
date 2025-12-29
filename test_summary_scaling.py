@@ -27,7 +27,7 @@ def run_test(target_words):
         # Load data
         formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
         extracts_file = config.SUMMARIES_DIR / \
-            f"{base_name} - topics-themes.md"
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         if not formatted_file.exists():
             print(f"File not found: {formatted_file}")

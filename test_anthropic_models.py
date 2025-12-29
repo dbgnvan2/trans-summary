@@ -47,6 +47,7 @@ if __name__ == "__main__":
         "claude-3-5-sonnet-latest",   # Latest Alias
         "claude-3-5-sonnet-20240620",  # Previous Sonnet (June 2024)
         "claude-3-opus-20240229",     # Opus
+        "claude-3-haiku-20240307",    # Haiku (Fast/Cheap)
     ]
 
     for model in models:

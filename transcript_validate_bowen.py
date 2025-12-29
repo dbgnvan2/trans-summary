@@ -9,98 +9,48 @@ import re
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from transcript_utils import extract_bowen_references, strip_yaml_frontmatter
+from transcript_utils import load_bowen_references, find_text_in_content
+import config
+import sys
+
+# ...
+
+base_name = sys.argv[1]
+
+formatted_file = config.FORMATTED_DIR / \
+     f"{base_name}{config.SUFFIX_FORMATTED}"
+ topics_themes_file = config.SUMMARIES_DIR / \
+      f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+  bowen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BOWEN}"
+
+   if not formatted_file.exists():
+        print(f"❌ Formatted file not found: {formatted_file}")
+        sys.exit(1)
+
+    if not topics_themes_file.exists() and not bowen_file.exists():
+        print(f"❌ Topics-Themes file not found: {topics_themes_file}")
+        sys.exit(1)
+
+    print(f"Validating Bowen references...")
+    print(f"  Formatted: {formatted_file.name}")
+    print(
+        f"  Archival:  {bowen_file.name if bowen_file.exists() else topics_themes_file.name}\n")
+
+    validate_bowen_items(formatted_file, topics_themes_file)
 
 
-def normalize_text(text):
-    """Normalize text for comparison by removing tags and punctuation."""
-    # Remove speaker tags that can interrupt quotes
-    text = re.sub(
-        r'(\*\*[^*]+:\*\*\s*|<strong>[^<]+:</strong>\s*)',
-        '',
-        text,
-        flags=re.IGNORECASE
-    )
-
-    # Remove [sic] and its variations
-    text = re.sub(r'\[sic\]\s*\([^)]+\)', '', text)
-    text = re.sub(r'\[sic\]', '', text)
-
-    # Remove timestamps like [00:00:00]
-    text = re.sub(r'\[\d{2}:\d{2}:\d{2}\]', ' ', text)
-
-    text = text.strip().lower()
-
-    # Remove punctuation for better fuzzy matching
-    text = re.sub(r'[.,!?;:—\-\'\"()]', ' ', text)
-
-    # Collapse multiple spaces after removals
-    text = re.sub(r'\s+', ' ', text)
-    return text.strip()
-
-
-def extract_bowen_quotes(topics_themes_file):
-    """Extract all quoted text from Bowen References section."""
-    extracts_path = Path(topics_themes_file)
-    stem = extracts_path.stem.replace(' - topics-themes', '')
-    bowen_file = extracts_path.parent / f"{stem} - bowen-references.md"
-
-    source_file = bowen_file if bowen_file.exists() else extracts_path
-    content = source_file.read_text(encoding='utf-8')
-    content = strip_yaml_frontmatter(content)
-
-    quotes = extract_bowen_references(content)
-    if not quotes:
-        print("❌ No Bowen References section found")
-
-    return quotes
-
-
-def find_best_match(needle, haystack, threshold=0.85):
-    """Find the best matching substring in haystack for needle."""
-    needle_normalized = normalize_text(needle)
-    haystack_normalized = normalize_text(haystack)
-
-    pos = haystack_normalized.find(needle_normalized)
-    if pos != -1:
-        return (1.0, needle)
-
-    needle_words = needle_normalized.split()
-    haystack_words = haystack_normalized.split()
-    needle_len = len(needle_words)
-
-    if needle_len > len(haystack_words):
-        return (0, None)
-
-    best_ratio = 0
-    best_match = None
-
-    for i in range(len(haystack_words) - needle_len + 1):
-        window = ' '.join(haystack_words[i:i + needle_len])
-        ratio = SequenceMatcher(None, needle_normalized, window).ratio()
-
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_match = window
-
-            if ratio >= 0.98:
-                break
-
-    if best_ratio >= threshold:
-        return (best_ratio, best_match)
-
-    return (best_ratio, None)
-
-
-def validate_bowen_items(formatted_file, topics_themes_file):
+def validate_bowen_items(base_name: str, formatted_file: Path):
     """Validate all Bowen reference quotes exist in the formatted transcript."""
+
+    # Read formatted transcript
     with open(formatted_file, 'r', encoding='utf-8') as f:
         formatted_content = f.read()
 
-    quotes = extract_bowen_quotes(topics_themes_file)
+    # Extract quotes using the centralized loader
+    quotes = load_bowen_references(base_name)
 
     if not quotes:
-        print("❌ No Bowen reference quotes found to validate")
+        print("⚠️ No Bowen references found to validate")
         return
 
     print(f"Found {len(quotes)} Bowen references to validate\n")
@@ -111,10 +61,9 @@ def validate_bowen_items(formatted_file, topics_themes_file):
     partial_count = 0
 
     for i, (label, quote) in enumerate(quotes, 1):
-        quote_core = ' '.join(quote.split()[:15])  # First 15 words
+        quote_core = ' '.join(quote.split()[:15])
 
-        ratio, _match = find_best_match(
-            quote_core, formatted_content, threshold=0.80)
+        _, _, ratio = find_text_in_content(quote_core, formatted_content)
 
         print(f"\n{i}. {label}")
         print(f"   Quote preview: {quote[:80]}...")
@@ -124,11 +73,9 @@ def validate_bowen_items(formatted_file, topics_themes_file):
             valid_count += 1
         elif ratio >= 0.80:
             print(f"   ⚠️  PARTIAL MATCH (ratio: {ratio:.2f})")
-            print(f"   May have minor formatting differences")
             partial_count += 1
         else:
             print(f"   ❌ NOT FOUND (best ratio: {ratio:.2f})")
-            print(f"   WARNING: Quote may be fabricated or heavily paraphrased")
             invalid_count += 1
 
     print("\n" + "=" * 80)
@@ -144,36 +91,17 @@ def validate_bowen_items(formatted_file, topics_themes_file):
 
     if invalid_count > 0:
         print(f"\n⚠️  WARNING: {invalid_count} quotes could not be validated!")
-        print("  Review these manually to check if Claude fabricated content.")
 
 
 if __name__ == "__main__":
-    import sys
-    import config
-
+    # The main block was incomplete in context, this is a reconstruction
     if len(sys.argv) < 2:
         print("Usage: python transcript_validate_bowen.py <base_filename>")
-        print("Example: python transcript_validate_bowen.py 'Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15'")
         sys.exit(1)
-
     base_name = sys.argv[1]
-
-    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-    topics_themes_file = config.SUMMARIES_DIR / \
-        f"{base_name} - topics-themes.md"
-    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
-
+    formatted_file = config.FORMATTED_DIR / \
+        f"{base_name}{config.SUFFIX_FORMATTED}"
     if not formatted_file.exists():
         print(f"❌ Formatted file not found: {formatted_file}")
         sys.exit(1)
-
-    if not topics_themes_file.exists() and not bowen_file.exists():
-        print(f"❌ Topics-Themes file not found: {topics_themes_file}")
-        sys.exit(1)
-
-    print(f"Validating Bowen references...")
-    print(f"  Formatted: {formatted_file.name}")
-    print(
-        f"  Archival:  {bowen_file.name if bowen_file.exists() else topics_themes_file.name}\n")
-
-    validate_bowen_items(formatted_file, topics_themes_file)
+    validate_bowen_items(base_name, formatted_file)
