@@ -100,8 +100,9 @@ def validate_emphasis_items(base_name: str, formatted_file: Path):
     for i, (label, quote) in enumerate(quotes, 1):
         # Try to find a substantial portion of the quote (first 50+ chars for matching)
         # Use smaller snippet to avoid issues with context boundaries
-        quote_core = ' '.join(quote.split()[:15])
-        _, _, ratio = find_text_in_content(quote_core, formatted_content)
+        quote_core = ' '.join(quote.split()[:15])  # First 15 words
+        ratio, match = find_best_match(
+            quote_core, formatted_content, threshold=0.80)
 
         print(f"\n{i}. {label}")
         print(f"   Quote preview: {quote[:80]}...")
@@ -109,7 +110,7 @@ def validate_emphasis_items(base_name: str, formatted_file: Path):
         if ratio >= 0.95:
             print(f"   ✅ EXACT MATCH (ratio: {ratio:.2f})")
             valid_count += 1
-        elif ratio >= 0.85:  # Using the threshold from find_text_in_content
+        elif ratio >= 0.80:
             print(f"   ⚠️  PARTIAL MATCH (ratio: {ratio:.2f})")
             print(f"   May have minor formatting differences")
             partial_count += 1

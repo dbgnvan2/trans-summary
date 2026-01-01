@@ -23,13 +23,18 @@ def resolve_filename(filename: str) -> str:
 
     # Clean up base name
     base = filename
-    for suffix in [' - formatted.md', '.md', '.txt']:
+    suffixes = [
+        config.SUFFIX_FORMATTED,
+        '.md',
+        '.txt'
+    ]
+    for suffix in suffixes:
         if base.endswith(suffix):
             base = base[:-len(suffix)]
             break
 
     # Try - formatted.md
-    formatted_name = f"{base} - formatted.md"
+    formatted_name = f"{base}{config.SUFFIX_FORMATTED}"
     if (config.FORMATTED_DIR / formatted_name).exists():
         return formatted_name
 

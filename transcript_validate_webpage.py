@@ -20,7 +20,7 @@ from pathlib import Path
 from html import unescape
 from difflib import SequenceMatcher
 import config
-from transcript_utils import load_bowen_references, load_emphasis_items
+from transcript_utils import load_bowen_references, load_emphasis_items, normalize_text
 
 try:
     from bs4 import BeautifulSoup
@@ -178,9 +178,19 @@ def extract_topics_themes_metadata(topics_themes_file):
             metadata['abstract_text'] = abstract_text
             metadata['abstract_length'] = len(abstract_text)
 
+    # Check Summary
+    summary_match = re.search(
+        r'## (?:\*\*)?Summary(?:\*\*)?(.*?)(?=^## |^---+|\Z)',
+        content,
+        re.MULTILINE | re.DOTALL
+    )
+    if summary_match:
+        metadata['has_summary'] = True
+        metadata['summary_length'] = len(summary_match.group(1).strip())
+
     # Count Topics (with or without bold markers)
     topics_match = re.search(
-        r'## (?:\*\*)?Topics(?:\*\*)?(.*?)(?=^## |\Z)',
+        r'## (?:\*\*)?(?:Key )?Topics(?:\*\*)?(.*?)(?=^## |\Z)',
         content,
         re.MULTILINE | re.DOTALL
     )
@@ -207,14 +217,18 @@ def extract_topics_themes_metadata(topics_themes_file):
         metadata['themes_list'] = [t.strip() for t in themes]
         metadata['themes_count'] = len(themes)
 
-    # Count Key Terms (term headings)
-    term_headings = re.findall(
-        r'^## ([A-Z][^\n#]+?)[\s]*\n+\*\*Definition Type:',
+    # Count Key Terms
+    key_terms_match = re.search(
+        r'## (?:\*\*)?Key Terms(?:\*\*)?(.*?)(?=^## |^---+|\Z)',
         content,
-        re.MULTILINE
+        re.MULTILINE | re.DOTALL
     )
-    metadata['key_terms_list'] = [t.strip() for t in term_headings]
-    metadata['key_terms_count'] = len(term_headings)
+    if key_terms_match:
+        kt_text = key_terms_match.group(1)
+        # Extract term names (### Term Name)
+        term_headings = re.findall(r'^### (.+)$', kt_text, re.MULTILINE)
+        metadata['key_terms_list'] = [t.strip() for t in term_headings]
+        metadata['key_terms_count'] = len(term_headings)
 
     # Count Bowen References (with or without bold markers)
     bowen_match = re.search(
@@ -255,6 +269,8 @@ def extract_html_metadata(html_file):
         'has_abstract': False,
         'abstract_length': 0,
         'abstract_text': '',
+        'has_summary': False,
+        'summary_length': 0,
         'has_topics': False,
         'topics_list': [],
         'has_themes': False,
@@ -293,8 +309,16 @@ def extract_html_metadata(html_file):
             metadata['abstract_text'] = text
             metadata['abstract_length'] = len(text)
 
+    # Summary
+    summary_elems = get_sidebar_section('Summary')
+    if summary_elems:
+        text = " ".join(e.get_text(strip=True) for e in summary_elems)
+        if text:
+            metadata['has_summary'] = True
+            metadata['summary_length'] = len(text)
+
     # Topics
-    topics_elems = get_sidebar_section('Topics')
+    topics_elems = get_sidebar_section('Key Topics')
     if topics_elems:
         metadata['has_topics'] = True
         for elem in topics_elems:
@@ -319,11 +343,18 @@ def extract_html_metadata(html_file):
     # Key Terms
     terms_elems = get_sidebar_section('Key Terms')
     if terms_elems:
-        text = " ".join(e.get_text(strip=True) for e in terms_elems)
-        if text:
+        # Check for definition list first
+        dl = next((e for e in terms_elems if e.name == 'dl'), None)
+        if dl:
             metadata['has_key_terms'] = True
-            metadata['key_terms_list'] = [t.strip()
-                                          for t in text.split(',') if t.strip()]
+            metadata['key_terms_list'] = [dt.get_text(
+                strip=True) for dt in dl.find_all('dt')]
+        else:
+            text = " ".join(e.get_text(strip=True) for e in terms_elems)
+            if text:
+                metadata['has_key_terms'] = True
+                metadata['key_terms_list'] = [t.strip()
+                                              for t in text.split(',') if t.strip()]
 
     # Count Bowen reference highlights in main content (exclude legend)
     main_content = soup.find('div', class_='transcript') or soup.find(
@@ -370,6 +401,8 @@ def extract_html_simple_metadata(html_file):
         'has_abstract': False,
         'abstract_length': 0,
         'abstract_text': '',
+        'has_summary': False,
+        'summary_length': 0,
         'has_topics': False,
         'topics_list': [],
         'has_themes': False,
@@ -387,30 +420,72 @@ def extract_html_simple_metadata(html_file):
     if not main_content:
         return metadata
 
-    # Check Abstract - should be present in simple format too
-    abstract_section = main_content.find('section', class_='abstract')
-    if abstract_section:
-        abstract_text = abstract_section.get_text(
-            strip=True).replace('Abstract', '', 1).strip()
-        if abstract_text:
-            metadata['has_abstract'] = True
-            metadata['abstract_text'] = abstract_text
-            metadata['abstract_length'] = len(abstract_text)
+    # 1. Summary Section (Abstract + Summary)
+    summary_section = soup.find('div', class_='summary-section')
+    if summary_section:
+        # Abstract
+        abs_h2 = summary_section.find('h2', string='Abstract')
+        if abs_h2:
+            text = ""
+            curr = abs_h2.find_next_sibling()
+            while curr and curr.name != 'h2':
+                text += curr.get_text(strip=True) + " "
+                curr = curr.find_next_sibling()
+            if text.strip():
+                metadata['has_abstract'] = True
+                metadata['abstract_text'] = text.strip()
+                metadata['abstract_length'] = len(text.strip())
 
-    # Check Key Terms - in simple format, look for <section class="key-terms">
-    terms_section = main_content.find('section', class_='key-terms')
-    if terms_section:
-        # Extract bold terms from paragraph
-        term_items = [strong.get_text(strip=True)
-                      for strong in terms_section.find_all('strong')]
-        if term_items:
+        # Summary
+        sum_h2 = summary_section.find('h2', string='Summary')
+        if sum_h2:
+            text = ""
+            curr = sum_h2.find_next_sibling()
+            while curr and curr.name != 'h2':
+                text += curr.get_text(strip=True) + " "
+                curr = curr.find_next_sibling()
+            if text.strip():
+                metadata['has_summary'] = True
+                metadata['summary_length'] = len(text.strip())
+
+    # 2. Appendices (Topics, Themes, Key Terms)
+    appendices = soup.find('div', class_='appendices')
+    if appendices:
+        # Topics
+        topics_h2 = appendices.find('h2', string='Key Topics')
+        if topics_h2:
+            metadata['has_topics'] = True
+            curr = topics_h2.find_next_sibling()
+            while curr and curr.name != 'h2':
+                if curr.name == 'h3':
+                    metadata['topics_list'].append(curr.get_text(strip=True))
+                curr = curr.find_next_sibling()
+
+        # Key Themes
+        themes_h2 = appendices.find('h2', string='Key Themes')
+        if themes_h2:
+            metadata['has_themes'] = True
+            curr = themes_h2.find_next_sibling()
+            while curr and curr.name != 'h2':
+                if curr.name == 'h3':
+                    metadata['themes_list'].append(curr.get_text(strip=True))
+                if curr.name == 'p':
+                    strong = curr.find('strong')
+                    if strong and re.match(r'\d+\.', curr.get_text(strip=True)):
+                        metadata['themes_list'].append(
+                            strong.get_text(strip=True))
+                curr = curr.find_next_sibling()
+
+        # Key Terms
+        terms_h2 = appendices.find('h2', string='Key Terms')
+        if terms_h2:
             metadata['has_key_terms'] = True
-            metadata['key_terms_list'] = term_items
-
-    # Topics and Themes are not in simple webpage format
-    # So we mark them as present but empty lists (to skip validation)
-    metadata['has_topics'] = True
-    metadata['has_themes'] = True
+            curr = terms_h2.find_next_sibling()
+            while curr and curr.name != 'h2':
+                if curr.name == 'dl':
+                    metadata['key_terms_list'].extend(
+                        [dt.get_text(strip=True) for dt in curr.find_all('dt')])
+                curr = curr.find_next_sibling()
 
     # Count highlights
     bowen_marks = main_content.find_all('mark', class_='bowen-ref')
@@ -443,6 +518,81 @@ def extract_html_simple_metadata(html_file):
     return metadata
 
 
+def validate_css_definitions(html_file):
+    """Check if required CSS classes are defined in the style block."""
+    try:
+        soup = BeautifulSoup(html_file.read_text(
+            encoding='utf-8'), 'html.parser')
+        style = soup.find('style')
+        if not style:
+            return False, "No <style> block found"
+
+        css_content = style.get_text()
+        missing = []
+
+        # Check for specific highlighting classes
+        if '.bowen-ref' not in css_content and 'mark.bowen-ref' not in css_content:
+            missing.append('.bowen-ref')
+
+        if '.emphasis' not in css_content and 'mark.emphasis' not in css_content:
+            missing.append('.emphasis')
+
+        if '.legend' not in css_content:
+            missing.append('.legend')
+
+        if 'score-90' not in css_content:
+            missing.append('.score-90')
+
+        if 'score-95' not in css_content:
+            missing.append('.score-95')
+
+        if '.ref-list' not in css_content:
+            missing.append('.ref-list')
+
+        if missing:
+            return False, f"Missing CSS definitions for: {', '.join(missing)}"
+
+        return True, "CSS definitions present"
+    except Exception as e:
+        return False, f"Error parsing CSS: {e}"
+
+
+def find_best_match_in_html(needle, haystack_normalized, threshold=0.85):
+    """
+    Find the best matching substring in normalized HTML content.
+    Returns (ratio, match_text).
+    """
+    needle_normalized = normalize_text(needle, aggressive=True)
+
+    if needle_normalized in haystack_normalized:
+        return (1.0, needle)
+
+    # Fuzzy match
+    needle_words = needle_normalized.split()
+    haystack_words = haystack_normalized.split()
+    needle_len = len(needle_words)
+
+    if needle_len > len(haystack_words):
+        return (0.0, None)
+
+    best_ratio = 0
+    best_match = None
+
+    # Optimization: Check window only if first word matches (optional, but speeds up large files)
+    # For now, we use standard sliding window
+    for i in range(len(haystack_words) - needle_len + 1):
+        window = ' '.join(haystack_words[i:i + needle_len])
+        ratio = SequenceMatcher(None, needle_normalized, window).ratio()
+
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = window
+            if ratio > 0.98:  # Early exit
+                break
+
+    return (best_ratio, best_match)
+
+
 def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     """Validate HTML webpage against source materials."""
 
@@ -453,15 +603,17 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print(f"{'='*70}\n")
 
     # File paths
-    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    formatted_file = config.FORMATTED_DIR / \
+        f"{base_name}{config.SUFFIX_FORMATTED}"
     topics_themes_file = config.SUMMARIES_DIR / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     # Use correct HTML filename based on mode
     if simple_mode:
-        html_file = config.WEBPAGES_DIR / f"{base_name} - simple.html"
+        html_file = config.WEBPAGES_DIR / \
+            f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
     else:
-        html_file = config.WEBPAGES_DIR / f"{base_name}.html"
+        html_file = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     # Check files exist
     missing_files = []
@@ -532,31 +684,40 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     else:
         print("      ✅ Abstract present in HTML")
 
-    # Topics (skip in simple mode - not included in that layout)
-    if not simple_mode:
-        print(f"\n   Topics:")
-        print(f"      Source: {source_meta['topics_count']} items")
-        print(
-            f"      HTML:   {'Present' if html_meta['has_topics'] else 'Empty'}")
+    # Summary
+    print(f"\n   Summary:")
+    # Note: Source summary might be in a different file (summary-generated.md),
+    # so source_meta['has_summary'] might be False if it only checked All Key Items.
+    # We'll just check if HTML has it if we know we generated it.
+    print(f"      HTML:   {'Present' if html_meta['has_summary'] else 'Missing'} "
+          f"({html_meta['summary_length']} chars)")
 
-        if source_meta['topics_count'] > 0 and not html_meta['has_topics']:
-            issues.append(
-                f"Topics section empty in HTML (should have {source_meta['topics_count']} items)")
-        elif source_meta['topics_count'] > 0:
-            print("      ✅ Topics present in HTML")
+    if not html_meta['has_summary']:
+        warnings.append("Summary section missing in HTML")
+    else:
+        print("      ✅ Summary present in HTML")
+
+    # Topics (skip in simple mode - not included in that layout)
+    print(f"\n   Key Topics:")
+    print(f"      Source: {source_meta['topics_count']} items")
+    print(f"      HTML:   {'Present' if html_meta['has_topics'] else 'Empty'}")
+
+    if source_meta['topics_count'] > 0 and not html_meta['has_topics']:
+        issues.append(
+            f"Key Topics section empty in HTML (should have {source_meta['topics_count']} items)")
+    elif source_meta['topics_count'] > 0:
+        print("      ✅ Key Topics present in HTML")
 
     # Key Themes (skip in simple mode - not included in that layout)
-    if not simple_mode:
-        print(f"\n   Key Themes:")
-        print(f"      Source: {source_meta['themes_count']} items")
-        print(
-            f"      HTML:   {'Present' if html_meta['has_themes'] else 'Empty'}")
+    print(f"\n   Key Themes:")
+    print(f"      Source: {source_meta['themes_count']} items")
+    print(f"      HTML:   {'Present' if html_meta['has_themes'] else 'Empty'}")
 
-        if source_meta['themes_count'] > 0 and not html_meta['has_themes']:
-            issues.append(
-                f"Key Themes section empty in HTML (should have {source_meta['themes_count']} items)")
-        elif source_meta['themes_count'] > 0:
-            print("      ✅ Key Themes present in HTML")
+    if source_meta['themes_count'] > 0 and not html_meta['has_themes']:
+        issues.append(
+            f"Key Themes section empty in HTML (should have {source_meta['themes_count']} items)")
+    elif source_meta['themes_count'] > 0:
+        print("      ✅ Key Themes present in HTML")
 
     # Key Terms
     print(f"\n   Key Terms:")
@@ -573,6 +734,14 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     # 3. Highlighting validation
     print(f"\n🖍️  Highlighting Validation")
     print("-" * 70)
+
+    # Check CSS definitions
+    css_ok, css_msg = validate_css_definitions(html_file)
+    if not css_ok:
+        issues.append(f"CSS Validation failed: {css_msg}")
+        print(f"   ❌ {css_msg}")
+    else:
+        print(f"   ✅ CSS definitions present")
 
     print(f"   Bowen References:")
     print(f"      Source:      {source_meta['bowen_refs_count']} references")
@@ -639,8 +808,35 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
             print(
                 f"         {i}. {label[:60]}{'...' if len(label) > 60 else ''}")
 
-    # 4. Content Verification (sample 30% rounded up)
-    print(f"\n🔍 Content Verification (Sampling)")
+    # 4. Text Content Verification (The logic from Step 11)
+    print(f"\n🔍 Text Content Verification")
+    print("-" * 70)
+
+    # Read and normalize HTML (stripping tags to check text presence)
+    html_content = html_file.read_text(encoding='utf-8')
+    html_normalized = normalize_text(html_content, aggressive=True)
+
+    all_items = [("Bowen Ref", label, quote) for label, quote in load_bowen_references(base_name)] + \
+                [("Emphasis", label, quote)
+                 for label, quote in load_emphasis_items(base_name)]
+
+    text_missing_count = 0
+    if all_items:
+        for type_, label, quote in all_items:
+            ratio, _ = find_best_match_in_html(
+                quote, html_normalized, threshold=0.80)
+            if ratio < 0.85:
+                text_missing_count += 1
+                issues.append(f"Quote text missing for {type_}: {label}")
+                print(f"   ❌ MISSING TEXT {type_}: {label}")
+
+        if text_missing_count == 0:
+            print(f"   ✅ All {len(all_items)} quotes found in HTML text")
+    else:
+        print("   ℹ️  No quotes to verify.")
+
+    # 5. Metadata Content Verification (Sampling)
+    print(f"\n🔍 Metadata Content Verification (Sampling)")
     print("-" * 70)
 
     import math
@@ -663,7 +859,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
                 f"   Abstract: ⚠️  Content mismatch ({ratio:.1%} similarity)")
 
     # Verify Topics (sample 30% rounded up) - skip in simple mode
-    if not simple_mode and source_meta['topics_count'] > 0 and len(html_meta['topics_list']) > 0:
+    if source_meta['topics_count'] > 0 and len(html_meta['topics_list']) > 0:
         sample_size = math.ceil(source_meta['topics_count'] * 0.3)
         sample_indices = range(
             0, min(sample_size, len(source_meta['topics_list'])))
@@ -680,15 +876,15 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
         if matched == len(sample_indices):
             print(
-                f"   Topics: ✅ {matched}/{len(sample_indices)} sampled items verified")
+                f"   Key Topics: ✅ {matched}/{len(sample_indices)} sampled items verified")
         else:
             warnings.append(
-                f"Topics content mismatch: only {matched}/{len(sample_indices)} verified")
+                f"Key Topics content mismatch: only {matched}/{len(sample_indices)} verified")
             print(
-                f"   Topics: ⚠️  Only {matched}/{len(sample_indices)} verified")
+                f"   Key Topics: ⚠️  Only {matched}/{len(sample_indices)} verified")
 
     # Verify Key Themes (sample 30% rounded up) - skip in simple mode
-    if not simple_mode and source_meta['themes_count'] > 0 and len(html_meta['themes_list']) > 0:
+    if source_meta['themes_count'] > 0 and len(html_meta['themes_list']) > 0:
         sample_size = math.ceil(source_meta['themes_count'] * 0.3)
         sample_indices = range(
             0, min(sample_size, len(source_meta['themes_list'])))
@@ -772,7 +968,12 @@ def resolve_base_name(input_name: str) -> str:
         name = Path(name).stem
 
     # Remove known suffixes
-    suffixes = [' - formatted', ' - yaml', '_yaml', ' - simple']
+    suffixes = [
+        config.SUFFIX_FORMATTED.replace('.md', ''),
+        config.SUFFIX_YAML.replace('.md', ''),
+        '_yaml',
+        config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
+    ]
     for suffix in suffixes:
         if name.endswith(suffix):
             name = name[:-len(suffix)]

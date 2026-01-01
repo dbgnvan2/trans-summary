@@ -15,7 +15,8 @@ SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
 WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
 PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
 PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
-PROMPTS_DIR = TRANSCRIPTS_BASE / "prompts"
+PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"
+PROMPTS_DIR = Path(__file__).parent / "prompts"
 LOGS_DIR = Path(__file__).parent / "logs"
 
 # File Suffixes
@@ -27,6 +28,7 @@ SUFFIX_KEY_ITEMS_CLEAN = " - topics-themes-terms.md"
 SUFFIX_KEY_TERMS = " - key-terms.md"
 SUFFIX_BOWEN = " - bowen-references.md"
 SUFFIX_EMPHASIS = " - emphasis-items.md"
+SUFFIX_EMPHASIS_SCORED = " - emphasis-scored.md"
 SUFFIX_ABSTRACT_INIT = " - abstract-initial.md"
 SUFFIX_SUMMARY_INIT = " - summary-initial.md"
 SUFFIX_SUMMARY_GEN = " - summary-generated.md"
@@ -57,6 +59,11 @@ MAX_TOKENS_EXTRACTION = 8192
 MAX_TOKENS_AUDIT = 2000
 MAX_TOKENS_HEADER_VALIDATION = 32000
 
+# Timeouts (seconds)
+TIMEOUT_FORMATTING = 1200  # 20 minutes
+TIMEOUT_SUMMARY = 900      # 15 minutes
+TIMEOUT_DEFAULT = 300      # 5 minutes
+
 # Prompt Filenames
 PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = "Transcript Formatting Headers Validation Prompt 12.md"
 PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v12-Lite.md"
@@ -68,7 +75,8 @@ PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
 PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
 PROMPT_STRUCTURED_ABSTRACT_FILENAME = "Abstract Generation Prompt v1.md"
 PROMPT_VALIDATION_COVERAGE_FILENAME = "Validation Coverage Prompt v1.md"
-PROMPT_PROBLEMATIC_HEADER_TERMS_FILENAME = "problematic_header_terms.md"
+PROMPT_PROBLEMATIC_HEADER_TERMS_FILENAME = "problematic_header_terms_v2.md"
+PROMPT_EMPHASIS_SCORING_FILENAME = "emphasis_dedection_v3_production.md"
 
 # Validation Settings
 VALIDATION_MISMATCH_RATIO = 0.015  # 1.5% tolerance
@@ -112,7 +120,7 @@ FUZZY_MATCH_PREFIX_LEN = 20
 
 def set_transcripts_base(path: str | Path):
     """Update the base directory for transcripts and all related paths."""
-    global TRANSCRIPTS_BASE, SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, WEBPAGES_DIR, PDFS_DIR, PROCESSED_DIR, PROMPTS_DIR
+    global TRANSCRIPTS_BASE, SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, WEBPAGES_DIR, PDFS_DIR, PROCESSED_DIR, PACKAGES_DIR
 
     TRANSCRIPTS_BASE = Path(path)
     SOURCE_DIR = TRANSCRIPTS_BASE / "source"
@@ -121,4 +129,4 @@ def set_transcripts_base(path: str | Path):
     WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
     PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
     PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
-    PROMPTS_DIR = TRANSCRIPTS_BASE / "prompts"
+    PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"

@@ -1,0 +1,12 @@
+2025-12-31 10:45:44,806 - extract_scored_emphasis - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/extract_scored_emphasis_20251231_104544.log
+2025-12-31 10:45:44,806 - extract_scored_emphasis - INFO - Starting Scored Emphasis Extraction for: This is a test - Dave Galloway - 2025-12-07 - yaml.md
+2025-12-31 10:45:44,806 - extract_scored_emphasis - ERROR - Error in scored emphasis extraction: Prompt file not found: /Users/davemini2/ProjectsLocal/Projects/trans-summary/prompts/emphasis_dedection_v3_production.md
+Expected location: /Users/davemini2/ProjectsLocal/Projects/trans-summary/prompts/emphasis_dedection_v3_production.md
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 456, in extract_scored_emphasis
+    prompt_template = _load_summary_prompt(
+                      ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 266, in _load_summary_prompt
+    raise FileNotFoundError(
+FileNotFoundError: Prompt file not found: /Users/davemini2/ProjectsLocal/Projects/trans-summary/prompts/emphasis_dedection_v3_production.md
+Expected location: /Users/davemini2/ProjectsLocal/Projects/trans-summary/prompts/emphasis_dedection_v3_production.md

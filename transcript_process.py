@@ -28,6 +28,10 @@ FORMAT_SCRIPT = SCRIPT_DIR / "transcript_format.py"
 VALIDATE_SCRIPT = SCRIPT_DIR / "transcript_validate_format.py"
 ADD_YAML_SCRIPT = SCRIPT_DIR / "transcript_add_yaml.py"
 SUMMARIZE_SCRIPT = SCRIPT_DIR / "transcript_summarize.py"
+WEBPAGE_SCRIPT = SCRIPT_DIR / "transcript_to_webpage.py"
+SIMPLE_WEBPAGE_SCRIPT = SCRIPT_DIR / "transcript_to_simple_webpage.py"
+PDF_SCRIPT = SCRIPT_DIR / "transcript_to_pdf.py"
+PACKAGE_SCRIPT = SCRIPT_DIR / "transcript_package.py"
 
 # Get Python executable
 PYTHON = sys.executable
@@ -194,12 +198,13 @@ def main():
     base_name = f"{title} - {author} - {date}"
 
     # Check existing files to determine starting point
-    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    formatted_file = config.FORMATTED_DIR / \
+        f"{base_name}{config.SUFFIX_FORMATTED}"
     has_formatted = formatted_file.exists()
     has_yaml = False
 
     # Check for YAML - either separate _yaml.md file or in formatted.md
-    yaml_file = config.FORMATTED_DIR / f"{base_name} - yaml.md"
+    yaml_file = config.FORMATTED_DIR / f"{base_name}{config.SUFFIX_YAML}"
     if yaml_file.exists():
         has_yaml = True
     elif has_formatted:
@@ -300,15 +305,56 @@ def main():
             print("Stopped before summary generation.")
             return 0
 
-    success, _ = run_script(
-        SUMMARIZE_SCRIPT,
-        [str(formatted_file.name)],
-        "STEP 4: Generating Summaries (Archival + Blog)"
-    )
+        success, _ = run_script(
+            SUMMARIZE_SCRIPT,
+            [str(formatted_file.name)],
+            "STEP 4: Generating Summaries (Archival + Blog)"
+        )
 
-    if not success:
-        print("\n❌ Summary generation failed.")
-        return 1
+        if not success:
+            print("\n❌ Summary generation failed.")
+            return 1
+
+    # Step 5: Generate Webpages & PDF
+    if start_step <= 5:
+        if confirm("\nProceed with generating Webpages and PDF?"):
+            # Webpage
+            success, _ = run_script(
+                WEBPAGE_SCRIPT,
+                [base_name],
+                "STEP 5a: Generating Main Webpage"
+            )
+            if not success:
+                print("⚠️ Main webpage generation failed.")
+
+            # Simple Webpage
+            success, _ = run_script(
+                SIMPLE_WEBPAGE_SCRIPT,
+                [base_name],
+                "STEP 5b: Generating Simple Webpage"
+            )
+            if not success:
+                print("⚠️ Simple webpage generation failed.")
+
+            # PDF
+            success, _ = run_script(
+                PDF_SCRIPT,
+                [base_name],
+                "STEP 5c: Generating PDF"
+            )
+            if not success:
+                print("⚠️ PDF generation failed.")
+
+    # Step 6: Package Artifacts
+    if start_step <= 6:
+        if confirm("\nProceed with packaging artifacts?"):
+            success, _ = run_script(
+                PACKAGE_SCRIPT,
+                [base_name],
+                "STEP 6: Packaging Artifacts"
+            )
+            if not success:
+                print("⚠️ Packaging failed.")
 
     # Step 5: Final confirmation
     print("\n" + "="*80)
@@ -317,9 +363,11 @@ def main():
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
     print(
-        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name} - All Key Items.md'}")
+        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
     print(
-        f"           : {config.SUMMARIES_DIR / f'{base_name} - blog.md'}")
+        f"           : {config.SUMMARIES_DIR / f'{base_name}{config.SUFFIX_BLOG}'}")
+    print(
+        f"📦 Package:   {config.PACKAGES_DIR / f'{base_name}.zip'}")
 
     if confirm("\n✅ Everything looks good. Move source file to processed/?"):
         processed_path = move_to_processed(source_file)

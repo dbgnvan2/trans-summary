@@ -272,9 +272,17 @@ def call_claude_with_retry(
         RuntimeError: If output is truncated or connection fails
         APIError: If API call fails after retries
     """
+    # Track timeout across retries
+    current_timeout = kwargs.get('timeout')
+
     for attempt in range(max_retries):
         try:
             call_kwargs = kwargs.copy()
+
+            # Apply dynamic timeout if set
+            if current_timeout is not None:
+                call_kwargs['timeout'] = current_timeout
+
             is_streaming = call_kwargs.pop('stream', False)
 
             if is_streaming:
@@ -379,6 +387,20 @@ def call_claude_with_retry(
             ) from e
 
         except APITimeoutError as e:
+            if attempt < max_retries - 1:
+                # Increase timeout by 50%
+                if current_timeout is not None:
+                    current_timeout = float(current_timeout) * 1.5
+                else:
+                    # Default fallback if no timeout specified but timed out
+                    current_timeout = 900.0
+
+                msg = f"Request timed out. Increasing timeout to {current_timeout:.0f}s and retrying ({attempt + 2}/{max_retries})..."
+                if logger:
+                    logger.warning(msg)
+                print(f"\n⚠️  {msg}")
+                continue
+
             if logger:
                 logger.error(f"Request timed out: {e}")
             raise RuntimeError(
@@ -429,21 +451,21 @@ def parse_filename_metadata(filename: str) -> dict:
     Returns a dictionary with title, presenter, author, date, year, and stem.
     """
     stem = Path(filename).stem
-    
+
     # Strip known suffixes to get the base stem
     # We iterate through known suffix constants that start with " - "
     # Note: iterating explicitly might be safer than relying on arbitrary order if suffixes overlap
     suffixes_to_strip = [
         config.SUFFIX_FORMATTED.replace('.md', ''),
-        '_yaml', # special case intermediate
+        '_yaml',  # special case intermediate
         config.SUFFIX_YAML.replace('.md', ''),
         config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
     ]
-    
+
     for suffix in suffixes_to_strip:
         if stem.endswith(suffix):
             stem = stem[:-len(suffix)]
-            break # Assume only one suffix type applies
+            break  # Assume only one suffix type applies
 
     parts = [p.strip() for p in stem.split(' - ')]
 
@@ -606,15 +628,17 @@ def load_bowen_references(base_name: str) -> list:
         return extract_bowen_references(content)
 
     # Fall back to All Key Items
-    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
-        
+
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -653,8 +677,17 @@ def load_emphasis_items(base_name: str) -> list:
     Returns:
         List of tuples: [(item_name, quote), ...]
     """
+    # Try new scored emphasis file first
+    scored_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    if scored_file.exists():
+        content = scored_file.read_text(encoding='utf-8')
+        items = parse_scored_emphasis_output(content)
+        return [(f"{item['concept']} ({item['score']}%)", item['quote']) for item in items]
+
     # Try dedicated file first
-    emphasis_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_EMPHASIS}"
+    emphasis_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -662,7 +695,8 @@ def load_emphasis_items(base_name: str) -> list:
         return extract_emphasis_items(content)
 
     # Fall back to All Key Items
-    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -670,7 +704,8 @@ def load_emphasis_items(base_name: str) -> list:
         return extract_emphasis_items(content)
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -696,6 +731,117 @@ def strip_yaml_frontmatter(content: str) -> str:
     if match:
         return content[match.end():]
     return content
+
+
+def parse_scored_emphasis_output(text: str) -> list[dict]:
+    """
+    Parse the output from the emphasis scoring prompt.
+    Expected Format:
+    [Type - Category - Rank: XX%] Concept: Descriptor
+    "Quote"
+    (Location)
+    """
+    items = []
+    # Regex to capture the structured block
+    # Matches: [Type - Category - Rank: 99%] Concept: ... \n "Quote"
+    # Updated to handle optional bolding **...** and score ranges
+    # Updated to be case-insensitive for labels and flexible with separators
+    pattern = re.compile(
+        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“\'](?P<quote>[\s\S]+?)["”\']',
+        re.MULTILINE
+    )
+
+    for match in pattern.finditer(text):
+        score_str = match.group('score').strip()
+        # Handle ranges like "87-96" or single numbers "95"
+        nums = [int(n) for n in re.findall(r'\d+', score_str)]
+        score = int(sum(nums) / len(nums)) if nums else 0
+
+        items.append({
+            'type': match.group('type').strip().replace('*', ''),
+            'category': match.group('category').strip().replace('*', ''),
+            'score': score,
+            'concept': match.group('concept').strip().replace('*', ''),
+            'quote': match.group('quote').strip()
+        })
+
+    return items
+
+
+def get_emphasis_expected_range(category: str) -> tuple[int, int]:
+    """Return expected ranking range for an emphasis category."""
+    # Extract the code (e.g. A1, B2) if the category string is verbose
+    # e.g. "A14 Source Commentary" -> "A14"
+    match = re.match(r'([A-C]\d+)', category.strip())
+    category_code = match.group(1) if match else category
+
+    # Based on emphasis_dedection_v3_production.md
+    ranges = {
+        'A1': (95, 100), 'A2': (90, 95), 'A3': (85, 90), 'A4': (95, 100),
+        'A5': (90, 95), 'A6': (85, 90), 'A7': (85, 92), 'A8': (90, 98),
+        'A9': (90, 100), 'A10': (85, 95), 'A11': (88, 95), 'A12': (87, 93),
+        'A13': (85, 94), 'A14': (87, 96), 'A15': (88, 94), 'A16': (85, 92),
+        'A17': (90, 96), 'A18': (92, 98), 'A19': (90, 96), 'A20': (87, 93),
+        'A21': (92, 98),
+        'B1': (90, 100), 'B2': (85, 100), 'B3': (85, 100), 'B4': (85, 100),
+        'B5': (85, 100), 'B6': (85, 100), 'B7': (85, 100), 'B8': (85, 100),
+        'B9': (88, 95), 'B10': (90, 95), 'B11': (88, 94), 'B12': (87, 93),
+        'B13': (87, 93), 'B14': (85, 90), 'B15': (88, 94), 'B16': (88, 94),
+        'C1': (90, 98), 'C2': (88, 95), 'C3': (90, 95), 'C4': (87, 93),
+        'C5': (88, 94), 'C6': (92, 98),
+    }
+    # Default range if category is unknown
+    return ranges.get(category_code, (85, 100))
+
+
+def validate_emphasis_item(item: dict) -> tuple[bool, list[str]]:
+    """
+    Validate a single scored emphasis item based on quality standards.
+    Inspired by the VALIDATION HELPER example.
+
+    Returns: (is_valid, list_of_issues)
+    """
+    issues = []
+
+    # 1. Check word count
+    word_count = len(item.get('quote', '').split())
+    if word_count > 200:
+        issues.append(f"Quote too long: {word_count} words (max 200)")
+    if word_count < 5:
+        issues.append(f"Quote too short: {word_count} words (min 5)")
+
+    # 2. Check for vague pronouns at the start
+    vague_pronouns = ['that', 'this', 'these', 'those', 'it']
+    first_word = item.get('quote', '').split()[0].lower().strip(
+        ".,") if item.get('quote', '') else ''
+    if first_word in vague_pronouns:
+        issues.append(f"Starts with vague pronoun: '{first_word}'")
+
+    # 3. Check if ranking is in expected range for its category
+    category = item.get('category')
+    score = item.get('score')
+    if category and score is not None:
+        min_rank, max_rank = get_emphasis_expected_range(category)
+        if not (min_rank <= score <= max_rank):
+            issues.append(
+                f"Score {score}% outside expected range [{min_rank}-{max_rank}] for category {category}")
+
+    return len(issues) == 0, issues
+
+
+def create_system_message_with_cache(text: str) -> list:
+    """
+    Create a system message with Anthropic's prompt caching enabled.
+    This is useful for large contexts (like transcripts) reused across multiple calls.
+
+    Returns:
+        List containing the system message dictionary.
+    """
+    return [{
+        "type": "text",
+        "text": text,
+        "cache_control": {"type": "ephemeral"}
+    }]
 
 
 # ============================================================================

@@ -139,7 +139,8 @@ def print_audit_results(audit_result: dict):
 def save_audit_report(base_name: str, audit_result: dict):
     """Save audit report to file."""
 
-    report_file=config.SUMMARIES_DIR / f"{base_name} - voice-audit.json"
+    report_file=config.SUMMARIES_DIR /
+        f"{base_name}{config.SUFFIX_VOICE_AUDIT}"
 
     with open(report_file, 'w', encoding='utf-8') as f:
         json.dump(audit_result, f, indent=2)

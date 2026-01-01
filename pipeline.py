@@ -26,10 +26,14 @@ from transcript_utils import (
     extract_bowen_references,
     estimate_token_count,
     check_token_budget,  # <--- Added this import
+    create_system_message_with_cache,
+    validate_emphasis_item,
+    parse_scored_emphasis_output,
 )
 import anthropic
 import os
 import re
+import zipfile
 import threading
 import time
 from pathlib import Path
@@ -53,13 +57,13 @@ def strip_sic_annotations(text: str) -> tuple[str, int]:
 
 def load_prompt() -> str:
     """Load the formatting prompt template."""
-    prompts_dir = config.TRANSCRIPTS_BASE / "prompts"
-    prompt_path = prompts_dir / config.PROMPT_FORMATTING_FILENAME
+    # Use the centralized, project-relative PROMPTS_DIR
+    prompt_path = config.PROMPTS_DIR / config.PROMPT_FORMATTING_FILENAME
 
     if not prompt_path.exists():
         raise FileNotFoundError(
             f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {prompts_dir}/{config.PROMPT_FORMATTING_FILENAME}"
+            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_FORMATTING_FILENAME}"
         )
     return prompt_path.read_text(encoding='utf-8')
 
@@ -100,6 +104,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         max_tokens=config.MAX_TOKENS_FORMATTING,
         stream=True,
         logger=logger,
+        timeout=config.TIMEOUT_FORMATTING,
     )
 
     return message.content[0].text
@@ -256,11 +261,11 @@ def _validate_emphasis_items(formatted_file, extracts_summary_file, logger):
 
 def _load_summary_prompt(prompt_filename: str) -> str:
     """Load a summary prompt template."""
-    prompts_dir = config.TRANSCRIPTS_BASE / "prompts"
-    prompt_path = prompts_dir / prompt_filename
+    # Use the centralized, project-relative PROMPTS_DIR
+    prompt_path = config.PROMPTS_DIR / prompt_filename
     if not prompt_path.exists():
         raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\nExpected location: {prompts_dir}/{prompt_filename}")
+            f"Prompt file not found: {prompt_path}\nExpected location: {config.PROMPTS_DIR}/{prompt_filename}")
     return prompt_path.read_text(encoding='utf-8')
 
 
@@ -283,7 +288,7 @@ def _fill_prompt_template(template: str, metadata: dict, transcript: str, **kwar
     return template
 
 
-def _generate_summary_with_claude(prompt: str, model: str, temperature: float, logger, min_length: int = 50, min_words: int = 0) -> str:
+def _generate_summary_with_claude(prompt: str, model: str, temperature: float, logger, min_length: int = 50, min_words: int = 0, timeout: float = config.TIMEOUT_SUMMARY, **kwargs) -> str:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
@@ -298,7 +303,9 @@ def _generate_summary_with_claude(prompt: str, model: str, temperature: float, l
         stream=True,
         min_length=min_length,
         min_words=min_words,
+        timeout=timeout,
         logger=logger,
+        **kwargs
     )
     return message.content[0].text
 
@@ -312,6 +319,15 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         stem = stem[:-5]
     if stem.endswith(config.SUFFIX_YAML.replace('.md', '')):
         stem = stem.replace(config.SUFFIX_YAML.replace('.md', ''), '')
+
+    # Handle the new scored emphasis suffix mapping
+    if summary_type == "emphasis-scored":
+        suffix = config.SUFFIX_EMPHASIS_SCORED
+        output_filename = f"{stem}{suffix}"
+        output_path = config.SUMMARIES_DIR / output_filename
+        config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(content, encoding='utf-8')
+        return output_path
 
     # Handle the summary_type parameter mapping to constants if needed,
     # or just rely on the caller passing the right suffix if we refactored further.
@@ -403,7 +419,7 @@ def _process_key_items_output(all_key_items_path: Path, logger):
     if topics or themes or key_terms:
         combined_output = ""
         if topics:
-            combined_output += f"## Topics\n\n{topics}\n\n"
+            combined_output += f"## Key Topics\n\n{topics}\n\n"
         if themes:
             combined_output += f"## Key Themes\n\n{themes}\n\n"
         if key_terms:
@@ -421,6 +437,83 @@ def _process_key_items_output(all_key_items_path: Path, logger):
                 f"{stem}{config.SUFFIX_KEY_TERMS}"
             key_terms_path.write_text(key_terms_output, encoding='utf-8')
             logger.info(f"  ✓ Key Terms (standalone) → {key_terms_path.name}")
+
+
+def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT_MODEL, logger=None, transcript_system_message=None) -> bool:
+    """
+    Run the scored emphasis extraction pipeline using the V3 prompt.
+    """
+    if logger is None:
+        logger = setup_logging('extract_scored_emphasis')
+
+    try:
+        logger.info(
+            f"Starting Scored Emphasis Extraction for: {formatted_filename}")
+
+        # Load Transcript
+        transcript = _load_formatted_transcript(formatted_filename)
+
+        # Load Prompt
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_EMPHASIS_SCORING_FILENAME)
+
+        # Prepare Prompt (Simple injection)
+        # The prompt expects the transcript appended or injected.
+        # Assuming standard injection or append strategy.
+        full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT:\n\n{transcript}"
+
+        logger.info("Sending request to Claude...")
+
+        # Call API
+        response = _generate_summary_with_claude(
+            full_prompt, model, 0.0, logger, min_length=100, timeout=config.TIMEOUT_SUMMARY
+        )
+
+        # Parse to validate (optional, but good for logging)
+        items = parse_scored_emphasis_output(response)
+
+        if not items and len(response) > 500:
+            logger.warning(
+                "No items extracted despite substantial response. Parser regex may not match output format.")
+            logger.warning(f"Response preview: {response[:1000]}...")
+            _save_summary(response, formatted_filename, "emphasis-scored")
+            return False
+
+        logger.info(f"Extracted {len(items)} scored emphasis items.")
+
+        # NEW: Validate each item and filter/log issues
+        validated_items = []
+        final_content_lines = []
+        for item in items:
+            is_valid, issues = validate_emphasis_item(item)
+            if is_valid:
+                validated_items.append(item)
+                # Reconstruct the text block for saving
+                final_content_lines.append(
+                    f"[{item['type']} - {item['category']} - Rank: {item['score']}%] Concept: {item['concept']}")
+                final_content_lines.append(f"\"{item['quote']}\"")
+            else:
+                logger.warning(
+                    f"Filtered out invalid emphasis item. Issues: {', '.join(issues)}")
+                logger.warning(f"  - Item: {item.get('concept', 'N/A')}")
+
+        logger.info(
+            f"Retained {len(validated_items)} items after validation.")
+
+        final_content = "\n\n".join(
+            final_content_lines) if validated_items else response
+
+        # Save Output
+        output_path = _save_summary(
+            final_content, formatted_filename, "emphasis-scored")
+
+        logger.info(f"✓ Scored emphasis saved to: {output_path}")
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"Error in scored emphasis extraction: {e}", exc_info=True)
+        return False
 
 
 def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str, target_audience: str,
@@ -452,13 +545,18 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
 
         topics_themes_path = None
 
+        # Create cached system message for the transcript
+        # This allows us to reuse the processed transcript tokens across multiple calls
+        transcript_system_message = create_system_message_with_cache(
+            transcript)
+
         if not skip_extracts_summary:
             logger.info(
                 "PART 1: Generating Key Items (Topics, Themes, Terms, Emphasis, Bowen)...")
             prompt_template = _load_summary_prompt(
                 config.PROMPT_EXTRACTS_FILENAME)
             prompt = _fill_prompt_template(
-                prompt_template, metadata, transcript, target_audience=target_audience)
+                prompt_template, metadata, transcript="", target_audience=target_audience)
 
             # Extracts summary should be substantial, about 7% of transcript word count.
             min_expected_words = int(
@@ -467,7 +565,9 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 min_expected_words, config.MIN_EXTRACTS_WORDS_FLOOR) if transcript_word_count > config.MIN_TRANSCRIPT_WORDS_FOR_FLOOR else config.MIN_EXTRACTS_WORDS_ABSOLUTE
 
             output = _generate_summary_with_claude(
-                prompt, model, 0.2, logger, min_length=config.MIN_EXTRACTS_CHARS, min_words=min_expected_words)
+                prompt, model, 0.2, logger,
+                min_length=config.MIN_EXTRACTS_CHARS, min_words=min_expected_words,
+                system=transcript_system_message)
 
             all_key_items_path = _save_summary(
                 output, formatted_filename, "All Key Items")
@@ -488,11 +588,16 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                     f"Skipping Key Items generation, using existing file: {all_key_items_path}")
 
         if not skip_terms:
+            # Run the new Scored Emphasis Extraction in parallel or sequence here
+            # For now, we run it sequentially to ensure stability
+            extract_scored_emphasis(
+                formatted_filename, model, logger, transcript_system_message)
+
             # Check if key terms were already extracted during splitting
             base_name = Path(formatted_filename).stem.replace(
-                ' - formatted', '')
+                config.SUFFIX_FORMATTED.replace('.md', ''), '')
             key_terms_path = config.SUMMARIES_DIR / \
-                f"{base_name} - key-terms.md"
+                f"{base_name}{config.SUFFIX_KEY_TERMS}"
 
             if key_terms_path.exists() and not skip_extracts_summary:
                 logger.info(
@@ -503,9 +608,11 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 prompt_template = _load_summary_prompt(
                     config.PROMPT_KEY_TERMS_FILENAME)
                 prompt = _fill_prompt_template(
-                    prompt_template, metadata, transcript)
+                    prompt_template, metadata, transcript="")
                 output = _generate_summary_with_claude(
-                    prompt, model, 0.4, logger, min_length=config.MIN_KEY_TERMS_CHARS)
+                    prompt, model, 0.4, logger,
+                    min_length=config.MIN_KEY_TERMS_CHARS,
+                    system=transcript_system_message)
                 key_terms_path = _save_summary(
                     output, formatted_filename, "key-terms")
                 logger.info(
@@ -515,9 +622,11 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
             logger.info("PART 3: Generating Blog Post...")
             prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
             prompt = _fill_prompt_template(
-                prompt_template, metadata, transcript, focus_keyword=focus_keyword, target_audience=target_audience)
+                prompt_template, metadata, transcript="", focus_keyword=focus_keyword, target_audience=target_audience)
             output = _generate_summary_with_claude(
-                prompt, model, 0.3, logger, min_length=config.MIN_BLOG_CHARS)
+                prompt, model, 0.3, logger,
+                min_length=config.MIN_BLOG_CHARS,
+                system=transcript_system_message)
             blog_path = _save_summary(output, formatted_filename, "blog")
             logger.info(f"✓ Blog post saved to: {blog_path}")
 
@@ -535,7 +644,7 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 logger.info("Generating structured summary...")
                 # The generate_structured_summary function expects base_name
                 base_name = Path(formatted_filename).stem.replace(
-                    ' - formatted', '')
+                    config.SUFFIX_FORMATTED.replace('.md', ''), '')
 
                 # word_count_for_generation = int(structured_word_count) # Removed explicit cast here
 
@@ -887,7 +996,8 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
 
 def _load_extracts_summary_for_abstract(base_name: str) -> tuple[str, str]:
     """Load All Key Items and extract the abstract."""
-    summary_path = config.SUMMARIES_DIR / f"{base_name} - All Key Items.md"
+    summary_path = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     validate_input_file(summary_path)
     content = summary_path.read_text(encoding='utf-8')
     abstract_match = re.search(
@@ -951,7 +1061,7 @@ def _extract_extended_abstract(output: str) -> str:
 def _save_abstracts(content: str, base_name: str) -> Path:
     """Save the abstracts validation output."""
     output_path = config.SUMMARIES_DIR / \
-        f"{base_name} - abstracts.md"  # Keeping legacy name or update?
+        f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
     # Actually, let's look at `validate_abstract` it writes to ` - abstracts.md`.
     # Let's see if we defined a constant for it. Not explicitly, but `SUFFIX_ABSTRACT_VAL` is ` - abstract-validation.txt`.
     # The `validate_abstract` function seems to be an older iterate-and-improve loop.
@@ -1494,14 +1604,14 @@ def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, log
         client = anthropic.Anthropic(api_key=api_key)
 
         response = _generate_summary_with_claude(
-            full_prompt, model, 0.0, logger, min_length=100
+            full_prompt, model, 0.0, logger, min_length=100, timeout=config.TIMEOUT_DEFAULT
         )
 
         # Save the validation report
         base_name = Path(formatted_filename).stem.replace(
-            ' - formatted', '').replace(' - yaml', '')
+            config.SUFFIX_FORMATTED.replace('.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
         report_path = config.SUMMARIES_DIR / \
-            f"{base_name} - headers-validation.md"
+            f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
         report_path.write_text(response, encoding='utf-8')
 
         logger.info(f"✓ Header validation report saved to: {report_path}")
@@ -1510,4 +1620,68 @@ def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, log
     except Exception as e:
         logger.error(
             f"An error occurred during header validation: {e}", exc_info=True)
+        return False
+
+
+# ============================================================================
+# PACKAGING
+# ============================================================================
+
+def package_transcript(base_name: str, logger=None) -> bool:
+    """
+    Package final artifacts (HTML, PDF, Transcript) into a zip file.
+    """
+    if logger is None:
+        logger = setup_logging('package_transcript')
+
+    try:
+        files_to_package = []
+
+        # 1. Main Webpage
+        webpage = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
+        if webpage.exists():
+            files_to_package.append(webpage)
+        else:
+            logger.warning(f"Main webpage not found: {webpage}")
+
+        # 2. Simple Webpage
+        simple_webpage = config.WEBPAGES_DIR / \
+            f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
+        if simple_webpage.exists():
+            files_to_package.append(simple_webpage)
+
+        # 3. PDF
+        pdf = config.PDFS_DIR / f"{base_name}{config.SUFFIX_PDF}"
+        if pdf.exists():
+            files_to_package.append(pdf)
+
+        # 4. Processed Transcript (YAML or Formatted)
+        yaml_transcript = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_YAML}"
+        formatted_transcript = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+
+        if yaml_transcript.exists():
+            files_to_package.append(yaml_transcript)
+        elif formatted_transcript.exists():
+            files_to_package.append(formatted_transcript)
+
+        if not files_to_package:
+            logger.error("No files found to package.")
+            return False
+
+        config.PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
+        zip_filename = config.PACKAGES_DIR / f"{base_name}.zip"
+
+        logger.info(f"Creating package: {zip_filename}")
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for file_path in files_to_package:
+                logger.info(f"  Adding: {file_path.name}")
+                zipf.write(file_path, arcname=file_path.name)
+
+        logger.info(f"✓ Package created successfully: {zip_filename}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error packaging transcript: {e}", exc_info=True)
         return False

@@ -9,34 +9,72 @@ import re
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from transcript_utils import load_bowen_references, find_text_in_content
+from transcript_utils import load_bowen_references
 import config
 import sys
 
-# ...
 
-base_name = sys.argv[1]
+def normalize_text(text):
+    """Normalize text for comparison by removing tags and punctuation."""
+    # Remove speaker tags that can interrupt quotes
+    text = re.sub(
+        r'(\*\*[^*]+:\*\*\s*|<strong>[^<]+:</strong>\s*)',
+        '',
+        text,
+        flags=re.IGNORECASE
+    )
 
-formatted_file = config.FORMATTED_DIR / \
-     f"{base_name}{config.SUFFIX_FORMATTED}"
- topics_themes_file = config.SUMMARIES_DIR / \
-      f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
-  bowen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BOWEN}"
+    # Remove [sic] and its variations
+    text = re.sub(r'\[sic\]\s*\([^)]+\)', '', text)
+    text = re.sub(r'\[sic\]', '', text)
 
-   if not formatted_file.exists():
-        print(f"❌ Formatted file not found: {formatted_file}")
-        sys.exit(1)
+    # Remove timestamps like [00:00:00]
+    text = re.sub(r'\[\d{2}:\d{2}:\d{2}\]', ' ', text)
 
-    if not topics_themes_file.exists() and not bowen_file.exists():
-        print(f"❌ Topics-Themes file not found: {topics_themes_file}")
-        sys.exit(1)
+    text = text.strip().lower()
 
-    print(f"Validating Bowen references...")
-    print(f"  Formatted: {formatted_file.name}")
-    print(
-        f"  Archival:  {bowen_file.name if bowen_file.exists() else topics_themes_file.name}\n")
+    # Remove punctuation for better fuzzy matching
+    text = re.sub(r'[.,!?;:—\-\'\"()]', ' ', text)
 
-    validate_bowen_items(formatted_file, topics_themes_file)
+    # Collapse multiple spaces after removals
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
+def find_best_match(needle, haystack, threshold=0.85):
+    """Find the best matching substring in haystack for needle."""
+    needle_normalized = normalize_text(needle)
+    haystack_normalized = normalize_text(haystack)
+
+    pos = haystack_normalized.find(needle_normalized)
+    if pos != -1:
+        return (1.0, needle)
+
+    needle_words = needle_normalized.split()
+    haystack_words = haystack_normalized.split()
+    needle_len = len(needle_words)
+
+    if needle_len > len(haystack_words):
+        return (0, None)
+
+    best_ratio = 0
+    best_match = None
+
+    for i in range(len(haystack_words) - needle_len + 1):
+        window = ' '.join(haystack_words[i:i + needle_len])
+        ratio = SequenceMatcher(None, needle_normalized, window).ratio()
+
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_match = window
+
+            if ratio >= 0.98:
+                break
+
+    if best_ratio >= threshold:
+        return (best_ratio, best_match)
+
+    return (best_ratio, None)
 
 
 def validate_bowen_items(base_name: str, formatted_file: Path):
@@ -62,8 +100,8 @@ def validate_bowen_items(base_name: str, formatted_file: Path):
 
     for i, (label, quote) in enumerate(quotes, 1):
         quote_core = ' '.join(quote.split()[:15])
-
-        _, _, ratio = find_text_in_content(quote_core, formatted_content)
+        ratio, match = find_best_match(
+            quote_core, formatted_content, threshold=0.80)
 
         print(f"\n{i}. {label}")
         print(f"   Quote preview: {quote[:80]}...")

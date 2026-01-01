@@ -79,7 +79,7 @@ def verify_highlights(base_name):
     print(f"  Loaded {len(emphasis_items)} Emphasis items")
 
     # 2. Load HTML Highlights
-    html_path = config.WEBPAGES_DIR / f"{base_name}.html"
+    html_path = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
     highlights = extract_html_highlights(html_path)
     print(f"  Found {len(highlights)} highlights in HTML")
 

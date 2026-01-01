@@ -161,9 +161,17 @@ class TranscriptProcessorGUI:
             button_frame, text="10. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
+        self.emphasis_btn = ttk.Button(
+            button_frame, text="Emphasis", command=self.do_extract_emphasis, state=tk.DISABLED)
+        self.emphasis_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
+
+        self.package_btn = ttk.Button(
+            button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
+        self.package_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
+
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
@@ -234,6 +242,8 @@ class TranscriptProcessorGUI:
              f"{base}{config.SUFFIX_BOWEN}"),
             ("  - Emphasis", config.SUMMARIES_DIR /
              f"{base}{config.SUFFIX_EMPHASIS}"),
+            ("  - Scored Emphasis", config.SUMMARIES_DIR /
+             f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
             ("  - Abstract (Init)", config.SUMMARIES_DIR /
              f"{base}{config.SUFFIX_ABSTRACT_INIT}"),
             ("  - Summary (Init)", config.SUMMARIES_DIR /
@@ -252,6 +262,7 @@ class TranscriptProcessorGUI:
             ("Simple Web", config.WEBPAGES_DIR /
              f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"),
             ("PDF", config.PDFS_DIR / f"{base}{config.SUFFIX_PDF}"),
+            ("Package", config.PACKAGES_DIR / f"{base}.zip"),
         ]
 
         status_lines = [
@@ -381,6 +392,23 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
                                 config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Blog Post generation")
 
+    def do_extract_emphasis(self):
+        if not self.base_name:
+            return
+
+        # Determine input file (prefer YAML version)
+        input_file = f"{self.base_name}{config.SUFFIX_YAML}"
+        if not (config.FORMATTED_DIR / input_file).exists():
+            input_file = f"{self.base_name}{config.SUFFIX_FORMATTED}"
+            if not (config.FORMATTED_DIR / input_file).exists():
+                messagebox.showwarning(
+                    "Not Ready", "Please format the transcript first.")
+                return
+
+        self.log("STEP: Extracting Scored Emphasis...")
+        self.run_task_in_thread(
+            pipeline.extract_scored_emphasis, input_file, config.DEFAULT_MODEL, self.logger)
+
     def do_generate_structured_abstract(self):
         if not self.base_name:
             return
@@ -427,6 +455,13 @@ class TranscriptProcessorGUI:
         self.log(validation_output)
         print(validation_output)
         return success
+
+    def do_package(self):
+        if not self.base_name:
+            return
+        self.log("STEP 11: Packaging Artifacts...")
+        self.run_task_in_thread(
+            pipeline.package_transcript, self.base_name, self.logger)
 
     def do_all_steps(self):
         if not self.selected_file:
@@ -487,6 +522,10 @@ class TranscriptProcessorGUI:
         if not self._run_web_pdf_generation():
             return False
 
+        # Step 10: Package
+        self.log("\n--- STEP 10: Packaging ---")
+        pipeline.package_transcript(self.base_name, self.logger)
+
         self.log("\n✅ FULL PIPELINE COMPLETE!")
         return True
 
@@ -502,6 +541,8 @@ class TranscriptProcessorGUI:
         self.gen_abstract_btn.config(state=state)
         self.abstracts_btn.config(state=state)
         self.webpdf_btn.config(state=state)
+        self.emphasis_btn.config(state=state)
+        self.package_btn.config(state=state)
         self.do_all_btn.config(
             state=tk.NORMAL if self.selected_file else tk.DISABLED)
 

@@ -67,8 +67,9 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     result = ValidationResult("Formatted Transcript")
 
     # Check for either formatted.md or formatted_yaml.md
-    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
-    yaml_file = config.FORMATTED_DIR / f"{base_name} - yaml.md"
+    formatted_file = config.FORMATTED_DIR / \
+        f"{base_name}{config.SUFFIX_FORMATTED}"
+    yaml_file = config.FORMATTED_DIR / f"{base_name}{config.SUFFIX_YAML}"
 
     file_to_check = yaml_file if yaml_file.exists() else formatted_file
 
@@ -171,7 +172,7 @@ def validate_key_terms(base_name: str) -> ValidationResult:
     """Validate key terms file."""
     result = ValidationResult("Key Terms")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name} - key-terms.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_TERMS}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -196,7 +197,7 @@ def validate_blog(base_name: str) -> ValidationResult:
     """Validate blog post completeness."""
     result = ValidationResult("Blog Post")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name} - blog.md"
+    file_path = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BLOG}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -230,7 +231,8 @@ def validate_abstracts(base_name: str) -> ValidationResult:
     """Validate abstracts file from quality validation."""
     result = ValidationResult("Validated Abstracts")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name} - abstracts.md"
+    file_path = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")

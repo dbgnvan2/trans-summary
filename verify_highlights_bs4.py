@@ -88,15 +88,16 @@ def verify(base_name):
 
     # 1. Resolve File Paths
     # Handle the _yaml suffix mentioned in the prompt if standard files aren't found
-    html_file = config.WEBPAGES_DIR / f"{base_name}.html"
+    html_file = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     # Try standard name first, then _yaml variant
-    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
+    emphasis_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_EMPHASIS}"
     if not emphasis_file.exists():
         emphasis_file = config.SUMMARIES_DIR / \
             f"{base_name} - yaml - emphasis-items.md"
 
-    bowen_file = config.SUMMARIES_DIR / f"{base_name} - bowen-references.md"
+    bowen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BOWEN}"
     if not bowen_file.exists():
         bowen_file = config.SUMMARIES_DIR / \
             f"{base_name} - yaml - bowen-references.md"

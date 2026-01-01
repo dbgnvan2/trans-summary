@@ -25,7 +25,8 @@ def run_test(target_words):
 
     try:
         # Load data
-        formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         extracts_file = config.SUMMARIES_DIR / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 

@@ -24,18 +24,24 @@ def resolve_filename(filename: str) -> str:
 
     # Clean up base name
     base = filename
-    for suffix in [' - yaml.md', ' - formatted.md', '.md', '.txt']:
+    suffixes = [
+        config.SUFFIX_YAML,
+        config.SUFFIX_FORMATTED,
+        '.md',
+        '.txt'
+    ]
+    for suffix in suffixes:
         if base.endswith(suffix):
             base = base[:-len(suffix)]
             break
 
     # Try - yaml.md first (preferred for summaries)
-    yaml_name = f"{base} - yaml.md"
+    yaml_name = f"{base}{config.SUFFIX_YAML}"
     if (config.FORMATTED_DIR / yaml_name).exists():
         return yaml_name
 
     # Try - formatted.md (fallback)
-    formatted_name = f"{base} - formatted.md"
+    formatted_name = f"{base}{config.SUFFIX_FORMATTED}"
     if (config.FORMATTED_DIR / formatted_name).exists():
         return formatted_name
 

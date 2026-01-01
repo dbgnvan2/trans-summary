@@ -32,13 +32,13 @@ def load_prompt() -> str:
 def load_formatted_transcript(filename: str) -> str:
     """Load the formatted transcript."""
     # Allow - yaml.md as well
-    if filename.endswith(" - yaml.md"):
+    if filename.endswith(config.SUFFIX_YAML):
         pass
     # Handle both with and without - formatted suffix
-    elif not filename.endswith(" - formatted.md"):
+    elif not filename.endswith(config.SUFFIX_FORMATTED):
         # Strip .txt or other extensions and add - formatted.md
         base = filename.replace(".txt", "").replace(".md", "")
-        filename = f"{base} - formatted.md"
+        filename = f"{base}{config.SUFFIX_FORMATTED}"
 
     transcript_path = config.FORMATTED_DIR / filename
     if not transcript_path.exists():
@@ -101,8 +101,8 @@ def save_key_terms(content: str, original_filename: str) -> Path:
     """Save the key terms document."""
     # Create output filename
     stem = Path(original_filename).stem
-    stem = stem.replace(" - formatted", "")
-    output_filename = f"{stem} - key-terms.md"
+    stem = stem.replace(config.SUFFIX_FORMATTED.replace('.md', ''), "")
+    output_filename = f"{stem}{config.SUFFIX_KEY_TERMS}"
     output_path = config.SUMMARIES_DIR / output_filename
 
     # Ensure summaries directory exists

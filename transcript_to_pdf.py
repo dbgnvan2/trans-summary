@@ -9,6 +9,7 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
+import config
 from pipeline import generate_pdf
 
 
@@ -23,7 +24,12 @@ def resolve_base_name(input_name: str) -> str:
         name = Path(name).stem
 
     # Remove known suffixes
-    suffixes = [' - formatted', ' - yaml', '_yaml', ' - simple']
+    suffixes = [
+        config.SUFFIX_FORMATTED.replace('.md', ''),
+        config.SUFFIX_YAML.replace('.md', ''),
+        '_yaml',
+        config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
+    ]
     for suffix in suffixes:
         if name.endswith(suffix):
             name = name[:-len(suffix)]

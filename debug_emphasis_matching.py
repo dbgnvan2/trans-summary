@@ -93,8 +93,10 @@ def main():
     # Point to the main raw extracts file
     all_key_items_file = config.SUMMARIES_DIR / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    emphasis_file = config.SUMMARIES_DIR / f"{base_name} - emphasis-items.md"
-    formatted_file = config.FORMATTED_DIR / f"{base_name} - formatted.md"
+    emphasis_file = config.SUMMARIES_DIR / \
+        f"{base_name}{config.SUFFIX_EMPHASIS}"
+    formatted_file = config.FORMATTED_DIR / \
+        f"{base_name}{config.SUFFIX_FORMATTED}"
 
     if not all_key_items_file.exists() and not emphasis_file.exists():
         print(
