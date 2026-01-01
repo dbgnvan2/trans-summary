@@ -50,9 +50,27 @@ def _extract_webpage_metadata(topics_themes_file):
     return metadata
 
 
+def _load_abstract(base_name):
+    """Load abstract from generated file, falling back to All Key Items."""
+    gen_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+    if gen_file.exists():
+        return gen_file.read_text(encoding='utf-8')
+
+    # Fallback: Extract from All Key Items
+    topics_themes_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    if topics_themes_file.exists():
+        content = topics_themes_file.read_text(encoding='utf-8')
+        content = strip_yaml_frontmatter(content)
+        return extract_section(content, 'Abstract')
+    return ""
+
+
 def _load_summary(base_name):
     """Load summary from generated or initial file."""
-    gen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
+    gen_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
     if gen_file.exists():
         content = gen_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
@@ -63,11 +81,13 @@ def _load_summary(base_name):
         content = re.split(r'^##\s+', content, flags=re.MULTILINE)[0].strip()
         return content
 
-    init_file = config.SUMMARIES_DIR / \
-        f"{base_name}{config.SUFFIX_SUMMARY_INIT}"
-    if init_file.exists():
-        content = init_file.read_text(encoding='utf-8')
-        return re.sub(r'^#+\s*Summary\s*', '', content, flags=re.IGNORECASE).strip()
+    # Fallback: Extract from All Key Items
+    topics_themes_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    if topics_themes_file.exists():
+        content = topics_themes_file.read_text(encoding='utf-8')
+        content = strip_yaml_frontmatter(content)
+        return extract_section(content, 'Summary')
 
     return ""
 
@@ -350,11 +370,11 @@ def generate_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the main webpage with a sidebar."""
     logger = setup_logging('generate_webpage')
     try:
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        topics_themes_file = config.SUMMARIES_DIR / \
+        topics_themes_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        output_file = config.WEBPAGES_DIR / \
+        output_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_WEBPAGE}"
 
         validate_input_file(formatted_file)
@@ -368,6 +388,8 @@ def generate_webpage(base_name: str) -> bool:
         emphasis_items = load_emphasis_items(base_name)
         summary = _load_summary(base_name)
         metadata = _extract_webpage_metadata(topics_themes_file)
+        # Override abstract with the best available version
+        metadata['abstract'] = _load_abstract(base_name)
         logger.info(
             f"Found {len(bowen_refs)} Bowen references and {len(emphasis_items)} emphasis items.")
 
@@ -387,7 +409,6 @@ def generate_webpage(base_name: str) -> bool:
         html = _generate_html_page(
             base_name, formatted_html, metadata, summary, bowen_refs, emphasis_items)
 
-        config.WEBPAGES_DIR.mkdir(parents=True, exist_ok=True)
         output_file.write_text(html, encoding='utf-8')
 
         logger.info(f"✓ Webpage generated successfully: {output_file}")
@@ -1046,11 +1067,11 @@ def generate_simple_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the simple, single-column webpage."""
     logger = setup_logging('generate_simple_webpage')
     try:
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        topics_themes_file = config.SUMMARIES_DIR / \
+        topics_themes_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        output_file = config.WEBPAGES_DIR / \
+        output_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
 
         validate_input_file(formatted_file)
@@ -1062,6 +1083,8 @@ def generate_simple_webpage(base_name: str) -> bool:
         logger.info("Loading topics-themes materials for simple webpage...")
         metadata = _extract_webpage_metadata(topics_themes_file)
         summary = _load_summary(base_name)
+        # Override abstract with the best available version
+        metadata['abstract'] = _load_abstract(base_name)
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
 
@@ -1079,7 +1102,6 @@ def generate_simple_webpage(base_name: str) -> bool:
         html = _generate_simple_html_page(
             base_name, highlighted_html, metadata, summary, bowen_refs, emphasis_items)
 
-        config.WEBPAGES_DIR.mkdir(parents=True, exist_ok=True)
         output_file.write_text(html, encoding='utf-8')
 
         logger.info(f"✓ Simple webpage generated successfully: {output_file}")
@@ -1413,11 +1435,12 @@ def generate_pdf(base_name: str) -> bool:
         return False
 
     try:
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        topics_themes_file = config.SUMMARIES_DIR / \
+        topics_themes_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        output_file = config.PDFS_DIR / f"{base_name}{config.SUFFIX_PDF}"
+        output_file = config.PROJECTS_DIR / \
+            base_name / f"{base_name}{config.SUFFIX_PDF}"
 
         validate_input_file(formatted_file)
         validate_input_file(topics_themes_file)
@@ -1430,6 +1453,8 @@ def generate_pdf(base_name: str) -> bool:
         emphasis_items = load_emphasis_items(base_name)
         metadata = _extract_pdf_metadata(topics_themes_file)
         summary = _load_summary(base_name)
+        # Override abstract with the best available version
+        metadata['abstract'] = _load_abstract(base_name)
 
         logger.info("Highlighting transcript for PDF...")
         formatted_html = markdown_to_html(formatted_content)
@@ -1443,8 +1468,6 @@ def generate_pdf(base_name: str) -> bool:
         logger.info("Generating HTML for PDF...")
         html_content = _generate_html_for_pdf(
             base_name, highlighted_html, metadata, summary, bowen_refs, emphasis_items)
-
-        config.PDFS_DIR.mkdir(parents=True, exist_ok=True)
 
         logger.info("Generating PDF...")
         HTML(string=html_content).write_pdf(output_file)

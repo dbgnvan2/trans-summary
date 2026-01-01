@@ -15,7 +15,8 @@ try:
         setup_logging,
         validate_api_key,
         validate_input_file,
-        call_claude_with_retry
+        call_claude_with_retry,
+        create_system_message_with_cache
     )
 except ImportError:
     print("Error: transcript_utils.py not found. Please ensure you are in the project directory.")
@@ -38,6 +39,12 @@ class HeaderValidator:
 
         self.problematic_terms = self._load_problematic_terms()
         self.validation_prompt = self._load_prompt()
+
+        # Prepare cached system message from template
+        static_instructions = self.validation_prompt.replace(
+            "{batch_content}", "").strip()
+        self.cached_system_message = create_system_message_with_cache(
+            static_instructions)
 
     def _load_problematic_terms(self) -> List[str]:
         """Load problematic terms from markdown file."""
@@ -145,12 +152,10 @@ class HeaderValidator:
             batch_content += f"Content: {display_content}\n"
             batch_content += "-" * 40 + "\n"
 
-        # Fill prompt
-        prompt = self.validation_prompt.replace(
-            "{batch_content}", batch_content)
-
+        # Log size info
+        template_len = len(self.cached_system_message[0]['text'])
         self.logger.info(
-            f"Prompt size: {len(prompt)} chars (Template: {len(self.validation_prompt)}, Content: {len(batch_content)})")
+            f"Prompt size: Template (Cached)={template_len} chars, Content={len(batch_content)} chars")
 
         self.logger.info(
             f"Sending request to Claude (max_tokens={config.MAX_TOKENS_HEADER_VALIDATION})...")
@@ -159,10 +164,11 @@ class HeaderValidator:
         response = call_claude_with_retry(
             self.client,
             model=config.AUX_MODEL,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": batch_content}],
             max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
             logger=self.logger,
-            stream=True
+            stream=True,
+            system=self.cached_system_message
         )
 
         return response.content[0].text
@@ -216,7 +222,9 @@ class HeaderValidator:
         """Save validation report to file."""
         base_name = input_path.stem.replace(
             ' - formatted', '').replace(' - yaml', '')
-        report_path = config.SUMMARIES_DIR / \
+        project_dir = config.PROJECTS_DIR / base_name
+        project_dir.mkdir(parents=True, exist_ok=True)
+        report_path = project_dir / \
             f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
 
         with open(report_path, 'w', encoding='utf-8') as f:

@@ -141,12 +141,15 @@ if __name__ == "__main__":
 
     base_name = sys.argv[1]
 
-    formatted_file = config.FORMATTED_DIR / \
+    formatted_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
 
     if not formatted_file.exists():
-        print(f"❌ Formatted file not found: {formatted_file}")
-        sys.exit(1)
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        if not formatted_file.exists():
+            print(f"❌ Formatted file not found: {formatted_file}")
+            sys.exit(1)
 
     print(f"Validating emphasis items for {base_name}...")
     print(f"  Formatted: {formatted_file.name}")

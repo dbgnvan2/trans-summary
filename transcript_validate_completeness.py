@@ -67,9 +67,10 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     result = ValidationResult("Formatted Transcript")
 
     # Check for either formatted.md or formatted_yaml.md
-    formatted_file = config.FORMATTED_DIR / \
+    formatted_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
-    yaml_file = config.FORMATTED_DIR / f"{base_name}{config.SUFFIX_YAML}"
+    yaml_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_YAML}"
 
     file_to_check = yaml_file if yaml_file.exists() else formatted_file
 
@@ -125,7 +126,7 @@ def validate_key_item_extracts(base_name: str) -> ValidationResult:
     """Validate 'All Key Items' contains all required sections."""
     result = ValidationResult("Key Item Extracts (All Key Items)")
 
-    file_path = config.SUMMARIES_DIR / \
+    file_path = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     if not file_path.exists():
@@ -172,7 +173,8 @@ def validate_key_terms(base_name: str) -> ValidationResult:
     """Validate key terms file."""
     result = ValidationResult("Key Terms")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    file_path = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_KEY_TERMS}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -197,7 +199,8 @@ def validate_blog(base_name: str) -> ValidationResult:
     """Validate blog post completeness."""
     result = ValidationResult("Blog Post")
 
-    file_path = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BLOG}"
+    file_path = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_BLOG}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
@@ -231,7 +234,7 @@ def validate_abstracts(base_name: str) -> ValidationResult:
     """Validate abstracts file from quality validation."""
     result = ValidationResult("Validated Abstracts")
 
-    file_path = config.SUMMARIES_DIR / \
+    file_path = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
 
     if not file_path.exists():

@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 import anthropic
 import config
-from transcript_utils import parse_filename_metadata
+from transcript_utils import parse_filename_metadata, log_token_usage
 
 
 def load_prompt() -> str:
@@ -40,12 +40,16 @@ def load_formatted_transcript(filename: str) -> str:
         base = filename.replace(".txt", "").replace(".md", "")
         filename = f"{base}{config.SUFFIX_FORMATTED}"
 
-    transcript_path = config.FORMATTED_DIR / filename
+    meta = parse_filename_metadata(filename)
+    stem = meta['stem']
+
+    transcript_path = config.PROJECTS_DIR / stem / filename
     if not transcript_path.exists():
-        raise FileNotFoundError(
-            f"Formatted transcript not found: {transcript_path}\n"
-            f"Expected location: {config.FORMATTED_DIR}/{filename}"
-        )
+        transcript_path = config.FORMATTED_DIR / filename
+        if not transcript_path.exists():
+            raise FileNotFoundError(
+                f"Formatted transcript not found: {transcript_path}"
+            )
     return transcript_path.read_text(encoding='utf-8')
 
 
@@ -74,11 +78,16 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
     message = client.messages.create(
         model=config.DEFAULT_MODEL,
         max_tokens=config.MAX_TOKENS_EXTRACTION,
-        temperature=0.4,  # Moderate temperature for balanced extraction/synthesis
+        # Moderate temperature for balanced extraction/synthesis
+        temperature=config.TEMP_CREATIVE,
         messages=[
             {"role": "user", "content": prompt}
         ]
     )
+
+    # Log token usage
+    log_token_usage("transcript_extract_terms",
+                    config.DEFAULT_MODEL, message.usage, message.stop_reason)
 
     # Display token usage
     print(f"\n✅ Key terms extracted")
@@ -103,10 +112,11 @@ def save_key_terms(content: str, original_filename: str) -> Path:
     stem = Path(original_filename).stem
     stem = stem.replace(config.SUFFIX_FORMATTED.replace('.md', ''), "")
     output_filename = f"{stem}{config.SUFFIX_KEY_TERMS}"
-    output_path = config.SUMMARIES_DIR / output_filename
 
-    # Ensure summaries directory exists
-    config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+    project_dir = config.PROJECTS_DIR / stem
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = project_dir / output_filename
 
     # Clean up any marker tags that might have appeared
     content = content.replace("<<<TERM_START>>>", "")

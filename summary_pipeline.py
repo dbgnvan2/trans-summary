@@ -658,7 +658,8 @@ def load_prompt() -> str:
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
-    model: str = config.AUX_MODEL
+    model: str = config.AUX_MODEL,
+    system: Optional[list] = None
 ) -> str:
     """
     Generate summary via API call.
@@ -675,12 +676,18 @@ def generate_summary(
         input_json=summary_input.to_json()
     )
 
+    kwargs = {}
+    if system:
+        kwargs['system'] = system
+
     response = api_client.messages.create(
         model=model,
         max_tokens=1000,
+        temperature=config.TEMP_BALANCED,
         messages=[
             {"role": "user", "content": prompt}
-        ]
+        ],
+        **kwargs
     )
 
     return response.content[0].text.strip()

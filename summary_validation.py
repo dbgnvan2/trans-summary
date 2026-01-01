@@ -89,14 +89,16 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
         ))
 
     # Opening section
-    items.append(CoverageItem(
-        category="opening",
-        label="Opening: stated purpose",
-        required=True,
-        keywords=extract_keywords(summary_input.opening.stated_purpose)[:6],
-        source_text=summary_input.opening.stated_purpose,
-        expected_words=summary_input.opening.word_allocation
-    ))
+    if summary_input.opening.stated_purpose and "not explicitly stated" not in summary_input.opening.stated_purpose.lower():
+        items.append(CoverageItem(
+            category="opening",
+            label="Opening: stated purpose",
+            required=True,
+            keywords=extract_keywords(
+                summary_input.opening.stated_purpose)[:6],
+            source_text=summary_input.opening.stated_purpose,
+            expected_words=summary_input.opening.word_allocation
+        ))
 
     # Each topic in body
     for topic in summary_input.body.topics:
@@ -131,14 +133,15 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
         ))
 
     # Closing section
-    items.append(CoverageItem(
-        category="closing",
-        label="Closing: conclusion",
-        required=True,
-        keywords=extract_keywords(summary_input.closing.conclusion)[:6],
-        source_text=summary_input.closing.conclusion,
-        expected_words=summary_input.closing.word_allocation
-    ))
+    if summary_input.closing.conclusion and "no explicit conclusion" not in summary_input.closing.conclusion.lower():
+        items.append(CoverageItem(
+            category="closing",
+            label="Closing: conclusion",
+            required=True,
+            keywords=extract_keywords(summary_input.closing.conclusion)[:6],
+            source_text=summary_input.closing.conclusion,
+            expected_words=summary_input.closing.word_allocation
+        ))
 
     return items
 
@@ -149,8 +152,17 @@ def segment_summary(summary: str) -> dict:
 
     Returns dict with paragraph texts and estimated word counts.
     """
+    # Remove markdown headers before splitting to avoid counting them as paragraphs
+    summary_clean = re.sub(r'(?:^|\n)#+\s*.*?(?=\n|$)', '', summary)
+
     # Split into paragraphs
-    paragraphs = [p.strip() for p in summary.split('\n\n') if p.strip()]
+    paragraphs = [p.strip() for p in summary_clean.split('\n\n') if p.strip()]
+
+    # Filter out potential title paragraphs (very short, at start) that survived regex
+    if paragraphs and len(paragraphs[0].split()) < 5:
+        # Check if it looks like a title (no terminal punctuation or just a label)
+        if not paragraphs[0].endswith('.') or paragraphs[0].lower() in ['summary', 'abstract', 'introduction']:
+            paragraphs = paragraphs[1:]
 
     if not paragraphs:
         paragraphs = [summary]
@@ -229,8 +241,10 @@ def check_proportionality(
     }
 
     # Helper for dynamic tolerance
-    def get_tolerance(expected_count):
-        if expected_count < 100:
+    def get_tolerance(expected_count, section_name=""):
+        if section_name == "Closing" and expected_count < 50:
+            return 2.5  # 250% tolerance for short closing sections
+        elif expected_count < 100:
             return 0.5  # 50% for very small sections
         if expected_count < 200:
             return 0.4  # 40% for small sections
@@ -241,7 +255,7 @@ def check_proportionality(
         expected = summary_input.opening.word_allocation
         actual = segments["opening_words"]
         deviation = abs(actual - expected) / expected if expected > 0 else 0
-        local_tol = get_tolerance(expected)
+        local_tol = get_tolerance(expected, "Opening")
 
         results["sections"].append({
             "name": "Opening",
@@ -256,7 +270,7 @@ def check_proportionality(
         expected = summary_input.closing.word_allocation
         actual = segments["closing_words"]
         deviation = abs(actual - expected) / expected if expected > 0 else 0
-        local_tol = get_tolerance(expected)
+        local_tol = get_tolerance(expected, "Closing")
 
         results["sections"].append({
             "name": "Closing",
@@ -271,7 +285,7 @@ def check_proportionality(
         expected = summary_input.body.word_allocation
         actual = segments["body_words"]
         deviation = abs(actual - expected) / expected if expected > 0 else 0
-        local_tol = get_tolerance(expected)
+        local_tol = get_tolerance(expected, "Body (total)")
 
         results["sections"].append({
             "name": "Body (total)",

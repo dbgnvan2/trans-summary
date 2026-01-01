@@ -14,8 +14,13 @@ import pipeline
 import config
 import transcript_validate_webpage
 import transcript_validate_headers
+import transcript_cost_estimator
+import transcript_config_check
+import analyze_token_usage
 import io
 from contextlib import redirect_stdout
+import shutil
+from datetime import datetime
 
 
 class GuiLoggerAdapter:
@@ -23,6 +28,7 @@ class GuiLoggerAdapter:
 
     def __init__(self, gui):
         self.gui = gui
+        self.name = "GuiLogger"
 
     def info(self, msg, *args, **kwargs):
         self.gui.log(str(msg) % args if args else str(msg))
@@ -135,6 +141,10 @@ class TranscriptProcessorGUI:
             button_frame, text="4. Key Items", command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
+        self.cost_btn = ttk.Button(
+            button_frame, text="Est. Cost", command=self.do_estimate_cost, state=tk.DISABLED)
+        self.cost_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
+
         # Row 2
         self.gen_summary_btn = ttk.Button(
             button_frame, text="5. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
@@ -151,6 +161,10 @@ class TranscriptProcessorGUI:
         self.abstracts_btn = ttk.Button(
             button_frame, text="8. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
         self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
+
+        self.config_btn = ttk.Button(
+            button_frame, text="Config Check", command=self.do_config_check)
+        self.config_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
 
         # Row 3
         self.blog_btn = ttk.Button(
@@ -169,13 +183,17 @@ class TranscriptProcessorGUI:
             button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
         self.package_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
 
+        self.clean_logs_btn = ttk.Button(
+            button_frame, text="Clean Logs...", command=self.do_clean_logs)
+        self.clean_logs_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
+
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=5, rowspan=3,
+        self.do_all_btn.grid(row=0, column=6, rowspan=3,
                              padx=(10, 5), sticky=(tk.N, tk.S))
 
         self.status_label = ttk.Label(
@@ -216,7 +234,7 @@ class TranscriptProcessorGUI:
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
         self.base_name = self.selected_file.stem
-        self.formatted_file = config.FORMATTED_DIR / \
+        self.formatted_file = config.PROJECTS_DIR / self.base_name / \
             f"{self.base_name}{config.SUFFIX_FORMATTED}"
         self.check_file_status()
         self.update_button_states()
@@ -227,42 +245,39 @@ class TranscriptProcessorGUI:
             return
 
         base = self.base_name
+        project_dir = config.PROJECTS_DIR / base
         checks = [
             ("Source", self.selected_file),
-            ("Formatted", config.FORMATTED_DIR /
+            ("Formatted", project_dir /
              f"{base}{config.SUFFIX_FORMATTED}"),
-            ("Header Val", config.SUMMARIES_DIR /
+            ("Header Val", project_dir /
              f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
-            ("YAML", config.FORMATTED_DIR / f"{base}{config.SUFFIX_YAML}"),
-            ("Key Items (Raw)", config.SUMMARIES_DIR /
+            ("YAML", project_dir / f"{base}{config.SUFFIX_YAML}"),
+            ("Key Items (Raw)", project_dir /
              f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
-            ("  - Clean T/T/T", config.SUMMARIES_DIR /
+            ("  - Clean T/T/T", project_dir /
              f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
-            ("  - Bowen", config.SUMMARIES_DIR /
+            ("  - Bowen", project_dir /
              f"{base}{config.SUFFIX_BOWEN}"),
-            ("  - Emphasis", config.SUMMARIES_DIR /
+            ("  - Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS}"),
-            ("  - Scored Emphasis", config.SUMMARIES_DIR /
+            ("  - Scored Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
-            ("  - Abstract (Init)", config.SUMMARIES_DIR /
-             f"{base}{config.SUFFIX_ABSTRACT_INIT}"),
-            ("  - Summary (Init)", config.SUMMARIES_DIR /
-             f"{base}{config.SUFFIX_SUMMARY_INIT}"),
-            ("Gen Summary", config.SUMMARIES_DIR /
+            ("Gen Summary", project_dir /
              f"{base}{config.SUFFIX_SUMMARY_GEN}"),
-            ("Summary Val", config.SUMMARIES_DIR /
+            ("Summary Val", project_dir /
              f"{base}{config.SUFFIX_SUMMARY_VAL}"),
-            ("Gen Abstract", config.SUMMARIES_DIR /
+            ("Gen Abstract", project_dir /
              f"{base}{config.SUFFIX_ABSTRACT_GEN}"),
-            ("Abstracts Val", config.SUMMARIES_DIR /
+            ("Abstracts Val", project_dir /
              f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
-            ("Blog", config.SUMMARIES_DIR / f"{base}{config.SUFFIX_BLOG}"),
-            ("Webpage", config.WEBPAGES_DIR /
+            ("Blog", project_dir / f"{base}{config.SUFFIX_BLOG}"),
+            ("Webpage", project_dir /
              f"{base}{config.SUFFIX_WEBPAGE}"),
-            ("Simple Web", config.WEBPAGES_DIR /
+            ("Simple Web", project_dir /
              f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"),
-            ("PDF", config.PDFS_DIR / f"{base}{config.SUFFIX_PDF}"),
-            ("Package", config.PACKAGES_DIR / f"{base}.zip"),
+            ("PDF", project_dir / f"{base}{config.SUFFIX_PDF}"),
+            ("Package", project_dir / f"{base}.zip"),
         ]
 
         status_lines = [
@@ -350,7 +365,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 2: Adding YAML Front Matter...")
         self.run_task_in_thread(
-            pipeline.add_yaml, f"{self.base_name}{config.SUFFIX_FORMATTED}", "mp4", self.logger)
+            pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger)
 
     def do_summaries(self):
         yaml_file = config.FORMATTED_DIR / \
@@ -392,15 +407,46 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
                                 config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Blog Post generation")
 
+    def do_estimate_cost(self):
+        if not self.selected_file:
+            return
+        self.log("STEP: Estimating Token Usage and Cost...")
+        self.run_task_in_thread(self._run_cost_estimation)
+
+    def _run_cost_estimation(self):
+        try:
+            estimator = transcript_cost_estimator.CostEstimator(
+                self.selected_file, logger=self.logger)
+            estimator.run_full_estimation()
+            return True
+        except Exception as e:
+            self.log(f"❌ Error estimating cost: {e}")
+            return False
+
+    def do_config_check(self):
+        self.log("STEP: Checking Configuration...")
+        self.run_task_in_thread(self._run_config_check)
+
+    def _run_config_check(self):
+        try:
+            f = io.StringIO()
+            with redirect_stdout(f):
+                transcript_config_check.main()
+            self.log(f.getvalue())
+            return True
+        except Exception as e:
+            self.log(f"❌ Error checking config: {e}")
+            return False
+
     def do_extract_emphasis(self):
         if not self.base_name:
             return
 
         # Determine input file (prefer YAML version)
         input_file = f"{self.base_name}{config.SUFFIX_YAML}"
-        if not (config.FORMATTED_DIR / input_file).exists():
+        if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
             input_file = f"{self.base_name}{config.SUFFIX_FORMATTED}"
-            if not (config.FORMATTED_DIR / input_file).exists():
+            if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
                 messagebox.showwarning(
                     "Not Ready", "Please format the transcript first.")
                 return
@@ -463,6 +509,68 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(
             pipeline.package_transcript, self.base_name, self.logger)
 
+    def do_clean_logs(self):
+        """Handle log cleanup with user confirmation."""
+        if self.processing:
+            messagebox.showwarning(
+                "Busy", "Cannot clean logs while a process is running.")
+            return
+
+        should_archive = messagebox.askyesnocancel(
+            "Clean Log Files",
+            "Do you want to ARCHIVE old logs before deleting them?\n\n"
+            " • Yes: Archive logs to a zip file, then delete originals.\n"
+            " • No: Permanently delete logs without archiving.\n"
+            " • Cancel: Do nothing.",
+            icon='warning'
+        )
+
+        if should_archive is True:
+            self.log("Archiving log files...")
+            self.run_task_in_thread(self._run_archive_logs)
+        elif should_archive is False:
+            if messagebox.askokcancel("Confirm Permanent Deletion", "This will PERMANENTLY DELETE all log files. This action cannot be undone.\n\nAre you sure?"):
+                self.log("Deleting log files...")
+                self.run_task_in_thread(self._run_delete_logs)
+            else:
+                self.log("Log deletion cancelled.")
+        else:
+            self.log("Log cleanup cancelled.")
+
+    def _run_archive_logs(self):
+        """Archive logs to a zip file and remove originals."""
+        logs_dir = config.LOGS_DIR
+        if not logs_dir.exists():
+            self.log(f"Logs directory not found: {logs_dir}")
+            return False
+
+        files_to_process = list(logs_dir.glob(
+            "*.log")) + list(logs_dir.glob("*.csv"))
+        if not files_to_process:
+            self.log("No log files found to archive.")
+            return True
+
+        archives_dir = logs_dir / "archives"
+        archives_dir.mkdir(exist_ok=True)
+        zip_base_name = archives_dir / \
+            f"logs_{datetime.now():%Y%m%d_%H%M%S}"
+
+        try:
+            shutil.make_archive(str(zip_base_name), 'zip',
+                                logs_dir, verbose=True, logger=self.logger)
+            self.log(f"✅ Archive created: {zip_base_name}.zip")
+            for f in files_to_process:
+                f.unlink()
+            self.log("✅ Original log files removed.")
+            return True
+        except Exception as e:
+            self.log(f"❌ Error during archiving: {e}")
+            return False
+
+    def _run_delete_logs(self):
+        """Permanently delete log files and token usage CSV."""
+        return pipeline.delete_logs(logger=self.logger)
+
     def do_all_steps(self):
         if not self.selected_file:
             return
@@ -484,7 +592,7 @@ class TranscriptProcessorGUI:
 
         # Step 2: Add YAML
         self.log("\n--- STEP 2: Adding YAML ---")
-        if not pipeline.add_yaml(f"{self.base_name}{config.SUFFIX_FORMATTED}", "mp4", self.logger):
+        if not pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger):
             return False
 
         # Step 3: Extracts (Summaries)
@@ -526,6 +634,10 @@ class TranscriptProcessorGUI:
         self.log("\n--- STEP 10: Packaging ---")
         pipeline.package_transcript(self.base_name, self.logger)
 
+        # Step 11: Token Usage Report
+        self.log("\n--- Token Usage Report ---")
+        self.log(analyze_token_usage.generate_usage_report())
+
         self.log("\n✅ FULL PIPELINE COMPLETE!")
         return True
 
@@ -542,6 +654,8 @@ class TranscriptProcessorGUI:
         self.abstracts_btn.config(state=state)
         self.webpdf_btn.config(state=state)
         self.emphasis_btn.config(state=state)
+        self.cost_btn.config(state=state)
+        # Config check button is always enabled
         self.package_btn.config(state=state)
         self.do_all_btn.config(
             state=tk.NORMAL if self.selected_file else tk.DISABLED)

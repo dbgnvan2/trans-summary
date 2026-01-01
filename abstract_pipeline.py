@@ -356,7 +356,8 @@ def load_prompt() -> str:
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
-    model: str = config.AUX_MODEL
+    model: str = config.AUX_MODEL,
+    system: Optional[list] = None
 ) -> str:
     """
     Generate abstract via API call.
@@ -374,12 +375,18 @@ def generate_abstract(
         input_json=abstract_input.to_json(),
         target_word_count=abstract_input.target_word_count)
 
+    kwargs = {}
+    if system:
+        kwargs['system'] = system
+
     response = api_client.messages.create(
         model=model,
         max_tokens=400,
+        temperature=config.TEMP_BALANCED,
         messages=[
             {"role": "user", "content": prompt}
-        ]
+        ],
+        **kwargs
     )
 
     return response.content[0].text.strip()

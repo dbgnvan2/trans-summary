@@ -16,6 +16,7 @@ WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
 PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
 PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
 PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"
+PROJECTS_DIR = TRANSCRIPTS_BASE / "projects"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 LOGS_DIR = Path(__file__).parent / "logs"
 
@@ -44,10 +45,13 @@ SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Default Model
-DEFAULT_MODEL = "claude-opus-4-5-20251101"
+DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
 
 # Auxiliary Model (used for validation and specific generation tasks)
-AUX_MODEL = "claude-haiku-4-5-20251001"
+AUX_MODEL = "claude-3-5-haiku-20241022"
+
+# Formatting Model (High speed/low cost for full text rewriting)
+FORMATTING_MODEL = "claude-3-5-haiku-20241022"
 
 # Default Summary Word Count
 DEFAULT_SUMMARY_WORD_COUNT = 500
@@ -58,6 +62,12 @@ MAX_TOKENS_SUMMARY = 32000
 MAX_TOKENS_EXTRACTION = 8192
 MAX_TOKENS_AUDIT = 2000
 MAX_TOKENS_HEADER_VALIDATION = 32000
+
+# Temperature Settings
+TEMP_STRICT = 0.0
+TEMP_ANALYSIS = 0.2
+TEMP_BALANCED = 0.3
+TEMP_CREATIVE = 0.4
 
 # Timeouts (seconds)
 TIMEOUT_FORMATTING = 1200  # 20 minutes
@@ -120,7 +130,7 @@ FUZZY_MATCH_PREFIX_LEN = 20
 
 def set_transcripts_base(path: str | Path):
     """Update the base directory for transcripts and all related paths."""
-    global TRANSCRIPTS_BASE, SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, WEBPAGES_DIR, PDFS_DIR, PROCESSED_DIR, PACKAGES_DIR
+    global TRANSCRIPTS_BASE, SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, WEBPAGES_DIR, PDFS_DIR, PROCESSED_DIR, PACKAGES_DIR, PROJECTS_DIR
 
     TRANSCRIPTS_BASE = Path(path)
     SOURCE_DIR = TRANSCRIPTS_BASE / "source"
@@ -130,3 +140,4 @@ def set_transcripts_base(path: str | Path):
     PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
     PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
     PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"
+    PROJECTS_DIR = TRANSCRIPTS_BASE / "projects"

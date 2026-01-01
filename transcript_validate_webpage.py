@@ -603,17 +603,18 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print(f"{'='*70}\n")
 
     # File paths
-    formatted_file = config.FORMATTED_DIR / \
+    project_dir = config.PROJECTS_DIR / base_name
+    formatted_file = project_dir / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
-    topics_themes_file = config.SUMMARIES_DIR / \
+    topics_themes_file = project_dir / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     # Use correct HTML filename based on mode
     if simple_mode:
-        html_file = config.WEBPAGES_DIR / \
+        html_file = project_dir / \
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
     else:
-        html_file = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
+        html_file = project_dir / f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     # Check files exist
     missing_files = []

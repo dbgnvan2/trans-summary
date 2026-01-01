@@ -137,9 +137,12 @@ if __name__ == "__main__":
         print("Usage: python transcript_validate_bowen.py <base_filename>")
         sys.exit(1)
     base_name = sys.argv[1]
-    formatted_file = config.FORMATTED_DIR / \
+    formatted_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
     if not formatted_file.exists():
-        print(f"❌ Formatted file not found: {formatted_file}")
-        sys.exit(1)
+        formatted_file = config.FORMATTED_DIR / \
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        if not formatted_file.exists():
+            print(f"❌ Formatted file not found: {formatted_file}")
+            sys.exit(1)
     validate_bowen_items(base_name, formatted_file)

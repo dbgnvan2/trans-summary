@@ -4,11 +4,13 @@ Reduces code duplication and provides common validation/error handling.
 """
 
 import re
+import csv
+from datetime import datetime
 import os
 import time
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 from difflib import SequenceMatcher
 from html import unescape
 from anthropic import (
@@ -238,12 +240,94 @@ def validate_api_response(
     return text
 
 
+def log_token_usage(script_name: str, model: str, usage_data: object, stop_reason: str):
+    """Log token usage to a CSV file."""
+    try:
+        log_file = config.LOGS_DIR / "token_usage.csv"
+        # Ensure logs directory exists
+        config.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+        file_exists = log_file.exists()
+
+        input_tokens = getattr(usage_data, 'input_tokens', 0)
+        output_tokens = getattr(usage_data, 'output_tokens', 0)
+
+        # Handle cache usage if present (Anthropic specific)
+        cache_creation = getattr(
+            usage_data, 'cache_creation_input_tokens', 0) or 0
+        cache_read = getattr(usage_data, 'cache_read_input_tokens', 0) or 0
+
+        cache_str = "No"
+        if cache_read > 0:
+            cache_str = f"Yes (Read {cache_read})"
+        elif cache_creation > 0:
+            cache_str = f"Yes (Created {cache_creation})"
+
+        with open(log_file, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(['Timestamp', 'Script Name', 'Items',
+                                'Status', 'Cache', 'Tokens Sent', 'Tokens Response',
+                                 'Cache Creation Tokens', 'Cache Read Tokens'])
+
+            writer.writerow([
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                script_name,
+                model,
+                stop_reason,
+                cache_str,
+                input_tokens,
+                output_tokens,
+                cache_creation,
+                cache_read
+            ])
+    except Exception as e:
+        # Fail silently to not disrupt the pipeline, but print error
+        print(f"⚠️ Failed to log token usage: {e}")
+
+
+def _check_caching_for_large_input(messages: list, system: Any, logger: Optional[logging.Logger] = None):
+    """
+    Check if large inputs (system or messages) are using prompt caching.
+    Warns if content exceeding ~2500 tokens (10k chars) is sent without cache_control.
+    """
+    # Threshold: 10,000 characters (approx 2500 tokens)
+    THRESHOLD_CHARS = 10000
+
+    def check_content(content, source_name):
+        if isinstance(content, str):
+            if len(content) > THRESHOLD_CHARS:
+                msg = f"Large {source_name} ({len(content):,} chars) sent without caching! Consider using create_system_message_with_cache."
+                if logger:
+                    logger.warning(f"⚠️ {msg}")
+                else:
+                    print(f"\n⚠️ {msg}")
+        elif isinstance(content, list):
+            for i, block in enumerate(content):
+                if isinstance(block, dict) and block.get('type') == 'text':
+                    text = block.get('text', '')
+                    if len(text) > THRESHOLD_CHARS and 'cache_control' not in block:
+                        msg = f"Large {source_name} block {i} ({len(text):,} chars) sent without caching!"
+                        if logger:
+                            logger.warning(f"⚠️ {msg}")
+                        else:
+                            print(f"\n⚠️ {msg}")
+
+    # Check system
+    if system:
+        check_content(system, "system message")
+
+    # Check messages
+    for i, msg in enumerate(messages):
+        check_content(msg.get('content'), f"message {i}")
+
+
 def call_claude_with_retry(
     client,
     model: str,
     messages: list,
     max_tokens: int,
-    temperature: float = 0.3,
+    temperature: float = config.TEMP_BALANCED,
     max_retries: int = 3,
     logger: Optional[logging.Logger] = None,
     min_length: int = 50,
@@ -274,6 +358,9 @@ def call_claude_with_retry(
     """
     # Track timeout across retries
     current_timeout = kwargs.get('timeout')
+
+    # Check for missing cache on large inputs
+    _check_caching_for_large_input(messages, kwargs.get('system'), logger)
 
     for attempt in range(max_retries):
         try:
@@ -351,6 +438,12 @@ def call_claude_with_retry(
                     f"Response: {message.usage.output_tokens} tokens, "
                     f"Stop reason: {message.stop_reason}"
                 )
+
+            # Log to CSV
+            script_name = getattr(
+                logger, 'name', 'unknown_script') if logger else "unknown_script"
+            log_token_usage(script_name, model, message.usage,
+                            message.stop_reason)
 
             return message
 
@@ -620,7 +713,8 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
-    bowen_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BOWEN}"
+    bowen_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
         with open(bowen_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -628,7 +722,7 @@ def load_bowen_references(base_name: str) -> list:
         return extract_bowen_references(content)
 
     # Fall back to All Key Items
-    extracts_file = config.SUMMARIES_DIR / \
+    extracts_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
@@ -637,7 +731,7 @@ def load_bowen_references(base_name: str) -> list:
         return extract_bowen_references(content)
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / \
+    extracts_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
@@ -677,40 +771,64 @@ def load_emphasis_items(base_name: str) -> list:
     Returns:
         List of tuples: [(item_name, quote), ...]
     """
+    # Load Bowen references first to check for duplicates
+    bowen_refs = load_bowen_references(base_name)
+    bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
+
     # Try new scored emphasis file first
-    scored_file = config.SUMMARIES_DIR / \
+    scored_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
     if scored_file.exists():
         content = scored_file.read_text(encoding='utf-8')
         items = parse_scored_emphasis_output(content)
-        return [(f"{item['concept']} ({item['score']}%)", item['quote']) for item in items]
+        filtered_items = []
+        for item in items:
+            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes:
+                filtered_items.append(
+                    (f"{item['concept']} ({item['score']}%)", item['quote']))
+        return filtered_items
 
     # Try dedicated file first
-    emphasis_file = config.SUMMARIES_DIR / \
+    emphasis_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
-        return extract_emphasis_items(content)
+        items = extract_emphasis_items(content)
+        filtered_items = []
+        for label, quote in items:
+            if normalize_text(quote, aggressive=True) not in bowen_quotes:
+                filtered_items.append((label, quote))
+        return filtered_items
 
     # Fall back to All Key Items
-    extracts_file = config.SUMMARIES_DIR / \
+    extracts_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
-        return extract_emphasis_items(content)
+        items = extract_emphasis_items(content)
+        filtered_items = []
+        for label, quote in items:
+            if normalize_text(quote, aggressive=True) not in bowen_quotes:
+                filtered_items.append((label, quote))
+        return filtered_items
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.SUMMARIES_DIR / \
+    extracts_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
-        return extract_emphasis_items(content)
+        items = extract_emphasis_items(content)
+        filtered_items = []
+        for label, quote in items:
+            if normalize_text(quote, aggressive=True) not in bowen_quotes:
+                filtered_items.append((label, quote))
+        return filtered_items
 
     return []
 

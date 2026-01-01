@@ -1,7 +1,0 @@
-2025-12-31 13:35:55,810 - extract_scored_emphasis - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/extract_scored_emphasis_20251231_133555.log
-2025-12-31 13:35:55,810 - extract_scored_emphasis - INFO - Starting Scored Emphasis Extraction for: This is a test - Dave Galloway - 2025-12-07 - yaml.md
-2025-12-31 13:35:55,810 - extract_scored_emphasis - INFO - Sending request to Claude...
-2025-12-31 13:35:58,103 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2025-12-31 13:36:21,030 - extract_scored_emphasis - INFO - API call successful - Prompt: 5330 tokens, Response: 2356 tokens, Stop reason: end_turn
-2025-12-31 13:36:21,032 - extract_scored_emphasis - INFO - Extracted 0 scored emphasis items.
-2025-12-31 13:36:21,033 - extract_scored_emphasis - INFO - ✓ Scored emphasis saved to: /Users/davemini2/transcripts/summaries/This is a test - Dave Galloway - 2025-12-07 - emphasis-scored.md

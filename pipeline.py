@@ -97,10 +97,20 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
             f"Transcript length: {len(raw_transcript.split()):,} words, {len(raw_transcript):,} characters", flush=True)
         print("⏳ Waiting for Claude response (may take 2-5 minutes for longer transcripts)...", flush=True)
 
+    # Use prompt caching for the large input
+    messages = [{
+        "role": "user",
+        "content": [{
+            "type": "text",
+            "text": full_prompt,
+            "cache_control": {"type": "ephemeral"}
+        }]
+    }]
+
     message = call_claude_with_retry(
         client=client,
         model=model,
-        messages=[{"role": "user", "content": full_prompt}],
+        messages=messages,
         max_tokens=config.MAX_TOKENS_FORMATTING,
         stream=True,
         logger=logger,
@@ -114,14 +124,16 @@ def save_formatted_transcript(content: str, original_filename: str) -> Path:
     """Save formatted transcript with naming convention."""
     stem = Path(original_filename).stem
     output_filename = f"{stem}{config.SUFFIX_FORMATTED}"
-    output_path = config.FORMATTED_DIR / output_filename
 
-    config.FORMATTED_DIR.mkdir(parents=True, exist_ok=True)
+    project_dir = config.PROJECTS_DIR / stem
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = project_dir / output_filename
     output_path.write_text(content, encoding='utf-8')
     return output_path
 
 
-def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None) -> bool:
+def format_transcript(raw_filename: str, model: str = config.FORMATTING_MODEL, logger=None) -> bool:
     """
     Orchestrates the transcript formatting process.
     """
@@ -271,7 +283,15 @@ def _load_summary_prompt(prompt_filename: str) -> str:
 
 def _load_formatted_transcript(filename: str) -> str:
     """Load the formatted transcript."""
-    transcript_path = config.FORMATTED_DIR / filename
+    meta = parse_filename_metadata(filename)
+    stem = meta['stem']
+
+    # Try project dir first
+    transcript_path = config.PROJECTS_DIR / stem / filename
+    if not transcript_path.exists():
+        # Fallback to legacy formatted dir
+        transcript_path = config.FORMATTED_DIR / filename
+
     validate_input_file(transcript_path)
     return transcript_path.read_text(encoding='utf-8')
 
@@ -324,8 +344,10 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
     if summary_type == "emphasis-scored":
         suffix = config.SUFFIX_EMPHASIS_SCORED
         output_filename = f"{stem}{suffix}"
-        output_path = config.SUMMARIES_DIR / output_filename
-        config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+
+        project_dir = config.PROJECTS_DIR / stem
+        project_dir.mkdir(parents=True, exist_ok=True)
+        output_path = project_dir / output_filename
         output_path.write_text(content, encoding='utf-8')
         return output_path
 
@@ -346,8 +368,9 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         suffix = config.SUFFIX_KEY_ITEMS_RAW_LEGACY
 
     output_filename = f"{stem}{suffix}"
-    output_path = config.SUMMARIES_DIR / output_filename
-    config.SUMMARIES_DIR.mkdir(parents=True, exist_ok=True)
+    project_dir = config.PROJECTS_DIR / stem
+    project_dir.mkdir(parents=True, exist_ok=True)
+    output_path = project_dir / output_filename
     output_path.write_text(content, encoding='utf-8')
     return output_path
 
@@ -368,50 +391,10 @@ def _process_key_items_output(all_key_items_path: Path, logger):
     stem = all_key_items_path.stem.replace(
         config.SUFFIX_KEY_ITEMS_ALL.replace('.md', ''), '')
 
-    # 1. Bowen References
-    bowen_refs = extract_bowen_references(clean_content)
-    if bowen_refs:
-        bowen_output = "## Bowen References\n\n" + \
-            "\n\n".join(
-                [f'> **{label}:** "{quote}"' for label, quote in bowen_refs])
-        bowen_path = config.SUMMARIES_DIR / f"{stem}{config.SUFFIX_BOWEN}"
-        bowen_path.write_text(bowen_output, encoding='utf-8')
-        logger.info(
-            f"  ✓ {len(bowen_refs)} Bowen references → {bowen_path.name}")
-    else:
-        logger.warning("  ⚠️ No Bowen references found in output.")
+    project_dir = config.PROJECTS_DIR / stem
+    project_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2. Emphasized Items
-    emphasis_items = extract_emphasis_items(clean_content)
-    if emphasis_items:
-        emphasis_output = "## Emphasized Items\n\n" + \
-            "\n\n".join(
-                [f'> **{label}:** "{quote}"' for label, quote in emphasis_items])
-        emphasis_path = config.SUMMARIES_DIR / \
-            f"{stem}{config.SUFFIX_EMPHASIS}"
-        emphasis_path.write_text(emphasis_output, encoding='utf-8')
-        logger.info(
-            f"  ✓ {len(emphasis_items)} emphasis items → {emphasis_path.name}")
-
-    # 3. Initial Abstract
-    abstract = extract_section(clean_content, "Abstract")
-    if abstract:
-        abstract_output = f"## Abstract\n\n{abstract}"
-        abstract_path = config.SUMMARIES_DIR / \
-            f"{stem}{config.SUFFIX_ABSTRACT_INIT}"
-        abstract_path.write_text(abstract_output, encoding='utf-8')
-        logger.info(f"  ✓ Initial Abstract → {abstract_path.name}")
-
-    # 4. Initial Summary
-    summary = extract_section(clean_content, "Summary")
-    if summary:
-        summary_output = f"## Summary\n\n{summary}"
-        summary_path = config.SUMMARIES_DIR / \
-            f"{stem}{config.SUFFIX_SUMMARY_INIT}"
-        summary_path.write_text(summary_output, encoding='utf-8')
-        logger.info(f"  ✓ Initial Summary → {summary_path.name}")
-
-    # 5. Topics, Themes, Terms (Combined)
+    # 1. Topics, Themes, Terms (Combined)
     topics = extract_section(clean_content, "Topics")
     themes = extract_section(clean_content, "Key Themes")
     key_terms = extract_section(clean_content, "Key Terms")
@@ -425,16 +408,14 @@ def _process_key_items_output(all_key_items_path: Path, logger):
         if key_terms:
             combined_output += f"## Key Terms\n\n{key_terms}\n\n"
 
-        combined_path = config.SUMMARIES_DIR / \
-            f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
+        combined_path = project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
         combined_path.write_text(combined_output, encoding='utf-8')
         logger.info(f"  ✓ Topics, Themes, Terms → {combined_path.name}")
 
         # Also save separate Key Terms file for backward compatibility/specific access
         if key_terms:
             key_terms_output = "## Key Terms\n\n" + key_terms
-            key_terms_path = config.SUMMARIES_DIR / \
-                f"{stem}{config.SUFFIX_KEY_TERMS}"
+            key_terms_path = project_dir / f"{stem}{config.SUFFIX_KEY_TERMS}"
             key_terms_path.write_text(key_terms_output, encoding='utf-8')
             logger.info(f"  ✓ Key Terms (standalone) → {key_terms_path.name}")
 
@@ -450,23 +431,25 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
         logger.info(
             f"Starting Scored Emphasis Extraction for: {formatted_filename}")
 
-        # Load Transcript
-        transcript = _load_formatted_transcript(formatted_filename)
-
         # Load Prompt
         prompt_template = _load_summary_prompt(
             config.PROMPT_EMPHASIS_SCORING_FILENAME)
 
-        # Prepare Prompt (Simple injection)
-        # The prompt expects the transcript appended or injected.
-        # Assuming standard injection or append strategy.
-        full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT:\n\n{transcript}"
+        call_kwargs = {}
+        if transcript_system_message:
+            full_prompt = prompt_template
+            call_kwargs['system'] = transcript_system_message
+        else:
+            # Load Transcript and append if no cache provided
+            transcript = _load_formatted_transcript(formatted_filename)
+            full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT:\n\n{transcript}"
 
         logger.info("Sending request to Claude...")
 
         # Call API
         response = _generate_summary_with_claude(
-            full_prompt, model, 0.0, logger, min_length=100, timeout=config.TIMEOUT_SUMMARY
+            full_prompt, model, config.TEMP_STRICT, logger, min_length=100, timeout=config.TIMEOUT_SUMMARY,
+            **call_kwargs
         )
 
         # Parse to validate (optional, but good for logging)
@@ -484,6 +467,8 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
         # NEW: Validate each item and filter/log issues
         validated_items = []
         final_content_lines = []
+        bowen_items = []
+
         for item in items:
             is_valid, issues = validate_emphasis_item(item)
             if is_valid:
@@ -492,6 +477,22 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
                 final_content_lines.append(
                     f"[{item['type']} - {item['category']} - Rank: {item['score']}%] Concept: {item['concept']}")
                 final_content_lines.append(f"\"{item['quote']}\"")
+
+                # Check for Bowen Reference (Category A14 or explicit mention)
+                # We use strict filtering to avoid false positives (e.g. "Bowen theory", "Bowen theorists")
+                is_bowen = False
+                quote_text = item['quote']
+
+                # 1. Category A14 (Source Commentary) mentioning Bowen is likely a quote/reference
+                if "A14" in item['category'] and "Bowen" in quote_text:
+                    is_bowen = True
+                # 2. Explicit attribution in the text
+                elif re.search(r"(?:Murray\s+)?Bowen\s+(?:said|wrote|thought|believed|described|called|postulated|defined|viewed|observed|stated)|(?:quote|words)\s+(?:from|of|by)\s+(?:Murray\s+)?Bowen|(?:\bBowen['']s\s+quote)", quote_text, re.IGNORECASE):
+                    is_bowen = True
+
+                if is_bowen:
+                    bowen_items.append(item)
+
             else:
                 logger.warning(
                     f"Filtered out invalid emphasis item. Issues: {', '.join(issues)}")
@@ -508,6 +509,22 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
             final_content, formatted_filename, "emphasis-scored")
 
         logger.info(f"✓ Scored emphasis saved to: {output_path}")
+
+        # Save Bowen References derived from Scored Emphasis
+        if bowen_items:
+            stem = Path(formatted_filename).stem.replace(config.SUFFIX_FORMATTED.replace(
+                '.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
+            project_dir = config.PROJECTS_DIR / stem
+
+            bowen_output = "## Bowen References\n\n" + \
+                "\n\n".join(
+                    [f'> **{item["concept"]}:** "{item["quote"]}"' for item in bowen_items])
+
+            bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
+            bowen_path.write_text(bowen_output, encoding='utf-8')
+            logger.info(
+                f"✓ Derived {len(bowen_items)} Bowen references from scored emphasis → {bowen_path.name}")
+
         return True
 
     except Exception as e:
@@ -565,7 +582,7 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 min_expected_words, config.MIN_EXTRACTS_WORDS_FLOOR) if transcript_word_count > config.MIN_TRANSCRIPT_WORDS_FOR_FLOOR else config.MIN_EXTRACTS_WORDS_ABSOLUTE
 
             output = _generate_summary_with_claude(
-                prompt, model, 0.2, logger,
+                prompt, model, config.TEMP_ANALYSIS, logger,
                 min_length=config.MIN_EXTRACTS_CHARS, min_words=min_expected_words,
                 system=transcript_system_message)
 
@@ -580,8 +597,8 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
         else:
             base_name_from_formatted = Path(
                 formatted_filename).stem.replace(' - formatted', '')
-            potential_all_key_items_path = config.SUMMARIES_DIR / \
-                f"{base_name_from_formatted} - All Key Items.md"
+            potential_all_key_items_path = config.PROJECTS_DIR / base_name_from_formatted / \
+                f"{base_name_from_formatted}{config.SUFFIX_KEY_ITEMS_ALL}"
             if potential_all_key_items_path.exists():
                 all_key_items_path = potential_all_key_items_path
                 logger.info(
@@ -593,30 +610,8 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
             extract_scored_emphasis(
                 formatted_filename, model, logger, transcript_system_message)
 
-            # Check if key terms were already extracted during splitting
-            base_name = Path(formatted_filename).stem.replace(
-                config.SUFFIX_FORMATTED.replace('.md', ''), '')
-            key_terms_path = config.SUMMARIES_DIR / \
-                f"{base_name}{config.SUFFIX_KEY_TERMS}"
-
-            if key_terms_path.exists() and not skip_extracts_summary:
-                logger.info(
-                    f"✓ Key terms extracted from main analysis. Skipping separate API call.")
-            else:
-                logger.info(
-                    "PART 2: Extracting Key Terms (Separate API Call)...")
-                prompt_template = _load_summary_prompt(
-                    config.PROMPT_KEY_TERMS_FILENAME)
-                prompt = _fill_prompt_template(
-                    prompt_template, metadata, transcript="")
-                output = _generate_summary_with_claude(
-                    prompt, model, 0.4, logger,
-                    min_length=config.MIN_KEY_TERMS_CHARS,
-                    system=transcript_system_message)
-                key_terms_path = _save_summary(
-                    output, formatted_filename, "key-terms")
-                logger.info(
-                    f"✓ Key terms document saved to: {key_terms_path}")
+            # Note: We skip the separate "Part 2" Key Terms call here to avoid duplication.
+            # We rely on the Key Terms extracted in Part 1 (All Key Items).
 
         if not skip_blog:
             logger.info("PART 3: Generating Blog Post...")
@@ -624,7 +619,7 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript="", focus_keyword=focus_keyword, target_audience=target_audience)
             output = _generate_summary_with_claude(
-                prompt, model, 0.3, logger,
+                prompt, model, config.TEMP_BALANCED, logger,
                 min_length=config.MIN_BLOG_CHARS,
                 system=transcript_system_message)
             blog_path = _save_summary(output, formatted_filename, "blog")
@@ -634,7 +629,9 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
 
         if not skip_extracts_summary:  # Only validate emphasis if extracts were generated or explicitly not skipped
             logger.info("VALIDATION: Checking Emphasis Items...")
-            formatted_path = config.FORMATTED_DIR / formatted_filename
+            base_name = Path(formatted_filename).stem.replace(config.SUFFIX_FORMATTED.replace(
+                '.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
+            formatted_path = config.PROJECTS_DIR / base_name / formatted_filename
             if all_key_items_path:
                 _validate_emphasis_items(
                     formatted_path, all_key_items_path, logger)
@@ -651,7 +648,8 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 structured_success = generate_structured_summary(
                     base_name=base_name,
                     summary_target_word_count=structured_word_count,  # Use the directly cast variable
-                    logger=logger
+                    logger=logger,
+                    transcript_system_message=transcript_system_message
                 )
                 if structured_success:
                     logger.info(
@@ -716,10 +714,13 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
     try:
         logger.info(f"Adding YAML to {transcript_filename}")
 
-        transcript_path = config.FORMATTED_DIR / transcript_filename
-        validate_input_file(transcript_path)
-
         meta = parse_filename_metadata(transcript_filename)
+        stem = meta['stem']
+
+        transcript_path = config.PROJECTS_DIR / stem / transcript_filename
+        if not transcript_path.exists():
+            transcript_path = config.FORMATTED_DIR / transcript_filename
+        validate_input_file(transcript_path)
 
         source_filename = f"{meta['stem']}.{source_ext.lstrip('.')}"
 
@@ -728,7 +729,7 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
 
-        output_path = config.FORMATTED_DIR / \
+        output_path = config.PROJECTS_DIR / stem / \
             f"{meta['stem']}{config.SUFFIX_YAML}"
         output_path.write_text(final_content, encoding='utf-8')
 
@@ -912,13 +913,18 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
     if logger is None:
         logger = setup_logging('validate_format')
     try:
+        stem = Path(raw_filename).stem
         raw_file_path = config.SOURCE_DIR / raw_filename
         if formatted_filename:
-            formatted_file_path = config.FORMATTED_DIR / formatted_filename
+            formatted_file_path = config.PROJECTS_DIR / stem / formatted_filename
+            if not formatted_file_path.exists():
+                formatted_file_path = config.FORMATTED_DIR / formatted_filename
         else:
-            stem = Path(raw_filename).stem
-            formatted_file_path = config.FORMATTED_DIR / \
+            formatted_file_path = config.PROJECTS_DIR / stem / \
                 f"{stem}{config.SUFFIX_FORMATTED}"
+            if not formatted_file_path.exists():
+                formatted_file_path = config.FORMATTED_DIR / \
+                    f"{stem}{config.SUFFIX_FORMATTED}"
 
         validate_input_file(raw_file_path)
         validate_input_file(formatted_file_path)
@@ -1121,7 +1127,7 @@ def validate_abstract(base_name: str, model: str, target_score: float, max_itera
                 prompt += f"\n\n--- SOURCE DOCUMENT ---\n{transcript}\n\n--- ABSTRACT TO EVALUATE ---\n{current_abstract}"
 
             validation_output = _generate_summary_with_claude(
-                prompt, model, 0.3, logger, min_length=config.MIN_ABSTRACT_VALIDATION_CHARS)
+                prompt, model, config.TEMP_BALANCED, logger, min_length=config.MIN_ABSTRACT_VALIDATION_CHARS)
             scores = _extract_scores_from_output(validation_output)
 
             if scores:
@@ -1181,7 +1187,7 @@ def validate_abstract(base_name: str, model: str, target_score: float, max_itera
 # NEW ABSTRACT GENERATION & VALIDATION
 # ============================================================================
 
-def generate_structured_abstract(base_name: str, logger=None) -> bool:
+def generate_structured_abstract(base_name: str, logger=None, transcript_system_message=None) -> bool:
     """
     Generate an abstract using the structured pipeline.
     """
@@ -1189,9 +1195,9 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
         logger = setup_logging('generate_structured_abstract')
 
     try:
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        all_key_items_file = config.SUMMARIES_DIR / \
+        all_key_items_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         validate_input_file(formatted_file)
@@ -1247,6 +1253,11 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
         logger.info(
             f"Parsed {len(abstract_input.topics)} topics and {len(abstract_input.themes)} themes.")
 
+        # Create cached system message if not provided
+        if not transcript_system_message:
+            transcript_system_message = create_system_message_with_cache(
+                transcript)
+
         logger.info("Generating abstract via API...")
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
@@ -1254,10 +1265,10 @@ def generate_structured_abstract(base_name: str, logger=None) -> bool:
 
         client = anthropic.Anthropic(api_key=api_key)
         abstract_text = abstract_pipeline.generate_abstract(
-            abstract_input, client)
+            abstract_input, client, system=transcript_system_message)
 
         # Save abstract
-        output_path = config.SUMMARIES_DIR / \
+        output_path = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
         output_path.write_text(abstract_text, encoding='utf-8')
         logger.info(f"Generated abstract saved to {output_path}")
@@ -1286,17 +1297,17 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         # Load Abstract Input (re-create it)
 
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
 
-        all_key_items_file = config.SUMMARIES_DIR / \
+        all_key_items_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         # We need the abstract to validate.
 
         # Prefer "abstract-generated.md" if exists, otherwise extract from "extracts-summary.md"
 
-        generated_abstract_file = config.SUMMARIES_DIR / \
+        generated_abstract_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
 
         if generated_abstract_file.exists():
@@ -1327,6 +1338,10 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         themes_section = extract_section(extracts_content, 'Key Themes')
 
+        transcript_words = len(transcript.split())
+        target_word_count = max(
+            int(transcript_words * config.ABSTRACT_TARGET_PERCENT), config.ABSTRACT_MIN_WORDS)
+
         abstract_input = abstract_pipeline.prepare_abstract_input(
 
 
@@ -1339,7 +1354,8 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
             themes_markdown=themes_section,
 
 
-            transcript=transcript
+            transcript=transcript,
+            target_word_count=target_word_count
 
 
         )
@@ -1356,7 +1372,7 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
 
         )
 
-        report_path = config.SUMMARIES_DIR / \
+        report_path = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_ABSTRACT_VAL}"
 
         report_path.write_text(report, encoding='utf-8')
@@ -1394,7 +1410,7 @@ def validate_abstract_with_structured_pipeline(base_name: str, logger=None) -> b
 # NEW SUMMARY GENERATION & VALIDATION
 # ============================================================================
 
-def generate_structured_summary(base_name: str, summary_target_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None) -> bool:
+def generate_structured_summary(base_name: str, summary_target_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None, transcript_system_message=None) -> bool:
     """
     Generate a structured summary using the pipeline.
     """
@@ -1411,9 +1427,9 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
                 f"Error: summary_target_word_count expected to be an integer, but received type {type(summary_target_word_count)} with value '{summary_target_word_count}'. Original error: {e}", exc_info=True)
             return False
 
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        all_key_items_file = config.SUMMARIES_DIR / \
+        all_key_items_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         validate_input_file(formatted_file)
@@ -1470,6 +1486,11 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
             logger.warning(
                 "No themes parsed. Summary will lack thematic weaving.")
 
+        # Create cached system message if not provided
+        if not transcript_system_message:
+            transcript_system_message = create_system_message_with_cache(
+                transcript)
+
         logger.info("Generating summary via API...")
 
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -1477,10 +1498,11 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
             raise ValueError("ANTHROPIC_API_KEY not set")
 
         client = anthropic.Anthropic(api_key=api_key)
-        summary_text = summary_pipeline.generate_summary(summary_input, client)
+        summary_text = summary_pipeline.generate_summary(
+            summary_input, client, system=transcript_system_message)
 
         # Save summary
-        output_path = config.SUMMARIES_DIR / \
+        output_path = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
         output_path.write_text(summary_text, encoding='utf-8')
         logger.info(f"Generated summary saved to {output_path}")
@@ -1501,11 +1523,11 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
 
     try:
         # Load inputs
-        formatted_file = config.FORMATTED_DIR / \
+        formatted_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        all_key_items_file = config.SUMMARIES_DIR / \
+        all_key_items_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        generated_summary_file = config.SUMMARIES_DIR / \
+        generated_summary_file = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
 
         if generated_summary_file.exists():
@@ -1546,7 +1568,7 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
             summary_text, summary_input, api_client=client
         )
 
-        report_path = config.SUMMARIES_DIR / \
+        report_path = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
         report_path.write_text(report, encoding='utf-8')
 
@@ -1576,7 +1598,11 @@ def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, log
         logger = setup_logging('validate_headers')
 
     try:
-        formatted_path = config.FORMATTED_DIR / formatted_filename
+        base_name = Path(formatted_filename).stem.replace(config.SUFFIX_FORMATTED.replace(
+            '.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
+        formatted_path = config.PROJECTS_DIR / base_name / formatted_filename
+        if not formatted_path.exists():
+            formatted_path = config.FORMATTED_DIR / formatted_filename
         validate_input_file(formatted_path)
 
         logger.info(f"Loading formatted transcript: {formatted_filename}")
@@ -1604,13 +1630,11 @@ def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, log
         client = anthropic.Anthropic(api_key=api_key)
 
         response = _generate_summary_with_claude(
-            full_prompt, model, 0.0, logger, min_length=100, timeout=config.TIMEOUT_DEFAULT
+            full_prompt, model, config.TEMP_STRICT, logger, min_length=100, timeout=config.TIMEOUT_DEFAULT
         )
 
         # Save the validation report
-        base_name = Path(formatted_filename).stem.replace(
-            config.SUFFIX_FORMATTED.replace('.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
-        report_path = config.SUMMARIES_DIR / \
+        report_path = config.PROJECTS_DIR / base_name / \
             f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
         report_path.write_text(response, encoding='utf-8')
 
@@ -1637,28 +1661,30 @@ def package_transcript(base_name: str, logger=None) -> bool:
     try:
         files_to_package = []
 
+        project_dir = config.PROJECTS_DIR / base_name
+
         # 1. Main Webpage
-        webpage = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
+        webpage = project_dir / f"{base_name}{config.SUFFIX_WEBPAGE}"
         if webpage.exists():
             files_to_package.append(webpage)
         else:
             logger.warning(f"Main webpage not found: {webpage}")
 
         # 2. Simple Webpage
-        simple_webpage = config.WEBPAGES_DIR / \
+        simple_webpage = project_dir / \
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
         if simple_webpage.exists():
             files_to_package.append(simple_webpage)
 
         # 3. PDF
-        pdf = config.PDFS_DIR / f"{base_name}{config.SUFFIX_PDF}"
+        pdf = project_dir / f"{base_name}{config.SUFFIX_PDF}"
         if pdf.exists():
             files_to_package.append(pdf)
 
         # 4. Processed Transcript (YAML or Formatted)
-        yaml_transcript = config.FORMATTED_DIR / \
+        yaml_transcript = project_dir / \
             f"{base_name}{config.SUFFIX_YAML}"
-        formatted_transcript = config.FORMATTED_DIR / \
+        formatted_transcript = project_dir / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
 
         if yaml_transcript.exists():
@@ -1670,8 +1696,8 @@ def package_transcript(base_name: str, logger=None) -> bool:
             logger.error("No files found to package.")
             return False
 
-        config.PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
-        zip_filename = config.PACKAGES_DIR / f"{base_name}.zip"
+        # Package stays in the project dir
+        zip_filename = project_dir / f"{base_name}.zip"
 
         logger.info(f"Creating package: {zip_filename}")
         with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -1685,3 +1711,28 @@ def package_transcript(base_name: str, logger=None) -> bool:
     except Exception as e:
         logger.error(f"Error packaging transcript: {e}", exc_info=True)
         return False
+
+
+def delete_logs(logger=None) -> bool:
+    """Permanently delete log files and token usage CSV."""
+    if logger is None:
+        logger = setup_logging('delete_logs')
+
+    logs_dir = config.LOGS_DIR
+    if not logs_dir.exists():
+        logger.info(f"Logs directory not found: {logs_dir}")
+        return True
+
+    files_to_delete = list(logs_dir.glob("*.log")) + \
+        list(logs_dir.glob("*.csv"))
+
+    if not files_to_delete:
+        logger.info("No log files found to delete.")
+        return True
+
+    logger.info(f"Found {len(files_to_delete)} files to delete.")
+    for f in files_to_delete:
+        f.unlink()
+        logger.info(f"  - Deleted: {f.name}")
+    logger.info("✅ Deletion complete.")
+    return True

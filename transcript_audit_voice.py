@@ -24,9 +24,13 @@ import config
 
 def load_blog_post(base_name: str) -> str:
     """Load blog post content."""
-    blog_file = config.SUMMARIES_DIR / f"{base_name} - blog.md"
+    blog_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_BLOG}"
 
-        raise FileNotFoundError(f"Blog post not found: {blog_file}")
+    if not blog_file.exists():
+        blog_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BLOG}"
+        if not blog_file.exists():
+            raise FileNotFoundError(f"Blog post not found: {blog_file}")
 
     with open(blog_file, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -56,7 +60,7 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
     response=client.messages.create(
         model=config.DEFAULT_MODEL,
         max_tokens=config.MAX_TOKENS_AUDIT,
-        temperature=0.3,
+        temperature=config.TEMP_BALANCED,
         messages=[
             {
                 "role": "user",
@@ -139,8 +143,9 @@ def print_audit_results(audit_result: dict):
 def save_audit_report(base_name: str, audit_result: dict):
     """Save audit report to file."""
 
-    report_file=config.SUMMARIES_DIR /
+    report_file=config.PROJECTS_DIR / base_name /
         f"{base_name}{config.SUFFIX_VOICE_AUDIT}"
+    report_file.parent.mkdir(parents=True, exist_ok=True)
 
     with open(report_file, 'w', encoding='utf-8') as f:
         json.dump(audit_result, f, indent=2)

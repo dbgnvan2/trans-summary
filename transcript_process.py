@@ -19,8 +19,10 @@ import os
 import sys
 import subprocess
 from pathlib import Path
+from datetime import datetime
 from typing import Optional, Tuple
 import config
+import analyze_token_usage
 
 # Script paths (in same directory as this script)
 SCRIPT_DIR = Path(__file__).parent
@@ -166,6 +168,8 @@ def move_to_processed(source_file: Path) -> Path:
 
 def main():
     """Main interactive processing loop."""
+    start_time = datetime.now()
+
     print("\n" + "="*80)
     print("TRANSCRIPT PROCESSING PIPELINE")
     print("="*80)
@@ -198,13 +202,14 @@ def main():
     base_name = f"{title} - {author} - {date}"
 
     # Check existing files to determine starting point
-    formatted_file = config.FORMATTED_DIR / \
+    project_dir = config.PROJECTS_DIR / base_name
+    formatted_file = project_dir / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
     has_formatted = formatted_file.exists()
     has_yaml = False
 
     # Check for YAML - either separate _yaml.md file or in formatted.md
-    yaml_file = config.FORMATTED_DIR / f"{base_name}{config.SUFFIX_YAML}"
+    yaml_file = project_dir / f"{base_name}{config.SUFFIX_YAML}"
     if yaml_file.exists():
         has_yaml = True
     elif has_formatted:
@@ -363,11 +368,14 @@ def main():
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
     print(
-        f"📊 Summaries: {config.SUMMARIES_DIR / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
+        f"📊 Summaries: {project_dir / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
     print(
-        f"           : {config.SUMMARIES_DIR / f'{base_name}{config.SUFFIX_BLOG}'}")
+        f"           : {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
     print(
-        f"📦 Package:   {config.PACKAGES_DIR / f'{base_name}.zip'}")
+        f"📦 Package:   {project_dir / f'{base_name}.zip'}")
+
+    # Display Token Usage Report
+    print("\n" + analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
     if confirm("\n✅ Everything looks good. Move source file to processed/?"):
         processed_path = move_to_processed(source_file)
