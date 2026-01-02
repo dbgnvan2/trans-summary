@@ -11,31 +11,27 @@ import sys
 from pathlib import Path
 from pipeline import add_yaml
 import config
+from transcript_utils import parse_filename_metadata
 
 
 def resolve_filename(filename: str) -> str:
     """
     Resolve filename to support base names and ' - formatted.md' extension.
     """
-    # If exact match exists in formatted dir, return it
-    if (config.FORMATTED_DIR / filename).exists():
-        return filename
-
     # Clean up base name
-    base = filename
-    suffixes = [
-        config.SUFFIX_FORMATTED,
-        '.md',
-        '.txt'
+    base = Path(filename).stem
+    suffixes_to_strip = [
+        config.SUFFIX_FORMATTED.replace('.md', ''),
     ]
-    for suffix in suffixes:
+    for suffix in suffixes_to_strip:
         if base.endswith(suffix):
             base = base[:-len(suffix)]
             break
 
+    project_dir = config.PROJECTS_DIR / base
     # Try - formatted.md
     formatted_name = f"{base}{config.SUFFIX_FORMATTED}"
-    if (config.FORMATTED_DIR / formatted_name).exists():
+    if (project_dir / formatted_name).exists():
         return formatted_name
 
     return filename
@@ -61,6 +57,21 @@ def main():
     args = parser.parse_args()
 
     resolved_filename = resolve_filename(args.transcript_filename)
+
+    # Add a pre-flight check for a better error message
+    try:
+        meta = parse_filename_metadata(resolved_filename)
+        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+
+        if not expected_path.exists():
+            print(
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+            print(
+                "\n   Please ensure you have run the 'Format' step for this transcript first.")
+            return 1
+    except Exception:
+        # If parsing fails, let the pipeline handle the error.
+        pass
 
     print(f"Adding YAML to: {resolved_filename}")
 

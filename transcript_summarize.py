@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from pipeline import summarize_transcript
 import config
+from transcript_utils import parse_filename_metadata
 
 
 def resolve_filename(filename: str) -> str:
@@ -18,10 +19,6 @@ def resolve_filename(filename: str) -> str:
     Resolve filename to support base names and ' - yaml.md' extension.
     Prioritizes ' - yaml.md' as it contains the metadata needed for summaries.
     """
-    # If exact match exists in formatted dir, return it
-    if (config.FORMATTED_DIR / filename).exists():
-        return filename
-
     # Clean up base name
     base = filename
     suffixes = [
@@ -35,14 +32,16 @@ def resolve_filename(filename: str) -> str:
             base = base[:-len(suffix)]
             break
 
+    project_dir = config.PROJECTS_DIR / base
+
     # Try - yaml.md first (preferred for summaries)
     yaml_name = f"{base}{config.SUFFIX_YAML}"
-    if (config.FORMATTED_DIR / yaml_name).exists():
+    if (project_dir / yaml_name).exists():
         return yaml_name
 
     # Try - formatted.md (fallback)
     formatted_name = f"{base}{config.SUFFIX_FORMATTED}"
-    if (config.FORMATTED_DIR / formatted_name).exists():
+    if (project_dir / formatted_name).exists():
         return formatted_name
 
     return filename
@@ -93,6 +92,21 @@ def main():
     args = parser.parse_args()
 
     resolved_filename = resolve_filename(args.formatted_filename)
+
+    # Add a pre-flight check for a better error message
+    try:
+        meta = parse_filename_metadata(resolved_filename)
+        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+
+        if not expected_path.exists():
+            print(
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+            print(
+                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first.")
+            return 1
+    except Exception:
+        # If parsing fails, let the pipeline handle the error.
+        pass
 
     print(f"Starting transcript summarization for: {resolved_filename}")
 

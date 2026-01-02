@@ -28,9 +28,7 @@ def load_blog_post(base_name: str) -> str:
         f"{base_name}{config.SUFFIX_BLOG}"
 
     if not blog_file.exists():
-        blog_file = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_BLOG}"
-        if not blog_file.exists():
-            raise FileNotFoundError(f"Blog post not found: {blog_file}")
+        raise FileNotFoundError(f"Blog post not found: {blog_file}")
 
     with open(blog_file, 'r', encoding='utf-8') as f:
         content = f.read()

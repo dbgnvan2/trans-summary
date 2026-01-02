@@ -10,12 +10,7 @@ import os
 # Default directories. By default, paths are relative to the project root.
 TRANSCRIPTS_BASE = Path(os.getenv("TRANSCRIPTS_DIR", "."))
 SOURCE_DIR = TRANSCRIPTS_BASE / "source"
-FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
-WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
-PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
 PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
-PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"
 PROJECTS_DIR = TRANSCRIPTS_BASE / "projects"
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 LOGS_DIR = Path(__file__).parent / "logs"
@@ -87,6 +82,7 @@ PROMPT_STRUCTURED_ABSTRACT_FILENAME = "Abstract Generation Prompt v1.md"
 PROMPT_VALIDATION_COVERAGE_FILENAME = "Validation Coverage Prompt v1.md"
 PROMPT_PROBLEMATIC_HEADER_TERMS_FILENAME = "problematic_header_terms_v2.md"
 PROMPT_EMPHASIS_SCORING_FILENAME = "emphasis_dedection_v3_production.md"
+PROMPT_BOWEN_EXTRACTION_FILENAME = "bowen_reference_extraction_v1.md"
 
 # Validation Settings
 VALIDATION_MISMATCH_RATIO = 0.015  # 1.5% tolerance
@@ -130,14 +126,9 @@ FUZZY_MATCH_PREFIX_LEN = 20
 
 def set_transcripts_base(path: str | Path):
     """Update the base directory for transcripts and all related paths."""
-    global TRANSCRIPTS_BASE, SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, WEBPAGES_DIR, PDFS_DIR, PROCESSED_DIR, PACKAGES_DIR, PROJECTS_DIR
+    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR
 
     TRANSCRIPTS_BASE = Path(path)
     SOURCE_DIR = TRANSCRIPTS_BASE / "source"
-    FORMATTED_DIR = TRANSCRIPTS_BASE / "formatted"
-    SUMMARIES_DIR = TRANSCRIPTS_BASE / "summaries"
-    WEBPAGES_DIR = TRANSCRIPTS_BASE / "webpages"
-    PDFS_DIR = TRANSCRIPTS_BASE / "pdfs"
     PROCESSED_DIR = TRANSCRIPTS_BASE / "processed"
-    PACKAGES_DIR = TRANSCRIPTS_BASE / "packages"
     PROJECTS_DIR = TRANSCRIPTS_BASE / "projects"

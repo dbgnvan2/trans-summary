@@ -43,7 +43,6 @@ def setup_directories():
     """Ensure all required directories exist."""
     config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     config.SOURCE_DIR.mkdir(parents=True, exist_ok=True)
-    config.FORMATTED_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def list_source_files() -> list[Path]:

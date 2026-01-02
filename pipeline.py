@@ -133,7 +133,7 @@ def save_formatted_transcript(content: str, original_filename: str) -> Path:
     return output_path
 
 
-def format_transcript(raw_filename: str, model: str = config.FORMATTING_MODEL, logger=None) -> bool:
+def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None) -> bool:
     """
     Orchestrates the transcript formatting process.
     """
@@ -283,15 +283,24 @@ def _load_summary_prompt(prompt_filename: str) -> str:
 
 def _load_formatted_transcript(filename: str) -> str:
     """Load the formatted transcript."""
+    # 1. Check if filename is a direct path to an existing file
+    if Path(filename).is_file():
+        return Path(filename).read_text(encoding='utf-8')
+
     meta = parse_filename_metadata(filename)
     stem = meta['stem']
 
-    # Try project dir first
+    # 2. Check project directory (Primary location)
     transcript_path = config.PROJECTS_DIR / stem / filename
-    if not transcript_path.exists():
-        # Fallback to legacy formatted dir
-        transcript_path = config.FORMATTED_DIR / filename
+    if transcript_path.exists():
+        return transcript_path.read_text(encoding='utf-8')
 
+    # 3. Fallback to legacy formatted directory
+    legacy_path = config.TRANSCRIPTS_BASE / "formatted" / filename
+    if legacy_path.exists():
+        return legacy_path.read_text(encoding='utf-8')
+
+    # If not found, validate_input_file will raise the appropriate error for the expected path
     validate_input_file(transcript_path)
     return transcript_path.read_text(encoding='utf-8')
 
@@ -379,6 +388,10 @@ def _process_key_items_output(all_key_items_path: Path, logger):
     """
     Split the raw Key Items output into focused extract files.
     Generates:
+    - bowen-references.md
+    - emphasis-items.md
+    - abstract-initial.md
+    - summary-initial.md
     - topics-themes-terms.md
     """
     logger.info("Processing generated Key Items into separate files...")
@@ -466,11 +479,13 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
                     f"[{item['type']} - {item['category']} - Rank: {item['score']}%] Concept: {item['concept']}")
                 final_content_lines.append(f"\"{item['quote']}\"")
 
-                # Check for Bowen Reference (Category A14 or explicit mention)
-                # A14 is "Source Commentary", often used for Bowen quotes
-                if "A14" in item['category'] or "Bowen" in item['concept'] or "Bowen" in item['quote']:
+                # Check for Bowen Reference (Broadened to catch more references)
+                is_bowen = False
+                # If Bowen is mentioned in the concept or the quote itself, treat it as a reference
+                if "bowen" in item['concept'].lower() or "bowen" in item['quote'].lower():
+                    is_bowen = True
+                if is_bowen:
                     bowen_items.append(item)
-
             else:
                 logger.warning(
                     f"Filtered out invalid emphasis item. Issues: {', '.join(issues)}")
@@ -510,8 +525,60 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
         return False
 
 
+def extract_bowen_references_from_transcript(formatted_filename: str, model: str = config.DEFAULT_MODEL, logger=None, transcript_system_message=None) -> bool:
+    """
+    Extracts Bowen references from the transcript using a dedicated prompt.
+    """
+    if logger is None:
+        logger = setup_logging('extract_bowen_references')
+
+    try:
+        logger.info(
+            f"Starting Bowen Reference Extraction for: {formatted_filename}")
+
+        # Load the dedicated Bowen reference prompt
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_BOWEN_EXTRACTION_FILENAME)
+
+        call_kwargs = {}
+        if transcript_system_message:
+            full_prompt = prompt_template.replace(
+                "{{insert_transcript_text_here}}", "")
+            call_kwargs['system'] = transcript_system_message
+        else:
+            transcript = _load_formatted_transcript(formatted_filename)
+            full_prompt = prompt_template.replace(
+                "{{insert_transcript_text_here}}", transcript)
+
+        logger.info("Sending request to Claude for Bowen references...")
+
+        response = _generate_summary_with_claude(
+            full_prompt, model, config.TEMP_ANALYSIS, logger, min_length=50, timeout=config.TIMEOUT_SUMMARY,
+            **call_kwargs
+        )
+
+        final_content = f"## Bowen References\n\n{response}"
+
+        stem = Path(formatted_filename).stem.replace(config.SUFFIX_FORMATTED.replace(
+            '.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
+        project_dir = config.PROJECTS_DIR / stem
+        bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
+        bowen_path.write_text(final_content, encoding='utf-8')
+
+        num_found = len(re.findall(r'^\s*>\s*\*\*',
+                        final_content, re.MULTILINE))
+        logger.info(
+            f"✓ Found {num_found} Bowen references. Saved to: {bowen_path.name}")
+
+        return True
+    except Exception as e:
+        logger.error(
+            f"Error in Bowen reference extraction: {e}", exc_info=True)
+        return False
+
+
 def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str, target_audience: str,
-                         skip_extracts_summary: bool, skip_emphasis: bool, skip_blog: bool,
+                         skip_extracts_summary: bool, skip_terms: bool, skip_blog: bool,
                          generate_structured: bool = False, structured_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None) -> bool:
     """Orchestrates the transcript summarization process."""
     if logger is None:
@@ -581,14 +648,20 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 logger.info(
                     f"Skipping Key Items generation, using existing file: {all_key_items_path}")
 
-        if not skip_emphasis:
+        if not skip_terms:
+            logger.info("\n--- PART 2: Extracting Emphasis Items ---")
             # Run the new Scored Emphasis Extraction in parallel or sequence here
             # For now, we run it sequentially to ensure stability
             extract_scored_emphasis(
                 formatted_filename, model, logger, transcript_system_message)
 
+        # Always run Bowen reference extraction unless the whole summary step is skipped
+        logger.info("\n--- PART 3: Extracting Bowen References ---")
+        extract_bowen_references_from_transcript(
+            formatted_filename, model, logger, transcript_system_message)
+
         if not skip_blog:
-            logger.info("PART 3: Generating Blog Post...")
+            logger.info("\n--- PART 4: Generating Blog Post ---")
             prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template, metadata, transcript="", focus_keyword=focus_keyword, target_audience=target_audience)
@@ -692,8 +765,6 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         stem = meta['stem']
 
         transcript_path = config.PROJECTS_DIR / stem / transcript_filename
-        if not transcript_path.exists():
-            transcript_path = config.FORMATTED_DIR / transcript_filename
         validate_input_file(transcript_path)
 
         source_filename = f"{meta['stem']}.{source_ext.lstrip('.')}"
@@ -891,14 +962,9 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
         raw_file_path = config.SOURCE_DIR / raw_filename
         if formatted_filename:
             formatted_file_path = config.PROJECTS_DIR / stem / formatted_filename
-            if not formatted_file_path.exists():
-                formatted_file_path = config.FORMATTED_DIR / formatted_filename
         else:
             formatted_file_path = config.PROJECTS_DIR / stem / \
                 f"{stem}{config.SUFFIX_FORMATTED}"
-            if not formatted_file_path.exists():
-                formatted_file_path = config.FORMATTED_DIR / \
-                    f"{stem}{config.SUFFIX_FORMATTED}"
 
         validate_input_file(raw_file_path)
         validate_input_file(formatted_file_path)
@@ -1426,6 +1492,17 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
                 "Could not find Topics in All Key Items file.")
             return False
 
+        # DEBUG statements to diagnose TypeError
+        logger.info(f"DEBUG: In generate_structured_summary:")
+        logger.info(
+            f"DEBUG:   Type of summary_target_word_count (after cast): {type(summary_target_word_count)}")
+        logger.info(
+            f"DEBUG:   Value of summary_target_word_count (after cast): {summary_target_word_count}")
+        logger.info(
+            f"DEBUG:   Type of logger (param): {type(logger)}")
+        logger.info(
+            f"DEBUG:   Value of logger (param): {logger}")
+
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,
             topics_markdown=topics_section,
@@ -1564,8 +1641,6 @@ def validate_headers(formatted_filename: str, model: str = config.AUX_MODEL, log
         base_name = Path(formatted_filename).stem.replace(config.SUFFIX_FORMATTED.replace(
             '.md', ''), '').replace(config.SUFFIX_YAML.replace('.md', ''), '')
         formatted_path = config.PROJECTS_DIR / base_name / formatted_filename
-        if not formatted_path.exists():
-            formatted_path = config.FORMATTED_DIR / formatted_filename
         validate_input_file(formatted_path)
 
         logger.info(f"Loading formatted transcript: {formatted_filename}")

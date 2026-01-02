@@ -58,7 +58,8 @@ def validate_html_highlights(base_name: str, logger=None):
     if logger is None:
         logger = setup_logging('validate_html_highlights')
 
-    html_file = config.WEBPAGES_DIR / f"{base_name}{config.SUFFIX_WEBPAGE}"
+    html_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     if not html_file.exists():
         logger.error(f"HTML file not found: {html_file}")

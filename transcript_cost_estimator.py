@@ -228,15 +228,54 @@ class CostEstimator:
 
     def estimate_validation_steps(self):
         """Estimate cost for validation steps that use an LLM."""
-        # Header Validation is the main one. It sends the whole transcript.
-        # The current implementation does not use caching for this step.
+        # Header Validation is batched, so we need to estimate its total cost.
+        from transcript_validate_headers import BATCH_SIZE
+        import math
+
+        # Heuristic: Estimate 1 section per 200 words. A word is ~5 chars.
+        num_sections = (self.transcript_tokens *
+                        config.CHARS_PER_TOKEN) / (200 * 5)
+        num_batches = math.ceil(num_sections / BATCH_SIZE)
+
+        self._log(
+            f"   (Estimating Header Validation as {num_batches} batches)")
+
         prompt = (config.PROMPTS_DIR /
                   config.PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
-        input_tokens = prompt_tokens + self.transcript_tokens
-        output_tokens = 1000  # Report is usually short
-        self._calculate_cost("4. Header Validation",
-                             config.AUX_MODEL, input_tokens, output_tokens)
+        # The static part of the prompt is cached as a system message.
+        cached_prompt_tokens = estimate_token_count(
+            prompt.replace("{batch_content}", ""))
+
+        # The content (the whole transcript) is chunked and sent across N batches.
+        total_content_tokens = self.transcript_tokens
+
+        # The output is a report per batch.
+        # Estimate 1000 output tokens per batch report.
+        total_output_tokens = num_batches * 1000
+
+        # Calculate cost
+        prices = get_pricing(config.AUX_MODEL)
+
+        cost_cache_write = (cached_prompt_tokens / 1_000_000) * \
+            prices.get('cache_write', prices['input'])
+        cost_input = (total_content_tokens / 1_000_000) * prices['input']
+        cost_output = (total_output_tokens / 1_000_000) * prices['output']
+
+        total_cost = cost_cache_write + cost_input + cost_output
+
+        self.costs.append({
+            "step": "4. Header Validation",
+            "cost": total_cost,
+            "input": cached_prompt_tokens + total_content_tokens,
+            "output": total_output_tokens,
+            "model": config.AUX_MODEL,
+            "breakdown": {
+                "input": cost_input,
+                "output": cost_output,
+                "cache_write": cost_cache_write,
+                "cache_read": 0.0
+            }
+        })
 
     def run_full_estimation(self):
         """Run all estimation steps."""

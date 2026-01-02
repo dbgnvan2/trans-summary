@@ -1,0 +1,12 @@
+2026-01-02 08:57:21,228 - extract_bowen_references - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/extract_bowen_references_20260102_085721.log
+2026-01-02 08:57:21,228 - extract_bowen_references - INFO - Starting Bowen Reference Extraction for: This is a test - Dave Galloway - 2025-12-07 - yaml.md
+2026-01-02 08:57:21,228 - extract_bowen_references - ERROR - Error in Bowen reference extraction: Input file not found: /Users/davemini2/transcripts/projects/This is a test - Dave Galloway - 2025-12-07/This is a test - Dave Galloway - 2025-12-07 - yaml.md
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 537, in extract_bowen_references_from_transcript
+    transcript = _load_formatted_transcript(formatted_filename)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/pipeline.py", line 292, in _load_formatted_transcript
+    validate_input_file(transcript_path)
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/transcript_utils.py", line 85, in validate_input_file
+    raise FileNotFoundError(f"Input file not found: {file_path}")
+FileNotFoundError: Input file not found: /Users/davemini2/transcripts/projects/This is a test - Dave Galloway - 2025-12-07/This is a test - Dave Galloway - 2025-12-07 - yaml.md

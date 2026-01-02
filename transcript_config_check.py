@@ -36,12 +36,8 @@ def check_directories():
     dirs_to_check = [
         ("Base", config.TRANSCRIPTS_BASE),
         ("Source", config.SOURCE_DIR),
-        ("Formatted", config.FORMATTED_DIR),
-        ("Summaries", config.SUMMARIES_DIR),
-        ("Webpages", config.WEBPAGES_DIR),
-        ("PDFs", config.PDFS_DIR),
+        ("Projects", config.PROJECTS_DIR),
         ("Processed", config.PROCESSED_DIR),
-        ("Packages", config.PACKAGES_DIR),
         ("Prompts", config.PROMPTS_DIR),
         ("Logs", config.LOGS_DIR),
     ]

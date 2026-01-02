@@ -145,11 +145,8 @@ if __name__ == "__main__":
         f"{base_name}{config.SUFFIX_FORMATTED}"
 
     if not formatted_file.exists():
-        formatted_file = config.FORMATTED_DIR / \
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        if not formatted_file.exists():
-            print(f"❌ Formatted file not found: {formatted_file}")
-            sys.exit(1)
+        print(f"❌ Formatted file not found: {formatted_file}")
+        sys.exit(1)
 
     print(f"Validating emphasis items for {base_name}...")
     print(f"  Formatted: {formatted_file.name}")

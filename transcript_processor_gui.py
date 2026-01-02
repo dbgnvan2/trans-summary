@@ -253,14 +253,14 @@ class TranscriptProcessorGUI:
             ("Header Val", project_dir /
              f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
             ("YAML", project_dir / f"{base}{config.SUFFIX_YAML}"),
-            ("Key Items (Raw)", project_dir /
-             f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
-            ("  - Clean T/T/T", project_dir /
+            ("Topics, Themes, Terms", project_dir /
              f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
-            ("  - Scored Emphasis", project_dir /
+            ("Scored Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
-            ("  - Bowen", project_dir /
+            ("Bowen References", project_dir /
              f"{base}{config.SUFFIX_BOWEN}"),
+            ("Gen Summary", project_dir /
+             f"{base}{config.SUFFIX_SUMMARY_GEN}"),
             ("Summary Val", project_dir /
              f"{base}{config.SUFFIX_SUMMARY_VAL}"),
             ("Gen Abstract", project_dir /
@@ -364,7 +364,7 @@ class TranscriptProcessorGUI:
             pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger)
 
     def do_summaries(self):
-        yaml_file = config.FORMATTED_DIR / \
+        yaml_file = config.PROJECTS_DIR / self.base_name / \
             f"{self.base_name}{config.SUFFIX_YAML}"
         if not yaml_file.exists():
             if self.formatted_file.exists():

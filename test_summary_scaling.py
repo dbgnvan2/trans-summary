@@ -25,9 +25,10 @@ def run_test(target_words):
 
     try:
         # Load data
-        formatted_file = config.FORMATTED_DIR / \
+        project_dir = config.PROJECTS_DIR / base_name
+        formatted_file = project_dir / \
             f"{base_name}{config.SUFFIX_FORMATTED}"
-        extracts_file = config.SUMMARIES_DIR / \
+        extracts_file = project_dir / \
             f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         if not formatted_file.exists():

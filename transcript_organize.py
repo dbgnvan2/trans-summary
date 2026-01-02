@@ -24,14 +24,17 @@ def get_all_base_names():
     """
     base_names = set()
 
+    # Legacy directory
+    formatted_dir = config.TRANSCRIPTS_BASE / "formatted"
+
     # Check source
     if config.SOURCE_DIR.exists():
         for f in config.SOURCE_DIR.glob("*.txt"):
             base_names.add(f.stem)
 
     # Check formatted (in case source was moved)
-    if config.FORMATTED_DIR.exists():
-        for f in config.FORMATTED_DIR.glob("* - formatted.md"):
+    if formatted_dir.exists():
+        for f in formatted_dir.glob("* - formatted.md"):
             base_names.add(f.name.replace(" - formatted.md", ""))
 
     return sorted(list(base_names))
@@ -45,18 +48,25 @@ def organize_transcript(base_name, move=False):
     project_dir = config.TRANSCRIPTS_BASE / "projects" / base_name
     project_dir.mkdir(parents=True, exist_ok=True)
 
+    # Define legacy directories locally
+    formatted_dir = config.TRANSCRIPTS_BASE / "formatted"
+    summaries_dir = config.TRANSCRIPTS_BASE / "summaries"
+    webpages_dir = config.TRANSCRIPTS_BASE / "webpages"
+    pdfs_dir = config.TRANSCRIPTS_BASE / "pdfs"
+    packages_dir = config.TRANSCRIPTS_BASE / "packages"
+
     # Define where to look and what patterns to look for
     # (Source dir, glob_pattern)
     search_locations = [
         (config.SOURCE_DIR, f"{base_name}.txt"),
-        (config.FORMATTED_DIR, f"{base_name} - *.md"),
-        (config.SUMMARIES_DIR, f"{base_name} - *.md"),
-        (config.SUMMARIES_DIR, f"{base_name} - *.txt"),
-        (config.SUMMARIES_DIR, f"{base_name} - *.json"),
-        (config.WEBPAGES_DIR, f"{base_name}*.html"),
-        (config.PDFS_DIR, f"{base_name}*.pdf"),
-        (config.PACKAGES_DIR, f"{base_name}.zip"),
-        (config.PROCESSED_DIR, f"{base_name}*.txt"),  # Processed source files
+        (formatted_dir, f"{base_name} - *.md"),
+        (summaries_dir, f"{base_name} - *.md"),
+        (summaries_dir, f"{base_name} - *.txt"),
+        (summaries_dir, f"{base_name} - *.json"),
+        (webpages_dir, f"{base_name}*.html"),
+        (pdfs_dir, f"{base_name}*.pdf"),
+        (packages_dir, f"{base_name}.zip"),
+        (config.PROCESSED_DIR, f"{base_name}*.txt"),
     ]
 
     files_found = 0

@@ -45,11 +45,9 @@ def load_formatted_transcript(filename: str) -> str:
 
     transcript_path = config.PROJECTS_DIR / stem / filename
     if not transcript_path.exists():
-        transcript_path = config.FORMATTED_DIR / filename
-        if not transcript_path.exists():
-            raise FileNotFoundError(
-                f"Formatted transcript not found: {transcript_path}"
-            )
+        raise FileNotFoundError(
+            f"Formatted transcript not found: {transcript_path}"
+        )
     return transcript_path.read_text(encoding='utf-8')
 
 

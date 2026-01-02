@@ -140,9 +140,6 @@ if __name__ == "__main__":
     formatted_file = config.PROJECTS_DIR / base_name / \
         f"{base_name}{config.SUFFIX_FORMATTED}"
     if not formatted_file.exists():
-        formatted_file = config.FORMATTED_DIR / \
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        if not formatted_file.exists():
-            print(f"❌ Formatted file not found: {formatted_file}")
-            sys.exit(1)
+        print(f"❌ Formatted file not found: {formatted_file}")
+        sys.exit(1)
     validate_bowen_items(base_name, formatted_file)

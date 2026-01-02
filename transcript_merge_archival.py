@@ -19,9 +19,10 @@ import config
 def merge_key_terms_into_topics_themes(base_name: str) -> bool:
     """Merge key-terms.md into topics-themes.md document."""
 
-    topics_themes_path = config.SUMMARIES_DIR / \
+    project_dir = config.PROJECTS_DIR / base_name
+    topics_themes_path = project_dir / \
         f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
-    key_terms_path = config.SUMMARIES_DIR / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    key_terms_path = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
 
     # Check both files exist
     if not topics_themes_path.exists():

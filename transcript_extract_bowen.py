@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-CLI wrapper for extracting scored emphasis items from a transcript.
+CLI wrapper for extracting Bowen references from a transcript.
 
 Usage:
-    python transcript_extract_emphasis.py "Title - Presenter - Date - yaml.md"
+    python transcript_extract_bowen.py "Title - Presenter - Date - yaml.md"
 """
 
 import argparse
 import sys
 from pathlib import Path
-from pipeline import extract_scored_emphasis
+from pipeline import extract_bowen_references_from_transcript
 import config
 from transcript_utils import parse_filename_metadata
 
@@ -18,37 +18,34 @@ def resolve_filename(filename: str) -> str:
     """
     Resolve filename to support base names and ' - yaml.md' extension.
     """
-    # Clean up base name
-    base = filename
-    suffixes = [
-        config.SUFFIX_YAML,
-        config.SUFFIX_FORMATTED,
-        '.md',
-        '.txt'
+    # Clean up base name from any potential full path or extension
+    base = Path(filename).stem
+    suffixes_to_strip = [
+        config.SUFFIX_YAML.replace('.md', ''),
+        config.SUFFIX_FORMATTED.replace('.md', '')
     ]
-    for suffix in suffixes:
+    for suffix in suffixes_to_strip:
         if base.endswith(suffix):
             base = base[:-len(suffix)]
             break
 
+    # Check for preferred file types in the project directory
     project_dir = config.PROJECTS_DIR / base
-
-    # Try - yaml.md first
     yaml_name = f"{base}{config.SUFFIX_YAML}"
     if (project_dir / yaml_name).exists():
         return yaml_name
 
-    # Try - formatted.md (fallback)
     formatted_name = f"{base}{config.SUFFIX_FORMATTED}"
     if (project_dir / formatted_name).exists():
         return formatted_name
 
+    # If not found, return original to let the pipeline handle the error
     return filename
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract scored emphasis items from a transcript using the core pipeline."
+        description="Extract Bowen references from a transcript using a dedicated pipeline step."
     )
     parser.add_argument(
         "formatted_filename",
@@ -79,18 +76,18 @@ def main():
         # If parsing fails, let the pipeline handle the error.
         pass
 
-    print(f"Starting scored emphasis extraction for: {resolved_filename}")
+    print(f"Starting Bowen reference extraction for: {resolved_filename}")
 
-    success = extract_scored_emphasis(
+    success = extract_bowen_references_from_transcript(
         formatted_filename=resolved_filename,
         model=args.model
     )
 
     if success:
-        print("\nEmphasis extraction completed successfully.")
+        print("\nBowen reference extraction completed successfully.")
         return 0
     else:
-        print("\nEmphasis extraction failed. Check the logs for details.")
+        print("\nBowen reference extraction failed. Check the logs for details.")
         return 1
 
 
