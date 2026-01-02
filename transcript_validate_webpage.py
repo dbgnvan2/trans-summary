@@ -593,6 +593,15 @@ def find_best_match_in_html(needle, haystack_normalized, threshold=0.85):
     return (best_ratio, best_match)
 
 
+def _load_abstract_content(base_name):
+    """Load abstract from generated file if available."""
+    gen_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+    if gen_file.exists():
+        return gen_file.read_text(encoding='utf-8')
+    return None
+
+
 def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     """Validate HTML webpage against source materials."""
 
@@ -660,6 +669,28 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print("-" * 70)
 
     source_meta = extract_topics_themes_metadata(topics_themes_file)
+
+    # OVERRIDE with specialized files if they exist (matching html_generator logic)
+    # This ensures we validate against what was actually put in the HTML
+
+    # 1. Abstract
+    gen_abstract = _load_abstract_content(base_name)
+    if gen_abstract:
+        source_meta['has_abstract'] = True
+        source_meta['abstract_text'] = gen_abstract
+        source_meta['abstract_length'] = len(gen_abstract)
+
+    # 2. Bowen References
+    real_bowen = load_bowen_references(base_name)
+    if real_bowen:
+        source_meta['bowen_refs_list'] = real_bowen
+        source_meta['bowen_refs_count'] = len(real_bowen)
+
+    # 3. Emphasis Items
+    real_emphasis = load_emphasis_items(base_name)
+    if real_emphasis:
+        source_meta['emphasis_list'] = real_emphasis
+        source_meta['emphasis_count'] = len(real_emphasis)
 
     # Use appropriate extraction function based on mode
     if simple_mode:

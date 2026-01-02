@@ -25,8 +25,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
+        default=config.FORMATTING_MODEL,
+        help=f"Claude model to use (default: {config.FORMATTING_MODEL})"
     )
 
     args = parser.parse_args()

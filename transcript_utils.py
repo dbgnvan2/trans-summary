@@ -231,11 +231,18 @@ def validate_api_response(
     # 7. Verify model (warning only - API might use different version)
     if hasattr(message, 'model'):
         if message.model != expected_model:
-            if logger:
-                logger.warning(
-                    f"Model mismatch: requested '{expected_model}' "
-                    f"but got '{message.model}'"
-                )
+            # Check for alias resolution (e.g. latest -> specific date)
+            # If expected is "claude-3-5-sonnet-latest" and actual is "claude-3-5-sonnet-20241022", that's fine.
+            is_alias_resolution = (
+                "latest" in expected_model and
+                expected_model.replace("-latest", "") in message.model
+            )
+            if not is_alias_resolution:
+                if logger:
+                    logger.warning(
+                        f"Model mismatch: requested '{expected_model}' "
+                        f"but got '{message.model}'"
+                    )
 
     return text
 

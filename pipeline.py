@@ -379,10 +379,6 @@ def _process_key_items_output(all_key_items_path: Path, logger):
     """
     Split the raw Key Items output into focused extract files.
     Generates:
-    - bowen-references.md
-    - emphasis-items.md
-    - abstract-initial.md
-    - summary-initial.md
     - topics-themes-terms.md
     """
     logger.info("Processing generated Key Items into separate files...")
@@ -411,13 +407,6 @@ def _process_key_items_output(all_key_items_path: Path, logger):
         combined_path = project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
         combined_path.write_text(combined_output, encoding='utf-8')
         logger.info(f"  ✓ Topics, Themes, Terms → {combined_path.name}")
-
-        # Also save separate Key Terms file for backward compatibility/specific access
-        if key_terms:
-            key_terms_output = "## Key Terms\n\n" + key_terms
-            key_terms_path = project_dir / f"{stem}{config.SUFFIX_KEY_TERMS}"
-            key_terms_path.write_text(key_terms_output, encoding='utf-8')
-            logger.info(f"  ✓ Key Terms (standalone) → {key_terms_path.name}")
 
 
 def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT_MODEL, logger=None, transcript_system_message=None) -> bool:
@@ -468,7 +457,6 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
         validated_items = []
         final_content_lines = []
         bowen_items = []
-
         for item in items:
             is_valid, issues = validate_emphasis_item(item)
             if is_valid:
@@ -479,18 +467,8 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
                 final_content_lines.append(f"\"{item['quote']}\"")
 
                 # Check for Bowen Reference (Category A14 or explicit mention)
-                # We use strict filtering to avoid false positives (e.g. "Bowen theory", "Bowen theorists")
-                is_bowen = False
-                quote_text = item['quote']
-
-                # 1. Category A14 (Source Commentary) mentioning Bowen is likely a quote/reference
-                if "A14" in item['category'] and "Bowen" in quote_text:
-                    is_bowen = True
-                # 2. Explicit attribution in the text
-                elif re.search(r"(?:Murray\s+)?Bowen\s+(?:said|wrote|thought|believed|described|called|postulated|defined|viewed|observed|stated)|(?:quote|words)\s+(?:from|of|by)\s+(?:Murray\s+)?Bowen|(?:\bBowen['']s\s+quote)", quote_text, re.IGNORECASE):
-                    is_bowen = True
-
-                if is_bowen:
+                # A14 is "Source Commentary", often used for Bowen quotes
+                if "A14" in item['category'] or "Bowen" in item['concept'] or "Bowen" in item['quote']:
                     bowen_items.append(item)
 
             else:
@@ -524,7 +502,6 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
             bowen_path.write_text(bowen_output, encoding='utf-8')
             logger.info(
                 f"✓ Derived {len(bowen_items)} Bowen references from scored emphasis → {bowen_path.name}")
-
         return True
 
     except Exception as e:
@@ -534,7 +511,7 @@ def extract_scored_emphasis(formatted_filename: str, model: str = config.DEFAULT
 
 
 def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str, target_audience: str,
-                         skip_extracts_summary: bool, skip_terms: bool, skip_blog: bool,
+                         skip_extracts_summary: bool, skip_emphasis: bool, skip_blog: bool,
                          generate_structured: bool = False, structured_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT, logger=None) -> bool:
     """Orchestrates the transcript summarization process."""
     if logger is None:
@@ -604,14 +581,11 @@ def summarize_transcript(formatted_filename: str, model: str, focus_keyword: str
                 logger.info(
                     f"Skipping Key Items generation, using existing file: {all_key_items_path}")
 
-        if not skip_terms:
+        if not skip_emphasis:
             # Run the new Scored Emphasis Extraction in parallel or sequence here
             # For now, we run it sequentially to ensure stability
             extract_scored_emphasis(
                 formatted_filename, model, logger, transcript_system_message)
-
-            # Note: We skip the separate "Part 2" Key Terms call here to avoid duplication.
-            # We rely on the Key Terms extracted in Part 1 (All Key Items).
 
         if not skip_blog:
             logger.info("PART 3: Generating Blog Post...")
@@ -1451,17 +1425,6 @@ def generate_structured_summary(base_name: str, summary_target_word_count: int =
             logger.error(
                 "Could not find Topics in All Key Items file.")
             return False
-
-        # DEBUG statements to diagnose TypeError
-        logger.info(f"DEBUG: In generate_structured_summary:")
-        logger.info(
-            f"DEBUG:   Type of summary_target_word_count (after cast): {type(summary_target_word_count)}")
-        logger.info(
-            f"DEBUG:   Value of summary_target_word_count (after cast): {summary_target_word_count}")
-        logger.info(
-            f"DEBUG:   Type of logger (param): {type(logger)}")
-        logger.info(
-            f"DEBUG:   Value of logger (param): {logger}")
 
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,

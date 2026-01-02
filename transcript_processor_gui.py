@@ -257,14 +257,10 @@ class TranscriptProcessorGUI:
              f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
             ("  - Clean T/T/T", project_dir /
              f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
-            ("  - Bowen", project_dir /
-             f"{base}{config.SUFFIX_BOWEN}"),
-            ("  - Emphasis", project_dir /
-             f"{base}{config.SUFFIX_EMPHASIS}"),
             ("  - Scored Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
-            ("Gen Summary", project_dir /
-             f"{base}{config.SUFFIX_SUMMARY_GEN}"),
+            ("  - Bowen", project_dir /
+             f"{base}{config.SUFFIX_BOWEN}"),
             ("Summary Val", project_dir /
              f"{base}{config.SUFFIX_SUMMARY_VAL}"),
             ("Gen Abstract", project_dir /
@@ -580,6 +576,7 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_all_steps)
 
     def _run_all_steps(self):
+        start_time = datetime.now()
         # Step 1: Format & Validate
         self.log("\n--- STEP 1: Formatting ---")
         if not self._run_format_and_validate():
@@ -636,7 +633,8 @@ class TranscriptProcessorGUI:
 
         # Step 11: Token Usage Report
         self.log("\n--- Token Usage Report ---")
-        self.log(analyze_token_usage.generate_usage_report())
+        self.log(analyze_token_usage.generate_usage_report(
+            since_timestamp=start_time))
 
         self.log("\n✅ FULL PIPELINE COMPLETE!")
         return True

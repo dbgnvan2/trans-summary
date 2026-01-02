@@ -74,8 +74,6 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     blocks = [b.strip() for b in re.split(
         r'(?:^|\n)###\s+', topics_markdown) if b.strip()]
 
-    print(f"DEBUG: Found {len(blocks)} potential topic blocks")
-
     for block in blocks:
         lines = block.split('\n')
         if not lines:
@@ -124,8 +122,6 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
             # Note: Topic dataclass currently only uses name, percentage, sections.
             topics.append(
                 Topic(name=name, percentage=percentage, sections=sections))
-        elif not metadata_found:
-            print(f"DEBUG: Metadata not found for block '{name[:20]}...'")
 
     # Sort by percentage descending, take top 5
     topics.sort(key=lambda t: t.percentage, reverse=True)
@@ -148,8 +144,6 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     header_pattern = r'(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*'
 
     matches = list(re.finditer(header_pattern, themes_markdown))
-
-    print(f"DEBUG: Found {len(matches)} theme headers")
 
     for i, match in enumerate(matches):
         label = match.group(2).strip()

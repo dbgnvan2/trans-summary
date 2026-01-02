@@ -147,8 +147,6 @@ def parse_topics_with_details(
     blocks = [b.strip() for b in re.split(
         r'(?:^|\n)###\s+', topics_markdown) if b.strip()]
 
-    print(f"DEBUG: Found {len(blocks)} potential topic blocks")
-
     for block in blocks:
         lines = block.split('\n')
         if not lines:
@@ -199,8 +197,6 @@ def parse_topics_with_details(
                 "description": description,
                 "key_points": key_points
             })
-        elif not metadata_found:
-            print(f"DEBUG: Metadata not found for block '{name[:20]}...'\n")
 
     # Sort by percentage descending
     topics.sort(key=lambda t: t["percentage"], reverse=True)
@@ -323,7 +319,6 @@ def parse_themes(themes_markdown: str) -> list[dict]:
     header_pattern = r'(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*'
 
     matches = list(re.finditer(header_pattern, themes_markdown))
-    print(f"DEBUG: Found {len(matches)} theme headers")
 
     for i, match in enumerate(matches):
         name = match.group(2).strip()

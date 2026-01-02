@@ -16,6 +16,31 @@ import config
 # Pricing per Million Tokens (USD)
 # Updated as of late 2024 (Estimates)
 PRICING = {
+    # Claude 4.5 Family (Estimates based on Opus/Haiku tiers)
+    "claude-opus-4-5-20251101": {
+        "input": 15.00,
+        "output": 75.00,
+        "cache_write": 18.75,
+        "cache_read": 1.50
+    },
+    "claude-sonnet-4-5-20250929": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30
+    },
+    "claude-haiku-4-5-20251001": {
+        "input": 0.25,
+        "output": 1.25,
+        "cache_write": 0.30,
+        "cache_read": 0.03
+    },
+    "claude-3-7-sonnet-20250219": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30
+    },
     "claude-3-5-sonnet": {
         "input": 3.00,
         "output": 15.00,
@@ -50,6 +75,17 @@ def get_pricing(model_name):
     for key in PRICING:
         if key in model_lower:
             return PRICING[key]
+
+    # Fallback logic for partial matches
+    if "haiku" in model_lower and "4-5" in model_lower:
+        return PRICING["claude-haiku-4-5-20251001"]
+    if "opus" in model_lower and "4-5" in model_lower:
+        return PRICING["claude-opus-4-5-20251101"]
+    if "sonnet" in model_lower and "4-5" in model_lower:
+        return PRICING["claude-sonnet-4-5-20250929"]
+    if "sonnet" in model_lower and "3-7" in model_lower:
+        return PRICING["claude-3-7-sonnet-20250219"]
+
     # Default fallback (Sonnet pricing)
     return PRICING["claude-3-5-sonnet"]
 

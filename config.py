@@ -45,13 +45,13 @@ SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Default Model
-DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_MODEL = "claude-3-7-sonnet-20250219"
 
 # Auxiliary Model (used for validation and specific generation tasks)
-AUX_MODEL = "claude-3-5-haiku-20241022"
+AUX_MODEL = "claude-haiku-4-5-20251001"
 
 # Formatting Model (High speed/low cost for full text rewriting)
-FORMATTING_MODEL = "claude-3-5-haiku-20241022"
+FORMATTING_MODEL = "claude-haiku-4-5-20251001"
 
 # Default Summary Word Count
 DEFAULT_SUMMARY_WORD_COUNT = 500
