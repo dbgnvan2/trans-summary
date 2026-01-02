@@ -119,3 +119,5 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-02 09:33:18,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 3537),612,1480,3537,0
 2026-01-02 09:33:34,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3537),1717,687,0,3537
 2026-01-02 09:33:43,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3537),321,369,0,3537
+2026-01-02 09:34:12,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3537),814,1263,0,3537
+2026-01-02 10:32:20,extract_bowen_references,claude-3-7-sonnet-20250219,end_turn,No,3859,357,0,0

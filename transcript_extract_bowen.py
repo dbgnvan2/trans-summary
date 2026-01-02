@@ -3,15 +3,15 @@
 CLI wrapper for extracting Bowen references from a transcript.
 
 Usage:
-    python transcript_extract_bowen.py "Title - Presenter - Date - yaml.md"
+    python transcript_extract_bowen.py "Title - Presenter - Date - yaml.md" [--show-prompt]
 """
 
 import argparse
 import sys
 from pathlib import Path
-from pipeline import extract_bowen_references_from_transcript
+from pipeline import extract_bowen_references_from_transcript, _load_formatted_transcript
 import config
-from transcript_utils import parse_filename_metadata
+from transcript_utils import parse_filename_metadata, create_system_message_with_cache
 
 
 def resolve_filename(filename: str) -> str:
@@ -56,8 +56,23 @@ def main():
         default=config.DEFAULT_MODEL,
         help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
     )
+    parser.add_argument(
+        "--show-prompt",
+        action="store_true",
+        help="Display the prompt template being used and exit"
+    )
 
     args = parser.parse_args()
+
+    if args.show_prompt:
+        prompt_path = config.PROMPTS_DIR / config.PROMPT_BOWEN_EXTRACTION_FILENAME
+        if prompt_path.exists():
+            print(f"\n--- Prompt Template ({prompt_path.name}) ---")
+            print(prompt_path.read_text(encoding='utf-8'))
+            print("-------------------------------------------\n")
+        else:
+            print(f"❌ Prompt file not found: {prompt_path}")
+        return 0
 
     resolved_filename = resolve_filename(args.formatted_filename)
 
@@ -78,9 +93,15 @@ def main():
 
     print(f"Starting Bowen reference extraction for: {resolved_filename}")
 
+    # Load transcript and create a cached system message to reduce costs
+    transcript_content = _load_formatted_transcript(resolved_filename)
+    transcript_system_message = create_system_message_with_cache(
+        transcript_content)
+
     success = extract_bowen_references_from_transcript(
         formatted_filename=resolved_filename,
-        model=args.model
+        model=args.model,
+        transcript_system_message=transcript_system_message
     )
 
     if success:

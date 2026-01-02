@@ -542,7 +542,12 @@ def extract_bowen_references_from_transcript(formatted_filename: str, model: str
 
         call_kwargs = {}
         if transcript_system_message:
+            # Remove the transcript section marker and placeholder to avoid confusing the model
+            # with an empty "TRANSCRIPT:" section at the end of the user message.
             full_prompt = prompt_template.replace(
+                "TRANSCRIPT:\n\n{{insert_transcript_text_here}}", "").strip()
+            # Fallback cleanup in case the template format varies
+            full_prompt = full_prompt.replace(
                 "{{insert_transcript_text_here}}", "")
             call_kwargs['system'] = transcript_system_message
         else:

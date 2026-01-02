@@ -70,7 +70,9 @@ trans-summary/
 ├── transcript_utils.py     # Shared utilities (logging, API calls)
 ├── transcript_*.py         # CLI wrappers for specific tasks
 ├── prompts/                # Markdown prompt templates for Claude
-└── transcripts/            # Data directory (configurable)
+
+
+transcripts/            # Data directory (configurable)
     ├── source/             # Raw input files
     ├── formatted/          # Cleaned markdown files
     ├── summaries/          # Generated analysis & extracts

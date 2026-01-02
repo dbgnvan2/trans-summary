@@ -9,9 +9,9 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from pipeline import extract_scored_emphasis
+from pipeline import extract_scored_emphasis, _load_formatted_transcript
 import config
-from transcript_utils import parse_filename_metadata
+from transcript_utils import parse_filename_metadata, create_system_message_with_cache
 
 
 def resolve_filename(filename: str) -> str:
@@ -81,9 +81,15 @@ def main():
 
     print(f"Starting scored emphasis extraction for: {resolved_filename}")
 
+    # Load transcript and create a cached system message to reduce costs
+    transcript_content = _load_formatted_transcript(resolved_filename)
+    transcript_system_message = create_system_message_with_cache(
+        transcript_content)
+
     success = extract_scored_emphasis(
         formatted_filename=resolved_filename,
-        model=args.model
+        model=args.model,
+        transcript_system_message=transcript_system_message
     )
 
     if success:
