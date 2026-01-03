@@ -14,7 +14,7 @@ Usage:
 
 import argparse
 import shutil
-from pathlib import Path
+
 import config
 
 
@@ -80,7 +80,10 @@ def organize_transcript(base_name, move=False):
                 dest_path = project_dir / file_path.name
 
                 # Don't overwrite if same (e.g. running script multiple times)
-                if dest_path.exists() and dest_path.stat().st_size == file_path.stat().st_size:
+                if (
+                    dest_path.exists()
+                    and dest_path.stat().st_size == file_path.stat().st_size
+                ):
                     continue
 
                 if move:
@@ -98,9 +101,13 @@ def organize_transcript(base_name, move=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Organize transcript files into project folders.")
-    parser.add_argument("--move", action="store_true",
-                        help="Move files instead of copying (Destructive)")
+        description="Organize transcript files into project folders."
+    )
+    parser.add_argument(
+        "--move",
+        action="store_true",
+        help="Move files instead of copying (Destructive)",
+    )
     args = parser.parse_args()
 
     base_names = get_all_base_names()

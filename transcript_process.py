@@ -15,14 +15,14 @@ Usage:
     python transcript_process.py
 """
 
-import os
-import sys
 import subprocess
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
-import config
+
 import analyze_token_usage
+import config
 
 # Script paths (in same directory as this script)
 SCRIPT_DIR = Path(__file__).parent
@@ -89,9 +89,9 @@ def confirm(prompt: str, default: bool = True) -> bool:
             response = input(f"{prompt}{suffix}: ").strip().lower()
             if not response:
                 return default
-            if response in ('y', 'yes'):
+            if response in ("y", "yes"):
                 return True
-            if response in ('n', 'no'):
+            if response in ("n", "no"):
                 return False
             print("Please enter 'y' or 'n'")
         except KeyboardInterrupt:
@@ -101,9 +101,9 @@ def confirm(prompt: str, default: bool = True) -> bool:
 
 def run_script(script: Path, args: list[str], description: str) -> Tuple[bool, int]:
     """Run a Python script and return success status and exit code."""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"{description}")
-    print('='*80)
+    print("=" * 80)
 
     cmd = [PYTHON, str(script)] + args
     result = subprocess.run(cmd)
@@ -120,9 +120,9 @@ def run_script(script: Path, args: list[str], description: str) -> Tuple[bool, i
 def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
     """Extract title, author, date from filename pattern: 'Title - Author - Date.txt'"""
     # Remove .txt extension
-    base = filename.replace('.txt', '')
+    base = filename.replace(".txt", "")
 
-    parts = [p.strip() for p in base.split(' - ')]
+    parts = [p.strip() for p in base.split(" - ")]
 
     if len(parts) >= 3:
         return parts[0], parts[1], parts[2]
@@ -134,16 +134,16 @@ def extract_metadata_from_filename(filename: str) -> Tuple[str, str, str]:
 
 def display_yaml_preview(formatted_file: Path) -> None:
     """Display the first 25 lines of the formatted file with YAML."""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("YAML Front Matter Preview:")
-    print("="*80)
+    print("=" * 80)
 
-    with open(formatted_file, 'r', encoding='utf-8') as f:
+    with open(formatted_file, "r", encoding="utf-8") as f:
         lines = f.readlines()[:25]
         for line in lines:
             print(line.rstrip())
 
-    print("="*80)
+    print("=" * 80)
 
 
 def move_to_processed(source_file: Path) -> Path:
@@ -169,9 +169,9 @@ def main():
     """Main interactive processing loop."""
     start_time = datetime.now()
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TRANSCRIPT PROCESSING PIPELINE")
-    print("="*80)
+    print("=" * 80)
 
     # Setup
     setup_directories()
@@ -188,7 +188,9 @@ def main():
 
     # Select file
     choice = get_user_choice(
-        f"\nSelect file to process (1-{len(source_files)}, or 0 to exit)", len(source_files))
+        f"\nSelect file to process (1-{len(source_files)}, or 0 to exit)",
+        len(source_files),
+    )
     if choice == 0:
         print("Exiting...")
         return 0
@@ -202,8 +204,7 @@ def main():
 
     # Check existing files to determine starting point
     project_dir = config.PROJECTS_DIR / base_name
-    formatted_file = project_dir / \
-        f"{base_name}{config.SUFFIX_FORMATTED}"
+    formatted_file = project_dir / f"{base_name}{config.SUFFIX_FORMATTED}"
     has_formatted = formatted_file.exists()
     has_yaml = False
 
@@ -213,19 +214,17 @@ def main():
         has_yaml = True
     elif has_formatted:
         # Check if YAML exists by looking for "---" at start of formatted.md
-        with open(formatted_file, 'r', encoding='utf-8') as f:
+        with open(formatted_file, "r", encoding="utf-8") as f:
             first_line = f.readline().strip()
-            has_yaml = (first_line == "---")
+            has_yaml = first_line == "---"
 
     # Show status
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Current Status:")
-    print(
-        f"  📄 Source file: {'✅ Found' if source_file.exists() else '❌ Missing'}")
-    print(
-        f"  📝 Formatted file: {'✅ Found' if has_formatted else '❌ Not created'}")
+    print(f"  📄 Source file: {'✅ Found' if source_file.exists() else '❌ Missing'}")
+    print(f"  📝 Formatted file: {'✅ Found' if has_formatted else '❌ Not created'}")
     print(f"  📋 YAML front matter: {'✅ Added' if has_yaml else '❌ Not added'}")
-    print("="*80)
+    print("=" * 80)
 
     # Determine starting step
     start_step = 1
@@ -256,9 +255,7 @@ def main():
     # Step 1: Format transcript (skip if starting later)
     if start_step <= 1:
         success, _ = run_script(
-            FORMAT_SCRIPT,
-            [str(source_file.name)],
-            "STEP 1: Formatting Transcript"
+            FORMAT_SCRIPT, [str(source_file.name)], "STEP 1: Formatting Transcript"
         )
 
         if not success:
@@ -270,11 +267,13 @@ def main():
         success, _ = run_script(
             VALIDATE_SCRIPT,
             [str(source_file.name)],
-            "STEP 2: Validating Word Preservation"
+            "STEP 2: Validating Word Preservation",
         )
 
         if not success:
-            if not confirm("\n⚠️  Validation reported issues. Continue anyway?", default=False):
+            if not confirm(
+                "\n⚠️  Validation reported issues. Continue anyway?", default=False
+            ):
                 print("Stopped at validation stage.")
                 return 1
 
@@ -287,7 +286,7 @@ def main():
         success, _ = run_script(
             ADD_YAML_SCRIPT,
             [str(formatted_file.name)],
-            "STEP 3: Adding YAML Front Matter"
+            "STEP 3: Adding YAML Front Matter",
         )
 
         if not success:
@@ -312,7 +311,7 @@ def main():
         success, _ = run_script(
             SUMMARIZE_SCRIPT,
             [str(formatted_file.name)],
-            "STEP 4: Generating Summaries (Archival + Blog)"
+            "STEP 4: Generating Summaries (Archival + Blog)",
         )
 
         if not success:
@@ -324,28 +323,20 @@ def main():
         if confirm("\nProceed with generating Webpages and PDF?"):
             # Webpage
             success, _ = run_script(
-                WEBPAGE_SCRIPT,
-                [base_name],
-                "STEP 5a: Generating Main Webpage"
+                WEBPAGE_SCRIPT, [base_name], "STEP 5a: Generating Main Webpage"
             )
             if not success:
                 print("⚠️ Main webpage generation failed.")
 
             # Simple Webpage
             success, _ = run_script(
-                SIMPLE_WEBPAGE_SCRIPT,
-                [base_name],
-                "STEP 5b: Generating Simple Webpage"
+                SIMPLE_WEBPAGE_SCRIPT, [base_name], "STEP 5b: Generating Simple Webpage"
             )
             if not success:
                 print("⚠️ Simple webpage generation failed.")
 
             # PDF
-            success, _ = run_script(
-                PDF_SCRIPT,
-                [base_name],
-                "STEP 5c: Generating PDF"
-            )
+            success, _ = run_script(PDF_SCRIPT, [base_name], "STEP 5c: Generating PDF")
             if not success:
                 print("⚠️ PDF generation failed.")
 
@@ -353,25 +344,20 @@ def main():
     if start_step <= 6:
         if confirm("\nProceed with packaging artifacts?"):
             success, _ = run_script(
-                PACKAGE_SCRIPT,
-                [base_name],
-                "STEP 6: Packaging Artifacts"
+                PACKAGE_SCRIPT, [base_name], "STEP 6: Packaging Artifacts"
             )
             if not success:
                 print("⚠️ Packaging failed.")
 
     # Step 5: Final confirmation
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("PROCESSING COMPLETE!")
-    print("="*80)
+    print("=" * 80)
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
-    print(
-        f"📊 Summaries: {project_dir / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
-    print(
-        f"           : {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
-    print(
-        f"📦 Package:   {project_dir / f'{base_name}.zip'}")
+    print(f"📊 Summaries: {project_dir / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
+    print(f"           : {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
+    print(f"📦 Package:   {project_dir / f'{base_name}.zip'}")
 
     # Display Token Usage Report
     print("\n" + analyze_token_usage.generate_usage_report(since_timestamp=start_time))

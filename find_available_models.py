@@ -3,10 +3,11 @@
 Comprehensive test script to find available Anthropic models.
 Attempts to list models dynamically and tests specific known models.
 """
+
 import os
-import sys
-from dotenv import load_dotenv
+
 import anthropic
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -24,23 +25,23 @@ def main():
         print(f"❌ Failed to initialize Anthropic client: {e}")
         return
 
-    print("="*60)
+    print("=" * 60)
     print("ANTHROPIC MODEL AVAILABILITY CHECK")
-    print("="*60)
+    print("=" * 60)
 
     # 1. Try dynamic listing
     print("\n--- Attempting to list models via API ---")
     discovered_models = []
     try:
         # Check if models attribute exists (newer SDK versions)
-        if hasattr(client, 'models'):
+        if hasattr(client, "models"):
             # Pagination handling if necessary, though usually list returns a page
             models_page = client.models.list()
 
             # Handle pagination if the SDK returns a page object that is iterable
             for model in models_page:
-                model_id = getattr(model, 'id', str(model))
-                display_name = getattr(model, 'display_name', 'N/A')
+                model_id = getattr(model, "id", str(model))
+                display_name = getattr(model, "display_name", "N/A")
                 print(f"Found: {model_id:<30} (Name: {display_name})")
                 discovered_models.append(model_id)
 
@@ -68,7 +69,7 @@ def main():
             "claude-3-haiku-20240307",
             "claude-2.1",
             "claude-2.0",
-            "claude-instant-1.2"
+            "claude-instant-1.2",
         ]
         models_to_test = known_models
 
@@ -83,7 +84,7 @@ def main():
             client.messages.create(
                 model=model_id,
                 max_tokens=10,
-                messages=[{"role": "user", "content": "Hi"}]
+                messages=[{"role": "user", "content": "Hi"}],
             )
             print("✅ OK")
             working_models.append(model_id)
@@ -96,22 +97,21 @@ def main():
         except Exception as e:
             print(f"❌ Error: {type(e).__name__}")
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY OF WORKING MODELS")
-    print("="*60)
+    print("=" * 60)
     if working_models:
         for m in working_models:
             print(f"- {m}")
 
         print("\nRecommended Config Update:")
-        print(f"DEFAULT_MODEL = \"{working_models[0]}\"")
+        print(f'DEFAULT_MODEL = "{working_models[0]}"')
         if len(working_models) > 1:
             # Try to find a haiku model for AUX, otherwise use the last one or same
-            aux = next((m for m in working_models if 'haiku' in m),
-                       working_models[-1])
-            print(f"AUX_MODEL = \"{aux}\"")
+            aux = next((m for m in working_models if "haiku" in m), working_models[-1])
+            print(f'AUX_MODEL = "{aux}"')
         else:
-            print(f"AUX_MODEL = \"{working_models[0]}\"")
+            print(f'AUX_MODEL = "{working_models[0]}"')
     else:
         print("No working models found. Please check your API key and billing status.")
 

@@ -4,7 +4,7 @@ Prepares structured input for LLM abstract generation from transcript extraction
 
 Usage:
     from abstract_pipeline import prepare_abstract_input, generate_abstract
-    
+
     # From extraction outputs
     input_data = prepare_abstract_input(
         metadata=yaml_metadata,
@@ -12,14 +12,15 @@ Usage:
         themes=themes_list,
         transcript_text=full_transcript
     )
-    
+
     abstract = generate_abstract(input_data, api_client)
 """
 
 import json
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Optional
+
 import config
 from transcript_utils import call_claude_with_retry
 
@@ -58,7 +59,7 @@ class AbstractInput:
             "closing_conclusion": self.closing_conclusion,
             "qa_percentage": self.qa_percentage,
             "qa_topics": self.qa_topics,
-            "target_word_count": self.target_word_count
+            "target_word_count": self.target_word_count,
         }
         return json.dumps(data, indent=2)
 
@@ -72,11 +73,12 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
     # Split by level 3 headers
     # Filter out empty strings from split
-    blocks = [b.strip() for b in re.split(
-        r'(?:^|\n)###\s+', topics_markdown) if b.strip()]
+    blocks = [
+        b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
+    ]
 
     for block in blocks:
-        lines = block.split('\n')
+        lines = block.split("\n")
         if not lines:
             continue
 
@@ -99,30 +101,30 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
                 continue
 
             # Check if line looks like metadata (contains % and Section)
-            if re.search(r'\d+%', line) and re.search(r'Sections?', line, re.IGNORECASE):
-                pct_match = re.search(r'(\d+)%', line)
+            if re.search(r"\d+%", line) and re.search(
+                r"Sections?", line, re.IGNORECASE
+            ):
+                pct_match = re.search(r"(\d+)%", line)
                 # Relaxed section match: allows optional colon/dash separators
                 sect_match = re.search(
-                    r'Sections?\s*[:\-]?\s*([0-9\-\,\s]+)', line, re.IGNORECASE)
+                    r"Sections?\s*[:\-]?\s*([0-9\-\,\s]+)", line, re.IGNORECASE
+                )
 
                 if pct_match:
                     percentage = int(pct_match.group(1))
                     # If section numbers aren't cleanly found, default to the whole tail or empty
-                    sections = sect_match.group(
-                        1).strip() if sect_match else "Unknown"
+                    sections = sect_match.group(1).strip() if sect_match else "Unknown"
                     metadata_found = True
             else:
                 # If not metadata, it's part of description
                 # Clean up potential markdown formatting if it was just a wrapper line
-                if not re.match(r'^[\*_\-()\[\]]+$', line):
+                if not re.match(r"^[\*_\-()\[\]]+$", line):
                     description_lines.append(line)
 
         if metadata_found and percentage >= 5:
             # Join description lines
-            description = " ".join(description_lines).strip()
             # Note: Topic dataclass currently only uses name, percentage, sections.
-            topics.append(
-                Topic(name=name, percentage=percentage, sections=sections))
+            topics.append(Topic(name=name, percentage=percentage, sections=sections))
 
     # Sort by percentage descending, take top 5
     topics.sort(key=lambda t: t.percentage, reverse=True)
@@ -142,7 +144,7 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
 
     # Regex to find the start of a theme:
     # Start of line, number, dot, optional bold, text, optional bold, colon
-    header_pattern = r'(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*'
+    header_pattern = r"(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*"
 
     matches = list(re.finditer(header_pattern, themes_markdown))
 
@@ -153,8 +155,9 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
         start_idx = match.end()
 
         # content end is start of next match or end of string
-        end_idx = matches[i+1].start() if i + \
-            1 < len(matches) else len(themes_markdown)
+        end_idx = (
+            matches[i + 1].start() if i + 1 < len(matches) else len(themes_markdown)
+        )
 
         raw_content = themes_markdown[start_idx:end_idx].strip()
 
@@ -163,7 +166,7 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
         # "Description text...\n*Source Sections: 1, 2*"
 
         # Split by newline
-        lines = raw_content.split('\n')
+        lines = raw_content.split("\n")
         description_lines = []
 
         for line in lines:
@@ -206,8 +209,8 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
     ]
 
     # Search in first N sections
-    section_pattern = r'## Section [1-' + str(opening_sections) + r'][^#]+'
-    opening_text = ' '.join(re.findall(section_pattern, transcript, re.DOTALL))
+    section_pattern = r"## Section [1-" + str(opening_sections) + r"][^#]+"
+    opening_text = " ".join(re.findall(section_pattern, transcript, re.DOTALL))
 
     for pattern in purpose_patterns:
         match = re.search(pattern, opening_text, re.IGNORECASE)
@@ -235,9 +238,12 @@ def extract_closing_conclusion(transcript: str, section_count: int) -> str:
     ]
 
     # Search in last N sections
-    section_pattern = r'## Section (' + '|'.join(str(i)
-                                                 for i in range(closing_start, section_count + 1)) + r')[^#]+'
-    closing_text = ' '.join(re.findall(section_pattern, transcript, re.DOTALL))
+    section_pattern = (
+        r"## Section ("
+        + "|".join(str(i) for i in range(closing_start, section_count + 1))
+        + r")[^#]+"
+    )
+    closing_text = " ".join(re.findall(section_pattern, transcript, re.DOTALL))
 
     for pattern in conclusion_patterns:
         match = re.search(pattern, closing_text, re.IGNORECASE)
@@ -255,21 +261,21 @@ def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
         (percentage, list of topic keywords)
     """
     # Count total sections
-    total_sections = len(re.findall(r'## Section \d+', transcript))
+    total_sections = len(re.findall(r"## Section \d+", transcript))
 
     # Identify Q&A sections by speaker label patterns
     qa_indicators = [
-        r'\*\*[A-Z][a-z]+\s*:\*\*',  # **Name:** pattern (questioner)
-        r'\*\*Dr[.\s]+\w+:\*\*',      # **Dr. Name:** pattern (response)
-        r'\*\*Audience',              # **Audience Member:**
-        r'question',
-        r'comment'
+        r"\*\*[A-Z][a-z]+\s*:\*\*",  # **Name:** pattern (questioner)
+        r"\*\*Dr[.\s]+\w+:\*\*",  # **Dr. Name:** pattern (response)
+        r"\*\*Audience",  # **Audience Member:**
+        r"question",
+        r"comment",
     ]
 
     qa_sections = 0
     qa_topics = []
 
-    sections = re.split(r'## Section \d+[^\n]+\n', transcript)
+    sections = re.split(r"## Section \d+[^\n]+\n", transcript)
 
     for section in sections:
         qa_indicator_count = sum(
@@ -282,11 +288,11 @@ def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
 
             # Extract potential topic words (nouns following "about" or "on")
             topic_matches = re.findall(
-                r'(?:about|on|regarding)\s+(\w+(?:\s+\w+)?)', section, re.IGNORECASE)
+                r"(?:about|on|regarding)\s+(\w+(?:\s+\w+)?)", section, re.IGNORECASE
+            )
             qa_topics.extend(topic_matches[:2])
 
-    percentage = int((qa_sections / total_sections) *
-                     100) if total_sections > 0 else 0
+    percentage = int((qa_sections / total_sections) * 100) if total_sections > 0 else 0
 
     # Deduplicate and limit topics
     unique_topics = list(dict.fromkeys(qa_topics))[:5]
@@ -296,7 +302,7 @@ def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
 
 def count_sections(transcript: str) -> int:
     """Count total sections in formatted transcript."""
-    return len(re.findall(r'## Section \d+', transcript))
+    return len(re.findall(r"## Section \d+", transcript))
 
 
 def prepare_abstract_input(
@@ -304,7 +310,7 @@ def prepare_abstract_input(
     topics_markdown: str,
     themes_markdown: str,
     transcript: str,
-    target_word_count: int = 250
+    target_word_count: int = 250,
 ) -> AbstractInput:
     """
     Prepare structured input for abstract generation API call.
@@ -312,7 +318,7 @@ def prepare_abstract_input(
     Args:
         metadata: Dict with speaker, event_type, title, domain
         topics_markdown: Raw Topics section from extraction output
-        themes_markdown: Raw Key Themes section from extraction output  
+        themes_markdown: Raw Key Themes section from extraction output
         transcript: Full formatted transcript text
         target_word_count: Target word count for the abstract
 
@@ -327,15 +333,15 @@ def prepare_abstract_input(
         topics=parse_topics_from_extraction(topics_markdown),
         themes=parse_themes_from_extraction(themes_markdown),
         opening_purpose=extract_opening_purpose(transcript, section_count),
-        closing_conclusion=extract_closing_conclusion(
-            transcript, section_count),
+        closing_conclusion=extract_closing_conclusion(transcript, section_count),
         qa_percentage=qa_percentage,
         qa_topics=qa_topics,
-        target_word_count=target_word_count
+        target_word_count=target_word_count,
     )
 
 
 # === API Integration ===
+
 
 def load_prompt() -> str:
     """Load the abstract generation prompt template."""
@@ -345,14 +351,14 @@ def load_prompt() -> str:
             f"Prompt file not found: {prompt_path}\n"
             f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_ABSTRACT_FILENAME}"
         )
-    return prompt_path.read_text(encoding='utf-8')
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
     model: str = config.AUX_MODEL,
-    system: Optional[list] = None
+    system: Optional[list] = None,
 ) -> str:
     """
     Generate abstract via API call.
@@ -368,27 +374,29 @@ def generate_abstract(
     prompt_template = load_prompt()
     prompt = prompt_template.format(
         input_json=abstract_input.to_json(),
-        target_word_count=abstract_input.target_word_count)
+        target_word_count=abstract_input.target_word_count,
+    )
 
     kwargs = {}
     if system:
-        kwargs['system'] = system
+        kwargs["system"] = system
 
     # Use centralized call with retry and validation
     message = call_claude_with_retry(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=600,   # Adequate for abstract
+        max_tokens=600,  # Adequate for abstract
         temperature=config.TEMP_BALANCED,
-        min_length=150,   # Ensure substantial abstract
-        **kwargs
+        min_length=150,  # Ensure substantial abstract
+        **kwargs,
     )
 
     return message.content[0].text.strip()
 
 
 # === Validation ===
+
 
 def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
     """
@@ -411,28 +419,22 @@ def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
         issues.append(f"Too long: {word_count} words (maximum {max_words})")
 
     # Check for prohibited elements
-    if re.search(r'Section \d+', abstract):
+    if re.search(r"Section \d+", abstract):
         issues.append("Contains section references")
 
     if '"' in abstract and abstract.count('"') >= 2:
         issues.append("May contain direct quotations")
 
-    if re.search(r'^\s*[-•*]\s', abstract, re.MULTILINE):
+    if re.search(r"^\s*[-•*]\s", abstract, re.MULTILINE):
         issues.append("Contains bullet points")
 
     # Check for evaluative language
-    evaluative_terms = ['important', 'valuable',
-                        'insightful', 'excellent', 'crucial']
-    found_evaluative = [
-        t for t in evaluative_terms if t.lower() in abstract.lower()]
+    evaluative_terms = ["important", "valuable", "insightful", "excellent", "crucial"]
+    found_evaluative = [t for t in evaluative_terms if t.lower() in abstract.lower()]
     if found_evaluative:
         issues.append(f"Contains evaluative language: {found_evaluative}")
 
-    return {
-        "valid": len(issues) == 0,
-        "word_count": word_count,
-        "issues": issues
-    }
+    return {"valid": len(issues) == 0, "word_count": word_count, "issues": issues}
 
 
 # === Example Usage ===
@@ -443,7 +445,7 @@ if __name__ == "__main__":
         "speaker": "Dr. Michael Kerr",
         "event_type": "webinar",
         "title": "Roots of Bowen Theory",
-        "domain": "Bowen family systems theory"
+        "domain": "Bowen family systems theory",
     }
 
     sample_topics = """
@@ -487,10 +489,10 @@ I think we can safely say the answers extend beyond the boundaries of our specie
         metadata=sample_metadata,
         topics_markdown=sample_topics,
         themes_markdown=sample_themes,
-        transcript=sample_transcript
+        transcript=sample_transcript,
     )
 
     print("Prepared input:")
     print(abstract_input.to_json())
-    print("\n" + "="*50 + "\n")
+    print("\n" + "=" * 50 + "\n")
     print("Ready for API call with ABSTRACT_PROMPT_TEMPLATE")

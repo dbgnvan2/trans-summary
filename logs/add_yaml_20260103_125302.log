@@ -1,0 +1,27 @@
+2026-01-03 12:53:02,434 - add_yaml - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/add_yaml_20260103_125302.log
+2026-01-03 12:53:02,434 - add_yaml - INFO - Adding YAML to Test Transcript - Dr Bowen - 2025-01-01 - formatted.md
+2026-01-03 12:53:02,434 - add_yaml - INFO - ✓ Success! YAML added. Output saved to: projects/Test Transcript - Dr Bowen - 2025-01-01/Test Transcript - Dr Bowen - 2025-01-01 - yaml.md
+2026-01-03 12:53:02,434 - add_yaml - INFO - 
+--- YAML Validation (First 20 lines) ---
+2026-01-03 12:53:02,434 - add_yaml - INFO - ---
+2026-01-03 12:53:02,434 - add_yaml - INFO - Title: "Test Transcript"
+2026-01-03 12:53:02,434 - add_yaml - INFO - Presenter: "Dr Bowen"
+2026-01-03 12:53:02,434 - add_yaml - INFO - Lecture date: "2025-01-01"
+2026-01-03 12:53:02,434 - add_yaml - INFO - Source recording: "Test Transcript - Dr Bowen - 2025-01-01.mp4"
+2026-01-03 12:53:02,434 - add_yaml - INFO - Transcriber: "Automated; human-reviewed"
+2026-01-03 12:53:02,434 - add_yaml - INFO - Authenticity: "Verified line-by-line against the original recording. No wording has been
+2026-01-03 12:53:02,434 - add_yaml - INFO -   omitted, merged, reordered, paraphrased, or corrected. All text remains
+2026-01-03 12:53:02,434 - add_yaml - INFO -   exactly as spoken except for added section headings and removal of timestamps."
+2026-01-03 12:53:02,434 - add_yaml - INFO - Version: "v1.0"
+2026-01-03 12:53:02,434 - add_yaml - INFO - License: "© 2025 Dr Bowen. All rights reserved."
+2026-01-03 12:53:02,434 - add_yaml - INFO - DOI: ""
+2026-01-03 12:53:02,434 - add_yaml - INFO - ---
+2026-01-03 12:53:02,434 - add_yaml - INFO - 
+2026-01-03 12:53:02,434 - add_yaml - INFO - # Transcript Formatting - Thematic Sections - v12-Lite
+2026-01-03 12:53:02,434 - add_yaml - INFO - 
+2026-01-03 12:53:02,434 - add_yaml - INFO - ## Section 1 – Topic Selection and Fundamental Processes in Triangles ([00:36]).
+2026-01-03 12:53:02,434 - add_yaml - INFO - 
+2026-01-03 12:53:02,434 - add_yaml - INFO - Speaker 1 picked the subject of the fundamental processes involved in triangles.
+2026-01-03 12:53:02,434 - add_yaml - INFO - 
+2026-01-03 12:53:02,435 - add_yaml - INFO - ----------------------------------------
+

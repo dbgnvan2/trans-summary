@@ -1,12 +1,11 @@
+import os
+
+import anthropic
 
 import config
 import summary_pipeline
 import summary_validation
 import transcript_utils
-import pipeline
-from pathlib import Path
-import anthropic
-import os
 
 # Setup
 config.set_transcripts_base("/Users/davemini2/transcripts")
@@ -26,28 +25,24 @@ def run_test(target_words):
     try:
         # Load data
         project_dir = config.PROJECTS_DIR / base_name
-        formatted_file = project_dir / \
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        extracts_file = project_dir / \
-            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+        formatted_file = project_dir / f"{base_name}{config.SUFFIX_FORMATTED}"
+        extracts_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
         if not formatted_file.exists():
             print(f"File not found: {formatted_file}")
             return
 
-        transcript = formatted_file.read_text(encoding='utf-8')
+        transcript = formatted_file.read_text(encoding="utf-8")
         transcript = transcript_utils.strip_yaml_frontmatter(transcript)
 
-        extracts_content = extracts_file.read_text(encoding='utf-8')
-        extracts_content = transcript_utils.strip_yaml_frontmatter(
-            extracts_content)
+        extracts_content = extracts_file.read_text(encoding="utf-8")
+        extracts_content = transcript_utils.strip_yaml_frontmatter(extracts_content)
 
         metadata = transcript_utils.parse_filename_metadata(base_name)
 
         # Use extract_section from transcript_utils directly
-        topics = transcript_utils.extract_section(extracts_content, 'Topics')
-        themes = transcript_utils.extract_section(
-            extracts_content, 'Key Themes')
+        topics = transcript_utils.extract_section(extracts_content, "Topics")
+        themes = transcript_utils.extract_section(extracts_content, "Key Themes")
 
         # Generate
         input_data = summary_pipeline.prepare_summary_input(
@@ -62,10 +57,9 @@ def run_test(target_words):
         # Validate
         res = summary_validation.check_proportionality(summary, input_data)
 
-        closing_res = next(
-            s for s in res['sections'] if s['name'] == 'Closing')
+        closing_res = next(s for s in res["sections"] if s["name"] == "Closing")
         print(f"Actual Closing: {closing_res['actual']} words")
-        print(f"Deviation: {closing_res['deviation']*100:.1f}%")
+        print(f"Deviation: {closing_res['deviation'] * 100:.1f}%")
         print(f"Pass: {closing_res['within_tolerance']}")
 
     except Exception as e:

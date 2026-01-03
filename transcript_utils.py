@@ -3,24 +3,25 @@ Shared utilities for transcript processing scripts.
 Reduces code duplication and provides common validation/error handling.
 """
 
-import re
 import csv
-from datetime import datetime
-import os
-import time
 import logging
-from pathlib import Path
-from typing import Optional, Any
+import os
+import re
+import time
+from datetime import datetime
 from difflib import SequenceMatcher
 from html import unescape
+from pathlib import Path
+from typing import Any, Optional
+
 from anthropic import (
-    APIError,
-    RateLimitError,
     APIConnectionError,
+    APIError,
     APITimeoutError,
     AuthenticationError,
     BadRequestError,
-    NotFoundError
+    NotFoundError,
+    RateLimitError,
 )
 
 import config
@@ -33,15 +34,13 @@ def setup_logging(script_name: str) -> logging.Logger:
     logs_dir.mkdir(exist_ok=True)
 
     from datetime import datetime
+
     log_file = logs_dir / f"{script_name}_{datetime.now():%Y%m%d_%H%M%S}.log"
 
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.FileHandler(log_file), logging.StreamHandler()],
     )
 
     logger = logging.getLogger(script_name)
@@ -96,7 +95,7 @@ def validate_api_response(
     expected_model: str,
     min_length: int = 50,
     min_words: int = 0,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
 ) -> str:
     """
     Comprehensive validation of Anthropic API response.
@@ -131,21 +130,20 @@ def validate_api_response(
         ```
     """
     # 1. Validate message type and role
-    if not hasattr(message, 'type'):
+    if not hasattr(message, "type"):
         raise ValueError("Response missing 'type' field")
 
     if message.type != "message":
         raise ValueError(f"Invalid message type: {message.type}")
 
-    if not hasattr(message, 'role'):
+    if not hasattr(message, "role"):
         raise ValueError("Response missing 'role' field")
 
     if message.role != "assistant":
-        raise ValueError(
-            f"Invalid role: {message.role} (expected 'assistant')")
+        raise ValueError(f"Invalid role: {message.role} (expected 'assistant')")
 
     # 2. Validate stop_reason (completion status)
-    if not hasattr(message, 'stop_reason'):
+    if not hasattr(message, "stop_reason"):
         raise ValueError("Response missing 'stop_reason' field")
 
     stop_reason = message.stop_reason
@@ -169,7 +167,7 @@ def validate_api_response(
         raise ValueError(f"Unexpected stop_reason: {stop_reason}")
 
     # 3. Validate content array exists and has items
-    if not hasattr(message, 'content'):
+    if not hasattr(message, "content"):
         raise ValueError("Response missing 'content' field")
 
     if not message.content:
@@ -181,15 +179,13 @@ def validate_api_response(
     # 4. Validate first content block
     content_block = message.content[0]
 
-    if not hasattr(content_block, 'type'):
+    if not hasattr(content_block, "type"):
         raise ValueError("Content block missing 'type' field")
 
     if content_block.type != "text":
-        raise ValueError(
-            f"Expected text content block, got type: {content_block.type}"
-        )
+        raise ValueError(f"Expected text content block, got type: {content_block.type}")
 
-    if not hasattr(content_block, 'text'):
+    if not hasattr(content_block, "text"):
         raise ValueError("Content block missing 'text' field")
 
     # 5. Validate text content
@@ -216,26 +212,27 @@ def validate_api_response(
         if word_count < min_words:
             if logger:
                 logger.warning(
-                    f"Response suspiciously short: {word_count} words (expected at least {min_words})")
+                    f"Response suspiciously short: {word_count} words (expected at least {min_words})"
+                )
 
     # 6. Validate token usage exists
-    if not hasattr(message, 'usage'):
+    if not hasattr(message, "usage"):
         raise ValueError("Response missing 'usage' field")
 
-    if not hasattr(message.usage, 'input_tokens'):
+    if not hasattr(message.usage, "input_tokens"):
         raise ValueError("Usage missing 'input_tokens' field")
 
-    if not hasattr(message.usage, 'output_tokens'):
+    if not hasattr(message.usage, "output_tokens"):
         raise ValueError("Usage missing 'output_tokens' field")
 
     # 7. Verify model (warning only - API might use different version)
-    if hasattr(message, 'model'):
+    if hasattr(message, "model"):
         if message.model != expected_model:
             # Check for alias resolution (e.g. latest -> specific date)
             # If expected is "claude-3-5-sonnet-latest" and actual is "claude-3-5-sonnet-20241022", that's fine.
             is_alias_resolution = (
-                "latest" in expected_model and
-                expected_model.replace("-latest", "") in message.model
+                "latest" in expected_model
+                and expected_model.replace("-latest", "") in message.model
             )
             if not is_alias_resolution:
                 if logger:
@@ -256,13 +253,12 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
 
         file_exists = log_file.exists()
 
-        input_tokens = getattr(usage_data, 'input_tokens', 0)
-        output_tokens = getattr(usage_data, 'output_tokens', 0)
+        input_tokens = getattr(usage_data, "input_tokens", 0)
+        output_tokens = getattr(usage_data, "output_tokens", 0)
 
         # Handle cache usage if present (Anthropic specific)
-        cache_creation = getattr(
-            usage_data, 'cache_creation_input_tokens', 0) or 0
-        cache_read = getattr(usage_data, 'cache_read_input_tokens', 0) or 0
+        cache_creation = getattr(usage_data, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(usage_data, "cache_read_input_tokens", 0) or 0
 
         cache_str = "No"
         if cache_read > 0:
@@ -270,30 +266,44 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
         elif cache_creation > 0:
             cache_str = f"Yes (Created {cache_creation})"
 
-        with open(log_file, 'a', newline='', encoding='utf-8') as f:
+        with open(log_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['Timestamp', 'Script Name', 'Items',
-                                'Status', 'Cache', 'Tokens Sent', 'Tokens Response',
-                                 'Cache Creation Tokens', 'Cache Read Tokens'])
+                writer.writerow(
+                    [
+                        "Timestamp",
+                        "Script Name",
+                        "Items",
+                        "Status",
+                        "Cache",
+                        "Tokens Sent",
+                        "Tokens Response",
+                        "Cache Creation Tokens",
+                        "Cache Read Tokens",
+                    ]
+                )
 
-            writer.writerow([
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                script_name,
-                model,
-                stop_reason,
-                cache_str,
-                input_tokens,
-                output_tokens,
-                cache_creation,
-                cache_read
-            ])
+            writer.writerow(
+                [
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    script_name,
+                    model,
+                    stop_reason,
+                    cache_str,
+                    input_tokens,
+                    output_tokens,
+                    cache_creation,
+                    cache_read,
+                ]
+            )
     except Exception as e:
         # Fail silently to not disrupt the pipeline, but print error
         print(f"⚠️ Failed to log token usage: {e}")
 
 
-def _check_caching_for_large_input(messages: list, system: Any, logger: Optional[logging.Logger] = None):
+def _check_caching_for_large_input(
+    messages: list, system: Any, logger: Optional[logging.Logger] = None
+):
     """
     Check if large inputs (system or messages) are using prompt caching.
     Warns if content exceeding ~2500 tokens (10k chars) is sent without cache_control.
@@ -311,9 +321,9 @@ def _check_caching_for_large_input(messages: list, system: Any, logger: Optional
                     print(f"\n⚠️ {msg}")
         elif isinstance(content, list):
             for i, block in enumerate(content):
-                if isinstance(block, dict) and block.get('type') == 'text':
-                    text = block.get('text', '')
-                    if len(text) > THRESHOLD_CHARS and 'cache_control' not in block:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    text = block.get("text", "")
+                    if len(text) > THRESHOLD_CHARS and "cache_control" not in block:
                         msg = f"Large {source_name} block {i} ({len(text):,} chars) sent without caching!"
                         if logger:
                             logger.warning(f"⚠️ {msg}")
@@ -326,7 +336,7 @@ def _check_caching_for_large_input(messages: list, system: Any, logger: Optional
 
     # Check messages
     for i, msg in enumerate(messages):
-        check_content(msg.get('content'), f"message {i}")
+        check_content(msg.get("content"), f"message {i}")
 
 
 def call_claude_with_retry(
@@ -339,7 +349,7 @@ def call_claude_with_retry(
     logger: Optional[logging.Logger] = None,
     min_length: int = 50,
     min_words: int = 0,
-    **kwargs
+    **kwargs,
 ):
     """
     Call Claude API with retry logic and comprehensive validation.
@@ -364,10 +374,10 @@ def call_claude_with_retry(
         APIError: If API call fails after retries
     """
     # Track timeout across retries
-    current_timeout = kwargs.get('timeout')
+    current_timeout = kwargs.get("timeout")
 
     # Check for missing cache on large inputs
-    _check_caching_for_large_input(messages, kwargs.get('system'), logger)
+    _check_caching_for_large_input(messages, kwargs.get("system"), logger)
 
     for attempt in range(max_retries):
         try:
@@ -375,9 +385,9 @@ def call_claude_with_retry(
 
             # Apply dynamic timeout if set
             if current_timeout is not None:
-                call_kwargs['timeout'] = current_timeout
+                call_kwargs["timeout"] = current_timeout
 
-            is_streaming = call_kwargs.pop('stream', False)
+            is_streaming = call_kwargs.pop("stream", False)
 
             if is_streaming:
                 with client.messages.stream(
@@ -385,7 +395,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=messages,
-                    **call_kwargs
+                    **call_kwargs,
                 ) as stream:
                     message = stream.get_final_message()
             else:
@@ -394,7 +404,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=messages,
-                    **call_kwargs
+                    **call_kwargs,
                 )
 
             # Comprehensive response validation
@@ -404,18 +414,20 @@ def call_claude_with_retry(
                     expected_model=model,
                     min_length=min_length,
                     min_words=min_words,
-                    logger=logger
+                    logger=logger,
                 )
                 # Enforce minimum length with retry
                 text_content = message.content[0].text
                 if len(text_content) < min_length:
                     raise ValueError(
-                        f"Response text too short: {len(text_content)} chars (expected >= {min_length})")
+                        f"Response text too short: {len(text_content)} chars (expected >= {min_length})"
+                    )
 
                 if min_words > 0:
                     if len(text_content.split()) < min_words:
                         raise ValueError(
-                            f"Response text too short: {len(text_content.split())} words (expected >= {min_words})")
+                            f"Response text too short: {len(text_content.split())} words (expected >= {min_words})"
+                        )
             except (ValueError, RuntimeError) as e:
                 # Validation failed
                 if logger:
@@ -423,12 +435,16 @@ def call_claude_with_retry(
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
                     logger.warning(
-                        f"Retrying due to validation failure ({attempt + 1}/{max_retries})...")
+                        f"Retrying due to validation failure ({attempt + 1}/{max_retries})..."
+                    )
                     continue
                 raise
 
             # Warn if close to limit
-            if message.usage.output_tokens > max_tokens * config.TOKEN_USAGE_WARNING_THRESHOLD:
+            if (
+                message.usage.output_tokens
+                > max_tokens * config.TOKEN_USAGE_WARNING_THRESHOLD
+            ):
                 warning = (
                     f"⚠️  Nearly hit token limit: "
                     f"{message.usage.output_tokens}/{max_tokens} tokens used"
@@ -447,10 +463,12 @@ def call_claude_with_retry(
                 )
 
             # Log to CSV
-            script_name = getattr(
-                logger, 'name', 'unknown_script') if logger else "unknown_script"
-            log_token_usage(script_name, model, message.usage,
-                            message.stop_reason)
+            script_name = (
+                getattr(logger, "name", "unknown_script")
+                if logger
+                else "unknown_script"
+            )
+            log_token_usage(script_name, model, message.usage, message.stop_reason)
 
             return message
 
@@ -510,7 +528,7 @@ def call_claude_with_retry(
 
         except APIConnectionError as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 msg = f"Connection error, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
                 if logger:
                     logger.warning(msg)
@@ -524,9 +542,9 @@ def call_claude_with_retry(
                     "Check your internet connection."
                 ) from e
 
-        except RateLimitError as e:
+        except RateLimitError:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = 2**attempt  # Exponential backoff: 1s, 2s, 4s
                 msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
                 if logger:
                     logger.warning(msg)
@@ -534,8 +552,7 @@ def call_claude_with_retry(
                 time.sleep(wait_time)
             else:
                 if logger:
-                    logger.error(
-                        f"Rate limit exceeded after {max_retries} retries")
+                    logger.error(f"Rate limit exceeded after {max_retries} retries")
                 raise
 
         except APIError as e:
@@ -556,32 +573,33 @@ def parse_filename_metadata(filename: str) -> dict:
     # We iterate through known suffix constants that start with " - "
     # Note: iterating explicitly might be safer than relying on arbitrary order if suffixes overlap
     suffixes_to_strip = [
-        config.SUFFIX_FORMATTED.replace('.md', ''),
-        '_yaml',  # special case intermediate
-        config.SUFFIX_YAML.replace('.md', ''),
-        config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
+        config.SUFFIX_FORMATTED.replace(".md", ""),
+        "_yaml",  # special case intermediate
+        config.SUFFIX_YAML.replace(".md", ""),
+        config.SUFFIX_WEBPAGE_SIMPLE.replace(".html", ""),
     ]
 
     for suffix in suffixes_to_strip:
         if stem.endswith(suffix):
-            stem = stem[:-len(suffix)]
+            stem = stem[: -len(suffix)]
             break  # Assume only one suffix type applies
 
-    parts = [p.strip() for p in stem.split(' - ')]
+    parts = [p.strip() for p in stem.split(" - ")]
 
     if len(parts) < 3:
         raise ValueError(
-            f"Filename must follow pattern 'Title - Presenter - Date.ext', got: {filename}")
+            f"Filename must follow pattern 'Title - Presenter - Date.ext', got: {filename}"
+        )
 
     # Handle case where title or presenter contains ' - '
     if len(parts) > 3:
         date = parts[-1]
         presenter = parts[-2]
-        title = ' - '.join(parts[:-2])
+        title = " - ".join(parts[:-2])
     else:
         title, presenter, date = parts
 
-    year_match = re.search(r'(\d{4})', date)
+    year_match = re.search(r"(\d{4})", date)
     year = year_match.group(1) if year_match else "unknown"
 
     return {
@@ -591,13 +609,13 @@ def parse_filename_metadata(filename: str) -> dict:
         "date": date,
         "year": year,
         "filename": filename,
-        "stem": stem
+        "stem": stem,
     }
 
 
 def format_file_size(size_bytes: int) -> str:
     """Format file size in human-readable format."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if size_bytes < 1024.0:
             return f"{size_bytes:.1f} {unit}"
         size_bytes /= 1024.0
@@ -618,7 +636,9 @@ def estimate_token_count(text: str) -> int:
     return len(text) // config.CHARS_PER_TOKEN
 
 
-def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logger] = None) -> bool:
+def check_token_budget(
+    text: str, max_tokens: int, logger: Optional[logging.Logger] = None
+) -> bool:
     """
     Check if text will likely fit within token budget.
 
@@ -677,13 +697,13 @@ def extract_section(content: str, section_name: str, allow_bold: bool = True) ->
     # Build pattern that optionally matches bold markers
     if allow_bold:
         # Pattern matches: ## Topics  OR  ## **Topics**
-        pattern = rf'## \*{{0,2}}{re.escape(section_name)}\*{{0,2}}(.*?)(?=^## |\Z)'
+        pattern = rf"## \*{{0,2}}{re.escape(section_name)}\*{{0,2}}(.*?)(?=^## |\Z)"
     else:
         # Exact match only
-        pattern = rf'## {re.escape(section_name)}(.*?)(?=^## |\Z)'
+        pattern = rf"## {re.escape(section_name)}(.*?)(?=^## |\Z)"
 
     match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
-    return match.group(1).strip() if match else ''
+    return match.group(1).strip() if match else ""
 
 
 def extract_bowen_references(content: str) -> list:
@@ -703,10 +723,10 @@ def extract_bowen_references(content: str) -> list:
     # - **Label:** "Quote" (colon inside bold)
     # - **Label**: "Quote" (colon outside bold)
     # - Label: "Quote" (no bold)
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]' # noqa
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'  # noqa
     quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
-    return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
+    return [(concept.strip().rstrip(":"), quote.strip()) for concept, quote in quotes]
 
 
 def load_bowen_references(base_name: str) -> list:
@@ -722,23 +742,29 @@ def load_bowen_references(base_name: str) -> list:
     # Try dedicated file first
     bowen_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
-        with open(bowen_file, 'r', encoding='utf-8') as f:
+        with open(bowen_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
 
     # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    )
     if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        with open(extracts_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = (
+        config.PROJECTS_DIR
+        / base_name
+        / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    )
     if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        with open(extracts_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         return extract_bowen_references(content)
@@ -759,10 +785,10 @@ def extract_emphasis_items(content: str) -> list:
         return []
 
     # Relaxed pattern using MULTILINE mode
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]' # noqa
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'  # noqa
     quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
-    return [(item.strip().rstrip(':'), quote.strip()) for item, quote in quotes]
+    return [(item.strip().rstrip(":"), quote.strip()) for item, quote in quotes]
 
 
 def load_emphasis_items(base_name: str) -> list:
@@ -780,21 +806,26 @@ def load_emphasis_items(base_name: str) -> list:
     bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
 
     # Try new scored emphasis file first
-    scored_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    scored_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    )
     if scored_file.exists():
-        content = scored_file.read_text(encoding='utf-8')
+        content = scored_file.read_text(encoding="utf-8")
         items = parse_scored_emphasis_output(content)
         filtered_items = []
         for item in items:
-            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes:
+            if normalize_text(item["quote"], aggressive=True) not in bowen_quotes:
                 filtered_items.append(
-                    (f"{item['concept']} ({item['score']}%)", item['quote']))
+                    (f"{item['concept']} ({item['score']}%)", item["quote"])
+                )
         return filtered_items
 
     # Try dedicated file first
-    emphasis_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS}"
+    emphasis_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS}"
+    )
     if emphasis_file.exists():
-        with open(emphasis_file, 'r', encoding='utf-8') as f:
+        with open(emphasis_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         items = extract_emphasis_items(content)
@@ -805,9 +836,11 @@ def load_emphasis_items(base_name: str) -> list:
         return filtered_items
 
     # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    )
     if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        with open(extracts_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         items = extract_emphasis_items(content)
@@ -818,9 +851,13 @@ def load_emphasis_items(base_name: str) -> list:
         return filtered_items
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = (
+        config.PROJECTS_DIR
+        / base_name
+        / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    )
     if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
+        with open(extracts_file, "r", encoding="utf-8") as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         items = extract_emphasis_items(content)
@@ -845,9 +882,9 @@ def strip_yaml_frontmatter(content: str) -> str:
     """
     # Use regex to match YAML block at start, handling potential whitespace/newlines
     # Matches --- at start, any content (non-greedy), then --- followed by newline
-    match = re.match(r'^\s*---\s*\n.*?\n---\s*\n', content, re.DOTALL)
+    match = re.match(r"^\s*---\s*\n.*?\n---\s*\n", content, re.DOTALL)
     if match:
-        return content[match.end():]
+        return content[match.end() :]
     return content
 
 
@@ -865,23 +902,25 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     # Updated to handle optional bolding **...** and score ranges
     # Updated to be case-insensitive for labels and flexible with separators
     pattern = re.compile(
-        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“](?P<quote>[\s\S]+?)["”]', # noqa
-        re.MULTILINE
+        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“](?P<quote>[\s\S]+?)["”]',  # noqa
+        re.MULTILINE,
     )
 
     for match in pattern.finditer(text):
-        score_str = match.group('score').strip()
+        score_str = match.group("score").strip()
         # Handle ranges like "87-96" or single numbers "95"
-        nums = [int(n) for n in re.findall(r'\d+', score_str)]
+        nums = [int(n) for n in re.findall(r"\d+", score_str)]
         score = int(sum(nums) / len(nums)) if nums else 0
 
-        items.append({
-            'type': match.group('type').strip().replace('*', ''),
-            'category': match.group('category').strip().replace('*', ''),
-            'score': score,
-            'concept': match.group('concept').strip().replace('*', ''),
-            'quote': match.group('quote').strip()
-        })
+        items.append(
+            {
+                "type": match.group("type").strip().replace("*", ""),
+                "category": match.group("category").strip().replace("*", ""),
+                "score": score,
+                "concept": match.group("concept").strip().replace("*", ""),
+                "quote": match.group("quote").strip(),
+            }
+        )
 
     return items
 
@@ -890,23 +929,54 @@ def get_emphasis_expected_range(category: str) -> tuple[int, int]:
     """Return expected ranking range for an emphasis category."""
     # Extract the code (e.g. A1, B2) if the category string is verbose
     # e.g. "A14 Source Commentary" -> "A14"
-    match = re.match(r'([A-C]\d+)', category.strip())
+    match = re.match(r"([A-C]\d+)", category.strip())
     category_code = match.group(1) if match else category
 
     # Based on emphasis_dedection_v3_production.md
     ranges = {
-        'A1': (95, 100), 'A2': (90, 95), 'A3': (85, 90), 'A4': (95, 100),
-        'A5': (90, 95), 'A6': (85, 90), 'A7': (85, 92), 'A8': (90, 98),
-        'A9': (90, 100), 'A10': (85, 95), 'A11': (88, 95), 'A12': (87, 93),
-        'A13': (85, 94), 'A14': (87, 96), 'A15': (88, 94), 'A16': (85, 92),
-        'A17': (90, 96), 'A18': (92, 98), 'A19': (90, 96), 'A20': (87, 93),
-        'A21': (92, 98),
-        'B1': (90, 100), 'B2': (85, 100), 'B3': (85, 100), 'B4': (85, 100),
-        'B5': (85, 100), 'B6': (85, 100), 'B7': (85, 100), 'B8': (85, 100),
-        'B9': (88, 95), 'B10': (90, 95), 'B11': (88, 94), 'B12': (87, 93),
-        'B13': (87, 93), 'B14': (85, 90), 'B15': (88, 94), 'B16': (88, 94),
-        'C1': (90, 98), 'C2': (88, 95), 'C3': (90, 95), 'C4': (87, 93),
-        'C5': (88, 94), 'C6': (92, 98),
+        "A1": (95, 100),
+        "A2": (90, 95),
+        "A3": (85, 90),
+        "A4": (95, 100),
+        "A5": (90, 95),
+        "A6": (85, 90),
+        "A7": (85, 92),
+        "A8": (90, 98),
+        "A9": (90, 100),
+        "A10": (85, 95),
+        "A11": (88, 95),
+        "A12": (87, 93),
+        "A13": (85, 94),
+        "A14": (87, 96),
+        "A15": (88, 94),
+        "A16": (85, 92),
+        "A17": (90, 96),
+        "A18": (92, 98),
+        "A19": (90, 96),
+        "A20": (87, 93),
+        "A21": (92, 98),
+        "B1": (90, 100),
+        "B2": (85, 100),
+        "B3": (85, 100),
+        "B4": (85, 100),
+        "B5": (85, 100),
+        "B6": (85, 100),
+        "B7": (85, 100),
+        "B8": (85, 100),
+        "B9": (88, 95),
+        "B10": (90, 95),
+        "B11": (88, 94),
+        "B12": (87, 93),
+        "B13": (87, 93),
+        "B14": (85, 90),
+        "B15": (88, 94),
+        "B16": (88, 94),
+        "C1": (90, 98),
+        "C2": (88, 95),
+        "C3": (90, 95),
+        "C4": (87, 93),
+        "C5": (88, 94),
+        "C6": (92, 98),
     }
     # Default range if category is unknown
     return ranges.get(category_code, (85, 100))
@@ -922,27 +992,31 @@ def validate_emphasis_item(item: dict) -> tuple[bool, list[str]]:
     issues = []
 
     # 1. Check word count
-    word_count = len(item.get('quote', '').split())
+    word_count = len(item.get("quote", "").split())
     if word_count > 200:
         issues.append(f"Quote too long: {word_count} words (max 200)")
     if word_count < 5:
         issues.append(f"Quote too short: {word_count} words (min 5)")
 
     # 2. Check for vague pronouns at the start
-    vague_pronouns = ['that', 'this', 'these', 'those', 'it']
-    first_word = item.get('quote', '').split()[0].lower().strip(
-        ".,") if item.get('quote', '') else ''
+    vague_pronouns = ["that", "this", "these", "those", "it"]
+    first_word = (
+        item.get("quote", "").split()[0].lower().strip(".,")
+        if item.get("quote", "")
+        else ""
+    )
     if first_word in vague_pronouns:
         issues.append(f"Starts with vague pronoun: '{first_word}'")
 
     # 3. Check if ranking is in expected range for its category
-    category = item.get('category')
-    score = item.get('score')
+    category = item.get("category")
+    score = item.get("score")
     if category and score is not None:
         min_rank, max_rank = get_emphasis_expected_range(category)
         if not (min_rank <= score <= max_rank):
             issues.append(
-                f"Score {score}% outside expected range [{min_rank}-{max_rank}] for category {category}")
+                f"Score {score}% outside expected range [{min_rank}-{max_rank}] for category {category}"
+            )
 
     return len(issues) == 0, issues
 
@@ -955,18 +1029,13 @@ def create_system_message_with_cache(text: str) -> list:
     Returns:
         List containing the system message dictionary.
     """
-    return [
-        {
-            "type": "text",
-            "text": text,
-            "cache_control": {"type": "ephemeral"}
-        }
-    ]
+    return [{"type": "text", "text": text, "cache_control": {"type": "ephemeral"}}]
 
 
 # ============================================================================
 # MARKDOWN UTILITIES
 # ============================================================================
+
 
 def markdown_to_html(text: str) -> str:
     """
@@ -979,27 +1048,31 @@ def markdown_to_html(text: str) -> str:
         HTML formatted text
     """
     # Handle section headings
-    text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
-    text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
-    text = re.sub(r'^# (.+)$', r'<h1>\1</h1>', text, flags=re.MULTILINE)
+    text = re.sub(r"^### (.+)$", r"<h3>\1</h3>", text, flags=re.MULTILINE)
+    text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text, flags=re.MULTILINE)
+    text = re.sub(r"^# (.+)$", r"<h1>\1</h1>", text, flags=re.MULTILINE)
 
     # Handle bold
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
     # Handle italic
-    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+    text = re.sub(r"\*(.+?)\*", r"<em>\1</em>", text)
 
     # Handle paragraphs
-    paragraphs = text.split('\n\n')
-    paragraphs = [f'<p>{p.strip()}</p>' if not p.strip().startswith('<') else p.strip()
-                  for p in paragraphs if p.strip()]
+    paragraphs = text.split("\n\n")
+    paragraphs = [
+        f"<p>{p.strip()}</p>" if not p.strip().startswith("<") else p.strip()
+        for p in paragraphs
+        if p.strip()
+    ]
 
-    return '\n'.join(paragraphs)
+    return "\n".join(paragraphs)
 
 
 # ============================================================================
 # TEXT PROCESSING UTILITIES
 # ============================================================================
+
 
 def normalize_text(text: str, aggressive: bool = False) -> str:
     """
@@ -1017,29 +1090,33 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     text = unescape(text)
 
     # Remove HTML tags
-    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r"<[^>]+>", " ", text)
 
     # Remove timestamps (e.g. [00:00:00], 10:00, 1:10:10)
     # Matches n:nn, nn:nn, n:nn:nn, nn:nn:nn with optional brackets/parens
     text = re.sub(
-        r'[\[\(]?\b\d+:\d{2}(?:\d{2})?(?:[ap]m)?[\]\)]?', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?', ' ', text)
+        r"[\[\(]?\b\d+:\d{2}(?:\d{2})?(?:[ap]m)?[\]\)]?", " ", text, flags=re.IGNORECASE
+    )
+    text = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", text)
 
     if aggressive:
         # Remove speaker tags (Markdown and plain text)
-        text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)
-        text = re.sub(r'(Speaker \d+|Unknown Speaker):\s*', 
-                      '', text, flags=re.IGNORECASE)
+        text = re.sub(r"\*\*[^*]+:\*\*\s*", "", text)
+        text = re.sub(
+            r"(Speaker \d+|Unknown Speaker):\s*", "", text, flags=re.IGNORECASE
+        )
         # Remove punctuation
-        text = re.sub(r'[.,!?;:—\-\'"()]', ' ', text)
+        text = re.sub(r'[.,!?;:—\-\'"()]', " ", text)
 
     # Collapse whitespace
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
     text = text.strip()
     return text.lower()
 
 
-def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False) -> tuple[Optional[int], Optional[int], float]:
+def find_text_in_content(
+    needle: str, haystack: str, aggressive_normalization: bool = False
+) -> tuple[Optional[int], Optional[int], float]:
     """
     Find needle in haystack and return (start_pos, end_pos, match_ratio).
     Uses fuzzy matching to find the best fit.
@@ -1053,17 +1130,14 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         A tuple containing (start_pos, end_pos, match_ratio).
         Returns (None, None, 0) if no good match is found.
     """
-    needle_normalized = normalize_text(
-        needle, aggressive=aggressive_normalization)
-    haystack_normalized = normalize_text(
-        haystack, aggressive=aggressive_normalization)
+    needle_normalized = normalize_text(needle, aggressive=aggressive_normalization)
+    haystack_normalized = normalize_text(haystack, aggressive=aggressive_normalization)
 
     # Try exact match first
     if needle_normalized in haystack_normalized:
         # Find position in original (non-normalized) text
         # Use first 20 chars to locate in original
-        search_start = needle[:min(
-            config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
+        search_start = needle[: min(config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
         if pos >= 0:
             return (pos, pos + len(needle), 1.0)
@@ -1077,7 +1151,7 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     best_pos = None
 
     for i in range(len(haystack_words) - needle_len + 1):
-        window = ' '.join(haystack_words[i:i + needle_len])
+        window = " ".join(haystack_words[i : i + needle_len])
         ratio = SequenceMatcher(None, needle_normalized, window).ratio()
 
         if ratio > best_ratio and ratio >= config.FUZZY_MATCH_THRESHOLD:
@@ -1090,26 +1164,27 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     if best_pos is not None:
         # Approximate position in original text
         # This is rough but works for highlighting
-        words_before = ' '.join(haystack_words[:best_pos])
+        words_before = " ".join(haystack_words[:best_pos])
         approx_start = len(words_before)
-        approx_end = approx_start + \
-            len(' '.join(haystack_words[best_pos:best_pos + needle_len]))
+        approx_end = approx_start + len(
+            " ".join(haystack_words[best_pos : best_pos + needle_len])
+        )
         return (approx_start, approx_end, best_ratio)
 
     return (None, None, 0)
 
+
 def delete_logs(logger=None) -> bool:
     """Permanently delete log files and token usage CSV."""
     if logger is None:
-        logger = setup_logging('delete_logs')
+        logger = setup_logging("delete_logs")
 
     logs_dir = config.LOGS_DIR
     if not logs_dir.exists():
         logger.info(f"Logs directory not found: {logs_dir}")
         return True
 
-    files_to_delete = list(logs_dir.glob("*.log")) + \
-        list(logs_dir.glob("*.csv"))
+    files_to_delete = list(logs_dir.glob("*.log")) + list(logs_dir.glob("*.csv"))
 
     if not files_to_delete:
         logger.info("No log files found to delete.")

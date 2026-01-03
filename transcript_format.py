@@ -8,8 +8,9 @@ Usage:
 
 import argparse
 import sys
-from pipeline import format_transcript
+
 import config
+from pipeline import format_transcript
 
 
 def main():
@@ -21,12 +22,12 @@ def main():
     )
     parser.add_argument(
         "raw_filename",
-        help="Filename of the raw transcript in the source directory (e.g., 'Title - Presenter - Date.txt')"
+        help="Filename of the raw transcript in the source directory (e.g., 'Title - Presenter - Date.txt')",
     )
     parser.add_argument(
         "--model",
         default=config.FORMATTING_MODEL,
-        help=f"Claude model to use (default: {config.FORMATTING_MODEL})"
+        help=f"Claude model to use (default: {config.FORMATTING_MODEL})",
     )
 
     args = parser.parse_args()

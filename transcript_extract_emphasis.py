@@ -8,10 +8,10 @@ Usage:
 
 import argparse
 import sys
-from pathlib import Path
-from pipeline import extract_scored_emphasis, _load_formatted_transcript
+
 import config
-from transcript_utils import parse_filename_metadata, create_system_message_with_cache
+from pipeline import _load_formatted_transcript, extract_scored_emphasis
+from transcript_utils import create_system_message_with_cache, parse_filename_metadata
 
 
 def resolve_filename(filename: str) -> str:
@@ -20,15 +20,10 @@ def resolve_filename(filename: str) -> str:
     """
     # Clean up base name
     base = filename
-    suffixes = [
-        config.SUFFIX_YAML,
-        config.SUFFIX_FORMATTED,
-        '.md',
-        '.txt'
-    ]
+    suffixes = [config.SUFFIX_YAML, config.SUFFIX_FORMATTED, ".md", ".txt"]
     for suffix in suffixes:
         if base.endswith(suffix):
-            base = base[:-len(suffix)]
+            base = base[: -len(suffix)]
             break
 
     project_dir = config.PROJECTS_DIR / base
@@ -52,12 +47,12 @@ def main():
     )
     parser.add_argument(
         "formatted_filename",
-        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)"
+        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)",
     )
     parser.add_argument(
         "--model",
         default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
+        help=f"Claude model to use (default: {config.DEFAULT_MODEL})",
     )
 
     args = parser.parse_args()
@@ -67,13 +62,15 @@ def main():
     # Add a pre-flight check for a better error message
     try:
         meta = parse_filename_metadata(resolved_filename)
-        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+        expected_path = config.PROJECTS_DIR / meta["stem"] / resolved_filename
 
         if not expected_path.exists():
             print(
-                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}"
+            )
             print(
-                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first.")
+                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first."
+            )
             return 1
     except Exception:
         # If parsing fails, let the pipeline handle the error.
@@ -83,13 +80,12 @@ def main():
 
     # Load transcript and create a cached system message to reduce costs
     transcript_content = _load_formatted_transcript(resolved_filename)
-    transcript_system_message = create_system_message_with_cache(
-        transcript_content)
+    transcript_system_message = create_system_message_with_cache(transcript_content)
 
     success = extract_scored_emphasis(
         formatted_filename=resolved_filename,
         model=args.model,
-        transcript_system_message=transcript_system_message
+        transcript_system_message=transcript_system_message,
     )
 
     if success:

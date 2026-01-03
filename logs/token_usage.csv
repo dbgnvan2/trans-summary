@@ -146,3 +146,33 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-03 07:51:15,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3561),1717,750,0,3561
 2026-01-03 07:51:24,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3561),317,388,0,3561
 2026-01-03 07:51:52,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3561),823,1331,0,3561
+2026-01-03 10:51:27,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 21787),2,14066,21787,0
+2026-01-03 10:51:44,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2125,1925,0,0
+2026-01-03 10:52:07,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3097,2479,0,0
+2026-01-03 10:52:23,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2749,1699,0,0
+2026-01-03 10:52:44,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2404,2318,0,0
+2026-01-03 10:53:03,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2665,2105,0,0
+2026-01-03 10:53:19,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2669,1825,0,0
+2026-01-03 10:53:31,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2726,1455,0,0
+2026-01-03 10:53:53,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 14194),298,946,14194,0
+2026-01-03 10:54:25,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14194),1717,1238,0,14194
+2026-01-03 10:54:29,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14194),317,147,0,14194
+2026-01-03 10:54:54,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14194),823,1189,0,14194
+2026-01-03 10:55:04,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 14016),1619,715,14016,0
+2026-01-03 10:55:10,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 14016),781,413,0,14016
+2026-01-03 12:52:36,format_transcript,claude-haiku-4-5-20251001,end_turn,No,3717,1183,0,0
+2026-01-03 12:55:30,summarize_transcript,claude-3-7-sonnet-20250219,end_turn,Yes (Created 1348),298,757,1348,0
+2026-01-03 12:55:45,summarize_transcript,claude-3-7-sonnet-20250219,end_turn,Yes (Read 1348),1717,613,0,1348
+2026-01-03 12:55:48,summarize_transcript,claude-3-7-sonnet-20250219,end_turn,Yes (Read 1348),317,183,0,1348
+2026-01-03 12:56:14,summarize_transcript,claude-3-7-sonnet-20250219,end_turn,Yes (Read 1348),823,1225,0,1348
+2026-01-03 12:56:22,unknown_script,claude-haiku-4-5-20251001,end_turn,No,2851,565,0,0
+2026-01-03 13:10:57,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 5718),2,3356,5718,0
+2026-01-03 13:11:16,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2010,2298,0,0
+2026-01-03 13:11:36,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1806,2246,0,0
+2026-01-03 13:11:47,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1412,1382,0,0
+2026-01-03 13:12:06,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 3523),298,879,3523,0
+2026-01-03 13:12:23,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3523),1717,686,0,3523
+2026-01-03 13:12:31,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3523),317,339,0,3523
+2026-01-03 13:13:01,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3523),823,1375,0,3523
+2026-01-03 13:13:11,unknown_script,claude-haiku-4-5-20251001,end_turn,No,5203,721,0,0
+2026-01-03 13:13:15,unknown_script,claude-haiku-4-5-20251001,end_turn,No,4116,210,0,0

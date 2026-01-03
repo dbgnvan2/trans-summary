@@ -8,14 +8,16 @@ Direct access to variables (e.g. config.SOURCE_DIR) is proxied to the singleton 
 to maintain backward compatibility while enabling safer state management.
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
 from typing import Union
+
 
 class ProjectSettings:
     """
     Singleton class to manage project settings and paths.
     """
+
     _instance = None
 
     def __new__(cls):
@@ -27,7 +29,7 @@ class ProjectSettings:
     def __init__(self):
         if self._initialized:
             return
-        
+
         # Default initialization
         self.TRANSCRIPTS_BASE = Path(os.getenv("TRANSCRIPTS_DIR", "."))
         self._update_derived_paths()
@@ -46,6 +48,7 @@ class ProjectSettings:
         self.TRANSCRIPTS_BASE = Path(path)
         self._update_derived_paths()
 
+
 # Initialize the singleton
 settings = ProjectSettings()
 
@@ -55,10 +58,12 @@ settings = ProjectSettings()
 # These properties allow existing code to continue using `config.SOURCE_DIR`
 # while actually reading from the singleton `settings` object.
 
+
 def __getattr__(name):
     if hasattr(settings, name):
         return getattr(settings, name)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
 
 # Explicitly define for static analysis tools (optional but good practice)
 TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
@@ -137,11 +142,13 @@ TEMP_CREATIVE = 0.4
 
 # Timeouts (seconds)
 TIMEOUT_FORMATTING = 1200  # 20 minutes
-TIMEOUT_SUMMARY = 900      # 15 minutes
-TIMEOUT_DEFAULT = 300      # 5 minutes
+TIMEOUT_SUMMARY = 900  # 15 minutes
+TIMEOUT_DEFAULT = 300  # 5 minutes
 
 # Prompt Filenames
-PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = "Transcript Formatting Headers Validation Prompt 12.md"
+PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = (
+    "Transcript Formatting Headers Validation Prompt 12.md"
+)
 PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v12-Lite.md"
 PROMPT_EXTRACTS_FILENAME = "Transcript Summary Key Items v1.md"
 PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
@@ -182,7 +189,7 @@ SUMMARY_QA_PCT = 0.10
 # Validation Thresholds
 TRANSCRIPT_MIN_WORDS = 1500
 BLOG_MIN_WORDS = 800
-EVALUATIVE_TERMS = ['valuable', 'insightful', 'excellent']
+EVALUATIVE_TERMS = ["valuable", "insightful", "excellent"]
 
 # Token Estimation & Safety
 CHARS_PER_TOKEN = 4

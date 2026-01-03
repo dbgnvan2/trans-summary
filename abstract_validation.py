@@ -9,10 +9,10 @@ Three-tier validation:
 
 Usage:
     from abstract_validation import validate_abstract_coverage, generate_review_checklist
-    
+
     checklist = generate_review_checklist(abstract_input)
     validation = validate_abstract_coverage(abstract, abstract_input)
-    
+
     if not validation["passed"]:
         print(validation["human_review_checklist"])
 """
@@ -20,7 +20,7 @@ Usage:
 import re
 from dataclasses import dataclass
 from typing import Optional
-import json
+
 import config
 from transcript_utils import call_claude_with_retry
 
@@ -28,11 +28,12 @@ from transcript_utils import call_claude_with_retry
 @dataclass
 class CoverageItem:
     """Single item to verify in abstract."""
-    category: str          # "topic", "theme", "purpose", "conclusion", "qa"
-    label: str             # Human-readable label
-    required: bool         # Must be present
-    keywords: list[str]    # Terms that indicate coverage
-    source_text: str       # Original text for LLM verification
+
+    category: str  # "topic", "theme", "purpose", "conclusion", "qa"
+    label: str  # Human-readable label
+    required: bool  # Must be present
+    keywords: list[str]  # Terms that indicate coverage
+    source_text: str  # Original text for LLM verification
     covered: Optional[bool] = None  # Result of validation
     confidence: Optional[str] = None  # "high", "medium", "low"
 
@@ -44,30 +45,122 @@ def extract_keywords(text: str, min_length: int = 4) -> list[str]:
     """
     # Common words to exclude
     stopwords = {
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-        'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
-        'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-        'could', 'should', 'may', 'might', 'must', 'that', 'this', 'these',
-        'those', 'it', 'its', 'they', 'their', 'them', 'he', 'she', 'his',
-        'her', 'we', 'our', 'you', 'your', 'i', 'my', 'me', 'what', 'which',
-        'who', 'whom', 'how', 'when', 'where', 'why', 'about', 'into', 'through',
-        'during', 'before', 'after', 'above', 'below', 'between', 'under',
-        'again', 'further', 'then', 'once', 'here', 'there', 'all', 'each',
-        'few', 'more', 'most', 'other', 'some', 'such', 'only', 'own', 'same',
-        'than', 'too', 'very', 'just', 'also', 'now', 'being', 'think', 'said',
-        'says', 'going', 'really', 'thing', 'things', 'something', 'anything'
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "with",
+        "by",
+        "from",
+        "as",
+        "is",
+        "was",
+        "are",
+        "were",
+        "been",
+        "be",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "must",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "they",
+        "their",
+        "them",
+        "he",
+        "she",
+        "his",
+        "her",
+        "we",
+        "our",
+        "you",
+        "your",
+        "i",
+        "my",
+        "me",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "how",
+        "when",
+        "where",
+        "why",
+        "about",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "all",
+        "each",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "only",
+        "own",
+        "same",
+        "than",
+        "too",
+        "very",
+        "just",
+        "also",
+        "now",
+        "being",
+        "think",
+        "said",
+        "says",
+        "going",
+        "really",
+        "thing",
+        "things",
+        "something",
+        "anything",
     }
 
     # Extract words
-    words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+    words = re.findall(r"\b[a-zA-Z]+\b", text.lower())
 
     # Filter and deduplicate
     keywords = []
     seen = set()
     for word in words:
-        if (len(word) >= min_length and
-            word not in stopwords and
-                word not in seen):
+        if len(word) >= min_length and word not in stopwords and word not in seen:
             keywords.append(word)
             seen.add(word)
 
@@ -93,63 +186,79 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
         name_parts = speaker_name.replace("Dr.", "").replace(".", "").split()
         name_keywords = [n.lower() for n in name_parts if len(n) > 2]
 
-        items.append(CoverageItem(
-            category="metadata",
-            label=f"Speaker identified: {speaker_name}",
-            required=True,
-            keywords=name_keywords,
-            source_text=speaker_name
-        ))
+        items.append(
+            CoverageItem(
+                category="metadata",
+                label=f"Speaker identified: {speaker_name}",
+                required=True,
+                keywords=name_keywords,
+                source_text=speaker_name,
+            )
+        )
 
     # Topic coverage
     for topic in abstract_input.topics:
         topic_keywords = extract_keywords(topic.name)
 
-        items.append(CoverageItem(
-            category="topic",
-            label=f"Topic ({topic.percentage}%): {topic.name}",
-            required=topic.percentage >= 15,  # Required if major topic
-            keywords=topic_keywords,
-            source_text=topic.name
-        ))
+        items.append(
+            CoverageItem(
+                category="topic",
+                label=f"Topic ({topic.percentage}%): {topic.name}",
+                required=topic.percentage >= 15,  # Required if major topic
+                keywords=topic_keywords,
+                source_text=topic.name,
+            )
+        )
 
     # Theme coverage
     for i, theme in enumerate(abstract_input.themes):
-        theme_keywords = extract_keywords(
-            theme.name) + extract_keywords(theme.description)
+        theme_keywords = extract_keywords(theme.name) + extract_keywords(
+            theme.description
+        )
 
-        items.append(CoverageItem(
-            category="theme",
-            label=f"Theme: {theme.name}",
-            required=i == 0,  # First theme is required
-            keywords=theme_keywords[:8],  # Limit keywords
-            source_text=f"{theme.name}: {theme.description}"
-        ))
+        items.append(
+            CoverageItem(
+                category="theme",
+                label=f"Theme: {theme.name}",
+                required=i == 0,  # First theme is required
+                keywords=theme_keywords[:8],  # Limit keywords
+                source_text=f"{theme.name}: {theme.description}",
+            )
+        )
 
     # Purpose coverage
-    if abstract_input.opening_purpose and abstract_input.opening_purpose != "Not explicitly stated":
+    if (
+        abstract_input.opening_purpose
+        and abstract_input.opening_purpose != "Not explicitly stated"
+    ):
         purpose_keywords = extract_keywords(abstract_input.opening_purpose)
 
-        items.append(CoverageItem(
-            category="purpose",
-            label="Speaker's stated purpose",
-            required=True,
-            keywords=purpose_keywords[:6],
-            source_text=abstract_input.opening_purpose
-        ))
+        items.append(
+            CoverageItem(
+                category="purpose",
+                label="Speaker's stated purpose",
+                required=True,
+                keywords=purpose_keywords[:6],
+                source_text=abstract_input.opening_purpose,
+            )
+        )
 
     # Conclusion coverage
-    if abstract_input.closing_conclusion and abstract_input.closing_conclusion != "No explicit conclusion stated":
-        conclusion_keywords = extract_keywords(
-            abstract_input.closing_conclusion)
+    if (
+        abstract_input.closing_conclusion
+        and abstract_input.closing_conclusion != "No explicit conclusion stated"
+    ):
+        conclusion_keywords = extract_keywords(abstract_input.closing_conclusion)
 
-        items.append(CoverageItem(
-            category="conclusion",
-            label="Speaker's conclusion",
-            required=True,
-            keywords=conclusion_keywords[:6],
-            source_text=abstract_input.closing_conclusion
-        ))
+        items.append(
+            CoverageItem(
+                category="conclusion",
+                label="Speaker's conclusion",
+                required=True,
+                keywords=conclusion_keywords[:6],
+                source_text=abstract_input.closing_conclusion,
+            )
+        )
 
     # Q&A coverage (if significant)
     if abstract_input.qa_percentage > 20 and abstract_input.qa_topics:
@@ -157,18 +266,22 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
         for topic in abstract_input.qa_topics:
             qa_keywords.extend(extract_keywords(topic))
 
-        items.append(CoverageItem(
-            category="qa",
-            label=f"Q&A content ({abstract_input.qa_percentage}%)",
-            required=True,
-            keywords=qa_keywords[:8],
-            source_text=", ".join(abstract_input.qa_topics)
-        ))
+        items.append(
+            CoverageItem(
+                category="qa",
+                label=f"Q&A content ({abstract_input.qa_percentage}%)",
+                required=True,
+                keywords=qa_keywords[:8],
+                source_text=", ".join(abstract_input.qa_topics),
+            )
+        )
 
     return items
 
 
-def check_keyword_coverage(abstract: str, item: CoverageItem, threshold: int = 2) -> tuple[bool, str]:
+def check_keyword_coverage(
+    abstract: str, item: CoverageItem, threshold: int = 2
+) -> tuple[bool, str]:
     """
     Check if abstract contains sufficient keywords for a coverage item.
 
@@ -200,10 +313,7 @@ def check_keyword_coverage(abstract: str, item: CoverageItem, threshold: int = 2
 
 
 def validate_abstract_coverage(
-    abstract: str,
-    abstract_input,
-    use_llm_verification: bool = False,
-    api_client=None
+    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None
 ) -> dict:
     """
     Validate abstract covers required content from source.
@@ -228,13 +338,11 @@ def validate_abstract_coverage(
     # Second pass: LLM verification for low-confidence required items
     if use_llm_verification and api_client:
         low_confidence_required = [
-            item for item in items
-            if item.required and item.confidence == "low"
+            item for item in items if item.required and item.confidence == "low"
         ]
 
         if low_confidence_required:
-            llm_results = verify_with_llm(
-                abstract, low_confidence_required, api_client)
+            llm_results = verify_with_llm(abstract, low_confidence_required, api_client)
             for item, result in zip(low_confidence_required, llm_results):
                 item.covered = result
                 item.confidence = "llm_verified"
@@ -250,7 +358,8 @@ def validate_abstract_coverage(
 
     # Generate human review checklist for failures or low confidence
     needs_review = [
-        item for item in items
+        item
+        for item in items
         if not item.covered or item.confidence in ("low", "medium")
     ]
 
@@ -265,29 +374,26 @@ def validate_abstract_coverage(
                 "required": item.required,
                 "covered": item.covered,
                 "confidence": item.confidence,
-                "keywords_checked": item.keywords[:5]  # Show sample
+                "keywords_checked": item.keywords[:5],  # Show sample
             }
             for item in items
         ],
-        "human_review_checklist": format_review_checklist(needs_review) if needs_review else None,
-        "summary": generate_validation_summary(items, passed)
+        "human_review_checklist": format_review_checklist(needs_review)
+        if needs_review
+        else None,
+        "summary": generate_validation_summary(items, passed),
     }
 
 
-def verify_with_llm(
-    abstract: str,
-    items: list[CoverageItem],
-    api_client
-) -> list[bool]:
+def verify_with_llm(abstract: str, items: list[CoverageItem], api_client) -> list[bool]:
     """
     Use LLM to verify coverage of specific items.
 
     Batches items into single API call for efficiency.
     """
-    items_text = "\n".join([
-        f"{i+1}. {item.label}: \"{item.source_text}\""
-        for i, item in enumerate(items)
-    ])
+    items_text = "\n".join(
+        [f'{i + 1}. {item.label}: "{item.source_text}"' for i, item in enumerate(items)]
+    )
 
     prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
     if not prompt_path.exists():
@@ -295,12 +401,14 @@ def verify_with_llm(
             f"Prompt file not found: {prompt_path}\n"
             f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_VALIDATION_COVERAGE_FILENAME}"
         )
-    template = prompt_path.read_text(encoding='utf-8')
+    template = prompt_path.read_text(encoding="utf-8")
 
-    prompt = template.replace("{{content_type}}", "abstract") \
-                     .replace("{{content_type_upper}}", "ABSTRACT") \
-                     .replace("{{content}}", abstract) \
-                     .replace("{{items_text}}", items_text)
+    prompt = (
+        template.replace("{{content_type}}", "abstract")
+        .replace("{{content_type_upper}}", "ABSTRACT")
+        .replace("{{content}}", abstract)
+        .replace("{{items_text}}", items_text)
+    )
 
     # Use centralized call with retry
     response = call_claude_with_retry(
@@ -308,24 +416,24 @@ def verify_with_llm(
         model=config.AUX_MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
-        temperature=0.0  # Strict for validation
+        temperature=0.0,  # Strict for validation
     )
 
     response_text = response.content[0].text.strip()
-    lines = response_text.upper().split('\n')
+    lines = response_text.upper().split("\n")
 
     results = []
     for line in lines:
-        if 'YES' in line:
+        if "YES" in line:
             results.append(True)
-        elif 'NO' in line:
+        elif "NO" in line:
             results.append(False)
 
     # Pad with False if response incomplete
     while len(results) < len(items):
         results.append(False)
 
-    return results[:len(items)]
+    return results[: len(items)]
 
 
 def format_review_checklist(items: list[CoverageItem]) -> str:
@@ -340,8 +448,11 @@ def format_review_checklist(items: list[CoverageItem]) -> str:
         required_tag = "[REQUIRED]" if item.required else "[optional]"
 
         lines.append(f"- {status} {required_tag} {item.label}")
-        lines.append(f"  Source: \"{item.source_text[:100]}...\"" if len(
-            item.source_text) > 100 else f"  Source: \"{item.source_text}\"")
+        lines.append(
+            f'  Source: "{item.source_text[:100]}..."'
+            if len(item.source_text) > 100
+            else f'  Source: "{item.source_text}"'
+        )
         lines.append(f"  Keywords checked: {', '.join(item.keywords[:5])}")
         lines.append("")
 
@@ -351,11 +462,10 @@ def format_review_checklist(items: list[CoverageItem]) -> str:
 def generate_validation_summary(items: list[CoverageItem], passed: bool) -> str:
     """Generate one-line summary of validation results."""
     required = [i for i in items if i.required]
-    required_pass = sum(1 for i in required if i.covered)
+    # required_pass = sum(1 for i in required if i.covered)
 
     if passed:
-        low_confidence = sum(
-            1 for i in items if i.confidence in ("low", "medium"))
+        low_confidence = sum(1 for i in items if i.confidence in ("low", "medium"))
         if low_confidence > 0:
             return f"PASSED with {low_confidence} low-confidence items - human review recommended"
         return "PASSED - all required items covered"
@@ -377,48 +487,48 @@ def generate_review_checklist(abstract_input) -> str:
         "# Abstract Coverage Checklist",
         "",
         "## Required Items (must be mentioned)",
-        ""
+        "",
     ]
 
     required = [i for i in items if i.required]
     for item in required:
         lines.append(f"- [ ] {item.label}")
 
-    lines.extend(
-        ["", "## Optional Items (should be mentioned if space permits)", ""])
+    lines.extend(["", "## Optional Items (should be mentioned if space permits)", ""])
 
     optional = [i for i in items if not i.required]
     for item in optional:
         lines.append(f"- [ ] {item.label}")
 
-    lines.extend([
-        "",
-        "## Structural Requirements",
-        "",
-        "- [ ] Opens with speaker identification and context",
-        "- [ ] States central argument/purpose",
-        "- [ ] Mentions key topics in presentation order",
-        "- [ ] Includes conclusion or implications",
-        f"- [ ] Q&A mentioned (required: {abstract_input.qa_percentage > 20})",
-        "",
-        "## Constraints",
-        "",
-        "- [ ] Word count: 150-250 words",
-        "- [ ] Third person, present tense",
-        "- [ ] No citations or section references",
-        "- [ ] No evaluative language",
-        "- [ ] No bullet points"
-    ])
+    lines.extend(
+        [
+            "",
+            "## Structural Requirements",
+            "",
+            "- [ ] Opens with speaker identification and context",
+            "- [ ] States central argument/purpose",
+            "- [ ] Mentions key topics in presentation order",
+            "- [ ] Includes conclusion or implications",
+            f"- [ ] Q&A mentioned (required: {abstract_input.qa_percentage > 20})",
+            "",
+            "## Constraints",
+            "",
+            "- [ ] Word count: 150-250 words",
+            "- [ ] Third person, present tense",
+            "- [ ] No citations or section references",
+            "- [ ] No evaluative language",
+            "- [ ] No bullet points",
+        ]
+    )
 
     return "\n".join(lines)
 
 
 # === Integration with abstract_pipeline ===
 
+
 def validate_and_report(
-    abstract: str,
-    abstract_input,
-    api_client=None
+    abstract: str, abstract_input, api_client=None
 ) -> tuple[bool, str]:
     """
     Convenience function: validate and return pass/fail with report.
@@ -432,7 +542,7 @@ def validate_and_report(
         (passed: bool, report: str)
     """
     # Structural validation first
-    target_word_count = getattr(abstract_input, 'target_word_count', 250)
+    target_word_count = getattr(abstract_input, "target_word_count", 250)
     structural = validate_structural(abstract, target_word_count)
     if not structural["valid"]:
         return False, f"Structural validation failed: {structural['issues']}"
@@ -442,14 +552,14 @@ def validate_and_report(
         abstract,
         abstract_input,
         use_llm_verification=api_client is not None,
-        api_client=api_client
+        api_client=api_client,
     )
 
     report_lines = [
         f"Validation: {coverage['summary']}",
         f"Required coverage: {coverage['required_coverage']}",
         f"Optional coverage: {coverage['optional_coverage']}",
-        f"Word count: {structural['word_count']}"
+        f"Word count: {structural['word_count']}",
     ]
 
     if coverage["human_review_checklist"]:
@@ -474,24 +584,18 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     elif word_count > max_words:
         issues.append(f"Too long: {word_count} words (maximum {max_words})")
 
-    if re.search(r'Section \d+', abstract):
+    if re.search(r"Section \d+", abstract):
         issues.append("Contains section references")
 
-    if re.search(r'^\s*[-•*]\s', abstract, re.MULTILINE):
+    if re.search(r"^\s*[-•*]\s", abstract, re.MULTILINE):
         issues.append("Contains bullet points")
 
-    evaluative_terms = ['important', 'valuable',
-                        'insightful', 'excellent', 'crucial']
-    found_evaluative = [
-        t for t in evaluative_terms if t.lower() in abstract.lower()]
+    evaluative_terms = ["important", "valuable", "insightful", "excellent", "crucial"]
+    found_evaluative = [t for t in evaluative_terms if t.lower() in abstract.lower()]
     if found_evaluative:
         issues.append(f"Contains evaluative language: {found_evaluative}")
 
-    return {
-        "valid": len(issues) == 0,
-        "word_count": word_count,
-        "issues": issues
-    }
+    return {"valid": len(issues) == 0, "word_count": word_count, "issues": issues}
 
 
 # === Example Usage ===
@@ -514,11 +618,13 @@ if __name__ == "__main__":
             self.topics = [
                 MockTopic("Paradigm shifts in astronomy", 28),
                 MockTopic("Physical to biological carryover", 22),
-                MockTopic("Cancer research parallels", 18)
+                MockTopic("Cancer research parallels", 18),
             ]
             self.themes = [
-                MockTheme("Cross-disciplinary foundations",
-                          "Physical sciences inform biological understanding")
+                MockTheme(
+                    "Cross-disciplinary foundations",
+                    "Physical sciences inform biological understanding",
+                )
             ]
             self.opening_purpose = "To explore where the roots of Bowen theory reside"
             self.closing_conclusion = "Answers extend beyond our species"
@@ -549,7 +655,7 @@ if __name__ == "__main__":
     print("=== Testing Good Abstract ===")
     checklist = generate_review_checklist(mock_input)
     print(checklist)
-    print("\n" + "="*50 + "\n")
+    print("\n" + "=" * 50 + "\n")
 
     result = validate_abstract_coverage(good_abstract, mock_input)
     print(f"Passed: {result['passed']}")

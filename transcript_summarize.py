@@ -8,9 +8,9 @@ Usage:
 
 import argparse
 import sys
-from pathlib import Path
-from pipeline import summarize_transcript
+
 import config
+from pipeline import summarize_transcript
 from transcript_utils import parse_filename_metadata
 
 
@@ -21,15 +21,10 @@ def resolve_filename(filename: str) -> str:
     """
     # Clean up base name
     base = filename
-    suffixes = [
-        config.SUFFIX_YAML,
-        config.SUFFIX_FORMATTED,
-        '.md',
-        '.txt'
-    ]
+    suffixes = [config.SUFFIX_YAML, config.SUFFIX_FORMATTED, ".md", ".txt"]
     for suffix in suffixes:
         if base.endswith(suffix):
-            base = base[:-len(suffix)]
+            base = base[: -len(suffix)]
             break
 
     project_dir = config.PROJECTS_DIR / base
@@ -56,53 +51,61 @@ def main():
     )
     parser.add_argument(
         "formatted_filename",
-        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)"
+        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)",
     )
     parser.add_argument(
         "--focus-keyword",
         default="Family Systems",
-        help="Focus keyword for SEO (default: Family Systems)"
+        help="Focus keyword for SEO (default: Family Systems)",
     )
     parser.add_argument(
         "--target-audience",
         default="General public interested in psychology",
-        help="Target audience description"
+        help="Target audience description",
     )
     parser.add_argument(
         "--model",
         default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
+        help=f"Claude model to use (default: {config.DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--skip-extracts-summary",
         action="store_true",
-        help="Skip extracts-summary analysis (Part 1)"
+        help="Skip extracts-summary analysis (Part 1)",
     )
     parser.add_argument(
         "--skip-emphasis",
         action="store_true",
-        help="Skip scored emphasis extraction (Part 2)"
+        help="Skip scored emphasis extraction (Part 2)",
     )
     parser.add_argument(
         "--skip-blog",
         action="store_true",
         help="Skip blog post generation (Part 3)"
     )
+    parser.add_argument(
+        "--generate-structured",
+        action="store_true",
+        help="Generate structured summary using the new pipeline"
+    )
 
     args = parser.parse_args()
+    
 
     resolved_filename = resolve_filename(args.formatted_filename)
 
     # Add a pre-flight check for a better error message
     try:
         meta = parse_filename_metadata(resolved_filename)
-        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+        expected_path = config.PROJECTS_DIR / meta["stem"] / resolved_filename
 
         if not expected_path.exists():
             print(
-                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}"
+            )
             print(
-                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first.")
+                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first."
+            )
             return 1
     except Exception:
         # If parsing fails, let the pipeline handle the error.
@@ -117,7 +120,8 @@ def main():
         target_audience=args.target_audience,
         skip_extracts_summary=args.skip_extracts_summary,
         skip_emphasis=args.skip_emphasis,
-        skip_blog=args.skip_blog
+        skip_blog=args.skip_blog,
+        generate_structured=args.generate_structured
     )
 
     if success:

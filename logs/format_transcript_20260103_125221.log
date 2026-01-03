@@ -1,0 +1,13 @@
+2026-01-03 12:52:21,862 - format_transcript - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/format_transcript_20260103_125221.log
+2026-01-03 12:52:21,862 - format_transcript - INFO - Loading prompt template from: /Users/davemini2/transcripts/prompts
+2026-01-03 12:52:21,863 - format_transcript - INFO - Loading raw transcript: Test Transcript - Dr Bowen - 2025-01-01.txt
+2026-01-03 12:52:21,863 - format_transcript - ERROR - An error occurred: Input file not found: /Users/davemini2/transcripts/source/Test Transcript - Dr Bowen - 2025-01-01.txt
+Traceback (most recent call last):
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/formatting_pipeline.py", line 147, in format_transcript
+    raw_transcript = load_raw_transcript(raw_filename)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/formatting_pipeline.py", line 47, in load_raw_transcript
+    validate_input_file(transcript_path)
+  File "/Users/davemini2/ProjectsLocal/Projects/trans-summary/transcript_utils.py", line 84, in validate_input_file
+    raise FileNotFoundError(f"Input file not found: {file_path}")
+FileNotFoundError: Input file not found: /Users/davemini2/transcripts/source/Test Transcript - Dr Bowen - 2025-01-01.txt

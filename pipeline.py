@@ -4,41 +4,54 @@ This module acts as a facade, orchestrating the business logic by delegating
 to specialized pipeline modules.
 """
 
-# Re-exporting functions to maintain backward compatibility
 from formatting_pipeline import (
+    add_yaml,
     format_transcript,
     validate_format,
-    add_yaml
 )
-
 from validation_pipeline import (
-    validate_headers,
-    validate_abstract_legacy as validate_abstract, # Legacy
     validate_abstract_coverage,
-    validate_summary_coverage
+    validate_headers,
+    validate_summary_coverage,
 )
-
+from validation_pipeline import (
+    validate_abstract_legacy as validate_abstract,  # Legacy
+)
 from extraction_pipeline import (
-    summarize_transcript,
-    extract_scored_emphasis,
+    _load_formatted_transcript,  # Helper used by CLI scripts
     extract_bowen_references_from_transcript,
+    extract_scored_emphasis,
+    generate_structured_abstract,
     generate_structured_summary,
-    generate_structured_abstract, # Added
-    _load_formatted_transcript # Helper used by CLI scripts
+    summarize_transcript,
 )
-
 from html_generator import (
-    generate_webpage,
+    generate_pdf,
     generate_simple_webpage,
-    generate_pdf
+    generate_webpage,
 )
-
 from packaging_pipeline import package_transcript
+from transcript_utils import delete_logs, setup_logging
 
-from transcript_utils import delete_logs
-
-# Optional: expose other helpers if needed by GUI directly
-from transcript_utils import setup_logging
-import config
-
-# End of facade
+# Explicitly export symbols to prevent linters from removing them
+__all__ = [
+    "add_yaml",
+    "format_transcript",
+    "validate_format",
+    "validate_abstract_coverage",
+    "validate_headers",
+    "validate_summary_coverage",
+    "validate_abstract",
+    "_load_formatted_transcript",
+    "extract_bowen_references_from_transcript",
+    "extract_scored_emphasis",
+    "generate_structured_abstract",
+    "generate_structured_summary",
+    "summarize_transcript",
+    "generate_pdf",
+    "generate_simple_webpage",
+    "generate_webpage",
+    "package_transcript",
+    "delete_logs",
+    "setup_logging",
+]

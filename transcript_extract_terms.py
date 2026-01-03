@@ -5,7 +5,7 @@ Extracts domain-specific terminology and their definitions from formatted transc
 
 Usage:
     python transcript_extract_terms.py "Title - Presenter - Date - formatted.md"
-    
+
 Example:
     python transcript_extract_terms.py "Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15 - formatted.md"
 """
@@ -13,9 +13,15 @@ Example:
 import argparse
 import os
 from pathlib import Path
+
 import anthropic
+
 import config
-from transcript_utils import parse_filename_metadata, log_token_usage, create_system_message_with_cache, call_claude_with_retry
+from transcript_utils import (
+    call_claude_with_retry,
+    create_system_message_with_cache,
+    parse_filename_metadata,
+)
 
 
 def load_prompt() -> str:
@@ -26,7 +32,7 @@ def load_prompt() -> str:
             f"Prompt file not found: {prompt_path}\n"
             f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_KEY_TERMS_FILENAME}"
         )
-    return prompt_path.read_text(encoding='utf-8')
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def load_formatted_transcript(filename: str) -> str:
@@ -41,17 +47,17 @@ def load_formatted_transcript(filename: str) -> str:
         filename = f"{base}{config.SUFFIX_FORMATTED}"
 
     meta = parse_filename_metadata(filename)
-    stem = meta['stem']
+    stem = meta["stem"]
 
     transcript_path = config.PROJECTS_DIR / stem / filename
     if not transcript_path.exists():
-        raise FileNotFoundError(
-            f"Formatted transcript not found: {transcript_path}"
-        )
-    return transcript_path.read_text(encoding='utf-8')
+        raise FileNotFoundError(f"Formatted transcript not found: {transcript_path}")
+    return transcript_path.read_text(encoding="utf-8")
 
 
-def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_template: str) -> str:
+def extract_key_terms_with_claude(
+    transcript: str, metadata: dict, prompt_template: str
+) -> str:
     """Send transcript to Claude for key terms extraction."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -70,10 +76,12 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
     prompt = prompt.replace("{{date}}", metadata["date"])
     prompt = prompt.replace("{{title}}", metadata["title"])
     prompt = prompt.replace("{{filename}}", metadata["filename"])
-    
+
     # Remove the placeholder or replace with a reference to the system message
     if "{{insert_transcript_text_here}}" in prompt:
-        prompt = prompt.replace("{{insert_transcript_text_here}}", "(See transcript in system message)")
+        prompt = prompt.replace(
+            "{{insert_transcript_text_here}}", "(See transcript in system message)"
+        )
 
     print("Extracting key terms with Claude...", flush=True)
     print(f"Transcript length: {len(transcript)} characters", flush=True)
@@ -86,7 +94,7 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
         temperature=config.TEMP_CREATIVE,
         system=system_message,
         messages=[{"role": "user", "content": prompt}],
-        min_length=100
+        min_length=100,
     )
 
     # Token usage logging is handled by call_claude_with_retry
@@ -98,7 +106,7 @@ def save_key_terms(content: str, original_filename: str) -> Path:
     """Save the key terms document."""
     # Create output filename
     stem = Path(original_filename).stem
-    stem = stem.replace(config.SUFFIX_FORMATTED.replace('.md', ''), "")
+    stem = stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
     output_filename = f"{stem}{config.SUFFIX_KEY_TERMS}"
 
     project_dir = config.PROJECTS_DIR / stem
@@ -112,10 +120,11 @@ def save_key_terms(content: str, original_filename: str) -> Path:
 
     # Clean up any extra blank lines from marker removal
     import re
-    content = re.sub(r'\n{3,}', '\n\n', content)
+
+    content = re.sub(r"\n{3,}", "\n\n", content)
 
     # Save the content
-    output_path.write_text(content, encoding='utf-8')
+    output_path.write_text(content, encoding="utf-8")
 
     return output_path
 
@@ -126,7 +135,7 @@ def main():
     )
     parser.add_argument(
         "formatted_filename",
-        help='Formatted transcript filename (e.g., "Title - Presenter - Date - formatted.md")'
+        help='Formatted transcript filename (e.g., "Title - Presenter - Date - formatted.md")',
     )
 
     args = parser.parse_args()
@@ -136,8 +145,7 @@ def main():
         print("Loading prompt template...", flush=True)
         prompt_template = load_prompt()
 
-        print(
-            f"Loading formatted transcript: {args.formatted_filename}", flush=True)
+        print(f"Loading formatted transcript: {args.formatted_filename}", flush=True)
         transcript = load_formatted_transcript(args.formatted_filename)
 
         # Parse metadata
@@ -153,8 +161,7 @@ def main():
         )
 
         # Save output
-        output_path = save_key_terms(
-            key_terms_content, args.formatted_filename)
+        output_path = save_key_terms(key_terms_content, args.formatted_filename)
 
         print("\n✓ Success!", flush=True)
         print(f"Key terms document saved to: {output_path}", flush=True)

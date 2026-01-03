@@ -7,7 +7,7 @@ Ensures fidelity to the original transcript and prevents partial/truncated resul
 
 Usage:
     python transcript_validate_completeness.py "Title - Presenter - Date"
-    
+
 Checks:
 - Formatted file has proper structure
 - Summaries contain all required sections
@@ -17,10 +17,9 @@ Checks:
 """
 
 import argparse
-import os
 import re
-from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict
+
 import config
 
 
@@ -67,10 +66,10 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     result = ValidationResult("Formatted Transcript")
 
     # Check for either formatted.md or formatted_yaml.md
-    formatted_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_FORMATTED}"
-    yaml_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_YAML}"
+    formatted_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+    )
+    yaml_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_YAML}"
 
     file_to_check = yaml_file if yaml_file.exists() else formatted_file
 
@@ -78,7 +77,7 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
         result.add_error(f"File not found: {file_to_check.name}")
         return result
 
-    content = file_to_check.read_text(encoding='utf-8')
+    content = file_to_check.read_text(encoding="utf-8")
 
     # Check minimum length (transcripts should be substantial)
     word_count = len(content.split())
@@ -86,20 +85,20 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
 
     if word_count < config.TRANSCRIPT_MIN_WORDS:
         result.add_error(
-            f"Transcript too short ({word_count} words, minimum {config.TRANSCRIPT_MIN_WORDS} required)")
+            f"Transcript too short ({word_count} words, minimum {config.TRANSCRIPT_MIN_WORDS} required)"
+        )
     elif word_count < 2000:
-        result.add_warning(
-            f"Transcript shorter than typical ({word_count} words)")
+        result.add_warning(f"Transcript shorter than typical ({word_count} words)")
 
     # Check for YAML front matter (if yaml file)
     if file_to_check == yaml_file:
-        if not content.startswith('---'):
+        if not content.startswith("---"):
             result.add_error("YAML file missing front matter")
         else:
             result.add_info("YAML front matter present")
 
     # Check for proper structure markers
-    if '## ' not in content:
+    if "## " not in content:
         result.add_warning("No H2 headers found - may lack structure")
 
     # Check for truncation indicators
@@ -107,7 +106,7 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
         "...[truncated]",
         "[content cut off]",
         "...(continued)",
-        "[OUTPUT LIMIT REACHED]"
+        "[OUTPUT LIMIT REACHED]",
     ]
     for marker in truncation_markers:
         if marker.lower() in content.lower():
@@ -115,9 +114,10 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
 
     # Check file doesn't end abruptly (incomplete sentence)
     last_100_chars = content[-100:].strip()
-    if last_100_chars and not any(last_100_chars.endswith(p) for p in ['.', '!', '?', '"', "'"]):
-        result.add_warning(
-            "File may end mid-sentence (no terminal punctuation)")
+    if last_100_chars and not any(
+        last_100_chars.endswith(p) for p in [".", "!", "?", '"', "'"]
+    ):
+        result.add_warning("File may end mid-sentence (no terminal punctuation)")
 
     return result
 
@@ -126,21 +126,22 @@ def validate_key_item_extracts(base_name: str) -> ValidationResult:
     """Validate 'All Key Items' contains all required sections."""
     result = ValidationResult("Key Item Extracts (All Key Items)")
 
-    file_path = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    file_path = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    )
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
         return result
 
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
 
     # Recommended sections (flexible header matching)
     required_sections = {
-        'Abstract': r'##\s*\*?\*?Abstract\*?\*?',
-        'Topics': r'##\s*\*?\*?Topics\*?\*?',
-        'Key Themes': r'##\s*\*?\*?Key Themes\*?\*?',
-        'Emphasis Items': r'##\s*\*?\*?Emphasis Items\*?\*?',
+        "Abstract": r"##\s*\*?\*?Abstract\*?\*?",
+        "Topics": r"##\s*\*?\*?Topics\*?\*?",
+        "Key Themes": r"##\s*\*?\*?Key Themes\*?\*?",
+        "Emphasis Items": r"##\s*\*?\*?Emphasis Items\*?\*?",
     }
 
     for section_name, pattern in required_sections.items():
@@ -151,13 +152,15 @@ def validate_key_item_extracts(base_name: str) -> ValidationResult:
 
     # Check each section has content (not just headers)
     for section_name, pattern in required_sections.items():
-        match = re.search(pattern + r'\s*\n(.*?)(?=##|\Z)',
-                          content, re.IGNORECASE | re.DOTALL)
+        match = re.search(
+            pattern + r"\s*\n(.*?)(?=##|\Z)", content, re.IGNORECASE | re.DOTALL
+        )
         if match:
             section_content = match.group(1).strip()
             if len(section_content) < 50:
                 result.add_warning(
-                    f"Section '{section_name}' appears empty or very short")
+                    f"Section '{section_name}' appears empty or very short"
+                )
 
     # Check word count
     word_count = len(content.split())
@@ -173,22 +176,22 @@ def validate_key_terms(base_name: str) -> ValidationResult:
     """Validate key terms file."""
     result = ValidationResult("Key Terms")
 
-    file_path = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    file_path = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    )
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
         return result
 
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
 
     # Should have at least a few terms
-    term_count = len(re.findall(r'^-\s+\*\*', content, re.MULTILINE))
+    term_count = len(re.findall(r"^-\s+\*\*", content, re.MULTILINE))
     result.add_info(f"Found {term_count} terms")
 
     if term_count == 0:
-        result.add_error(
-            "No terms found (expected bullet list with **Term**:)")
+        result.add_error("No terms found (expected bullet list with **Term**:)")
     elif term_count < 5:
         result.add_warning(f"Only {term_count} terms found - expected more")
 
@@ -199,18 +202,17 @@ def validate_blog(base_name: str) -> ValidationResult:
     """Validate blog post completeness."""
     result = ValidationResult("Blog Post")
 
-    file_path = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_BLOG}"
+    file_path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BLOG}"
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
         return result
 
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
 
     # Blog should have structure
-    has_title = bool(re.search(r'^#\s+', content, re.MULTILINE))
-    has_headers = bool(re.search(r'^##\s+', content, re.MULTILINE))
+    has_title = bool(re.search(r"^#\s+", content, re.MULTILINE))
+    has_headers = bool(re.search(r"^##\s+", content, re.MULTILINE))
 
     if not has_title:
         result.add_warning("No H1 title found")
@@ -223,7 +225,8 @@ def validate_blog(base_name: str) -> ValidationResult:
 
     if word_count < config.BLOG_MIN_WORDS:
         result.add_error(
-            f"Blog too short ({word_count} words, minimum {config.BLOG_MIN_WORDS} required)")
+            f"Blog too short ({word_count} words, minimum {config.BLOG_MIN_WORDS} required)"
+        )
     elif word_count < 1000:
         result.add_warning(f"Blog shorter than typical ({word_count} words)")
 
@@ -234,20 +237,23 @@ def validate_abstracts(base_name: str) -> ValidationResult:
     """Validate abstracts file from quality validation."""
     result = ValidationResult("Validated Abstracts")
 
-    file_path = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
+    file_path = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
+    )
 
     if not file_path.exists():
         result.add_error(f"File not found: {file_path.name}")
         return result
 
-    content = file_path.read_text(encoding='utf-8')
+    content = file_path.read_text(encoding="utf-8")
 
     # Should have both short and extended versions
     has_short = bool(
-        re.search(r'Short Abstract|Abstract \(Short\)', content, re.IGNORECASE))
+        re.search(r"Short Abstract|Abstract \(Short\)", content, re.IGNORECASE)
+    )
     has_extended = bool(
-        re.search(r'Extended Abstract|Abstract \(Extended\)', content, re.IGNORECASE))
+        re.search(r"Extended Abstract|Abstract \(Extended\)", content, re.IGNORECASE)
+    )
 
     if not has_short:
         result.add_warning("No short abstract found")
@@ -255,16 +261,15 @@ def validate_abstracts(base_name: str) -> ValidationResult:
         result.add_warning("No extended abstract found")
 
     # Check for quality scores
-    has_scores = bool(re.search(r'Overall.*\d\.\d', content, re.IGNORECASE))
+    has_scores = bool(re.search(r"Overall.*\d\.\d", content, re.IGNORECASE))
     if has_scores:
         # Extract final score
-        score_match = re.search(r'Overall.*?(\d\.\d)', content, re.IGNORECASE)
+        score_match = re.search(r"Overall.*?(\d\.\d)", content, re.IGNORECASE)
         if score_match:
             score = float(score_match.group(1))
             result.add_info(f"Quality score: {score}/5.0")
             if score < 4.0:
-                result.add_warning(
-                    f"Quality score below target ({score} < 4.5)")
+                result.add_warning(f"Quality score below target ({score} < 4.5)")
     else:
         result.add_warning("No quality scores found")
 
@@ -275,23 +280,23 @@ def validate_all(base_name: str) -> Dict[str, ValidationResult]:
     """Run all validation checks."""
     results = {}
 
-    print("="*80)
+    print("=" * 80)
     print(f"COMPLETENESS VALIDATION: {base_name}")
-    print("="*80)
+    print("=" * 80)
 
     # Run all validators
-    results['formatted'] = validate_formatted_file(base_name)
-    results['key_item_extracts'] = validate_key_item_extracts(base_name)
-    results['terms'] = validate_key_terms(base_name)
-    results['blog'] = validate_blog(base_name)
-    results['abstracts'] = validate_abstracts(base_name)
+    results["formatted"] = validate_formatted_file(base_name)
+    results["key_item_extracts"] = validate_key_item_extracts(base_name)
+    results["terms"] = validate_key_terms(base_name)
+    results["blog"] = validate_blog(base_name)
+    results["abstracts"] = validate_abstracts(base_name)
 
     # Print results
     for result in results.values():
         result.print_result()
 
     # Summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     passed = sum(1 for r in results.values() if r.passed)
     total = len(results)
 
@@ -302,7 +307,7 @@ def validate_all(base_name: str) -> Dict[str, ValidationResult]:
         print(f"❌ VALIDATION FAILED ({passed}/{total} passed)")
         return_code = 1
 
-    print("="*80)
+    print("=" * 80)
 
     return results, return_code
 
@@ -312,13 +317,10 @@ def main():
         description="Validate transcript processing completeness."
     )
     parser.add_argument(
-        "base_name",
-        help="Base name of transcript (e.g., 'Title - Presenter - Date')"
+        "base_name", help="Base name of transcript (e.g., 'Title - Presenter - Date')"
     )
     parser.add_argument(
-        "--strict",
-        action="store_true",
-        help="Treat warnings as errors"
+        "--strict", action="store_true", help="Treat warnings as errors"
     )
 
     args = parser.parse_args()
@@ -331,7 +333,8 @@ def main():
             if result.warnings:
                 return_code = 1
                 print(
-                    f"\n⚠️  Strict mode: Warnings in '{result.name}' treated as errors")
+                    f"\n⚠️  Strict mode: Warnings in '{result.name}' treated as errors"
+                )
 
     return return_code
 

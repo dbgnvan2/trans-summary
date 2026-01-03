@@ -4,23 +4,22 @@ Transcript Processor GUI Application
 A graphical interface for the transcript processing pipeline.
 """
 
-import os
-import sys
-import threading
-from pathlib import Path
-import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox, filedialog
-import pipeline
-import config
-import transcript_validate_webpage
-import transcript_validate_headers
-import transcript_cost_estimator
-import transcript_config_check
-import analyze_token_usage
 import io
-from contextlib import redirect_stdout
+import os
 import shutil
+import threading
+import tkinter as tk
+from contextlib import redirect_stdout
 from datetime import datetime
+from tkinter import filedialog, messagebox, scrolledtext, ttk
+
+import analyze_token_usage
+import config
+import pipeline
+import transcript_config_check
+import transcript_cost_estimator
+import transcript_validate_headers
+import transcript_validate_webpage
 
 
 class GuiLoggerAdapter:
@@ -71,53 +70,52 @@ class TranscriptProcessorGUI:
         dir_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         self.dir_label = ttk.Label(dir_frame, text="Transcripts Directory: ")
         self.dir_label.pack(side=tk.LEFT, padx=(0, 10))
-        dir_btn = ttk.Button(dir_frame, text="Set Directory",
-                             command=self.select_transcripts_directory)
+        dir_btn = ttk.Button(
+            dir_frame, text="Set Directory", command=self.select_transcripts_directory
+        )
         dir_btn.pack(side=tk.LEFT)
 
         # File selection
-        file_frame = ttk.LabelFrame(
-            main_frame, text="Select Source File", padding="10")
+        file_frame = ttk.LabelFrame(main_frame, text="Select Source File", padding="10")
         file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         file_frame.columnconfigure(0, weight=1)
 
         list_frame = ttk.Frame(file_frame)
-        list_frame.grid(row=0, column=0, columnspan=2,
-                        sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
         list_frame.columnconfigure(0, weight=1)
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.file_listbox = tk.Listbox(
-            list_frame, height=6, yscrollcommand=scrollbar.set)
-        self.file_listbox.grid(
-            row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+            list_frame, height=6, yscrollcommand=scrollbar.set
+        )
+        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.config(command=self.file_listbox.yview)
-        self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
+        self.file_listbox.bind("<<ListboxSelect>>", self.on_file_select)
 
         refresh_btn = ttk.Button(
-            file_frame, text="Refresh List", command=self.refresh_file_list)
+            file_frame, text="Refresh List", command=self.refresh_file_list
+        )
         refresh_btn.grid(row=1, column=0, pady=(5, 0), sticky=tk.W)
 
         # Status and Log
-        status_frame = ttk.LabelFrame(
-            main_frame, text="File Status", padding="10")
+        status_frame = ttk.LabelFrame(main_frame, text="File Status", padding="10")
         status_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         status_frame.columnconfigure(0, weight=1)
         self.status_text = tk.Text(
-            status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
+            status_frame, height=10, wrap=tk.WORD, font=("Courier", 10)
+        )
         self.status_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
-        log_frame = ttk.LabelFrame(
-            main_frame, text="Processing Log", padding="10")
-        log_frame.grid(row=3, column=0, sticky=(
-            tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        log_frame = ttk.LabelFrame(main_frame, text="Processing Log", padding="10")
+        log_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         self.log_text = scrolledtext.ScrolledText(
-            log_frame, wrap=tk.WORD, font=('Courier', 9))
+            log_frame, wrap=tk.WORD, font=("Courier", 9)
+        )
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
+        self.progress = ttk.Progressbar(main_frame, mode="indeterminate")
         self.progress.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # Action Buttons
@@ -126,91 +124,142 @@ class TranscriptProcessorGUI:
 
         # Row 1
         self.format_btn = ttk.Button(
-            button_frame, text="1. Format", command=self.do_format_validate, state=tk.DISABLED)
+            button_frame,
+            text="1. Format",
+            command=self.do_format_validate,
+            state=tk.DISABLED,
+        )
         self.format_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
 
         self.headers_btn = ttk.Button(
-            button_frame, text="2. Val Headers", command=self.do_validate_headers, state=tk.DISABLED)
+            button_frame,
+            text="2. Val Headers",
+            command=self.do_validate_headers,
+            state=tk.DISABLED,
+        )
         self.headers_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
 
         self.yaml_btn = ttk.Button(
-            button_frame, text="3. YAML", command=self.do_add_yaml, state=tk.DISABLED)
+            button_frame, text="3. YAML", command=self.do_add_yaml, state=tk.DISABLED
+        )
         self.yaml_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
 
         self.summary_btn = ttk.Button(
-            button_frame, text="4. Key Items", command=self.do_summaries, state=tk.DISABLED)
+            button_frame,
+            text="4. Key Items",
+            command=self.do_summaries,
+            state=tk.DISABLED,
+        )
         self.summary_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
         self.cost_btn = ttk.Button(
-            button_frame, text="Est. Cost", command=self.do_estimate_cost, state=tk.DISABLED)
+            button_frame,
+            text="Est. Cost",
+            command=self.do_estimate_cost,
+            state=tk.DISABLED,
+        )
         self.cost_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
 
         # Row 2
         self.gen_summary_btn = ttk.Button(
-            button_frame, text="5. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
+            button_frame,
+            text="5. Gen Summary",
+            command=self.do_generate_structured_summary,
+            state=tk.DISABLED,
+        )
         self.gen_summary_btn.grid(row=1, column=0, padx=(0, 5), pady=2)
 
         self.val_summary_btn = ttk.Button(
-            button_frame, text="6. Val Summary", command=self.do_validate_summary, state=tk.DISABLED)
+            button_frame,
+            text="6. Val Summary",
+            command=self.do_validate_summary,
+            state=tk.DISABLED,
+        )
         self.val_summary_btn.grid(row=1, column=1, padx=(0, 5), pady=2)
 
         self.gen_abstract_btn = ttk.Button(
-            button_frame, text="7. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
+            button_frame,
+            text="7. Gen Abstract",
+            command=self.do_generate_structured_abstract,
+            state=tk.DISABLED,
+        )
         self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
 
         self.abstracts_btn = ttk.Button(
-            button_frame, text="8. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
+            button_frame,
+            text="8. Val Abstract",
+            command=self.do_validate_abstracts,
+            state=tk.DISABLED,
+        )
         self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
 
         self.config_btn = ttk.Button(
-            button_frame, text="Config Check", command=self.do_config_check)
+            button_frame, text="Config Check", command=self.do_config_check
+        )
         self.config_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
 
         # Row 3
         self.blog_btn = ttk.Button(
-            button_frame, text="9. Blog", command=self.do_generate_blog, state=tk.DISABLED)
+            button_frame,
+            text="9. Blog",
+            command=self.do_generate_blog,
+            state=tk.DISABLED,
+        )
         self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
         self.webpdf_btn = ttk.Button(
-            button_frame, text="10. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
+            button_frame,
+            text="10. Web/PDF",
+            command=self.do_generate_web_pdf,
+            state=tk.DISABLED,
+        )
         self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
         self.emphasis_btn = ttk.Button(
-            button_frame, text="Emphasis", command=self.do_extract_emphasis, state=tk.DISABLED)
+            button_frame,
+            text="Emphasis",
+            command=self.do_extract_emphasis,
+            state=tk.DISABLED,
+        )
         self.emphasis_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
 
         self.package_btn = ttk.Button(
-            button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
+            button_frame, text="Package", command=self.do_package, state=tk.DISABLED
+        )
         self.package_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
 
         self.clean_logs_btn = ttk.Button(
-            button_frame, text="Clean Logs...", command=self.do_clean_logs)
+            button_frame, text="Clean Logs...", command=self.do_clean_logs
+        )
         self.clean_logs_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
-            button_frame, text="Clear Log", command=self.clear_log)
+            button_frame, text="Clear Log", command=self.clear_log
+        )
         self.clear_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
-            button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=6, rowspan=3,
-                             padx=(10, 5), sticky=(tk.N, tk.S))
+            button_frame,
+            text="▶ DO ALL STEPS",
+            command=self.do_all_steps,
+            state=tk.DISABLED,
+        )
+        self.do_all_btn.grid(
+            row=0, column=6, rowspan=3, padx=(10, 5), sticky=(tk.N, tk.S)
+        )
 
-        self.status_label = ttk.Label(
-            main_frame, text="Ready", foreground="green")
+        self.status_label = ttk.Label(main_frame, text="Ready", foreground="green")
         self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W)
 
     def select_transcripts_directory(self):
-        dir_path = filedialog.askdirectory(
-            title="Select Transcripts Directory")
+        dir_path = filedialog.askdirectory(title="Select Transcripts Directory")
         if dir_path:
             config.set_transcripts_base(dir_path)
             self.update_dir_label()
             self.refresh_file_list()
 
     def update_dir_label(self):
-        self.dir_label.config(
-            text=f"Transcripts Directory: {config.TRANSCRIPTS_BASE}")
+        self.dir_label.config(text=f"Transcripts Directory: {config.TRANSCRIPTS_BASE}")
 
     def refresh_file_list(self):
         self.file_listbox.delete(0, tk.END)
@@ -219,12 +268,12 @@ class TranscriptProcessorGUI:
             return
         files = sorted(config.SOURCE_DIR.glob("*.txt"))
         if not files:
-            self.log(
-                f"No .txt files found in source directory: {config.SOURCE_DIR}\n")
+            self.log(f"No .txt files found in source directory: {config.SOURCE_DIR}\n")
             return
         for file in files:
             self.file_listbox.insert(
-                tk.END, f"{file.name} ({file.stat().st_size/1024:.1f} KB)")
+                tk.END, f"{file.name} ({file.stat().st_size / 1024:.1f} KB)"
+            )
         self.log(f"Found {len(files)} source file(s)\n")
 
     def on_file_select(self, event):
@@ -234,8 +283,11 @@ class TranscriptProcessorGUI:
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
         self.base_name = self.selected_file.stem
-        self.formatted_file = config.PROJECTS_DIR / self.base_name / \
-            f"{self.base_name}{config.SUFFIX_FORMATTED}"
+        self.formatted_file = (
+            config.PROJECTS_DIR
+            / self.base_name
+            / f"{self.base_name}{config.SUFFIX_FORMATTED}"
+        )
         self.check_file_status()
         self.update_button_states()
 
@@ -248,36 +300,29 @@ class TranscriptProcessorGUI:
         project_dir = config.PROJECTS_DIR / base
         checks = [
             ("Source", self.selected_file),
-            ("Formatted", project_dir /
-             f"{base}{config.SUFFIX_FORMATTED}"),
-            ("Header Val", project_dir /
-             f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
+            ("Formatted", project_dir / f"{base}{config.SUFFIX_FORMATTED}"),
+            ("Header Val", project_dir / f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
             ("YAML", project_dir / f"{base}{config.SUFFIX_YAML}"),
-            ("Topics, Themes, Terms", project_dir /
-             f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
-            ("Scored Emphasis", project_dir /
-             f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
-            ("Bowen References", project_dir /
-             f"{base}{config.SUFFIX_BOWEN}"),
-            ("Gen Summary", project_dir /
-             f"{base}{config.SUFFIX_SUMMARY_GEN}"),
-            ("Summary Val", project_dir /
-             f"{base}{config.SUFFIX_SUMMARY_VAL}"),
-            ("Gen Abstract", project_dir /
-             f"{base}{config.SUFFIX_ABSTRACT_GEN}"),
-            ("Abstracts Val", project_dir /
-             f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
+            (
+                "Topics, Themes, Terms",
+                project_dir / f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}",
+            ),
+            ("Scored Emphasis", project_dir / f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
+            ("Bowen References", project_dir / f"{base}{config.SUFFIX_BOWEN}"),
+            ("Gen Summary", project_dir / f"{base}{config.SUFFIX_SUMMARY_GEN}"),
+            ("Summary Val", project_dir / f"{base}{config.SUFFIX_SUMMARY_VAL}"),
+            ("Gen Abstract", project_dir / f"{base}{config.SUFFIX_ABSTRACT_GEN}"),
+            ("Abstracts Val", project_dir / f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
             ("Blog", project_dir / f"{base}{config.SUFFIX_BLOG}"),
-            ("Webpage", project_dir /
-             f"{base}{config.SUFFIX_WEBPAGE}"),
-            ("Simple Web", project_dir /
-             f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"),
+            ("Webpage", project_dir / f"{base}{config.SUFFIX_WEBPAGE}"),
+            ("Simple Web", project_dir / f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"),
             ("PDF", project_dir / f"{base}{config.SUFFIX_PDF}"),
             ("Package", project_dir / f"{base}.zip"),
         ]
 
         status_lines = [
-            f"{'✅' if path.exists() else '❌'} {label}" for label, path in checks]
+            f"{'✅' if path.exists() else '❌'} {label}" for label, path in checks
+        ]
         self.status_text.insert(1.0, "\n".join(status_lines))
 
     def log(self, message):
@@ -298,7 +343,8 @@ class TranscriptProcessorGUI:
         self.update_button_states()
 
         thread = threading.Thread(
-            target=self._execute_task, args=(task_function, task_name, *args))
+            target=self._execute_task, args=(task_function, task_name, *args)
+        )
         thread.daemon = True
         thread.start()
 
@@ -307,12 +353,11 @@ class TranscriptProcessorGUI:
         try:
             success = task_function(*args)
             if success:
-                self.set_status(f"Task completed successfully.", "green")
+                self.set_status("Task completed successfully.", "green")
                 self.log(f"✅ {name} completed successfully.")
             else:
-                self.set_status(f"Task failed.", "red")
-                self.log(
-                    f"❌ {name} failed. Check logs for details.")
+                self.set_status("Task failed.", "red")
+                self.log(f"❌ {name} failed. Check logs for details.")
         except Exception as e:
             self.set_status(f"Error: {e}", "red")
             self.log(f"❌ Error during {name}: {e}")
@@ -339,8 +384,7 @@ class TranscriptProcessorGUI:
 
     def do_validate_headers(self):
         if not self.formatted_file or not self.formatted_file.exists():
-            messagebox.showwarning(
-                "Not Ready", "Please format the transcript first.")
+            messagebox.showwarning("Not Ready", "Please format the transcript first.")
             return
         self.log("STEP 2: Validating Headers...")
         self.run_task_in_thread(self._run_header_validation)
@@ -350,58 +394,89 @@ class TranscriptProcessorGUI:
         if not api_key:
             self.log("❌ Error: ANTHROPIC_API_KEY not found.")
             return False
-        validator = transcript_validate_headers.HeaderValidator(
-            api_key, self.logger)
+        validator = transcript_validate_headers.HeaderValidator(api_key, self.logger)
         return validator.run(self.formatted_file)
 
     def do_add_yaml(self):
         if not self.formatted_file or not self.formatted_file.exists():
-            messagebox.showwarning(
-                "Not Ready", "Please format the transcript first.")
+            messagebox.showwarning("Not Ready", "Please format the transcript first.")
             return
         self.log("STEP 2: Adding YAML Front Matter...")
         self.run_task_in_thread(
-            pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger)
+            pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger
+        )
 
     def do_summaries(self):
-        yaml_file = config.PROJECTS_DIR / self.base_name / \
-            f"{self.base_name}{config.SUFFIX_YAML}"
+        yaml_file = (
+            config.PROJECTS_DIR
+            / self.base_name
+            / f"{self.base_name}{config.SUFFIX_YAML}"
+        )
         if not yaml_file.exists():
             if self.formatted_file.exists():
-                with open(self.formatted_file, 'r', encoding='utf-8') as f:
+                with open(self.formatted_file, "r", encoding="utf-8") as f:
                     # A simple check for YAML front matter
-                    if not f.read(10).startswith('---'):
+                    if not f.read(10).startswith("---"):
                         messagebox.showwarning(
-                            "Not Ready", "Please add YAML front matter first.")
+                            "Not Ready", "Please add YAML front matter first."
+                        )
                         return
             else:
-                messagebox.showwarning(
-                    "Not Ready", "Please format and add YAML first.")
+                messagebox.showwarning("Not Ready", "Please format and add YAML first.")
                 return
         self.log("STEP 3: Key Items...")
-        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
-                                config.DEFAULT_MODEL, "Family Systems", "General public", False, False, True, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Key Item Generation")
+        self.run_task_in_thread(
+            pipeline.summarize_transcript,
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            False,
+            False,
+            True,
+            False,
+            config.DEFAULT_SUMMARY_WORD_COUNT,
+            self.logger,
+            task_name="Key Item Generation",
+        )
 
     def do_generate_structured_summary(self):
         if not self.base_name:
             return
         self.log("STEP 4: Generating Structured Summary...")
         self.run_task_in_thread(
-            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
+            pipeline.generate_structured_summary,
+            self.base_name,
+            config.DEFAULT_SUMMARY_WORD_COUNT,
+            self.logger,
+        )
 
     def do_validate_summary(self):
         if not self.base_name:
             return
         self.log("STEP 5: Validating Summary (Coverage & Proportion)...")
         self.run_task_in_thread(
-            pipeline.validate_summary_coverage, self.base_name, self.logger)
+            pipeline.validate_summary_coverage, self.base_name, self.logger
+        )
 
     def do_generate_blog(self):
         if not self.base_name:
             return
         self.log("STEP 8: Generating Blog Post...")
-        self.run_task_in_thread(pipeline.summarize_transcript, f"{self.base_name}{config.SUFFIX_YAML}",
-                                config.DEFAULT_MODEL, "Family Systems", "General public", True, True, False, False, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, task_name="Blog Post generation")
+        self.run_task_in_thread(
+            pipeline.summarize_transcript,
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,
+            True,
+            False,
+            False,
+            config.DEFAULT_SUMMARY_WORD_COUNT,
+            self.logger,
+            task_name="Blog Post generation",
+        )
 
     def do_estimate_cost(self):
         if not self.selected_file:
@@ -412,7 +487,8 @@ class TranscriptProcessorGUI:
     def _run_cost_estimation(self):
         try:
             estimator = transcript_cost_estimator.CostEstimator(
-                self.selected_file, logger=self.logger)
+                self.selected_file, logger=self.logger
+            )
             estimator.run_full_estimation()
             return True
         except Exception as e:
@@ -444,19 +520,25 @@ class TranscriptProcessorGUI:
             input_file = f"{self.base_name}{config.SUFFIX_FORMATTED}"
             if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
                 messagebox.showwarning(
-                    "Not Ready", "Please format the transcript first.")
+                    "Not Ready", "Please format the transcript first."
+                )
                 return
 
         self.log("STEP: Extracting Scored Emphasis...")
         self.run_task_in_thread(
-            pipeline.extract_scored_emphasis, input_file, config.DEFAULT_MODEL, self.logger)
+            pipeline.extract_scored_emphasis,
+            input_file,
+            config.DEFAULT_MODEL,
+            self.logger,
+        )
 
     def do_generate_structured_abstract(self):
         if not self.base_name:
             return
         self.log("STEP 6: Generating Structured Abstract...")
         self.run_task_in_thread(
-            pipeline.generate_structured_abstract, self.base_name, self.logger)
+            pipeline.generate_structured_abstract, self.base_name, self.logger
+        )
 
     def do_validate_abstracts(self):
         if not self.base_name:
@@ -464,7 +546,8 @@ class TranscriptProcessorGUI:
         self.log("STEP 7: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
         self.run_task_in_thread(
-            pipeline.validate_abstract_coverage, self.base_name, self.logger)
+            pipeline.validate_abstract_coverage, self.base_name, self.logger
+        )
 
     def do_generate_web_pdf(self):
         if not self.base_name:
@@ -491,7 +574,8 @@ class TranscriptProcessorGUI:
         f = io.StringIO()
         with redirect_stdout(f):
             transcript_validate_webpage.validate_webpage(
-                self.base_name, simple_mode=False)
+                self.base_name, simple_mode=False
+            )
 
         validation_output = f.getvalue()
         self.log(validation_output)
@@ -503,13 +587,15 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 11: Packaging Artifacts...")
         self.run_task_in_thread(
-            pipeline.package_transcript, self.base_name, self.logger)
+            pipeline.package_transcript, self.base_name, self.logger
+        )
 
     def do_clean_logs(self):
         """Handle log cleanup with user confirmation."""
         if self.processing:
             messagebox.showwarning(
-                "Busy", "Cannot clean logs while a process is running.")
+                "Busy", "Cannot clean logs while a process is running."
+            )
             return
 
         should_archive = messagebox.askyesnocancel(
@@ -518,14 +604,17 @@ class TranscriptProcessorGUI:
             " • Yes: Archive logs to a zip file, then delete originals.\n"
             " • No: Permanently delete logs without archiving.\n"
             " • Cancel: Do nothing.",
-            icon='warning'
+            icon="warning",
         )
 
         if should_archive is True:
             self.log("Archiving log files...")
             self.run_task_in_thread(self._run_archive_logs)
         elif should_archive is False:
-            if messagebox.askokcancel("Confirm Permanent Deletion", "This will PERMANENTLY DELETE all log files. This action cannot be undone.\n\nAre you sure?"):
+            if messagebox.askokcancel(
+                "Confirm Permanent Deletion",
+                "This will PERMANENTLY DELETE all log files. This action cannot be undone.\n\nAre you sure?",
+            ):
                 self.log("Deleting log files...")
                 self.run_task_in_thread(self._run_delete_logs)
             else:
@@ -540,20 +629,19 @@ class TranscriptProcessorGUI:
             self.log(f"Logs directory not found: {logs_dir}")
             return False
 
-        files_to_process = list(logs_dir.glob(
-            "*.log")) + list(logs_dir.glob("*.csv"))
+        files_to_process = list(logs_dir.glob("*.log")) + list(logs_dir.glob("*.csv"))
         if not files_to_process:
             self.log("No log files found to archive.")
             return True
 
         archives_dir = logs_dir / "archives"
         archives_dir.mkdir(exist_ok=True)
-        zip_base_name = archives_dir / \
-            f"logs_{datetime.now():%Y%m%d_%H%M%S}"
+        zip_base_name = archives_dir / f"logs_{datetime.now():%Y%m%d_%H%M%S}"
 
         try:
-            shutil.make_archive(str(zip_base_name), 'zip',
-                                logs_dir, verbose=True, logger=self.logger)
+            shutil.make_archive(
+                str(zip_base_name), "zip", logs_dir, verbose=True, logger=self.logger
+            )
             self.log(f"✅ Archive created: {zip_base_name}.zip")
             for f in files_to_process:
                 f.unlink()
@@ -570,7 +658,10 @@ class TranscriptProcessorGUI:
     def do_all_steps(self):
         if not self.selected_file:
             return
-        if not messagebox.askyesno("Confirm", "This will run the entire pipeline from start to finish. Continue?"):
+        if not messagebox.askyesno(
+            "Confirm",
+            "This will run the entire pipeline from start to finish. Continue?",
+        ):
             return
         self.log("▶ STARTING FULL PIPELINE EXECUTION...")
         self.run_task_in_thread(self._run_all_steps)
@@ -595,14 +686,23 @@ class TranscriptProcessorGUI:
         # Step 3: Extracts (Summaries)
         self.log("\n--- STEP 3: Extracts & Terms ---")
         # Run all parts (skips=False)
-        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.DEFAULT_MODEL, "Family Systems", "General public",
-                                             False, False, False, logger=self.logger):
+        if not pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            False,
+            False,
+            False,
+            logger=self.logger,
+        ):
             return False
 
         # Step 4: Generate Summary
         self.log("\n--- STEP 4: Generate Structured Summary ---")
-        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger):
+        if not pipeline.generate_structured_summary(
+            self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger
+        ):
             self.log("⚠️ Summary generation failed or skipped.")
 
         # Step 5: Validate Summary
@@ -633,8 +733,7 @@ class TranscriptProcessorGUI:
 
         # Step 11: Token Usage Report
         self.log("\n--- Token Usage Report ---")
-        self.log(analyze_token_usage.generate_usage_report(
-            since_timestamp=start_time))
+        self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
         self.log("\n✅ FULL PIPELINE COMPLETE!")
         return True
@@ -655,13 +754,12 @@ class TranscriptProcessorGUI:
         self.cost_btn.config(state=state)
         # Config check button is always enabled
         self.package_btn.config(state=state)
-        self.do_all_btn.config(
-            state=tk.NORMAL if self.selected_file else tk.DISABLED)
+        self.do_all_btn.config(state=tk.NORMAL if self.selected_file else tk.DISABLED)
 
 
 def main():
     root = tk.Tk()
-    app = TranscriptProcessorGUI(root)
+    _app = TranscriptProcessorGUI(root)
     root.mainloop()
 
 

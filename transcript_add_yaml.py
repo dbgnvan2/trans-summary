@@ -9,8 +9,9 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from pipeline import add_yaml
+
 import config
+from pipeline import add_yaml
 from transcript_utils import parse_filename_metadata
 
 
@@ -21,11 +22,11 @@ def resolve_filename(filename: str) -> str:
     # Clean up base name
     base = Path(filename).stem
     suffixes_to_strip = [
-        config.SUFFIX_FORMATTED.replace('.md', ''),
+        config.SUFFIX_FORMATTED.replace(".md", ""),
     ]
     for suffix in suffixes_to_strip:
         if base.endswith(suffix):
-            base = base[:-len(suffix)]
+            base = base[: -len(suffix)]
             break
 
     project_dir = config.PROJECTS_DIR / base
@@ -46,12 +47,12 @@ def main():
     )
     parser.add_argument(
         "transcript_filename",
-        help="Filename of the formatted transcript (e.g., 'Title... - formatted.md' or base name)"
+        help="Filename of the formatted transcript (e.g., 'Title... - formatted.md' or base name)",
     )
     parser.add_argument(
         "--source-ext",
         default="mp4",
-        help="Extension of source recording file (default: mp4)"
+        help="Extension of source recording file (default: mp4)",
     )
 
     args = parser.parse_args()
@@ -61,13 +62,15 @@ def main():
     # Add a pre-flight check for a better error message
     try:
         meta = parse_filename_metadata(resolved_filename)
-        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+        expected_path = config.PROJECTS_DIR / meta["stem"] / resolved_filename
 
         if not expected_path.exists():
             print(
-                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}"
+            )
             print(
-                "\n   Please ensure you have run the 'Format' step for this transcript first.")
+                "\n   Please ensure you have run the 'Format' step for this transcript first."
+            )
             return 1
     except Exception:
         # If parsing fails, let the pipeline handle the error.
@@ -76,8 +79,7 @@ def main():
     print(f"Adding YAML to: {resolved_filename}")
 
     success = add_yaml(
-        transcript_filename=resolved_filename,
-        source_ext=args.source_ext
+        transcript_filename=resolved_filename, source_ext=args.source_ext
     )
 
     if success:

@@ -8,17 +8,18 @@ Usage:
 
 import csv
 import re
-from pathlib import Path
 from collections import defaultdict
 from datetime import datetime
+
 import config
 from model_specs import get_pricing
+
 
 def parse_cache_info(cache_str):
     """Parse the cache column string."""
     # Formats: "No", "Yes (Read 1234)", "Yes (Created 1234)"
-    read_match = re.search(r'Read (\d+)', cache_str)
-    create_match = re.search(r'Created (\d+)', cache_str)
+    read_match = re.search(r"Read (\d+)", cache_str)
+    create_match = re.search(r"Created (\d+)", cache_str)
 
     cache_read = int(read_match.group(1)) if read_match else 0
     cache_write = int(create_match.group(1)) if create_match else 0
@@ -44,19 +45,28 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
     total_cache_write_cost = 0.0
 
     by_script = defaultdict(
-        lambda: {"cost": 0.0, "calls": 0, "input_cost": 0.0, "output_cost": 0.0, "cache_read_cost": 0.0, "cache_write_cost": 0.0})
+        lambda: {
+            "cost": 0.0,
+            "calls": 0,
+            "input_cost": 0.0,
+            "output_cost": 0.0,
+            "cache_read_cost": 0.0,
+            "cache_write_cost": 0.0,
+        }
+    )
     by_model = defaultdict(lambda: {"cost": 0.0, "calls": 0})
 
     rows = []
 
     try:
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if since_timestamp:
                     try:
                         row_ts = datetime.strptime(
-                            row['Timestamp'], "%Y-%m-%d %H:%M:%S")
+                            row["Timestamp"], "%Y-%m-%d %H:%M:%S"
+                        )
                         if row_ts < since_timestamp:
                             continue
                     except (ValueError, KeyError):
@@ -68,26 +78,25 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
     lines.append(f"Processing {len(rows)} records...\n")
 
     for row in rows:
-        script = row['Script Name']
+        script = row["Script Name"]
         # Header is 'Items' in transcript_utils.py for model name
-        model = row['Items']
+        model = row["Items"]
 
         try:
-            total_input = int(row['Tokens Sent'])
-            total_output = int(row['Tokens Response'])
+            total_input = int(row["Tokens Sent"])
+            total_output = int(row["Tokens Response"])
         except ValueError:
             continue
 
         # Try to use explicit columns if available, otherwise fall back to parsing string
-        if 'Cache Creation Tokens' in row and 'Cache Read Tokens' in row:
+        if "Cache Creation Tokens" in row and "Cache Read Tokens" in row:
             try:
-                cache_write = int(row['Cache Creation Tokens'])
-                cache_read = int(row['Cache Read Tokens'])
+                cache_write = int(row["Cache Creation Tokens"])
+                cache_read = int(row["Cache Read Tokens"])
             except (ValueError, TypeError):
-                cache_read, cache_write = parse_cache_info(
-                    row.get('Cache', ''))
+                cache_read, cache_write = parse_cache_info(row.get("Cache", ""))
         else:
-            cache_read, cache_write = parse_cache_info(row.get('Cache', ''))
+            cache_read, cache_write = parse_cache_info(row.get("Cache", ""))
 
         # Calculate base input (Total - Cache parts)
         # Note: Anthropic usage.input_tokens usually includes cache creation tokens but
@@ -99,10 +108,10 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
 
         prices = get_pricing(model)
 
-        cost_input = (base_input / 1_000_000) * prices['input']
-        cost_output = (total_output / 1_000_000) * prices['output']
-        cost_cache_read = (cache_read / 1_000_000) * prices['cache_read']
-        cost_cache_write = (cache_write / 1_000_000) * prices['cache_write']
+        cost_input = (base_input / 1_000_000) * prices["input"]
+        cost_output = (total_output / 1_000_000) * prices["output"]
+        cost_cache_read = (cache_read / 1_000_000) * prices["cache_read"]
+        cost_cache_write = (cache_write / 1_000_000) * prices["cache_write"]
 
         row_cost = cost_input + cost_output + cost_cache_read + cost_cache_write
 
@@ -125,13 +134,14 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
 
     # --- REPORT ---
 
-    lines.append("="*100)
+    lines.append("=" * 100)
     if since_timestamp:
         lines.append(
-            f"TOKEN USAGE ANALYSIS (Since {since_timestamp.strftime('%Y-%m-%d %H:%M:%S')})")
+            f"TOKEN USAGE ANALYSIS (Since {since_timestamp.strftime('%Y-%m-%d %H:%M:%S')})"
+        )
     else:
-        lines.append(f"TOKEN USAGE ANALYSIS (Cumulative)")
-    lines.append("="*100)
+        lines.append("TOKEN USAGE ANALYSIS (Cumulative)")
+    lines.append("=" * 100)
     lines.append(f"Total Estimated Cost: ${total_cost:.4f}")
     lines.append(f"  - Input (Standard): ${total_input_cost:.4f}")
     lines.append(f"  - Output:           ${total_output_cost:.4f}")
@@ -142,27 +152,27 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
 
     lines.append("\nCOST BY SCRIPT:")
     lines.append(
-        f"{'Script Name':<30} | {'Calls':<6} | {'Input':>8} | {'Output':>8} | {'Write':>8} | {'Read':>8} | {'Cost':>8}")
+        f"{'Script Name':<30} | {'Calls':<6} | {'Input':>8} | {'Output':>8} | {'Write':>8} | {'Read':>8} | {'Cost':>8}"
+    )
     lines.append("-" * 100)
 
     # Sort by cost descending
-    sorted_scripts = sorted(
-        by_script.items(), key=lambda x: x[1]['cost'], reverse=True)
+    sorted_scripts = sorted(by_script.items(), key=lambda x: x[1]["cost"], reverse=True)
 
     for script, data in sorted_scripts:
         lines.append(
-            f"{script:<30} | {data['calls']:<6} | ${data['input_cost']:>7.4f} | ${data['output_cost']:>7.4f} | ${data['cache_write_cost']:>7.4f} | ${data['cache_read_cost']:>7.4f} | ${data['cost']:>7.4f}")
+            f"{script:<30} | {data['calls']:<6} | ${data['input_cost']:>7.4f} | ${data['output_cost']:>7.4f} | ${data['cache_write_cost']:>7.4f} | ${data['cache_read_cost']:>7.4f} | ${data['cost']:>7.4f}"
+        )
 
     lines.append("\nCOST BY MODEL:")
     lines.append(f"{'Model Name':<40} | {'Calls':<6} | {'Cost ($)':<10}")
     lines.append("-" * 100)
 
-    sorted_models = sorted(
-        by_model.items(), key=lambda x: x[1]['cost'], reverse=True)
+    sorted_models = sorted(by_model.items(), key=lambda x: x[1]["cost"], reverse=True)
     for model, data in sorted_models:
         lines.append(f"{model:<40} | {data['calls']:<6} | ${data['cost']:.4f}")
 
-    lines.append("\n" + "="*100)
+    lines.append("\n" + "=" * 100)
     return "\n".join(lines)
 
 

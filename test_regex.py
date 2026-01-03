@@ -1,4 +1,3 @@
-
 import re
 
 # Sample with extra newlines, missing bold, different italics, etc.
@@ -37,25 +36,30 @@ Description on new line.
 *Source Sections: 5*
 """
 
+
 def test_topics():
     print("Testing Topics Regex...")
     # The regex from abstract_pipeline.py
-    pattern = r'###\s+(.+?)\s*\n\s*(.+?)\s*\n\s*[\*_\-]+(?:\(|\)|\[)?~?(\d+)%[^;]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-]+'
-    
+    pattern = r"###\s+(.+?)\s*\n\s*(.+?)\s*\n\s*[\*_\-]+(?:\(|\)|\[)?~?(\d+)%[^;]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-]+"
+
     matches = re.findall(pattern, sample_topics, re.DOTALL)
     for m in matches:
         print(f"Match: {m}")
-        
+
     # Expecting Topic One, Topic Two, Topic Four. (Topic Three is < 5% but regex captures it, logic filters it)
+
 
 def test_themes():
     print("\nTesting Themes Regex...")
     # The regex from abstract_pipeline.py
-    pattern = r'\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*Source Sections:'
-    
+    pattern = (
+        r"\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*Source Sections:"
+    )
+
     matches = re.findall(pattern, sample_themes, re.DOTALL)
     for m in matches:
         print(f"Match: {m}")
+
 
 if __name__ == "__main__":
     test_topics()

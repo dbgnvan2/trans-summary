@@ -15,8 +15,9 @@ Example:
 import argparse
 import json
 import os
-from pathlib import Path
+
 import anthropic
+
 import config
 from transcript_utils import call_claude_with_retry
 
@@ -26,23 +27,22 @@ def load_prompt() -> str:
     prompt_path = config.PROMPTS_DIR / config.PROMPT_VOICE_AUDIT_FILENAME
     if not prompt_path.exists():
         raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-    return prompt_path.read_text(encoding='utf-8')
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def load_blog_post(base_name: str) -> str:
     """Load blog post content."""
-    blog_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_BLOG}"
+    blog_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BLOG}"
 
     if not blog_file.exists():
         raise FileNotFoundError(f"Blog post not found: {blog_file}")
 
-    with open(blog_file, 'r', encoding='utf-8') as f:
+    with open(blog_file, "r", encoding="utf-8") as f:
         content = f.read()
 
     # Strip YAML front matter if present
-    if content.startswith('---'):
-        parts = content.split('---')
+    if content.startswith("---"):
+        parts = content.split("---")
         if len(parts) >= 3:
             content = parts[2]
 
@@ -59,8 +59,7 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
 
     # Create evaluation prompt
     prompt_template = load_prompt()
-    evaluation_prompt = prompt_template.replace(
-        "{{blog_content}}", blog_content)
+    evaluation_prompt = prompt_template.replace("{{blog_content}}", blog_content)
 
     # Call Claude for evaluation
     response = call_claude_with_retry(
@@ -68,24 +67,18 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
         model=config.DEFAULT_MODEL,
         max_tokens=config.MAX_TOKENS_AUDIT,
         temperature=config.TEMP_BALANCED,
-        messages=[
-            {
-                "role": "user",
-                "content": evaluation_prompt
-            }
-        ],
-        min_length=50
+        messages=[{"role": "user", "content": evaluation_prompt}],
+        min_length=50,
     )
 
     # Parse JSON response
     response_text = response.content[0].text
 
     # Handle potential markdown code blocks
-    if response_text.strip().startswith('```'):
+    if response_text.strip().startswith("```"):
         # Extract JSON from code block
-        lines = response_text.strip().split('\n')
-        json_text = '\n'.join(
-            lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
+        lines = response_text.strip().split("\n")
+        json_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
     else:
         json_text = response_text
 
@@ -95,7 +88,8 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
         # Fallback if the JSON is malformed or has text around it
         # Try to find { ... }
         import re
-        match = re.search(r'\{.*\}', json_text, re.DOTALL)
+
+        match = re.search(r"\{.*\}", json_text, re.DOTALL)
         if match:
             audit_result = json.loads(match.group(0))
         else:
@@ -107,26 +101,26 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
 def print_audit_results(audit_result: dict):
     """Print formatted audit results."""
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("VOICE AUDIT RESULTS")
-    print("="*80)
+    print("=" * 80)
 
-    scores = audit_result.get('scores', {})
+    scores = audit_result.get("scores", {})
 
     print("\nINDIVIDUAL SCORES:")
     print("-" * 80)
 
     criteria_labels = {
-        'intellectual_humility': 'Intellectual Humility',
-        'sentence_structure': 'Sentence Structure',
-        'concrete_examples': 'Concrete Examples',
-        'systems_thinking': 'Systems Thinking',
-        'bowen_integration': 'Bowen Theory Integration',
-        'scientific_grounding': 'Scientific Grounding',
-        'tone_and_voice': 'Tone & Voice',
-        'learning_stance': 'Learning Stance',
-        'nuance_qualification': 'Nuance & Qualification',
-        'overall_authenticity': 'Overall Authenticity'
+        "intellectual_humility": "Intellectual Humility",
+        "sentence_structure": "Sentence Structure",
+        "concrete_examples": "Concrete Examples",
+        "systems_thinking": "Systems Thinking",
+        "bowen_integration": "Bowen Theory Integration",
+        "scientific_grounding": "Scientific Grounding",
+        "tone_and_voice": "Tone & Voice",
+        "learning_stance": "Learning Stance",
+        "nuance_qualification": "Nuance & Qualification",
+        "overall_authenticity": "Overall Authenticity",
     }
 
     for key, label in criteria_labels.items():
@@ -140,32 +134,33 @@ def print_audit_results(audit_result: dict):
     print(f"Total Score:      {audit_result.get('total_score', 0)}/100")
     print(f"Percentage:       {audit_result.get('percentage', 0):.1%}")
     print(
-        f"Overall Result:   {'✅ PASS' if audit_result.get('pass', False) else '❌ FAIL'}")
+        f"Overall Result:   {'✅ PASS' if audit_result.get('pass', False) else '❌ FAIL'}"
+    )
 
-    if audit_result.get('failed_criteria'):
-        print(
-            f"\nFailed Criteria:  {', '.join(audit_result['failed_criteria'])}")
+    if audit_result.get("failed_criteria"):
+        print(f"\nFailed Criteria:  {', '.join(audit_result['failed_criteria'])}")
 
     print("\nSTRENGTHS:")
-    print(audit_result.get('strengths', 'N/A'))
+    print(audit_result.get("strengths", "N/A"))
 
     print("\nIMPROVEMENTS:")
-    print(audit_result.get('improvements', 'N/A'))
+    print(audit_result.get("improvements", "N/A"))
 
     print("\nEXAMPLES:")
-    print(audit_result.get('specific_examples', 'N/A'))
+    print(audit_result.get("specific_examples", "N/A"))
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
 
 
 def save_audit_report(base_name: str, audit_result: dict):
     """Save audit report to file."""
 
-    report_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_VOICE_AUDIT}"
+    report_file = (
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_VOICE_AUDIT}"
+    )
     report_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(report_file, 'w', encoding='utf-8') as f:
+    with open(report_file, "w", encoding="utf-8") as f:
         json.dump(audit_result, f, indent=2)
 
     print(f"\n📄 Audit report saved to: {report_file}")
@@ -176,13 +171,10 @@ def main():
         description="Audit blog post for Dr. Kerr's textual voice characteristics."
     )
     parser.add_argument(
-        "base_name",
-        help='Base name without suffix (e.g., "Title - Presenter - Date")'
+        "base_name", help='Base name without suffix (e.g., "Title - Presenter - Date")'
     )
     parser.add_argument(
-        "--save-report",
-        action="store_true",
-        help="Save audit report to JSON file"
+        "--save-report", action="store_true", help="Save audit report to JSON file"
     )
 
     args = parser.parse_args()
@@ -209,7 +201,7 @@ def main():
             save_audit_report(args.base_name, audit_result)
 
         # Return appropriate exit code
-        return 0 if audit_result.get('pass') else 1
+        return 0 if audit_result.get("pass") else 1
 
     except FileNotFoundError as e:
         print(f"❌ Error: {e}")

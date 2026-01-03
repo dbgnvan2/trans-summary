@@ -9,9 +9,13 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from pipeline import extract_bowen_references_from_transcript, _load_formatted_transcript
+
 import config
-from transcript_utils import parse_filename_metadata, create_system_message_with_cache
+from pipeline import (
+    _load_formatted_transcript,
+    extract_bowen_references_from_transcript,
+)
+from transcript_utils import create_system_message_with_cache, parse_filename_metadata
 
 
 def resolve_filename(filename: str) -> str:
@@ -21,12 +25,12 @@ def resolve_filename(filename: str) -> str:
     # Clean up base name from any potential full path or extension
     base = Path(filename).stem
     suffixes_to_strip = [
-        config.SUFFIX_YAML.replace('.md', ''),
-        config.SUFFIX_FORMATTED.replace('.md', '')
+        config.SUFFIX_YAML.replace(".md", ""),
+        config.SUFFIX_FORMATTED.replace(".md", ""),
     ]
     for suffix in suffixes_to_strip:
         if base.endswith(suffix):
-            base = base[:-len(suffix)]
+            base = base[: -len(suffix)]
             break
 
     # Check for preferred file types in the project directory
@@ -49,17 +53,17 @@ def main():
     )
     parser.add_argument(
         "formatted_filename",
-        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)"
+        help="Filename of formatted transcript (e.g., 'Title... - yaml.md' or base name)",
     )
     parser.add_argument(
         "--model",
         default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
+        help=f"Claude model to use (default: {config.DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--show-prompt",
         action="store_true",
-        help="Display the prompt template being used and exit"
+        help="Display the prompt template being used and exit",
     )
 
     args = parser.parse_args()
@@ -68,7 +72,7 @@ def main():
         prompt_path = config.PROMPTS_DIR / config.PROMPT_BOWEN_EXTRACTION_FILENAME
         if prompt_path.exists():
             print(f"\n--- Prompt Template ({prompt_path.name}) ---")
-            print(prompt_path.read_text(encoding='utf-8'))
+            print(prompt_path.read_text(encoding="utf-8"))
             print("-------------------------------------------\n")
         else:
             print(f"❌ Prompt file not found: {prompt_path}")
@@ -79,13 +83,15 @@ def main():
     # Add a pre-flight check for a better error message
     try:
         meta = parse_filename_metadata(resolved_filename)
-        expected_path = config.PROJECTS_DIR / meta['stem'] / resolved_filename
+        expected_path = config.PROJECTS_DIR / meta["stem"] / resolved_filename
 
         if not expected_path.exists():
             print(
-                f"❌ Error: Input file not found at expected location:\n   {expected_path}")
+                f"❌ Error: Input file not found at expected location:\n   {expected_path}"
+            )
             print(
-                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first.")
+                "\n   Please ensure you have run the 'Format' and 'YAML' steps for this transcript first."
+            )
             return 1
     except Exception:
         # If parsing fails, let the pipeline handle the error.
@@ -95,13 +101,12 @@ def main():
 
     # Load transcript and create a cached system message to reduce costs
     transcript_content = _load_formatted_transcript(resolved_filename)
-    transcript_system_message = create_system_message_with_cache(
-        transcript_content)
+    transcript_system_message = create_system_message_with_cache(transcript_content)
 
     success = extract_bowen_references_from_transcript(
         formatted_filename=resolved_filename,
         model=args.model,
-        transcript_system_message=transcript_system_message
+        transcript_system_message=transcript_system_message,
     )
 
     if success:

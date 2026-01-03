@@ -2,11 +2,12 @@
 """
 Test script to verify Anthropic API access and list available models dynamically.
 """
+
 import os
-import sys
 import warnings
-from dotenv import load_dotenv
+
 import anthropic
+from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -18,9 +19,7 @@ def test_generation(client, model_id):
     print(f"Testing generation: {model_id:<35} ... ", end="", flush=True)
     try:
         client.messages.create(
-            model=model_id,
-            max_tokens=10,
-            messages=[{"role": "user", "content": "Hi"}]
+            model=model_id, max_tokens=10, messages=[{"role": "user", "content": "Hi"}]
         )
         print("✅ Available")
         return True
@@ -54,18 +53,20 @@ def main():
 
             # Collect models
             available_models = []
-            if hasattr(models_page, 'data'):
+            if hasattr(models_page, "data"):
                 available_models = list(models_page.data)
             else:
                 for model in models_page:
                     available_models.append(model)
 
             # Sort by created_at (newest first)
-            available_models.sort(key=lambda x: str(
-                getattr(x, 'created_at', '')) or x.id, reverse=True)
+            available_models.sort(
+                key=lambda x: str(getattr(x, "created_at", "")) or x.id, reverse=True
+            )
 
             print(
-                f"\nFound {len(available_models)} models available to your API key:\n")
+                f"\nFound {len(available_models)} models available to your API key:\n"
+            )
 
             for model in available_models:
                 print(f"ID: {model.id}")
@@ -79,7 +80,13 @@ def main():
             for m in available_models:
                 # Focus testing on Claude 3 family to avoid spamming legacy checks
                 # Also check for new Claude 4/4.5 models
-                if "claude-3" in m.id or "claude-4" in m.id or "claude-opus" in m.id or "claude-sonnet" in m.id or "claude-haiku" in m.id:
+                if (
+                    "claude-3" in m.id
+                    or "claude-4" in m.id
+                    or "claude-opus" in m.id
+                    or "claude-sonnet" in m.id
+                    or "claude-haiku" in m.id
+                ):
                     test_generation(client, m.id)
 
         except Exception as e:
@@ -89,7 +96,7 @@ def main():
                 "claude-3-5-sonnet-20241022",
                 "claude-3-5-haiku-20241022",
                 "claude-3-opus-20240229",
-                "claude-3-haiku-20240307"
+                "claude-3-haiku-20240307",
             ]
             for m in fallback_models:
                 test_generation(client, m)

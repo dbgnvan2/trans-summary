@@ -6,7 +6,7 @@ Handles proportional word allocation based on topic coverage percentages.
 
 Usage:
     from summary_pipeline import prepare_summary_input, generate_summary
-    
+
     # From extraction outputs
     input_data = prepare_summary_input(
         metadata=yaml_metadata,
@@ -15,23 +15,24 @@ Usage:
         transcript=full_transcript,
         target_word_count=500
     )
-    
+
     summary = generate_summary(input_data, api_client)
 """
 
 import json
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from typing import Optional
+
 import config
 from emphasis_detector import EmphasisDetector
 from transcript_utils import call_claude_with_retry
 
 
-
 @dataclass
 class TopicAllocation:
     """Topic with word allocation for summary."""
+
     name: str
     percentage: int
     word_allocation: int
@@ -88,20 +89,19 @@ class SummaryInput:
             "opening": asdict(self.opening),
             "body": {
                 "word_allocation": self.body.word_allocation,
-                "topics": [asdict(t) for t in self.body.topics]
+                "topics": [asdict(t) for t in self.body.topics],
             },
             "qa": asdict(self.qa),
-            "closing": asdict(self.closing)
+            "closing": asdict(self.closing),
         }
         return json.dumps(data, indent=2)
 
 
 # === Word Allocation Logic ===
 
+
 def calculate_word_allocations(
-    target_word_count: int,
-    topic_percentages: list[int],
-    qa_percentage: int
+    target_word_count: int, topic_percentages: list[int], qa_percentage: int
 ) -> dict:
     """Calculate word allocations for each section."""
     include_qa = qa_percentage > 15
@@ -117,7 +117,7 @@ def calculate_word_allocations(
         "body_total": int(target_word_count * body_pct),
         "qa": int(target_word_count * qa_pct) if include_qa else 0,
         "closing": int(target_word_count * closing_pct),
-        "include_qa": include_qa
+        "include_qa": include_qa,
     }
 
     # Allocate body words to topics proportionally
@@ -129,8 +129,11 @@ def calculate_word_allocations(
         ]
     else:
         # Equal distribution if no percentages
-        per_topic = allocations["body_total"] // len(
-            topic_percentages) if topic_percentages else 0
+        per_topic = (
+            allocations["body_total"] // len(topic_percentages)
+            if topic_percentages
+            else 0
+        )
         allocations["topic_allocations"] = [per_topic] * len(topic_percentages)
 
     return allocations
@@ -138,19 +141,18 @@ def calculate_word_allocations(
 
 # === Extraction Parsing ===
 
-def parse_topics_with_details(
-    topics_markdown: str,
-    transcript: str
-) -> list[dict]:
+
+def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dict]:
     """Parse Topics section and extract key points from transcript using robust block parsing."""
     topics = []
 
     # Split by level 3 headers
-    blocks = [b.strip() for b in re.split(
-        r'(?:^|\n)###\s+', topics_markdown) if b.strip()]
+    blocks = [
+        b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
+    ]
 
     for block in blocks:
-        lines = block.split('\n')
+        lines = block.split("\n")
         if not lines:
             continue
 
@@ -170,20 +172,22 @@ def parse_topics_with_details(
                 continue
 
             # Check if line looks like metadata (contains % and Section)
-            if re.search(r'\d+%', line) and re.search(r'Sections?', line, re.IGNORECASE):
-                pct_match = re.search(r'(\d+)\%', line)
+            if re.search(r"\d+%", line) and re.search(
+                r"Sections?", line, re.IGNORECASE
+            ):
+                pct_match = re.search(r"(\d+)\%", line)
                 sect_match = re.search(
-                    r'Sections?\s*[:\-]?\s*([0-9\-\s,]+)', line, re.IGNORECASE)
+                    r"Sections?\s*[:\-]?\s*([0-9\-\s,]+)", line, re.IGNORECASE
+                )
 
                 if pct_match:
                     percentage = int(pct_match.group(1))
-                    sections = sect_match.group(
-                        1).strip() if sect_match else ""
+                    sections = sect_match.group(1).strip() if sect_match else ""
                     metadata_found = True
             else:
                 # If not metadata, it's part of description
                 # Clean up potential markdown formatting if it was just a wrapper line
-                if not re.match(r'^[\*_\-()[\]]+$', line):
+                if not re.match(r"^[\*_\-()[\]]+$", line):
                     description_lines.append(line)
 
         if metadata_found and percentage >= 5:
@@ -192,13 +196,15 @@ def parse_topics_with_details(
             # Extract key points from the description and transcript sections
             key_points = extract_key_points(description, sections, transcript)
 
-            topics.append({
-                "name": name,
-                "percentage": percentage,
-                "sections": sections,
-                "description": description,
-                "key_points": key_points
-            })
+            topics.append(
+                {
+                    "name": name,
+                    "percentage": percentage,
+                    "sections": sections,
+                    "description": description,
+                    "key_points": key_points,
+                }
+            )
 
     # Sort by percentage descending
     topics.sort(key=lambda t: t["percentage"], reverse=True)
@@ -206,15 +212,13 @@ def parse_topics_with_details(
 
 
 def extract_key_points(
-    description: str,
-    sections_str: str,
-    transcript: str
+    description: str, sections_str: str, transcript: str
 ) -> list[str]:
     """Extract 3-5 key points for a topic from its description and transcript sections."""
     key_points = []
 
     # Split description into sentences
-    sentences = re.split(r'(?<=[.!?])\s+', description)
+    sentences = re.split(r"(?<=[.!?])\s+", description)
 
     for sentence in sentences:
         # Clean and validate
@@ -241,27 +245,26 @@ def simplify_to_key_point(sentence: str) -> Optional[str]:
     """Convert a sentence to a concise key point."""
     # Remove common filler phrases
     fillers = [
-        r'^The speaker\s+',
-        r'^Kerr\s+',
-        r'^He\s+',
-        r'^She\s+',
-        r'^This\s+',
-        r'^It\s+',
-        r'in this section,?\s*',
-        r'here,?\s*',
+        r"^The speaker\s+",
+        r"^Kerr\s+",
+        r"^He\s+",
+        r"^She\s+",
+        r"^This\s+",
+        r"^It\s+",
+        r"in this section,?\s*",
+        r"here,?\s*",
     ]
 
     point = sentence
     for filler in fillers:
-        point = re.sub(filler, '', point, flags=re.IGNORECASE)
+        point = re.sub(filler, "", point, flags=re.IGNORECASE)
 
     # Capitalize first letter
     if point:
-        point = point[0].upper() + \
-            point[1:] if len(point) > 1 else point.upper()
+        point = point[0].upper() + point[1:] if len(point) > 1 else point.upper()
 
     # Remove trailing period for consistency
-    point = point.rstrip('.')
+    point = point.rstrip(".")
 
     return point if len(point) > 15 else None
 
@@ -275,7 +278,7 @@ def extract_points_from_sections(sections_str: str, transcript: str) -> list[str
 
     # Build pattern to match these sections
     for section_num in section_nums:
-        pattern = rf'## Section {section_num}[^\n]*\n(.*?)(?=## Section|\Z)'
+        pattern = rf"## Section {section_num}[^\n]*\n(.*?)(?=## Section|\Z)"
         match = re.search(pattern, transcript, re.DOTALL)
 
         if match:
@@ -301,13 +304,13 @@ def parse_section_range(sections_str: str) -> list[int]:
     sections = []
 
     # Handle ranges like "6-14"
-    range_match = re.match(r'(\d+)\s*-\s*(\d+)', sections_str)
+    range_match = re.match(r"(\d+)\s*-\s*(\d+)", sections_str)
     if range_match:
         start, end = int(range_match.group(1)), int(range_match.group(2))
         sections = list(range(start, end + 1))
     else:
         # Handle comma-separated like "6, 8, 10"
-        nums = re.findall(r'\d+', sections_str)
+        nums = re.findall(r"\d+", sections_str)
         sections = [int(n) for n in nums]
 
     return sections
@@ -318,7 +321,7 @@ def parse_themes(themes_markdown: str) -> list[dict]:
     themes = []
 
     # Regex to find the start of a theme
-    header_pattern = r'(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*'
+    header_pattern = r"(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*"
 
     matches = list(re.finditer(header_pattern, themes_markdown))
 
@@ -326,12 +329,13 @@ def parse_themes(themes_markdown: str) -> list[dict]:
         name = match.group(2).strip()
 
         start_idx = match.end()
-        end_idx = matches[i+1].start() if i + \
-            1 < len(matches) else len(themes_markdown)
+        end_idx = (
+            matches[i + 1].start() if i + 1 < len(matches) else len(themes_markdown)
+        )
 
         raw_content = themes_markdown[start_idx:end_idx].strip()
 
-        lines = raw_content.split('\n')
+        lines = raw_content.split("\n")
         description_lines = []
         sections = ""
 
@@ -343,10 +347,9 @@ def parse_themes(themes_markdown: str) -> list[dict]:
             # Check for Source Sections indicator
             if "Source Section" in line:
                 # Extract sections if possible
-                sect_match = re.search(
-                    r'Sections:?\s*([^*]+)', line, re.IGNORECASE)
+                sect_match = re.search(r"Sections:?\s*([^*]+)", line, re.IGNORECASE)
                 if sect_match:
-                    sections = sect_match.group(1).strip().rstrip('*_')
+                    sections = sect_match.group(1).strip().rstrip("*_")
                 continue
 
             description_lines.append(line)
@@ -354,16 +357,15 @@ def parse_themes(themes_markdown: str) -> list[dict]:
         description = " ".join(description_lines).strip()
 
         if name and description:
-            themes.append({
-                "name": name,
-                "description": description,
-                "sections": sections
-            })
+            themes.append(
+                {"name": name, "description": description, "sections": sections}
+            )
 
     return themes
 
 
 # === Transcript Analysis ===
+
 
 def extract_opening_content(transcript: str, section_count: int) -> dict:
     """Extract opening content: stated purpose and content preview."""
@@ -372,7 +374,7 @@ def extract_opening_content(transcript: str, section_count: int) -> dict:
     # Get text from opening sections
     opening_text = ""
     for i in range(1, opening_sections + 1):
-        pattern = rf'## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)'
+        pattern = rf"## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)"
         match = re.search(pattern, transcript, re.DOTALL)
         if match:
             opening_text += match.group(1) + " "
@@ -408,24 +410,21 @@ def extract_opening_content(transcript: str, section_count: int) -> dict:
             # Extract noun phrases as preview items
             text = match.group(0)
             nouns = re.findall(
-                r'(?:the |a )?([a-z]+(?:\s+[a-z]+)?(?:\s+[a-z]+)?)', text.lower())
+                r"(?:the |a )?([a-z]+(?:\s+[a-z]+)?(?:\s+[a-z]+)?)", text.lower()
+            )
             content_preview.extend([n for n in nouns if len(n) > 5][:3])
 
-    return {
-        "stated_purpose": stated_purpose,
-        "content_preview": content_preview[:4]
-    }
+    return {"stated_purpose": stated_purpose, "content_preview": content_preview[:4]}
 
 
 def extract_closing_content(transcript: str, section_count: int) -> dict:
     """Extract closing content: conclusion, open questions, future direction."""
-    closing_start = max(
-        section_count - (section_count // 10), section_count - 3)
+    closing_start = max(section_count - (section_count // 10), section_count - 3)
 
     # Get text from closing sections
     closing_text = ""
     for i in range(closing_start, section_count + 1):
-        pattern = rf'## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)'
+        pattern = rf"## Section {i}[^\n]*\n(.*?)(?=## Section|\Z)"
         match = re.search(pattern, transcript, re.DOTALL)
         if match:
             closing_text += match.group(1) + " "
@@ -479,7 +478,7 @@ def extract_closing_content(transcript: str, section_count: int) -> dict:
     return {
         "conclusion": conclusion,
         "open_questions": open_questions,
-        "future_direction": future_direction
+        "future_direction": future_direction,
     }
 
 
@@ -487,33 +486,32 @@ def analyze_qa_content(transcript: str) -> dict:
     """Analyze Q&A sections for summary input."""
     # Identify Q&A sections
     qa_indicators = [
-        r'\*\*[A-Z][a-z]+\s*:\*\*',  # **Name:** pattern
-        r'\*\*Dr[.\s]+\w+:\*\*',
-        r'\*\*Audience',
-        r'question',
-        r'comment'
+        r"\*\*[A-Z][a-z]+\s*:\*\*",  # **Name:** pattern
+        r"\*\*Dr[.\s]+\w+:\*\*",
+        r"\*\*Audience",
+        r"question",
+        r"comment",
     ]
 
-    sections = re.split(r'(## Section \d+[^\n]+\n)', transcript)
+    sections = re.split(r"(## Section \d+[^\n]+\n)", transcript)
 
     qa_sections = []
-    total_sections = len([s for s in sections if s.startswith('## Section')])
+    total_sections = len([s for s in sections if s.startswith("## Section")])
 
     current_section = None
     for part in sections:
-        if part.startswith('## Section'):
+        if part.startswith("## Section"):
             current_section = part
         elif current_section:
-            qa_count = sum(len(re.findall(p, part, re.IGNORECASE))
-                           for p in qa_indicators)
+            qa_count = sum(
+                len(re.findall(p, part, re.IGNORECASE)) for p in qa_indicators
+            )
             if qa_count >= 2:
-                qa_sections.append({
-                    "header": current_section,
-                    "content": part
-                })
+                qa_sections.append({"header": current_section, "content": part})
 
-    qa_percentage = int((len(qa_sections) / total_sections)
-                        * 100) if total_sections > 0 else 0
+    qa_percentage = (
+        int((len(qa_sections) / total_sections) * 100) if total_sections > 0 else 0
+    )
 
     # Extract question types and notable exchanges
     question_types = []
@@ -524,24 +522,23 @@ def analyze_qa_content(transcript: str) -> dict:
 
         # Extract question topics
         topic_matches = re.findall(
-            r'(?:about|on|regarding|thinking about)\s+([^.,?]+)',
-            content,
-            re.IGNORECASE
+            r"(?:about|on|regarding|thinking about)\s+([^.,?]+)", content, re.IGNORECASE
         )
         question_types.extend([t.strip()[:50] for t in topic_matches[:2]])
 
         # Look for notable exchanges (longer responses with insight)
-        speaker_pattern = r'\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|\Z)'
+        speaker_pattern = r"\*\*([^:]+):\*\*\s*([^*]+?)(?=\*\*|\Z)"
         speakers = re.findall(speaker_pattern, content, re.DOTALL)
 
         for speaker, text in speakers:
             # Audience member with substantial comment
-            if len(text) > 200 and 'Dr' not in speaker:
+            if len(text) > 200 and "Dr" not in speaker:
                 # Extract first sentence as summary
-                first_sentence = re.match(r'[^.!?]+[.!?]', text.strip())
+                first_sentence = re.match(r"[^.!?]+[.!?]", text.strip())
                 if first_sentence:
                     notable_exchanges.append(
-                        f"{speaker.strip()}: {first_sentence.group(0)[:100]}")
+                        f"{speaker.strip()}: {first_sentence.group(0)[:100]}"
+                    )
 
     # Deduplicate
     question_types = list(dict.fromkeys(question_types))[:6]
@@ -550,23 +547,24 @@ def analyze_qa_content(transcript: str) -> dict:
     return {
         "percentage": qa_percentage,
         "question_types": question_types,
-        "notable_exchanges": notable_exchanges
+        "notable_exchanges": notable_exchanges,
     }
 
 
 def count_sections(transcript: str) -> int:
     """Count total sections in formatted transcript."""
-    return len(re.findall(r'## Section \d+', transcript))
+    return len(re.findall(r"## Section \d+", transcript))
 
 
 # === Main Preparation Function ===
+
 
 def prepare_summary_input(
     metadata: dict,
     topics_markdown: str,
     themes_markdown: str,
     transcript: str,
-    target_word_count: int = 500
+    target_word_count: int = 500,
 ) -> SummaryInput:
     """
     Prepare structured input for summary generation API call.
@@ -583,9 +581,7 @@ def prepare_summary_input(
     # Calculate word allocations
     topic_percentages = [t["percentage"] for t in topics]
     allocations = calculate_word_allocations(
-        target_word_count,
-        topic_percentages,
-        qa_analysis["percentage"]
+        target_word_count, topic_percentages, qa_analysis["percentage"]
     )
 
     # Extract opening and closing content
@@ -600,15 +596,20 @@ def prepare_summary_input(
     # Build topic allocations
     topic_allocations = []
     for i, topic in enumerate(topics):
-        word_alloc = allocations["topic_allocations"][i] if i < len(
-            allocations["topic_allocations"]) else 50
-        topic_allocations.append(TopicAllocation(
-            name=topic["name"],
-            percentage=topic["percentage"],
-            word_allocation=word_alloc,
-            sections=topic["sections"],
-            key_points=topic["key_points"]
-        ))
+        word_alloc = (
+            allocations["topic_allocations"][i]
+            if i < len(allocations["topic_allocations"])
+            else 50
+        )
+        topic_allocations.append(
+            TopicAllocation(
+                name=topic["name"],
+                percentage=topic["percentage"],
+                word_allocation=word_alloc,
+                sections=topic["sections"],
+                key_points=topic["key_points"],
+            )
+        )
 
     return SummaryInput(
         metadata=metadata,
@@ -616,30 +617,30 @@ def prepare_summary_input(
         opening=OpeningSection(
             word_allocation=allocations["opening"],
             stated_purpose=opening_content["stated_purpose"],
-            content_preview=content_preview
+            content_preview=content_preview,
         ),
         body=BodySection(
-            word_allocation=allocations["body_total"],
-            topics=topic_allocations
+            word_allocation=allocations["body_total"], topics=topic_allocations
         ),
         qa=QASection(
             include=allocations["include_qa"],
             word_allocation=allocations["qa"],
             percentage=qa_analysis["percentage"],
             question_types=qa_analysis["question_types"],
-            notable_exchanges=qa_analysis["notable_exchanges"]
+            notable_exchanges=qa_analysis["notable_exchanges"],
         ),
         closing=ClosingSection(
             word_allocation=allocations["closing"],
             conclusion=closing_content["conclusion"],
             open_questions=closing_content["open_questions"],
-            future_direction=closing_content["future_direction"]
+            future_direction=closing_content["future_direction"],
         ),
-        themes=themes
+        themes=themes,
     )
 
 
 # === API Integration ===
+
 
 def load_prompt() -> str:
     """Load the summary generation prompt template."""
@@ -649,19 +650,21 @@ def load_prompt() -> str:
             f"Prompt file not found: {prompt_path}\n"
             f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_SUMMARY_FILENAME}"
         )
-    return prompt_path.read_text(encoding='utf-8')
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
     model: str = config.AUX_MODEL,
-    system: Optional[list] = None
+    system: Optional[list] = None,
 ) -> str:
     """
     Generate summary via API call.
     """
-    qa_instruction = "include this section" if summary_input.qa.include else "skip this section"
+    qa_instruction = (
+        "include this section" if summary_input.qa.include else "skip this section"
+    )
 
     prompt_template = load_prompt()
     prompt = prompt_template.format(
@@ -670,12 +673,12 @@ def generate_summary(
         qa_words=summary_input.qa.word_allocation,
         qa_instruction=qa_instruction,
         closing_words=summary_input.closing.word_allocation,
-        input_json=summary_input.to_json()
+        input_json=summary_input.to_json(),
     )
 
     kwargs = {}
     if system:
-        kwargs['system'] = system
+        kwargs["system"] = system
 
     # Use centralized call with retry and validation
     message = call_claude_with_retry(
@@ -684,8 +687,8 @@ def generate_summary(
         messages=[{"role": "user", "content": prompt}],
         max_tokens=2000,  # Increased for structured summary
         temperature=config.TEMP_BALANCED,
-        min_length=300,   # Ensure substantial summary
-        **kwargs
+        min_length=300,  # Ensure substantial summary
+        **kwargs,
     )
 
     return message.content[0].text.strip()
@@ -699,7 +702,7 @@ if __name__ == "__main__":
         "credentials": "50+ years practicing Bowen family systems theory",
         "event_type": "webinar",
         "title": "Roots of Bowen Theory",
-        "domain": "Bowen family systems theory"
+        "domain": "Bowen family systems theory",
     }
 
     sample_topics = """
@@ -756,17 +759,18 @@ I think we can safely say the answers extend beyond the boundaries of our specie
         topics_markdown=sample_topics,
         themes_markdown=sample_themes,
         transcript=sample_transcript,
-        target_word_count=500
+        target_word_count=500,
     )
 
     print("Prepared input:")
     print(summary_input.to_json())
-    print("\n" + "="*50 + "\n")
+    print("\n" + "=" * 50 + "\n")
     print("Word allocations:")
     print(f"  Opening: {summary_input.opening.word_allocation}")
     print(f"  Body: {summary_input.body.word_allocation}")
     for topic in summary_input.body.topics:
         print(f"    - {topic.name[:40]}...: {topic.word_allocation} words")
     print(
-        f"  Q&A: {summary_input.qa.word_allocation} (include: {summary_input.qa.include})")
+        f"  Q&A: {summary_input.qa.word_allocation} (include: {summary_input.qa.include})"
+    )
     print(f"  Closing: {summary_input.closing.word_allocation}")

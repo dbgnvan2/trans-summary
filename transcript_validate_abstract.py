@@ -9,8 +9,9 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from pipeline import validate_abstract, setup_logging
+
 import config
+from pipeline import setup_logging, validate_abstract
 
 
 def resolve_base_name(input_name: str) -> str:
@@ -20,19 +21,19 @@ def resolve_base_name(input_name: str) -> str:
     """
     # Remove extension
     name = input_name
-    if name.endswith('.md') or name.endswith('.txt'):
+    if name.endswith(".md") or name.endswith(".txt"):
         name = Path(name).stem
 
     # Remove known suffixes
     suffixes = [
-        config.SUFFIX_FORMATTED.replace('.md', ''),
-        config.SUFFIX_YAML.replace('.md', ''),
-        '_yaml',
-        config.SUFFIX_WEBPAGE_SIMPLE.replace('.html', '')
+        config.SUFFIX_FORMATTED.replace(".md", ""),
+        config.SUFFIX_YAML.replace(".md", ""),
+        "_yaml",
+        config.SUFFIX_WEBPAGE_SIMPLE.replace(".html", ""),
     ]
     for suffix in suffixes:
         if name.endswith(suffix):
-            name = name[:-len(suffix)]
+            name = name[: -len(suffix)]
             break
 
     return name
@@ -47,36 +48,36 @@ def main():
     )
     parser.add_argument(
         "base_name",
-        help="Base name of the transcript (e.g., 'Title - Presenter - Date')"
+        help="Base name of the transcript (e.g., 'Title - Presenter - Date')",
     )
     parser.add_argument(
         "--model",
         default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})"
+        help=f"Claude model to use (default: {config.DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--target-score",
         type=float,
         default=4.5,
-        help="Target quality score (default: 4.5)"
+        help="Target quality score (default: 4.5)",
     )
     parser.add_argument(
         "--max-iterations",
         type=int,
         default=3,
-        help="Maximum number of improvement iterations (default: 3)"
+        help="Maximum number of improvement iterations (default: 3)",
     )
     parser.add_argument(
         "--auto",
         action="store_true",
-        help="Run without interactive prompts (auto-continue until target reached)"
+        help="Run without interactive prompts (auto-continue until target reached)",
     )
 
     args = parser.parse_args()
 
     base_name = resolve_base_name(args.base_name)
 
-    logger = setup_logging('validate_abstract_cli')
+    logger = setup_logging("validate_abstract_cli")
     logger.info(f"Starting abstract validation for: {base_name}")
 
     success = validate_abstract(
@@ -85,7 +86,7 @@ def main():
         target_score=args.target_score,
         max_iterations=args.max_iterations,
         auto_continue=args.auto,
-        logger=logger
+        logger=logger,
     )
 
     if success:

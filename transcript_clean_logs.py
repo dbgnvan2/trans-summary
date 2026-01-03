@@ -10,8 +10,9 @@ Usage:
 import argparse
 import shutil
 from datetime import datetime
-from pathlib import Path
+
 import config
+from transcript_utils import delete_logs as utils_delete_logs
 
 
 def archive_logs():
@@ -49,7 +50,7 @@ def archive_logs():
             shutil.copy2(f, temp_dir)
 
         # Create zip
-        shutil.make_archive(str(zip_base_name), 'zip', temp_dir)
+        shutil.make_archive(str(zip_base_name), "zip", temp_dir)
         print(f"✅ Archive created: {zip_base_name}.zip")
 
         # Delete originals
@@ -67,11 +68,10 @@ def archive_logs():
 
 def delete_logs():
     """Permanently delete log files and token usage CSV."""
-    confirm = input(
-        "Are you sure you want to PERMANENTLY DELETE these files? [y/N]: ")
+    confirm = input("Are you sure you want to PERMANENTLY DELETE these files? [y/N]: ")
 
-    if confirm.lower() == 'y':
-        pipeline.delete_logs()
+    if confirm.lower() == "y":
+        utils_delete_logs()
     else:
         print("Operation cancelled.")
 
@@ -84,12 +84,12 @@ def main():
     group.add_argument(
         "--archive",
         action="store_true",
-        help="Archive current logs to a zip file in logs/archives/ and delete originals"
+        help="Archive current logs to a zip file in logs/archives/ and delete originals",
     )
     group.add_argument(
         "--delete",
         action="store_true",
-        help="Permanently delete current logs without backup"
+        help="Permanently delete current logs without backup",
     )
 
     args = parser.parse_args()

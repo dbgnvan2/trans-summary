@@ -1,6 +1,7 @@
+import os
+
 import google.generativeai as genai
 from dotenv import load_dotenv
-import os
 
 # 1. Load variables from the .env file
 load_dotenv()
@@ -16,5 +17,5 @@ genai.configure(api_key=api_key)
 # 4. Now that you are authenticated, you can list the models
 print("Available models:")
 for m in genai.list_models():
-    if 'generateContent' in m.supported_generation_methods:
+    if "generateContent" in m.supported_generation_methods:
         print(m.name)

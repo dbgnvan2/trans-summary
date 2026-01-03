@@ -6,20 +6,21 @@ Extracts raw text, formats it via LLM, and performs word-level validation.
 import os
 import re
 from pathlib import Path
-from typing import Optional, Set, List, Dict, Any
+from typing import Any, Dict, List, Optional, Set
+
 import anthropic
-from difflib import SequenceMatcher
 
 import config
 from transcript_utils import (
     call_claude_with_retry,
-    validate_input_file,
-    setup_logging,
+    check_token_budget,
     normalize_text,
-    strip_yaml_frontmatter,
     parse_filename_metadata,
-    check_token_budget
+    setup_logging,
+    strip_yaml_frontmatter,
+    validate_input_file,
 )
+
 
 def strip_sic_annotations(text: str) -> tuple[str, int]:
     """Removes [sic] annotations and returns the cleaned text and count."""
@@ -37,17 +38,22 @@ def load_prompt() -> str:
             f"Prompt file not found: {prompt_path}\n"
             f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_FORMATTING_FILENAME}"
         )
-    return prompt_path.read_text(encoding='utf-8')
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def load_raw_transcript(filename: str) -> str:
     """Load the raw transcript from source directory."""
     transcript_path = config.SOURCE_DIR / filename
     validate_input_file(transcript_path)
-    return transcript_path.read_text(encoding='utf-8')
+    return transcript_path.read_text(encoding="utf-8")
 
 
-def format_transcript_with_claude(raw_transcript: str, prompt_template: str, model: str = config.DEFAULT_MODEL, logger=None) -> str:
+def format_transcript_with_claude(
+    raw_transcript: str,
+    prompt_template: str,
+    model: str = config.DEFAULT_MODEL,
+    logger=None,
+) -> str:
     """Send transcript to Claude for formatting."""
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -61,23 +67,33 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         logger.info("Sending transcript to Claude...")
         word_count = len(raw_transcript.split())
         logger.info(
-            f"Transcript length: {word_count:,} words, {len(raw_transcript):,} characters")
+            f"Transcript length: {word_count:,} words, {len(raw_transcript):,} characters"
+        )
         logger.info("Waiting for Claude response...")
     else:
         print("Sending transcript to Claude...", flush=True)
         print(
-            f"Transcript length: {len(raw_transcript.split()):,} words, {len(raw_transcript):,} characters", flush=True)
-        print("⏳ Waiting for Claude response (may take 2-5 minutes for longer transcripts)...", flush=True)
+            f"Transcript length: {len(raw_transcript.split()):,} words, {len(raw_transcript):,} characters",
+            flush=True,
+        )
+        print(
+            "⏳ Waiting for Claude response (may take 2-5 minutes for longer transcripts)...",
+            flush=True,
+        )
 
     # Use prompt caching for the large input
-    messages = [{
-        "role": "user",
-        "content": [{
-            "type": "text",
-            "text": full_prompt,
-            "cache_control": {"type": "ephemeral"}
-        }]
-    }]
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": full_prompt,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+        }
+    ]
 
     # Expect at least 50% of the original word count (conservative)
     min_expected_words = int(len(raw_transcript.split()) * 0.5)
@@ -90,7 +106,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         stream=True,
         logger=logger,
         timeout=config.TIMEOUT_FORMATTING,
-        min_words=min_expected_words
+        min_words=min_expected_words,
     )
 
     return message.content[0].text
@@ -105,48 +121,53 @@ def save_formatted_transcript(content: str, original_filename: str) -> Path:
     project_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = project_dir / output_filename
-    output_path.write_text(content, encoding='utf-8')
+    output_path.write_text(content, encoding="utf-8")
     return output_path
 
 
-def format_transcript(raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None) -> bool:
+def format_transcript(
+    raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None
+) -> bool:
     """
     Orchestrates the transcript formatting process.
     """
     if logger is None:
-        logger = setup_logging('format_transcript')
+        logger = setup_logging("format_transcript")
 
     try:
         if not config.SOURCE_DIR.exists():
-            raise FileNotFoundError(
-                f"Source directory not found: {config.SOURCE_DIR}")
+            raise FileNotFoundError(f"Source directory not found: {config.SOURCE_DIR}")
 
         logger.info(
-            f"Loading prompt template from: {config.TRANSCRIPTS_BASE / 'prompts'}")
+            f"Loading prompt template from: {config.TRANSCRIPTS_BASE / 'prompts'}"
+        )
         prompt_template = load_prompt()
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
 
         # Construct full prompt to check token budget before API call
-        full_prompt_for_budget_check = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
+        full_prompt_for_budget_check = (
+            f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
+        )
         # This should match max_tokens in format_transcript_with_claude
         MAX_TOKENS_FOR_FORMATTING = config.MAX_TOKENS_FORMATTING
 
-        if not check_token_budget(full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger):
-            logger.error(
-                "Token budget exceeded for formatting. Aborting API call.")
+        if not check_token_budget(
+            full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger
+        ):
+            logger.error("Token budget exceeded for formatting. Aborting API call.")
             return False
 
         formatted_content = format_transcript_with_claude(
-            raw_transcript, prompt_template, model=model, logger=logger)
+            raw_transcript, prompt_template, model=model, logger=logger
+        )
 
         formatted_content, sic_count = strip_sic_annotations(formatted_content)
         if sic_count > 0 and logger:
             logger.info(f"Removed {sic_count} [sic] annotation(s).")
 
-        output_path = save_formatted_transcript(
-            formatted_content, raw_filename)
+        output_path = save_formatted_transcript(formatted_content, raw_filename)
 
         logger.info("✓ Success!")
         logger.info(f"Formatted transcript saved to: {output_path}")
@@ -171,14 +192,14 @@ def _generate_yaml_front_matter(meta: dict, source_filename: str) -> str:
     )
 
     return f'''---
-Title: "{meta['title']}"
-Presenter: "{meta['presenter']}"
-Lecture date: "{meta['date']}"
+Title: "{meta["title"]}"
+Presenter: "{meta["presenter"]}"
+Lecture date: "{meta["date"]}"
 Source recording: "{source_filename}"
 Transcriber: "Automated; human-reviewed"
 Authenticity: "{authenticity}"
 Version: "v1.0"
-License: "© {meta['year']} {meta['presenter']}. All rights reserved."
+License: "© {meta["year"]} {meta["presenter"]}. All rights reserved."
 DOI: ""
 ---
 
@@ -190,33 +211,32 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
     Orchestrates the process of adding YAML front matter to a transcript.
     """
     if logger is None:
-        logger = setup_logging('add_yaml')
+        logger = setup_logging("add_yaml")
 
     try:
         logger.info(f"Adding YAML to {transcript_filename}")
 
         meta = parse_filename_metadata(transcript_filename)
-        stem = meta['stem']
+        stem = meta["stem"]
 
         transcript_path = config.PROJECTS_DIR / stem / transcript_filename
         validate_input_file(transcript_path)
 
         source_filename = f"{meta['stem']}.{source_ext.lstrip('.')}"
 
-        formatted_content = transcript_path.read_text(encoding='utf-8')
+        formatted_content = transcript_path.read_text(encoding="utf-8")
 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
 
-        output_path = config.PROJECTS_DIR / stem / \
-            f"{meta['stem']}{config.SUFFIX_YAML}"
-        output_path.write_text(final_content, encoding='utf-8')
+        output_path = config.PROJECTS_DIR / stem / f"{meta['stem']}{config.SUFFIX_YAML}"
+        output_path.write_text(final_content, encoding="utf-8")
 
         logger.info(f"✓ Success! YAML added. Output saved to: {output_path}")
 
         # Validation: Log first 20 lines
         logger.info("\n--- YAML Validation (First 20 lines) ---")
-        with open(output_path, 'r', encoding='utf-8') as f:
+        with open(output_path, "r", encoding="utf-8") as f:
             for _ in range(20):
                 line = f.readline()
                 if not line:
@@ -234,15 +254,22 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
 def _normalize_word_for_validation(w: str) -> str:
     """Strips punctuation and lowercases for validation comparison."""
     # Explicitly remove markdown symbols before regex
-    w = w.replace('#', '').replace('*', '').replace('_', '').replace('`', '')
+    w = w.replace("#", "").replace("*", "").replace("_", "").replace("`", "")
     # Aggressively strip markdown markers and punctuation from start/end
-    w = re.sub(r'^[\W_]+', '', w)
-    w = re.sub(r'[\W_]+$', '', w)
+    w = re.sub(r"^[\W_]+", "", w)
+    w = re.sub(r"[\W_]+$", "", w)
     w = re.sub(r"[^\w']+$", "", w)
     return w.lower()
 
 
-def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str], max_lookahead: int, max_mismatch_ratio: float, max_mismatches: Optional[int]) -> Dict[str, Any]:
+def _compare_transcripts(
+    raw_text: str,
+    formatted_text: str,
+    skip_words: Set[str],
+    max_lookahead: int,
+    max_mismatch_ratio: float,
+    max_mismatches: Optional[int],
+) -> Dict[str, Any]:
     """Compares raw to formatted transcript, word by word."""
     a_words: List[str] = raw_text.split()
 
@@ -275,7 +302,14 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
 
         if j >= len(b_words):
             mismatches.append(
-                {"a_index": i, "a_word": a_words[i], "b_index": None, "b_word": None, "reason": "B exhausted"})
+                {
+                    "a_index": i,
+                    "a_word": a_words[i],
+                    "b_index": None,
+                    "b_word": None,
+                    "reason": "B exhausted",
+                }
+            )
             stopped_reason = "B_exhausted"
             break
 
@@ -305,12 +339,12 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
             elif b_match_offset is not None and a_match_offset is not None:
                 path1_score = 0
                 if i + 1 < len(a_norm) and j + b_match_offset + 1 < len(b_words):
-                    if a_norm[i+1] == b_norm[j + b_match_offset + 1]:
+                    if a_norm[i + 1] == b_norm[j + b_match_offset + 1]:
                         path1_score = 1
 
                 path2_score = 0
                 if i + a_match_offset + 1 < len(a_norm) and j + 1 < len(b_words):
-                    if a_norm[i + a_match_offset + 1] == b_norm[j+1]:
+                    if a_norm[i + a_match_offset + 1] == b_norm[j + 1]:
                         path2_score = 1
 
                 if path1_score > path2_score:
@@ -328,11 +362,25 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
             elif action == "skip_a":
                 for k in range(a_match_offset):
                     mismatches.append(
-                        {"a_index": i+k, "a_word": a_words[i+k], "b_index": j, "b_word": b_words[j], "reason": "Skipped in A (deletion in B)"})
+                        {
+                            "a_index": i + k,
+                            "a_word": a_words[i + k],
+                            "b_index": j,
+                            "b_word": b_words[j],
+                            "reason": "Skipped in A (deletion in B)",
+                        }
+                    )
                 i += a_match_offset
             else:
                 mismatches.append(
-                    {"a_index": i, "a_word": a_words[i], "b_index": j, "b_word": b_words[j], "reason": "Mismatch"})
+                    {
+                        "a_index": i,
+                        "a_word": a_words[i],
+                        "b_index": j,
+                        "b_word": b_words[j],
+                        "reason": "Mismatch",
+                    }
+                )
                 i += 1
 
         if checked > 0:
@@ -356,50 +404,70 @@ def _compare_transcripts(raw_text: str, formatted_text: str, skip_words: Set[str
     }
 
 
-def validate_format(raw_filename: str, formatted_filename: Optional[str] = None, skip_words_file: Optional[str] = None, logger=None) -> bool:
+def validate_format(
+    raw_filename: str,
+    formatted_filename: Optional[str] = None,
+    skip_words_file: Optional[str] = None,
+    logger=None,
+) -> bool:
     """Orchestrates the format validation process."""
     if logger is None:
-        logger = setup_logging('validate_format')
+        logger = setup_logging("validate_format")
     try:
         stem = Path(raw_filename).stem
         raw_file_path = config.SOURCE_DIR / raw_filename
         if formatted_filename:
             formatted_file_path = config.PROJECTS_DIR / stem / formatted_filename
         else:
-            formatted_file_path = config.PROJECTS_DIR / stem / \
-                f"{stem}{config.SUFFIX_FORMATTED}"
+            formatted_file_path = (
+                config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_FORMATTED}"
+            )
 
         validate_input_file(raw_file_path)
         validate_input_file(formatted_file_path)
 
-        raw_text = raw_file_path.read_text(encoding='utf-8-sig')
-        formatted_text = formatted_file_path.read_text(encoding='utf-8-sig')
+        raw_text = raw_file_path.read_text(encoding="utf-8-sig")
+        formatted_text = formatted_file_path.read_text(encoding="utf-8-sig")
 
         formatted_text = strip_yaml_frontmatter(formatted_text)
 
         raw_clean = re.sub(
-            r'^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+(?::\d+)?', '', raw_text, flags=re.MULTILINE)
-        raw_clean = re.sub(r"^\s*Transcribed by\b.*", '',
-                           raw_clean, flags=re.MULTILINE)
+            r"^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+(?::\d+)?",
+            "",
+            raw_text,
+            flags=re.MULTILINE,
+        )
+        raw_clean = re.sub(r"^\s*Transcribed by\b.*", "", raw_clean, flags=re.MULTILINE)
 
         raw_clean = re.sub(
-            r'[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?', ' ', raw_clean, flags=re.IGNORECASE)
-        raw_clean = re.sub(r'(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?', ' ', raw_clean)
+            r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?",
+            " ",
+            raw_clean,
+            flags=re.IGNORECASE,
+        )
+        raw_clean = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", raw_clean)
 
-        formatted_clean, _ = re.subn(
-            r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
-        formatted_clean = re.sub(r'\*\*[^*]+:\*\*\s*', '', formatted_clean)
+        formatted_clean, _ = re.subn(r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
+        formatted_clean = re.sub(r"\*\*[^*]+:\*\*\s*", "", formatted_clean)
 
-        formatted_clean = re.sub(
-            r'^\s*#+.*$', '', formatted_clean, flags=re.MULTILINE)
+        formatted_clean = re.sub(r"^\s*#+.*$", "", formatted_clean, flags=re.MULTILINE)
 
         skip_words = set()
         if skip_words_file:
-            skip_words = {normalize_text(word) for word in Path(
-                skip_words_file).read_text().splitlines() if word and not word.startswith('#')}
+            skip_words = {
+                normalize_text(word)
+                for word in Path(skip_words_file).read_text().splitlines()
+                if word and not word.startswith("#")
+            }
 
         result = _compare_transcripts(
-            raw_clean, formatted_clean, skip_words, config.VALIDATION_LOOKAHEAD_WINDOW, 0.05, None)
+            raw_clean,
+            formatted_clean,
+            skip_words,
+            config.VALIDATION_LOOKAHEAD_WINDOW,
+            0.05,
+            None,
+        )
 
         logger.info("=== Comparison Summary ===")
         for key, value in result.items():
@@ -408,24 +476,27 @@ def validate_format(raw_filename: str, formatted_filename: Optional[str] = None,
 
         if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
             logger.error(
-                f"Validation FAILED: Mismatch ratio {result['mismatch_ratio']:.2%} exceeds limit ({config.VALIDATION_MISMATCH_RATIO:.1%}).")
+                f"Validation FAILED: Mismatch ratio {result['mismatch_ratio']:.2%} exceeds limit ({config.VALIDATION_MISMATCH_RATIO:.1%})."
+            )
             for m in result["mismatches"][:20]:
                 logger.error(
-                    f"  Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'")
+                    f"  Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'"
+                )
             return False
 
         if result["mismatch_count"] > 0:
             logger.warning(
-                f"Validation PASSED with warnings: {result['mismatch_count']} mismatches ({result['mismatch_ratio']:.2%}).")
+                f"Validation PASSED with warnings: {result['mismatch_count']} mismatches ({result['mismatch_ratio']:.2%})."
+            )
             for m in result["mismatches"][:10]:
                 logger.warning(
-                    f"  Ignored Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'")
+                    f"  Ignored Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'"
+                )
         else:
             logger.info("Validation PASSED: No mismatches found.")
 
         return True
 
     except Exception as e:
-        logger.error(
-            f"An error occurred during format validation: {e}", exc_info=True)
+        logger.error(f"An error occurred during format validation: {e}", exc_info=True)
         return False

@@ -9,8 +9,9 @@ Usage:
 
 import os
 import sys
-from pathlib import Path
+
 import anthropic
+
 import config
 
 
@@ -51,7 +52,7 @@ def check_directories():
             if name in ["Source", "Prompts"]:
                 all_exist = False
             else:
-                print(f"   (Will be created automatically)")
+                print("   (Will be created automatically)")
 
     return all_exist
 
@@ -62,8 +63,11 @@ def check_prompt_files():
     all_exist = True
 
     # Get all attributes from config that start with PROMPT_ and end with _FILENAME
-    prompt_vars = [attr for attr in dir(config) if attr.startswith(
-        "PROMPT_") and attr.endswith("_FILENAME")]
+    prompt_vars = [
+        attr
+        for attr in dir(config)
+        if attr.startswith("PROMPT_") and attr.endswith("_FILENAME")
+    ]
 
     for var_name in prompt_vars:
         filename = getattr(config, var_name)
@@ -97,15 +101,12 @@ def check_model_availability():
         print(f"Checking model: {model:<30} ... ", end="", flush=True)
         try:
             client.messages.create(
-                model=model,
-                max_tokens=1,
-                messages=[{"role": "user", "content": "Hi"}]
+                model=model, max_tokens=1, messages=[{"role": "user", "content": "Hi"}]
             )
             print("✅ Available")
         except anthropic.NotFoundError:
             print("❌ Not Found (404)")
-            print(
-                f"   The model '{model}' does not exist or you don't have access.")
+            print(f"   The model '{model}' does not exist or you don't have access.")
             all_available = False
         except Exception as e:
             print(f"❌ Error: {e}")

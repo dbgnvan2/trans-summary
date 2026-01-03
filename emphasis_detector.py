@@ -15,7 +15,7 @@ Usage:
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 
 @dataclass
@@ -38,42 +38,72 @@ class EmphasisDetector:
         """Compile regex patterns for all tiers."""
         # TIER 1: Explicit Emphasis Statements
         self.tier1_patterns = [
-            ("Direct Importance", r"(?:extraordinarily|very|real|really)\s+(?:important|significant|key|critical)\s+(?:insight|concept|point|things|role|idea)"),
+            (
+                "Direct Importance",
+                r"(?:extraordinarily|very|real|really)\s+(?:important|significant|key|critical)\s+(?:insight|concept|point|things|role|idea)",
+            ),
             ("Emphasis Directives", r"(?:just to|So|Now)\s+(?:emphasize|stress)"),
-            ("Explicit Key/Critical",
-             r"(?:the\s+key|critical)\s+(?:thing|note|concept|idea|point)\s+(?:is|that|about)"),
+            (
+                "Explicit Key/Critical",
+                r"(?:the\s+key|critical)\s+(?:thing|note|concept|idea|point)\s+(?:is|that|about)",
+            ),
         ]
 
         # TIER 2: Meta-Commentary Patterns
         self.tier2_patterns = [
-            ("Selling Points", r"(?:I\s+don't\s+have\s+to\s+sell|don't\s+need\s+to\s+convince|obviously|clearly)"),
-            ("Theoretical Attribution",
-             r"(?:of\s+course,?\s+was|this\s+was)\s+Bowen'?s\s+(?:insight|idea|concept|discovery)"),
-            ("Identity/Equivalence",
-             r"(?:This,?\s+I\s+think,?\s+is\s+identical|This\s+is\s+the\s+same\s+as|This\s+illustrates)"),
-            ("Pride/Favorite",
-             r"(?:pride\s+and\s+joy|one\s+of\s+my\s+favorite|favorite\s+quote)"),
-            ("Summary/Review", r"(?:just to|So|Now)\s+(?:review|summarize)\s+(?:some\s+)?(?:points?|key|the)"),
+            (
+                "Selling Points",
+                r"(?:I\s+don't\s+have\s+to\s+sell|don't\s+need\s+to\s+convince|obviously|clearly)",
+            ),
+            (
+                "Theoretical Attribution",
+                r"(?:of\s+course,?\s+was|this\s+was)\s+Bowen'?s\s+(?:insight|idea|concept|discovery)",
+            ),
+            (
+                "Identity/Equivalence",
+                r"(?:This,?\s+I\s+think,?\s+is\s+identical|This\s+is\s+the\s+same\s+as|This\s+illustrates)",
+            ),
+            (
+                "Pride/Favorite",
+                r"(?:pride\s+and\s+joy|one\s+of\s+my\s+favorite|favorite\s+quote)",
+            ),
+            (
+                "Summary/Review",
+                r"(?:just to|So|Now)\s+(?:review|summarize)\s+(?:some\s+)?(?:points?|key|the)",
+            ),
         ]
 
         # TIER 3: Bowen Reference Detection
         self.tier3_patterns = [
-            ("Direct Bowen Quotes",
-             r"(?:Quote|Another)\s+(?:Murray\s+)?Bowen(?:'?s?\s+quote)?|whose\s+quote\s+this\s+is.*Bowen"),
-            ("Bowen Attribution",
-             r"(?:Murray\s+)?Bowen\s+(?:said|wrote|thought|believed|described|called|,)"),
+            (
+                "Direct Bowen Quotes",
+                r"(?:Quote|Another)\s+(?:Murray\s+)?Bowen(?:'?s?\s+quote)?|whose\s+quote\s+this\s+is.*Bowen",
+            ),
+            (
+                "Bowen Attribution",
+                r"(?:Murray\s+)?Bowen\s+(?:said|wrote|thought|believed|described|called|,)",
+            ),
         ]
 
         # EXCLUSIONS (False Positives)
         self.exclusion_patterns = [
-            ("Casual I think", r"^I\s+think(?!\s+(?:that's|this\s+is)\s+(?:an\s+)?(?:extraordinarily|very|real|really)\s+important)"),
+            (
+                "Casual I think",
+                r"^I\s+think(?!\s+(?:that's|this\s+is)\s+(?:an\s+)?(?:extraordinarily|very|real|really)\s+important)",
+            ),
             ("Personal Anecdotes", r"(?:I\s+remember|reminds\s+me|I\s+recall)\s+"),
-            ("Procedural Statements",
-             r"(?:Next\s+slide|Okay,?\s+so|Next\s+one|Let's\s+move)"),
-            ("Conversational Fillers",
-             r"\b(?:you\s+know|of\s+course|I\s+mean)\b(?!.*Bowen)"),
-            ("Generic Appreciation",
-             r"(?:thank\s+you|thanks\s+for|appreciate|good\s+to\s+see)"),
+            (
+                "Procedural Statements",
+                r"(?:Next\s+slide|Okay,?\s+so|Next\s+one|Let's\s+move)",
+            ),
+            (
+                "Conversational Fillers",
+                r"\b(?:you\s+know|of\s+course|I\s+mean)\b(?!.*Bowen)",
+            ),
+            (
+                "Generic Appreciation",
+                r"(?:thank\s+you|thanks\s+for|appreciate|good\s+to\s+see)",
+            ),
         ]
 
     def split_sentences(self, text: str) -> List[Tuple[str, int, int]]:
@@ -119,7 +149,11 @@ class EmphasisDetector:
             found_match = None
 
             # Check tiers in order
-            for tier, patterns in [("1", self.tier1_patterns), ("2", self.tier2_patterns), ("Bowen", self.tier3_patterns)]:
+            for tier, patterns in [
+                ("1", self.tier1_patterns),
+                ("2", self.tier2_patterns),
+                ("Bowen", self.tier3_patterns),
+            ]:
                 for name, pattern in patterns:
                     m = re.search(pattern, sent_text, re.IGNORECASE)
                     if m:
@@ -130,19 +164,20 @@ class EmphasisDetector:
 
             if found_match:
                 tier, name, matched_phrase = found_match
-                context_before = sentences[i-1][0] if i > 0 else ""
-                context_after = sentences[i +
-                                          1][0] if i < len(sentences) - 1 else ""
+                context_before = sentences[i - 1][0] if i > 0 else ""
+                context_after = sentences[i + 1][0] if i < len(sentences) - 1 else ""
 
-                matches.append(EmphasisMatch(
-                    tier=tier,
-                    pattern_name=name,
-                    matched_text=matched_phrase,
-                    full_sentence=sent_text,
-                    context_before=context_before,
-                    context_after=context_after,
-                    start_char=start,
-                    end_char=end
-                ))
+                matches.append(
+                    EmphasisMatch(
+                        tier=tier,
+                        pattern_name=name,
+                        matched_text=matched_phrase,
+                        full_sentence=sent_text,
+                        context_before=context_before,
+                        context_after=context_after,
+                        start_char=start,
+                        end_char=end,
+                    )
+                )
 
         return matches

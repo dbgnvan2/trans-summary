@@ -5,14 +5,13 @@ Inserts key terms section after Key Themes, before Bowen References.
 
 Usage:
     python transcript_merge_archival.py "Title - Presenter - Date"
-    
+
 Example:
     python transcript_merge_archival.py "Roots of Bowen Theory - Dr Michael Kerr - 2019-11-15"
 """
 
 import argparse
-import os
-from pathlib import Path
+
 import config
 
 
@@ -20,8 +19,9 @@ def merge_key_terms_into_topics_themes(base_name: str) -> bool:
     """Merge key-terms.md into topics-themes.md document."""
 
     project_dir = config.PROJECTS_DIR / base_name
-    topics_themes_path = project_dir / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    topics_themes_path = (
+        project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    )
     key_terms_path = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
 
     # Check both files exist
@@ -34,24 +34,24 @@ def merge_key_terms_into_topics_themes(base_name: str) -> bool:
         return False
 
     # Read both files
-    with open(topics_themes_path, 'r', encoding='utf-8') as f:
+    with open(topics_themes_path, "r", encoding="utf-8") as f:
         topics_themes_content = f.read()
 
-    with open(key_terms_path, 'r', encoding='utf-8') as f:
+    with open(key_terms_path, "r", encoding="utf-8") as f:
         key_terms_content = f.read()
 
     # Extract just the key terms section (skip YAML front matter and header)
     # Remove the entire "TERMINOLOGY EXTRACTION OUTPUT" section
-    if '# TERMINOLOGY EXTRACTION OUTPUT' in key_terms_content:
+    if "# TERMINOLOGY EXTRACTION OUTPUT" in key_terms_content:
         # Find the "# Key Terms" heading and start from there
-        parts = key_terms_content.split('# Key Terms', 1)
+        parts = key_terms_content.split("# Key Terms", 1)
         if len(parts) == 2:
-            key_terms_section = '# Key Terms' + parts[1]
+            key_terms_section = "# Key Terms" + parts[1]
         else:
             key_terms_section = key_terms_content
-    elif key_terms_content.startswith('---'):
+    elif key_terms_content.startswith("---"):
         # Old format: skip YAML front matter
-        parts = key_terms_content.split('---\n', 2)
+        parts = key_terms_content.split("---\n", 2)
         if len(parts) >= 3:
             key_terms_section = parts[2]
         else:
@@ -67,12 +67,12 @@ def merge_key_terms_into_topics_themes(base_name: str) -> bool:
         # Insert key terms before Bowen References
         parts = topics_themes_content.split(insertion_marker, 1)
         merged_content = (
-            parts[0] +
-            "\n---\n\n" +
-            key_terms_section.strip() +
-            "\n\n---\n\n" +
-            insertion_marker +
-            parts[1]
+            parts[0]
+            + "\n---\n\n"
+            + key_terms_section.strip()
+            + "\n\n---\n\n"
+            + insertion_marker
+            + parts[1]
         )
     else:
         print("⚠️  Could not find insertion point (## **Bowen References**)")
@@ -80,10 +80,10 @@ def merge_key_terms_into_topics_themes(base_name: str) -> bool:
         merged_content = topics_themes_content + "\n\n---\n\n" + key_terms_section
 
     # Save merged content back to topics-themes file
-    with open(topics_themes_path, 'w', encoding='utf-8') as f:
+    with open(topics_themes_path, "w", encoding="utf-8") as f:
         f.write(merged_content)
 
-    print(f"✅ Key terms merged into topics-themes document")
+    print("✅ Key terms merged into topics-themes document")
     print(f"   File: {topics_themes_path}")
 
     return True
@@ -94,8 +94,7 @@ def main():
         description="Merge key terms into topics-themes document"
     )
     parser.add_argument(
-        "base_name",
-        help='Base name without suffix (e.g., "Title - Presenter - Date")'
+        "base_name", help='Base name without suffix (e.g., "Title - Presenter - Date")'
     )
 
     args = parser.parse_args()

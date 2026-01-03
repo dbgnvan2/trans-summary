@@ -7,11 +7,10 @@ Usage:
     python verify_highlights_bs4.py "This is a test - Dave Galloway - 2025-12-07"
 """
 
-import sys
 import re
-import os
-from pathlib import Path
+import sys
 from difflib import SequenceMatcher
+
 import config
 
 try:
@@ -32,13 +31,14 @@ def normalize_text(text):
     # 1. Strip Speaker Labels (Noise in HTML)
     # Matches "Speaker 1:", "Unknown Speaker:", "Dr. Kerr:", etc.
     text = re.sub(
-        r'(?:Speaker \d+|Unknown Speaker|[\w\s\.]+):', '', text, flags=re.IGNORECASE)
+        r"(?:Speaker \d+|Unknown Speaker|[\w\s\.]+):", "", text, flags=re.IGNORECASE
+    )
 
     # 2. Collapse whitespace and newlines
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
 
     # 3. Strip punctuation (keep only alphanumeric and spaces)
-    text = re.sub(r'[^\w\s]', '', text)
+    text = re.sub(r"[^\w\s]", "", text)
 
     return text.strip().lower()
 
@@ -49,7 +49,7 @@ def load_source_quotes(md_file):
         print(f"❌ Source file not found: {md_file}")
         return []
 
-    content = md_file.read_text(encoding='utf-8')
+    content = md_file.read_text(encoding="utf-8")
 
     # Extract quotes: > **Label:** "Quote"
     # Handles variations in bolding and spacing
@@ -65,20 +65,22 @@ def extract_html_highlights(html_file):
         print(f"❌ HTML file not found: {html_file}")
         return []
 
-    soup = BeautifulSoup(html_file.read_text(encoding='utf-8'), 'html.parser')
+    soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
 
     highlights = []
 
     # Find all <mark> tags with relevant classes
-    for tag in soup.find_all('mark', class_=['bowen-ref', 'emphasis']):
+    for tag in soup.find_all("mark", class_=["bowen-ref", "emphasis"]):
         # Get text content, stripping nested tags but keeping text
         text = tag.get_text(separator=" ", strip=True)
 
-        highlights.append({
-            'type': 'bowen' if 'bowen-ref' in tag.get('class', []) else 'emphasis',
-            'text': text,
-            'normalized': normalize_text(text)
-        })
+        highlights.append(
+            {
+                "type": "bowen" if "bowen-ref" in tag.get("class", []) else "emphasis",
+                "text": text,
+                "normalized": normalize_text(text),
+            }
+        )
 
     return highlights
 
@@ -92,16 +94,13 @@ def verify(base_name):
     html_file = project_dir / f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     # Try standard name first, then _yaml variant
-    emphasis_file = project_dir / \
-        f"{base_name}{config.SUFFIX_EMPHASIS}"
+    emphasis_file = project_dir / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if not emphasis_file.exists():
-        emphasis_file = project_dir / \
-            f"{base_name} - yaml - emphasis-items.md"
+        emphasis_file = project_dir / f"{base_name} - yaml - emphasis-items.md"
 
     bowen_file = project_dir / f"{base_name}{config.SUFFIX_BOWEN}"
     if not bowen_file.exists():
-        bowen_file = project_dir / \
-            f"{base_name} - yaml - bowen-references.md"
+        bowen_file = project_dir / f"{base_name} - yaml - bowen-references.md"
 
     # 2. Load Data
     html_highlights = extract_html_highlights(html_file)
@@ -114,8 +113,9 @@ def verify(base_name):
     print("-" * 60)
 
     # 3. Compare
-    all_quotes = [('emphasis', q) for q in emphasis_quotes] + \
-                 [('bowen', q) for q in bowen_quotes]
+    all_quotes = [("emphasis", q) for q in emphasis_quotes] + [
+        ("bowen", q) for q in bowen_quotes
+    ]
 
     matches = 0
     failures = 0
@@ -128,19 +128,21 @@ def verify(base_name):
         # Search against all HTML highlights of the same category
         for h in html_highlights:
             # Allow cross-category matching if needed, but prefer strict
-            if h['type'] != category and h['type'] != 'bowen':  # bowen often overlaps emphasis
+            if (
+                h["type"] != category and h["type"] != "bowen"
+            ):  # bowen often overlaps emphasis
                 continue
 
-            ratio = SequenceMatcher(None, target, h['normalized']).ratio()
+            ratio = SequenceMatcher(None, target, h["normalized"]).ratio()
 
             # Check for substring match (common if highlight is partial)
-            if target in h['normalized'] or h['normalized'] in target:
+            if target in h["normalized"] or h["normalized"] in target:
                 if ratio < 0.9:
                     ratio = 0.9
 
             if ratio > best_ratio:
                 best_ratio = ratio
-                best_match_text = h['text']
+                best_match_text = h["text"]
 
         if best_ratio > 0.85:
             print(f"✅ MATCH: {label[:50]}...")
@@ -148,8 +150,7 @@ def verify(base_name):
         else:
             print(f"❌ FAIL:  {label[:50]}...")
             print(f"   Source: '{quote[:60]}...'")
-            print(
-                f"   Best HTML Match ({best_ratio:.2f}): '{best_match_text[:60]}...'")
+            print(f"   Best HTML Match ({best_ratio:.2f}): '{best_match_text[:60]}...'")
             failures += 1
 
     print("-" * 60)
