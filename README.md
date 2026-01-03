@@ -7,6 +7,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Automated Formatting**: Cleans raw transcripts, removes timestamps, and applies Markdown formatting.
 - **Structured Extraction**: Extracts Topics, Themes, Key Terms, and Emphasized Items.
 - **Multi-Format Output**: Generates Summaries, Abstracts, Blog Posts, HTML Webpages, and PDFs.
+- **API Reliability**: Robust, model-agnostic API validation with automatic retry logic, truncation detection, and token usage tracking.
 - **Quality Assurance**: Includes validation steps for word-for-word fidelity, header accuracy, and summary coverage.
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts.
 
@@ -93,10 +94,12 @@ Global settings are managed in `config.py`. You can adjust:
 
 The system employs a "Trust but Verify" approach:
 
-1.  **Format Validation**: Ensures no words were lost during formatting.
-2.  **Header Validation**: Checks that section headers accurately reflect content.
-3.  **Coverage Validation**: Verifies summaries cover all key topics.
-4.  **Fidelity Validation**: Ensures quoted text (Bowen References, Emphasis) exists in the source.
+1.  **API Response Validation**: (7-level) Ensures every AI response is complete, valid, and not truncated before processing.
+2.  **Format Validation**: Ensures no words were lost during formatting.
+3.  **Header Validation**: Checks that section headers accurately reflect content.
+4.  **Coverage Validation**: Verifies summaries and abstracts cover all key topics and comply with structure.
+5.  **Fidelity Validation**: Ensures quoted text (Bowen References, Emphasis) exists in the source.
+6.  **Completeness Validation**: Verifies all required artifacts (files) were generated and meet minimum length requirements.
 
 ## License
 

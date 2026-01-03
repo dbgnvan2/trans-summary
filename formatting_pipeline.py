@@ -79,6 +79,9 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         }]
     }]
 
+    # Expect at least 50% of the original word count (conservative)
+    min_expected_words = int(len(raw_transcript.split()) * 0.5)
+
     message = call_claude_with_retry(
         client=client,
         model=model,
@@ -87,6 +90,7 @@ def format_transcript_with_claude(raw_transcript: str, prompt_template: str, mod
         stream=True,
         logger=logger,
         timeout=config.TIMEOUT_FORMATTING,
+        min_words=min_expected_words
     )
 
     return message.content[0].text

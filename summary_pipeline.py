@@ -25,6 +25,8 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 import config
 from emphasis_detector import EmphasisDetector
+from transcript_utils import call_claude_with_retry
+
 
 
 @dataclass
@@ -675,17 +677,18 @@ def generate_summary(
     if system:
         kwargs['system'] = system
 
-    response = api_client.messages.create(
+    # Use centralized call with retry and validation
+    message = call_claude_with_retry(
+        client=api_client,
         model=model,
-        max_tokens=1000,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2000,  # Increased for structured summary
         temperature=config.TEMP_BALANCED,
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
+        min_length=300,   # Ensure substantial summary
         **kwargs
     )
 
-    return response.content[0].text.strip()
+    return message.content[0].text.strip()
 
 
 # === Example Usage ===

@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 import anthropic
 import config
-from transcript_utils import parse_filename_metadata, log_token_usage, create_system_message_with_cache
+from transcript_utils import parse_filename_metadata, log_token_usage, create_system_message_with_cache, call_claude_with_retry
 
 
 def load_prompt() -> str:
@@ -79,34 +79,17 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
     print(f"Transcript length: {len(transcript)} characters", flush=True)
     print("⏳ Waiting for Claude response (typically 1-2 minutes)...", flush=True)
 
-    message = client.messages.create(
+    message = call_claude_with_retry(
+        client=client,
         model=config.DEFAULT_MODEL,
         max_tokens=config.MAX_TOKENS_EXTRACTION,
-        # Moderate temperature for balanced extraction/synthesis
         temperature=config.TEMP_CREATIVE,
         system=system_message,
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
+        messages=[{"role": "user", "content": prompt}],
+        min_length=100
     )
 
-    # Log token usage
-    log_token_usage("transcript_extract_terms",
-                    config.DEFAULT_MODEL, message.usage, message.stop_reason)
-
-    # Display token usage
-    print(f"\n✅ Key terms extracted")
-    print(f"   Tokens used: {message.usage.input_tokens:,} input + {message.usage.output_tokens:,} output = {message.usage.input_tokens + message.usage.output_tokens:,} total")
-
-    # Check for truncation
-    if message.stop_reason == "max_tokens":
-        print("\n⚠️  WARNING: Term extraction truncated!")
-        raise RuntimeError("Output truncated at max_tokens limit")
-
-    # Warn if close to limit
-    if message.usage.output_tokens > 7200:  # ~90% of 8192
-        print(
-            f"   ⚠️  Warning: Used {message.usage.output_tokens:,}/8,192 output tokens ({message.usage.output_tokens/81.92:.0f}%)")
+    # Token usage logging is handled by call_claude_with_retry
 
     return message.content[0].text
 

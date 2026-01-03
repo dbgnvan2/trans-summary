@@ -38,7 +38,10 @@ The architecture is primarily a **pipeline-driven system** orchestrated by a cen
     - A shared module providing common functionalities used across the project.
     - **Key functionalities**:
         - API key and input file validation.
-        - Robust API calling with retry logic, truncation detection, and token usage tracking (`call_claude_with_retry`, `validate_api_response`).
+        - **Robust API Interaction**: Centralized `call_claude_with_retry` function that handles:
+            - **7-Level Response Validation**: Checks message type, role, completion status (`stop_reason`), content existence, content format, text validity, and token usage.
+            - **Truncation Detection**: Automatically detects and rejects responses cut off by token limits.
+            - **Retry Logic**: Exponential backoff for rate limits and connection errors.
         - Structured logging (`setup_logging`).
         - Markdown content extraction (`extract_section`, `extract_bowen_references`, `extract_emphasis_items`, `strip_yaml_frontmatter`).
         - Text normalization for validation.
@@ -52,9 +55,10 @@ The architecture is primarily a **pipeline-driven system** orchestrated by a cen
 
 - **Validation Modules**: Dedicated modules for ensuring data integrity and output quality:
     - `transcript_validate_format.py`: Validates word preservation after formatting.
-    - `transcript_validate_completeness.py`: Checks completeness of generated outputs.
-    - `transcript_validate_emphasis.py`: Verifies emphasis items in source.
-    - `transcript_validate_abstract.py`: Iteratively refines and scores abstract quality.
+    - `transcript_validate_completeness.py`: High-level check for the presence and basic structure of all generated artifacts.
+    - `summary_validation.py`: (Core) Deep validation of summary content, covering topic coverage and word allocation proportionality.
+    - `abstract_validation.py`: (Core) Deep validation of abstract content, checking structural requirements and key topic coverage.
+    - `transcript_validate_emphasis.py`: Verifies emphasis items and quotes exist in the source text.
     - `transcript_validate_webpage.py`: Validates content in generated webpages.
 
 ## 3. Data Flow and Workflow

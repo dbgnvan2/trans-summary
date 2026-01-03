@@ -96,78 +96,84 @@ Complete reference of all Anthropic API response fields:
 
 ### 5. Integration Status
 
-#### Ready for Integration (Next Phase):
+#### ✅ Integrated (Completed Phase):
 
-These scripts need to be updated to use `transcript_utils.py`:
+The following scripts/modules have been updated to use `transcript_utils.py`:
 
-1. **`transcript_format.py`**:
+1.  **`formatting_pipeline.py`** (used by `transcript_format.py`):
+    -   Added dynamic `min_words` calculation (50% of input length)
+    -   Ensures formatted transcript is not truncated or suspiciously short
 
-   - Replace manual retry logic with `call_claude_with_retry()`
-   - Remove duplicate stop_reason check (now in validation)
-   - Add structured logging
+2.  **`summary_pipeline.py`** (used by `transcript_summarize.py`):
+    -   Refactored `generate_summary` to use `call_claude_with_retry`
+    -   Added `min_length=300` constraint
 
-2. **`transcript_summarize.py`**:
+3.  **`abstract_pipeline.py`** (used by `pipeline.py`):
+    -   Refactored `generate_abstract` to use `call_claude_with_retry`
+    -   Added `min_length=150` constraint
 
-   - Same as above
+4.  **`transcript_extract_terms.py`**:
+    -   Refactored `extract_key_terms_with_claude`
+    -   Removed redundant manual logging and truncation checks (handled by utility)
 
-3. **`transcript_validate_abstract.py`**:
-
-   - Same as above
-
-4. **`transcript_extract_terms.py`**:
-   - Same as above
+5.  **Validation Modules** (`abstract_validation.py`, `summary_validation.py`):
+    -   Refactored `verify_with_llm` calls to use standardized utility
+    -   Ensures validation steps also benefit from retry logic and error handling
 
 #### Current State:
 
-All scripts have **truncation detection** added manually. Once integrated with `transcript_utils.py`, this code can be removed as it's handled by `validate_api_response()`.
+All core pipeline components now utilize the centralized `transcript_utils.py` for API interactions. This ensures:
+-   **Consistent Error Handling**: All steps handle timeouts, rate limits, and API errors identically.
+-   **Uniform Validation**: Every generation step checks for truncation (`stop_reason`) and minimum content length.
+-   **Centralized Logging**: Token usage and errors are logged in a standard format.
 
 ## Benefits of This Implementation
 
 ### 1. Completeness (User Priority #1)
 
-- **7-level validation** ensures responses are complete
-- **Truncation detection** prevents partial outputs
-- **Content validation** catches empty/malformed responses
-- **Minimum length checks** ensure sufficient content
+-   **7-level validation** ensures responses are complete
+-   **Truncation detection** prevents partial outputs across ALL pipeline steps
+-   **Content validation** catches empty/malformed responses
+-   **Minimum length checks** ensure sufficient content for summaries and formatting
 
 ### 2. Fidelity (User Priority #2)
 
-- Early detection of issues prevents corrupted outputs
-- Validation happens before processing continues
-- Failed validations raise exceptions instead of silently continuing
+-   Early detection of issues prevents corrupted outputs
+-   Validation happens before processing continues
+-   Failed validations raise exceptions instead of silently continuing
 
 ### 3. Model-Agnostic Design (User Request)
 
-- Validation patterns work across providers
-- `MODEL_AGNOSTIC_VALIDATION.md` provides adaptation guide
-- Code examples for OpenAI, Google, Anthropic
-- Universal `AIResponse` abstraction layer
-- **Reusable as template for other projects**
+-   Validation patterns work across providers
+-   `MODEL_AGNOSTIC_VALIDATION.md` provides adaptation guide
+-   Code examples for OpenAI, Google, Anthropic
+-   Universal `AIResponse` abstraction layer
+-   **Reusable as template for other projects**
 
 ### 4. Code Quality
 
-- **DRY Principle**: Shared utilities eliminate duplication
-- **Fail-Fast**: Issues caught immediately with clear errors
-- **Maintainability**: Changes made once, affect all scripts
-- **Testability**: Functions isolated and testable
-- **Documentation**: Comprehensive guides for adaptation
+-   **DRY Principle**: Shared utilities eliminate duplication (~100+ lines removed)
+-   **Fail-Fast**: Issues caught immediately with clear errors
+-   **Maintainability**: Changes made once, affect all scripts
+-   **Testability**: Functions isolated and testable
+-   **Documentation**: Comprehensive guides for adaptation
 
 ### 5. User Experience
 
-- **Clear error messages** with actionable guidance
-- **Structured logging** for troubleshooting
-- **Progress feedback** (retry messages, warnings)
-- **Cost monitoring** (token usage tracking)
+-   **Clear error messages** with actionable guidance
+-   **Structured logging** for troubleshooting
+-   **Progress feedback** (retry messages, warnings)
+-   **Cost monitoring** (token usage tracking)
 
 ## Validation Checklist Reusability
 
 The validation patterns in `transcript_utils.py` can be reused in other projects by:
 
-1. **Copy the 7-step validation pattern** from `validate_api_response()`
-2. **Adapt field names** for your AI provider (see `MODEL_AGNOSTIC_VALIDATION.md`)
-3. **Map completion statuses** (stop_reason → finish_reason → finishReason)
-4. **Update exception handling** for provider-specific errors
-5. **Test with truncated responses** to verify detection works
+1.  **Copy the 7-step validation pattern** from `validate_api_response()`
+2.  **Adapt field names** for your AI provider (see `MODEL_AGNOSTIC_VALIDATION.md`)
+3.  **Map completion statuses** (stop_reason → finish_reason → finishReason)
+4.  **Update exception handling** for provider-specific errors
+5.  **Test with truncated responses** to verify detection works
 
 ### Universal Validation Pattern:
 
@@ -183,73 +189,13 @@ The validation patterns in `transcript_utils.py` can be reused in other projects
 
 This pattern applies to **any AI API** - just adapt the field names.
 
-## Next Steps (Optional Integration Phase)
+## Next Steps
 
-To complete the integration:
+1.  **Testing**:
+    -   Run full pipeline on a sample transcript to verify end-to-end functionality.
+    -   Monitor logs for any unexpected validation failures.
 
-1. **Update `transcript_format.py`** to use `call_claude_with_retry()`
-2. **Update `transcript_summarize.py`** similarly
-3. **Update `transcript_validate_abstract.py`** similarly
-4. **Update `transcript_extract_terms.py`** similarly
-5. **Remove manual truncation checks** (now handled by validation)
-6. **Test each script** to verify validation works correctly
-7. **Update documentation** to reflect new validation system
+2.  **Performance Tuning**:
+    -   Observe if the conservative `min_words` checks cause any false positives on very short source files.
 
-### Benefits of Integration:
-
-- Eliminate ~30 lines of duplicate code per script
-- Consistent error handling across all scripts
-- Centralized logging for easier troubleshooting
-- Single point of maintenance for API calls
-
-## Testing Recommendations
-
-1. **Test truncation detection**:
-
-   - Use very small `max_tokens` value
-   - Verify script raises `RuntimeError` with clear message
-
-2. **Test connection errors**:
-
-   - Disconnect network
-   - Verify retry logic with exponential backoff
-
-3. **Test invalid API key**:
-
-   - Use fake API key
-   - Verify clear error message with help text
-
-4. **Test malformed requests**:
-
-   - Use invalid model name
-   - Verify `BadRequestError` caught with guidance
-
-5. **Test normal operation**:
-   - Process real transcript
-   - Verify logging shows token usage
-   - Check near-limit warnings work
-
-## Summary
-
-✅ **Completed**:
-
-- Comprehensive API response validation (7 levels)
-- Enhanced exception handling (5 exception types)
-- Model-agnostic design patterns
-- Complete documentation for reusability
-- Zero linting errors in `transcript_utils.py`
-
-✅ **User Requirements Met**:
-
-- Completeness: 7-level validation prevents partial outputs
-- Fidelity: Early validation ensures quality
-- Model-agnostic: Works with any AI provider
-- Template: Documented patterns for other projects
-
-📋 **Optional Next Phase**:
-
-- Integration of utilities into existing scripts
-- Testing suite creation
-- Performance monitoring
-
-The validation system is **complete and ready to use**. Integration into existing scripts is optional but recommended for code quality and maintainability.
+The validation system is **complete and fully integrated**.

@@ -33,8 +33,9 @@ Files move through specific states, denoted by suffixes and directories:
 ### API Interaction
 
 - **Centralized Calls**: All Claude API calls go through `transcript_utils.call_claude_with_retry`.
-- **Validation**: Responses are validated for truncation (`stop_reason`) and minimum length before being accepted.
-- **Streaming**: Long generations use streaming to prevent timeouts, though the pipeline often waits for full completion.
+- **7-Level Validation**: Responses are rigorously validated (message type, role, stop reason, content existence, text validity, token usage) to prevent silent failures.
+- **Truncation Safety**: The system automatically detects and rejects responses truncated by token limits.
+- **Streaming**: Long generations use streaming to prevent timeouts.
 
 ### Text Processing
 
@@ -54,6 +55,8 @@ Files move through specific states, denoted by suffixes and directories:
 | `config.py`                   | **The Settings.** Paths, models, constants.                             |
 | `transcript_utils.py`         | **The Toolbox.** Logging, API wrappers, text helpers.                   |
 | `html_generator.py`           | **The Publisher.** Logic for HTML/PDF creation.                         |
+| `summary_validation.py`       | **The Critic.** Deep semantic validation for summaries.                 |
+| `abstract_validation.py`      | **The Critic.** Deep semantic validation for abstracts.                 |
 | `transcript_processor_gui.py` | **The Face.** Tkinter GUI implementation.                               |
 
 ## 5. Validation Strategy

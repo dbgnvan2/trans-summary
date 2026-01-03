@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Optional
 import json
 import config
+from transcript_utils import call_claude_with_retry
 
 
 @dataclass
@@ -301,10 +302,13 @@ def verify_with_llm(
                      .replace("{{content}}", abstract) \
                      .replace("{{items_text}}", items_text)
 
-    response = api_client.messages.create(
+    # Use centralized call with retry
+    response = call_claude_with_retry(
+        client=api_client,
         model=config.AUX_MODEL,
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
-        messages=[{"role": "user", "content": prompt}]
+        temperature=0.0  # Strict for validation
     )
 
     response_text = response.content[0].text.strip()
