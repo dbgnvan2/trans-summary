@@ -703,7 +703,7 @@ def extract_bowen_references(content: str) -> list:
     # - **Label:** "Quote" (colon inside bold)
     # - **Label**: "Quote" (colon outside bold)
     # - Label: "Quote" (no bold)
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]' # noqa
     quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
@@ -720,8 +720,7 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
-    bowen_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_BOWEN}"
+    bowen_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
         with open(bowen_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -729,8 +728,7 @@ def load_bowen_references(base_name: str) -> list:
         return extract_bowen_references(content)
 
     # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -738,8 +736,7 @@ def load_bowen_references(base_name: str) -> list:
         return extract_bowen_references(content)
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -762,7 +759,7 @@ def extract_emphasis_items(content: str) -> list:
         return []
 
     # Relaxed pattern using MULTILINE mode
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
+    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]' # noqa
     quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
 
     return [(item.strip().rstrip(':'), quote.strip()) for item, quote in quotes]
@@ -783,8 +780,7 @@ def load_emphasis_items(base_name: str) -> list:
     bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
 
     # Try new scored emphasis file first
-    scored_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    scored_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
     if scored_file.exists():
         content = scored_file.read_text(encoding='utf-8')
         items = parse_scored_emphasis_output(content)
@@ -796,8 +792,7 @@ def load_emphasis_items(base_name: str) -> list:
         return filtered_items
 
     # Try dedicated file first
-    emphasis_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS}"
+    emphasis_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -810,8 +805,7 @@ def load_emphasis_items(base_name: str) -> list:
         return filtered_items
 
     # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -824,8 +818,7 @@ def load_emphasis_items(base_name: str) -> list:
         return filtered_items
 
     # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
+    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     if extracts_file.exists():
         with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -872,7 +865,7 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     # Updated to handle optional bolding **...** and score ranges
     # Updated to be case-insensitive for labels and flexible with separators
     pattern = re.compile(
-        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“\'](?P<quote>[\s\S]+?)["”\']',
+        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“](?P<quote>[\s\S]+?)["”]', # noqa
         re.MULTILINE
     )
 
@@ -962,11 +955,13 @@ def create_system_message_with_cache(text: str) -> list:
     Returns:
         List containing the system message dictionary.
     """
-    return [{
-        "type": "text",
-        "text": text,
-        "cache_control": {"type": "ephemeral"}
-    }]
+    return [
+        {
+            "type": "text",
+            "text": text,
+            "cache_control": {"type": "ephemeral"}
+        }
+    ]
 
 
 # ============================================================================
@@ -1027,16 +1022,16 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     # Remove timestamps (e.g. [00:00:00], 10:00, 1:10:10)
     # Matches n:nn, nn:nn, n:nn:nn, nn:nn:nn with optional brackets/parens
     text = re.sub(
-        r'[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?', ' ', text, flags=re.IGNORECASE)
+        r'[\[\(]?\b\d+:\d{2}(?:\d{2})?(?:[ap]m)?[\]\)]?', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?', ' ', text)
 
     if aggressive:
         # Remove speaker tags (Markdown and plain text)
         text = re.sub(r'\*\*[^*]+:\*\*\s*', '', text)
-        text = re.sub(r'(Speaker \d+|Unknown Speaker):\s*',
+        text = re.sub(r'(Speaker \d+|Unknown Speaker):\s*', 
                       '', text, flags=re.IGNORECASE)
         # Remove punctuation
-        text = re.sub(r'[.,!?;:—\-\'\"()]', ' ', text)
+        text = re.sub(r'[.,!?;:—\-\'"()]', ' ', text)
 
     # Collapse whitespace
     text = re.sub(r'\s+', ' ', text)
@@ -1102,3 +1097,27 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         return (approx_start, approx_end, best_ratio)
 
     return (None, None, 0)
+
+def delete_logs(logger=None) -> bool:
+    """Permanently delete log files and token usage CSV."""
+    if logger is None:
+        logger = setup_logging('delete_logs')
+
+    logs_dir = config.LOGS_DIR
+    if not logs_dir.exists():
+        logger.info(f"Logs directory not found: {logs_dir}")
+        return True
+
+    files_to_delete = list(logs_dir.glob("*.log")) + \
+        list(logs_dir.glob("*.csv"))
+
+    if not files_to_delete:
+        logger.info("No log files found to delete.")
+        return True
+
+    logger.info(f"Found {len(files_to_delete)} files to delete.")
+    for f in files_to_delete:
+        f.unlink()
+        logger.info(f"  - Deleted: {f.name}")
+    logger.info("✅ Deletion complete.")
+    return True

@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 import anthropic
 import config
-from transcript_utils import parse_filename_metadata, log_token_usage
+from transcript_utils import parse_filename_metadata, log_token_usage, create_system_message_with_cache
 
 
 def load_prompt() -> str:
@@ -62,12 +62,18 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
 
     client = anthropic.Anthropic(api_key=api_key)
 
+    # Create cached system message for transcript
+    system_message = create_system_message_with_cache(transcript)
+
     # Replace template variables
     prompt = prompt_template.replace("{{author}}", metadata["author"])
     prompt = prompt.replace("{{date}}", metadata["date"])
     prompt = prompt.replace("{{title}}", metadata["title"])
     prompt = prompt.replace("{{filename}}", metadata["filename"])
-    prompt = prompt.replace("{{insert_transcript_text_here}}", transcript)
+    
+    # Remove the placeholder or replace with a reference to the system message
+    if "{{insert_transcript_text_here}}" in prompt:
+        prompt = prompt.replace("{{insert_transcript_text_here}}", "(See transcript in system message)")
 
     print("Extracting key terms with Claude...", flush=True)
     print(f"Transcript length: {len(transcript)} characters", flush=True)
@@ -78,6 +84,7 @@ def extract_key_terms_with_claude(transcript: str, metadata: dict, prompt_templa
         max_tokens=config.MAX_TOKENS_EXTRACTION,
         # Moderate temperature for balanced extraction/synthesis
         temperature=config.TEMP_CREATIVE,
+        system=system_message,
         messages=[
             {"role": "user", "content": prompt}
         ]
