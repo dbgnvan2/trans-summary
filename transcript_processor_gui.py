@@ -184,6 +184,13 @@ class TranscriptProcessorGUI:
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
 
+        # ADDED: StringVars for model selection
+        self.model_vars = {
+            "DEFAULT_MODEL": tk.StringVar(value=config.settings.DEFAULT_MODEL),
+            "AUX_MODEL": tk.StringVar(value=config.settings.AUX_MODEL),
+            "FORMATTING_MODEL": tk.StringVar(value=config.settings.FORMATTING_MODEL),
+        }
+
         self.setup_ui()
         self.update_dir_label()
         self.refresh_file_list()
@@ -194,7 +201,7 @@ class TranscriptProcessorGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(3, weight=1)
+        main_frame.rowconfigure(5, weight=1) # Modified row for log frame (was 3)
 
         # Directory selection
         dir_frame = ttk.Frame(main_frame)
@@ -228,10 +235,52 @@ class TranscriptProcessorGUI:
             file_frame, text="Refresh List", command=self.refresh_file_list)
         refresh_btn.grid(row=1, column=0, pady=(5, 0), sticky=tk.W)
 
+        # Model Selection Frame - ADDED
+        model_selection_frame = ttk.LabelFrame(main_frame, text="Model Selection", padding="10")
+        model_selection_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        model_selection_frame.columnconfigure(1, weight=1) # Give the combobox column weight
+
+        all_model_names = config.settings.get_all_model_names()
+
+        # Default Model
+        ttk.Label(model_selection_frame, text="Default Model:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.default_model_cb = ttk.Combobox(
+            model_selection_frame,
+            textvariable=self.model_vars["DEFAULT_MODEL"],
+            values=all_model_names,
+            state="readonly"
+        )
+        self.default_model_cb.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        self.default_model_cb.bind("<<ComboboxSelected>>", lambda event: self._on_model_selected("DEFAULT_MODEL"))
+
+        # Auxiliary Model
+        ttk.Label(model_selection_frame, text="Auxiliary Model:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.aux_model_cb = ttk.Combobox(
+            model_selection_frame,
+            textvariable=self.model_vars["AUX_MODEL"],
+            values=all_model_names,
+            state="readonly"
+        )
+        self.aux_model_cb.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        self.aux_model_cb.bind("<<ComboboxSelected>>", lambda event: self._on_model_selected("AUX_MODEL"))
+
+        # Formatting Model
+        ttk.Label(model_selection_frame, text="Formatting Model:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
+        self.formatting_model_cb = ttk.Combobox(
+            model_selection_frame,
+            textvariable=self.model_vars["FORMATTING_MODEL"],
+            values=all_model_names,
+            state="readonly"
+        )
+        self.formatting_model_cb.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        self.formatting_model_cb.bind("<<ComboboxSelected>>", lambda event: self._on_model_selected("FORMATTING_MODEL"))
+
+
         # Status and Log
+        # Shifted row for these frames
         status_frame = ttk.LabelFrame(
             main_frame, text="File Status", padding="10")
-        status_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        status_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 2 to 3
         status_frame.columnconfigure(0, weight=1)
         self.status_text = tk.Text(
             status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
@@ -239,8 +288,8 @@ class TranscriptProcessorGUI:
 
         log_frame = ttk.LabelFrame(
             main_frame, text="Processing Log", padding="10")
-        log_frame.grid(row=3, column=0, sticky=(
-            tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        log_frame.grid(row=4, column=0, sticky=(
+            tk.W, tk.E, tk.N, tk.S), pady=(0, 10)) # MODIFIED row from 3 to 4
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         self.log_text = scrolledtext.ScrolledText(
@@ -248,13 +297,13 @@ class TranscriptProcessorGUI:
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.progress.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 4 to 5
 
         # Action Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, sticky=(tk.W, tk.E))
+        button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E)) # MODIFIED row from 5 to 6
 
-        # Row 1
+        # Row 1 (buttons remain in button_frame)
         self.init_val_btn = ttk.Button(
             button_frame, text="0. Init Val", command=self.do_initial_validation, state=tk.DISABLED)
         self.init_val_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
@@ -332,7 +381,30 @@ class TranscriptProcessorGUI:
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W)
+        self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W) # MODIFIED row from 7 to 8
+
+    # ADDED: Callback for model selection
+    def _on_model_selected(self, model_type: str):
+        selected_model = self.model_vars[model_type].get()
+        try:
+            if model_type == "DEFAULT_MODEL":
+                config.settings.set_default_model(selected_model)
+            elif model_type == "AUX_MODEL":
+                config.settings.set_aux_model(selected_model)
+            elif model_type == "FORMATTING_MODEL":
+                config.settings.set_formatting_model(selected_model)
+            self.log(f"Model for {model_type} updated to: {selected_model}")
+        except ValueError as e:
+            self.log(f"❌ Error updating model for {model_type}: {e}")
+            messagebox.showerror("Model Selection Error", str(e))
+            # Revert the combobox to the previous valid selection
+            if model_type == "DEFAULT_MODEL":
+                self.model_vars[model_type].set(config.settings.DEFAULT_MODEL)
+            elif model_type == "AUX_MODEL":
+                self.model_vars[model_type].set(config.settings.AUX_MODEL)
+            elif model_type == "FORMATTING_MODEL":
+                self.model_vars[model_type].set(config.settings.FORMATTING_MODEL)
+
 
     def select_transcripts_directory(self):
         dir_path = filedialog.askdirectory(
@@ -368,7 +440,7 @@ class TranscriptProcessorGUI:
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
         self.base_name = self.selected_file.stem
-        self.formatted_file = config.PROJECTS_DIR / self.base_name / \
+        self.formatted_file = config.PROJECTS_DIR / self.base_name /
             f"{self.base_name}{config.SUFFIX_FORMATTED}"
         self.check_file_status()
         self.update_button_states()
@@ -411,7 +483,7 @@ class TranscriptProcessorGUI:
         ]
 
         status_lines = [
-            f"{'✅' if path.exists() else '❌'} {label}" for label, path in checks]
+            f"{ '✅' if path.exists() else '❌'} {label}" for label, path in checks]
         self.status_text.insert(1.0, "\n".join(status_lines))
 
     def log(self, message, *args):
@@ -569,7 +641,7 @@ class TranscriptProcessorGUI:
         self.base_name = self.selected_file.stem
 
         # Update formatted file path expectation (though format step hasn't run yet)
-        self.formatted_file = config.PROJECTS_DIR / self.base_name / \
+        self.formatted_file = config.PROJECTS_DIR / self.base_name /
             f"{self.base_name}{config.SUFFIX_FORMATTED}"
 
         # Refresh list to show the new file
@@ -592,7 +664,8 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_format_and_validate)
 
     def _run_format_and_validate(self):
-        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger):
+        # Use config.settings.FORMATTING_MODEL
+        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
             return False
         self.log("Format complete. Now validating...")
         if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
@@ -616,7 +689,7 @@ class TranscriptProcessorGUI:
             return False
         validator = transcript_validate_headers.HeaderValidator(
             api_key, self.logger)
-        return validator.run(self.formatted_file)
+        return validator.run(self.formatted_file, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_add_yaml(self):
         """Add YAML front matter to the formatted transcript."""
@@ -626,11 +699,11 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 2: Adding YAML Front Matter...")
         self.run_task_in_thread(
-            pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger)
+            pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger) # No model parameter here
 
     def do_summaries(self):
         """Generate Key Items, Bowen References, and initial Blog Post."""
-        yaml_file = config.PROJECTS_DIR / self.base_name / \
+        yaml_file = config.PROJECTS_DIR / self.base_name /
             f"{self.base_name}{config.SUFFIX_YAML}"
         if not yaml_file.exists():
             if self.formatted_file.exists():
@@ -648,7 +721,7 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
-            config.DEFAULT_MODEL,
+            config.settings.DEFAULT_MODEL, # MODIFIED
             "Family Systems",
             "General public",
             False,  # skip_extracts_summary
@@ -664,7 +737,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 4: Generating Structured Summary...")
         self.run_task_in_thread(
-            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger)
+            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_validate_summary(self):
         """Validate the generated summary for coverage and proportions."""
@@ -672,7 +745,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 5: Validating Summary (Coverage & Proportion)...")
         self.run_task_in_thread(
-            pipeline.validate_summary_coverage, self.base_name, self.logger)
+            pipeline.validate_summary_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_generate_blog(self):
         """Generate a blog post from the transcript."""
@@ -682,7 +755,7 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
-            config.DEFAULT_MODEL,
+            config.settings.DEFAULT_MODEL, # MODIFIED
             "Family Systems",
             "General public",
             True,   # skip_extracts_summary
@@ -741,7 +814,7 @@ class TranscriptProcessorGUI:
 
         self.log("STEP: Extracting Scored Emphasis...")
         self.run_task_in_thread(
-            pipeline.extract_scored_emphasis, input_file, config.DEFAULT_MODEL, self.logger)
+            pipeline.extract_scored_emphasis, input_file, config.settings.DEFAULT_MODEL, self.logger) # MODIFIED
 
     def do_generate_structured_abstract(self):
         """Generate a structured abstract from the transcript."""
@@ -749,7 +822,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 6: Generating Structured Abstract...")
         self.run_task_in_thread(
-            pipeline.generate_structured_abstract, self.base_name, self.logger)
+            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_validate_abstracts(self):
         """Validate the generated abstract for coverage."""
@@ -758,7 +831,7 @@ class TranscriptProcessorGUI:
         self.log("STEP 7: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
         self.run_task_in_thread(
-            pipeline.validate_abstract_coverage, self.base_name, self.logger)
+            pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_generate_web_pdf(self):
         """Generate Webpage and PDF artifacts."""
@@ -844,7 +917,7 @@ class TranscriptProcessorGUI:
 
         archives_dir = logs_dir / "archives"
         archives_dir.mkdir(exist_ok=True)
-        zip_base_name = archives_dir / \
+        zip_base_name = archives_dir /
             f"logs_{datetime.now():%Y%m%d_%H%M%S}"
 
         try:
@@ -883,12 +956,14 @@ class TranscriptProcessorGUI:
         start_time = datetime.now()
         # Step 1: Format & Validate
         self.log("\n--- STEP 1: Formatting ---")
-        if not self._run_format_and_validate():
+        # Use config.settings.FORMATTING_MODEL
+        if not pipeline.format_transcript(self.formatted_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
             return False
 
         # Step 1b: Header Validation
         self.log("\n--- STEP 1b: Header Validation ---")
-        if not self._run_header_validation():
+        # Use config.settings.AUX_MODEL
+        if not self._run_header_validation(): # Calls _run_header_validation, which uses AUX_MODEL
             self.log("⚠️ Header validation failed or found issues.")
 
         # Step 2: Add YAML
@@ -900,27 +975,28 @@ class TranscriptProcessorGUI:
         self.log("\n--- STEP 3: Extracts & Terms ---")
         # Run all parts (skips=False)
         if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.DEFAULT_MODEL, "Family Systems", "General public",
+                                             config.settings.DEFAULT_MODEL, # MODIFIED
+                                             "Family Systems", "General public",
                                              False, False, False, logger=self.logger):
             return False
 
         # Step 4: Generate Summary
         self.log("\n--- STEP 4: Generate Structured Summary ---")
-        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger):
+        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.AUX_MODEL): # MODIFIED
             self.log("⚠️ Summary generation failed or skipped.")
 
         # Step 5: Validate Summary
         self.log("\n--- STEP 5: Validate Summary ---")
-        pipeline.validate_summary_coverage(self.base_name, self.logger)
+        pipeline.validate_summary_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
         # Step 6: Generate Abstract
         self.log("\n--- STEP 6: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger):
+        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.AUX_MODEL): # MODIFIED
             self.log("⚠️ Abstract generation failed or skipped.")
 
         # Step 7: Validate Abstracts
         self.log("\n--- STEP 7: Validating Abstracts ---")
-        pipeline.validate_abstract_coverage(self.base_name, self.logger)
+        pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
         # Step 8: Blog (Already done in Step 3 if skips=False, but let's be explicit)
         # Actually Step 3 generated Blog too. We can leave it or regenerate.
@@ -962,6 +1038,12 @@ class TranscriptProcessorGUI:
         self.package_btn.config(state=state)
         self.do_all_btn.config(
             state=tk.NORMAL if self.selected_file else tk.DISABLED)
+        
+        # ADDED: Update state of model comboboxes
+        model_cb_state = "readonly" if not self.processing else tk.DISABLED
+        self.default_model_cb.config(state=model_cb_state)
+        self.aux_model_cb.config(state=model_cb_state)
+        self.formatting_model_cb.config(state=model_cb_state)
 
 
 def main():

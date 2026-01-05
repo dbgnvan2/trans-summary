@@ -11,7 +11,7 @@ to maintain backward compatibility while enabling safer state management.
 import os
 from pathlib import Path
 from typing import Union
-
+import model_specs # ADDED: Import model_specs
 
 class ProjectSettings:
     """
@@ -33,6 +33,12 @@ class ProjectSettings:
         # Default initialization
         self.TRANSCRIPTS_BASE = Path(os.getenv("TRANSCRIPTS_DIR", "."))
         self._update_derived_paths()
+
+        # Initialize model variables
+        self.DEFAULT_MODEL = "claude-haiku-4-5-20251001" # Moved from global
+        self.AUX_MODEL = "claude-haiku-4-5-20251001"     # Moved from global
+        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001" # Moved from global
+
         self._initialized = True
 
     def _update_derived_paths(self):
@@ -48,6 +54,29 @@ class ProjectSettings:
         self.TRANSCRIPTS_BASE = Path(path)
         self._update_derived_paths()
 
+    # ADDED: Methods to dynamically get and set model names
+    def get_all_model_names(self) -> list[str]:
+        """Returns a list of all model names from model_specs.PRICING."""
+        return sorted(model_specs.PRICING.keys())
+
+    def set_default_model(self, model_name: str):
+        if model_name in model_specs.PRICING:
+            self.DEFAULT_MODEL = model_name
+        else:
+            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+
+    def set_aux_model(self, model_name: str):
+        if model_name in model_specs.PRICING:
+            self.AUX_MODEL = model_name
+        else:
+            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+
+    def set_formatting_model(self, model_name: str):
+        if model_name in model_specs.PRICING:
+            self.FORMATTING_MODEL = model_name
+        else:
+            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+
 
 # Initialize the singleton
 settings = ProjectSettings()
@@ -60,6 +89,11 @@ settings = ProjectSettings()
 
 
 def __getattr__(name):
+    # Only proxy for non-existent attributes to allow direct access to
+    # attributes already defined on the module (like SUFFIX_FORMATTED)
+    # and to the model variables.
+    if name in ["DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL"]: # ADDED explicit check for model variables
+        return getattr(settings, name)
     if hasattr(settings, name):
         return getattr(settings, name)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
@@ -73,6 +107,11 @@ PROJECTS_DIR = settings.PROJECTS_DIR
 PROMPTS_DIR = settings.PROMPTS_DIR
 LOGS_DIR = settings.LOGS_DIR
 
+# ADDED: Expose model variables as globals for backward compatibility and direct access
+DEFAULT_MODEL = settings.DEFAULT_MODEL
+AUX_MODEL = settings.AUX_MODEL
+FORMATTING_MODEL = settings.FORMATTING_MODEL
+
 
 def set_transcripts_base(path: Union[str, Path]):
     """Global function to update the singleton settings."""
@@ -81,10 +120,15 @@ def set_transcripts_base(path: Union[str, Path]):
     # (Note: Code that did `from config import SOURCE_DIR` will still have the OLD value.
     # This is why `import config; config.SOURCE_DIR` is preferred.)
     global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR
+    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL # ADDED: Make model variables global
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR
     PROJECTS_DIR = settings.PROJECTS_DIR
+    # Update global model variables from settings object
+    DEFAULT_MODEL = settings.DEFAULT_MODEL
+    AUX_MODEL = settings.AUX_MODEL
+    FORMATTING_MODEL = settings.FORMATTING_MODEL
 
 
 # ============================================================================
@@ -115,14 +159,10 @@ SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
-# Default Model
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-
-# Auxiliary Model (used for validation and specific generation tasks)
-AUX_MODEL = "claude-haiku-4-5-20251001"
-
-# Formatting Model (High speed/low cost for full text rewriting)
-FORMATTING_MODEL = "claude-haiku-4-5-20251001"
+# Moved model variables into ProjectSettings and exposed as globals
+# DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+# AUX_MODEL = "claude-haiku-4-5-20251001"
+# FORMATTING_MODEL = "claude-haiku-4-5-20251001"
 
 # Default Summary Word Count
 DEFAULT_SUMMARY_WORD_COUNT = 500
