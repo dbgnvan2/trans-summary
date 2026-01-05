@@ -8,6 +8,7 @@ import os
 
 import anthropic
 from dotenv import load_dotenv
+import model_specs # ADDED
 
 # Load environment variables
 load_dotenv()
@@ -73,10 +74,10 @@ def main():
         ]
         models_to_test = known_models
 
-    print(f"{'Model ID':<35} | {'Status':<10}")
-    print("-" * 50)
+    print(f"{ 'Model ID':<35} | {'Status & Pricing':<30}") # MODIFIED header
+    print("-" * 66) # MODIFIED separator length
 
-    working_models = []
+    working_models_with_pricing = [] # MODIFIED to store tuples
 
     for model_id in models_to_test:
         print(f"{model_id:<35} | ", end="", flush=True)
@@ -86,8 +87,9 @@ def main():
                 max_tokens=10,
                 messages=[{"role": "user", "content": "Hi"}],
             )
-            print("✅ OK")
-            working_models.append(model_id)
+            pricing = model_specs.get_pricing(model_id) # ADDED
+            print(f"✅ OK (In: ${pricing['input']}/M, Out: ${pricing['output']}/M)") # MODIFIED print
+            working_models_with_pricing.append((model_id, pricing)) # MODIFIED to store pricing
         except anthropic.NotFoundError:
             print("❌ 404 (Not Found)")
         except anthropic.AuthenticationError:
@@ -100,18 +102,20 @@ def main():
     print("\n" + "=" * 60)
     print("SUMMARY OF WORKING MODELS")
     print("=" * 60)
-    if working_models:
-        for m in working_models:
-            print(f"- {m}")
+    if working_models_with_pricing: # MODIFIED
+        # MODIFIED to unpack model_id and pricing
+        for model_id, pricing in working_models_with_pricing:
+            print(f"- {model_id:<30} (Input: ${pricing['input']}/M, Output: ${pricing['output']}/M)")
 
         print("\nRecommended Config Update:")
-        print(f'DEFAULT_MODEL = "{working_models[0]}"')
-        if len(working_models) > 1:
-            # Try to find a haiku model for AUX, otherwise use the last one or same
-            aux = next((m for m in working_models if "haiku" in m), working_models[-1])
+        # MODIFIED to unpack model_id from the first working model
+        print(f'DEFAULT_MODEL = "{working_models_with_pricing[0][0]}"') # Unpack model_id from tuple
+        if len(working_models_with_pricing) > 1:
+            # MODIFIED to unpack model_id and pricing
+            aux = next((m_id for m_id, _ in working_models_with_pricing if "haiku" in m_id), working_models_with_pricing[-1][0]) # Unpack
             print(f'AUX_MODEL = "{aux}"')
         else:
-            print(f'AUX_MODEL = "{working_models[0]}"')
+            print(f'AUX_MODEL = "{working_models_with_pricing[0][0]}"') # Unpack
     else:
         print("No working models found. Please check your API key and billing status.")
 
