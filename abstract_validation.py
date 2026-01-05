@@ -248,7 +248,8 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
         abstract_input.closing_conclusion
         and abstract_input.closing_conclusion != "No explicit conclusion stated"
     ):
-        conclusion_keywords = extract_keywords(abstract_input.closing_conclusion)
+        conclusion_keywords = extract_keywords(
+            abstract_input.closing_conclusion)
 
         items.append(
             CoverageItem(
@@ -313,7 +314,7 @@ def check_keyword_coverage(
 
 
 def validate_abstract_coverage(
-    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None
+    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL
 ) -> dict:
     """
     Validate abstract covers required content from source.
@@ -323,6 +324,7 @@ def validate_abstract_coverage(
         abstract_input: AbstractInput used to generate abstract
         use_llm_verification: Whether to use LLM for low-confidence items
         api_client: Anthropic client (required if use_llm_verification=True)
+        model: Model to use for LLM verification
 
     Returns:
         Validation results dict
@@ -342,7 +344,8 @@ def validate_abstract_coverage(
         ]
 
         if low_confidence_required:
-            llm_results = verify_with_llm(abstract, low_confidence_required, api_client)
+            llm_results = verify_with_llm(
+                abstract, low_confidence_required, api_client, model=model)
             for item, result in zip(low_confidence_required, llm_results):
                 item.covered = result
                 item.confidence = "llm_verified"
@@ -385,14 +388,15 @@ def validate_abstract_coverage(
     }
 
 
-def verify_with_llm(abstract: str, items: list[CoverageItem], api_client) -> list[bool]:
+def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL) -> list[bool]:
     """
     Use LLM to verify coverage of specific items.
 
     Batches items into single API call for efficiency.
     """
     items_text = "\n".join(
-        [f'{i + 1}. {item.label}: "{item.source_text}"' for i, item in enumerate(items)]
+        [f'{i + 1}. {item.label}: "{item.source_text}"' for i,
+            item in enumerate(items)]
     )
 
     prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
@@ -413,7 +417,7 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client) -> lis
     # Use centralized call with retry
     response = call_claude_with_retry(
         client=api_client,
-        model=config.AUX_MODEL,
+        model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
         temperature=0.0,  # Strict for validation
@@ -465,7 +469,8 @@ def generate_validation_summary(items: list[CoverageItem], passed: bool) -> str:
     # required_pass = sum(1 for i in required if i.covered)
 
     if passed:
-        low_confidence = sum(1 for i in items if i.confidence in ("low", "medium"))
+        low_confidence = sum(
+            1 for i in items if i.confidence in ("low", "medium"))
         if low_confidence > 0:
             return f"PASSED with {low_confidence} low-confidence items - human review recommended"
         return "PASSED - all required items covered"
@@ -494,7 +499,8 @@ def generate_review_checklist(abstract_input) -> str:
     for item in required:
         lines.append(f"- [ ] {item.label}")
 
-    lines.extend(["", "## Optional Items (should be mentioned if space permits)", ""])
+    lines.extend(
+        ["", "## Optional Items (should be mentioned if space permits)", ""])
 
     optional = [i for i in items if not i.required]
     for item in optional:
@@ -528,7 +534,7 @@ def generate_review_checklist(abstract_input) -> str:
 
 
 def validate_and_report(
-    abstract: str, abstract_input, api_client=None
+    abstract: str, abstract_input, api_client=None, model: str = config.AUX_MODEL
 ) -> tuple[bool, str]:
     """
     Convenience function: validate and return pass/fail with report.
@@ -537,6 +543,7 @@ def validate_and_report(
         abstract: Generated abstract
         abstract_input: Input used for generation
         api_client: Optional, for LLM verification of uncertain items
+        model: Model to use for LLM verification
 
     Returns:
         (passed: bool, report: str)
@@ -553,6 +560,7 @@ def validate_and_report(
         abstract_input,
         use_llm_verification=api_client is not None,
         api_client=api_client,
+        model=model,
     )
 
     report_lines = [
@@ -590,8 +598,10 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     if re.search(r"^\s*[-•*]\s", abstract, re.MULTILINE):
         issues.append("Contains bullet points")
 
-    evaluative_terms = ["important", "valuable", "insightful", "excellent", "crucial"]
-    found_evaluative = [t for t in evaluative_terms if t.lower() in abstract.lower()]
+    evaluative_terms = ["important", "valuable",
+                        "insightful", "excellent", "crucial"]
+    found_evaluative = [
+        t for t in evaluative_terms if t.lower() in abstract.lower()]
     if found_evaluative:
         issues.append(f"Contains evaluative language: {found_evaluative}")
 

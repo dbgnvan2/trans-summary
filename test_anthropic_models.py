@@ -5,7 +5,7 @@ Test script to verify Anthropic API access and list available models dynamically
 
 import os
 import warnings
-import pytest # Added pytest import
+import pytest  # Added pytest import
 
 import anthropic
 from dotenv import load_dotenv
@@ -29,7 +29,10 @@ def anthropic_client_fixture():
     "claude-opus-4-5-20251101",
     "claude-sonnet-4-5-20250929",
     "claude-haiku-4-5-20251001",
-    "claude-3-opus-20240229",
+    "claude-opus-4-1-20250805",
+    "claude-opus-4-20250514",
+    "claude-sonnet-4-20250514",
+    "claude-3-5-haiku-20241022",
     "claude-3-haiku-20240307",
 ])
 def test_anthropic_model_generation(anthropic_client_fixture, model_id):

@@ -76,6 +76,7 @@ def test_validation():
     except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ TEST FAILED with error: {e}")
         traceback.print_exc()
+        raise e
 
 
 def test_json_format_compliance():
@@ -128,6 +129,7 @@ def test_json_format_compliance():
 
     except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"❌ Test Exception: {e}")
+        raise e
     finally:
         if temp_file.exists():
             temp_file.unlink()

@@ -343,3 +343,70 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-04 22:30:31,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,488,134,0,0
 2026-01-05 07:18:17,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,3593,565,0,0
 2026-01-05 07:18:19,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,488,134,0,0
+2026-01-05 07:44:14,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Read 13844),443,1842,0,13844
+2026-01-05 07:44:45,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 13843),443,2437,13843,0
+2026-01-05 09:00:14,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 16422),3,13696,16422,0
+2026-01-05 10:25:38,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,3593,407,0,0
+2026-01-05 10:25:40,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,488,133,0,0
+2026-01-05 10:48:58,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,3593,553,0,0
+2026-01-05 10:48:59,HeadlessTest,claude-haiku-4-5-20251001,end_turn,No,488,121,0,0
+2026-01-05 11:21:14,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,786,0,0
+2026-01-05 11:21:18,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0
+2026-01-05 11:55:22,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13843),443,1467,13843,0
+2026-01-05 11:56:16,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13851),443,1740,13851,0
+2026-01-05 12:00:57,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 16432),3,13671,16432,0
+2026-01-05 12:01:07,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1282,1319,0,0
+2026-01-05 12:01:18,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,1058,0,0
+2026-01-05 12:01:22,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0
+2026-01-05 12:01:23,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1616,1870,0,0
+2026-01-05 12:01:37,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1454,1759,0,0
+2026-01-05 12:01:51,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1658,1753,0,0
+2026-01-05 12:02:03,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1422,1534,0,0
+2026-01-05 12:02:17,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1394,1799,0,0
+2026-01-05 12:02:33,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1519,2045,0,0
+2026-01-05 12:02:45,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1753,1369,0,0
+2026-01-05 12:02:59,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1814,1612,0,0
+2026-01-05 12:03:15,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1911,1793,0,0
+2026-01-05 12:03:36,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3967,2422,0,0
+2026-01-05 12:03:44,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1421,791,0,0
+2026-01-05 12:04:17,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13851),306,1232,13851,0
+2026-01-05 12:05:31,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13851),1749,2890,0,13851
+2026-01-05 12:05:51,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13851),72,731,0,13851
+2026-01-05 12:06:28,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13851),823,1409,0,13851
+2026-01-05 12:22:24,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,817,0,0
+2026-01-05 12:22:27,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,94,0,0
+2026-01-05 12:29:05,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,957,0,0
+2026-01-05 12:29:08,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,94,0,0
+2026-01-05 12:32:18,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,984,0,0
+2026-01-05 12:32:21,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0
+2026-01-05 12:34:01,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,922,0,0
+2026-01-05 12:34:05,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0
+2026-01-05 12:38:32,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 16432),3,13376,16432,0
+2026-01-05 12:38:46,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1461,1731,0,0
+2026-01-05 12:39:00,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,970,0,0
+2026-01-05 12:39:00,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1417,1703,0,0
+2026-01-05 12:39:03,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0
+2026-01-05 12:39:11,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1444,1404,0,0
+2026-01-05 12:39:24,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1622,1593,0,0
+2026-01-05 12:39:35,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1400,1467,0,0
+2026-01-05 12:39:52,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1625,1861,0,0
+2026-01-05 12:40:05,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1363,1727,0,0
+2026-01-05 12:40:21,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1655,1577,0,0
+2026-01-05 12:40:33,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1306,1509,0,0
+2026-01-05 12:40:47,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1590,1577,0,0
+2026-01-05 12:41:05,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3379,2008,0,0
+2026-01-05 12:41:24,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2690,2020,0,0
+2026-01-05 12:41:53,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13556),306,1089,13556,0
+2026-01-05 12:42:04,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,168,0,0
+2026-01-05 12:42:06,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,195,0,0
+2026-01-05 12:42:34,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,1018,0,0
+2026-01-05 12:42:38,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0
+2026-01-05 12:43:16,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13556),1749,3178,0,13556
+2026-01-05 12:43:57,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13556),72,1272,0,13556
+2026-01-05 12:44:35,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13556),823,1402,0,13556
+2026-01-05 12:44:48,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 13374),1912,907,13374,0
+2026-01-05 12:44:55,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 13374),679,383,0,13374
+2026-01-05 13:10:11,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,213,0,0
+2026-01-05 13:10:15,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,276,0,0
+2026-01-05 13:10:47,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,964,0,0
+2026-01-05 13:10:51,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0

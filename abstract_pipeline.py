@@ -66,65 +66,25 @@ class AbstractInput:
 
 def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     """
-    Parse Topics section using a robust block-based approach.
-    Splits by '###' headers and parses each block individually.
+    Parse Topics section using regex pattern matching.
     """
     topics = []
 
-    # Split by level 3 headers
-    # Filter out empty strings from split
-    blocks = [
-        b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
-    ]
+    # Regex matches: ### Name \n Description \n Metadata line
+    # Matches format: *_(~25% of transcript; Sections 1-5)_*
+    pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
-    for block in blocks:
-        lines = block.split("\n")
-        if not lines:
-            continue
+    matches = re.findall(pattern, topics_markdown, re.DOTALL)
 
-        # First line is title
-        name = lines[0].strip()
+    for match in matches:
+        name = match[0].strip()
+        # description = match[1].strip() # Description not stored in Topic model
+        percentage = int(match[2])
+        sections = match[3].strip()
 
-        # Look for metadata line (usually at the end, contains %)
-        percentage = 0
-        sections = ""
-        description_lines = []
-
-        metadata_found = False
-
-        # Check lines for metadata pattern
-        # Flexible matching: looks for line with both percentage and "Section"
-
-        for line in lines[1:]:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Check if line looks like metadata (contains % and Section)
-            if re.search(r"\d+%", line) and re.search(
-                r"Sections?", line, re.IGNORECASE
-            ):
-                pct_match = re.search(r"(\d+)%", line)
-                # Relaxed section match: allows optional colon/dash separators
-                sect_match = re.search(
-                    r"Sections?\s*[:\-]?\s*([0-9\-\,\s]+)", line, re.IGNORECASE
-                )
-
-                if pct_match:
-                    percentage = int(pct_match.group(1))
-                    # If section numbers aren't cleanly found, default to the whole tail or empty
-                    sections = sect_match.group(1).strip() if sect_match else "Unknown"
-                    metadata_found = True
-            else:
-                # If not metadata, it's part of description
-                # Clean up potential markdown formatting if it was just a wrapper line
-                if not re.match(r"^[\*_\-()\[\]]+$", line):
-                    description_lines.append(line)
-
-        if metadata_found and percentage >= 5:
-            # Join description lines
-            # Note: Topic dataclass currently only uses name, percentage, sections.
-            topics.append(Topic(name=name, percentage=percentage, sections=sections))
+        if percentage >= 5:
+            topics.append(
+                Topic(name=name, percentage=percentage, sections=sections))
 
     # Sort by percentage descending, take top 5
     topics.sort(key=lambda t: t.percentage, reverse=True)
@@ -133,59 +93,19 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
 def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     """
-    Parse Key Themes using a robust line-based approach.
-    Looks for numbered lists and parses content until the next number.
+    Parse Key Themes using regex pattern matching.
     """
     themes = []
 
-    # Split by numbered list items (e.g. "1. ", "2. ")
-    # Using lookahead to keep the delimiter or just capturing it
-    # Easier: finding all starts and slicing
+    # Regex matches: 1. **Name**: Description \n *Source Sections:*
+    pattern = r"\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*\s*Source Sections:"
 
-    # Regex to find the start of a theme:
-    # Start of line, number, dot, optional bold, text, optional bold, colon
-    header_pattern = r"(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*"
+    matches = re.findall(pattern, themes_markdown, re.DOTALL)
 
-    matches = list(re.finditer(header_pattern, themes_markdown))
-
-    for i, match in enumerate(matches):
-        label = match.group(2).strip()
-
-        # content start is end of this match
-        start_idx = match.end()
-
-        # content end is start of next match or end of string
-        end_idx = (
-            matches[i + 1].start() if i + 1 < len(matches) else len(themes_markdown)
-        )
-
-        raw_content = themes_markdown[start_idx:end_idx].strip()
-
-        # Parse description and sections from raw_content
-        # It typically looks like:
-        # "Description text...\n*Source Sections: 1, 2*"
-
-        # Split by newline
-        lines = raw_content.split("\n")
-        description_lines = []
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Check for Source Sections indicator
-            if "Source Section" in line:
-                # We don't store source sections in Theme object currently,
-                # but we can stop parsing description here.
-                continue
-
-            description_lines.append(line)
-
-        description = " ".join(description_lines).strip()
-
-        if label and description:
-            themes.append(Theme(name=label, description=description))
+    for match in matches:
+        name = match[0].strip()
+        description = match[1].strip()
+        themes.append(Theme(name=name, description=description))
 
     # Take top 2 themes
     return themes[:2]
@@ -292,7 +212,8 @@ def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
             )
             qa_topics.extend(topic_matches[:2])
 
-    percentage = int((qa_sections / total_sections) * 100) if total_sections > 0 else 0
+    percentage = int((qa_sections / total_sections) *
+                     100) if total_sections > 0 else 0
 
     # Deduplicate and limit topics
     unique_topics = list(dict.fromkeys(qa_topics))[:5]
@@ -333,7 +254,8 @@ def prepare_abstract_input(
         topics=parse_topics_from_extraction(topics_markdown),
         themes=parse_themes_from_extraction(themes_markdown),
         opening_purpose=extract_opening_purpose(transcript, section_count),
-        closing_conclusion=extract_closing_conclusion(transcript, section_count),
+        closing_conclusion=extract_closing_conclusion(
+            transcript, section_count),
         qa_percentage=qa_percentage,
         qa_topics=qa_topics,
         target_word_count=target_word_count,
@@ -429,8 +351,10 @@ def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
         issues.append("Contains bullet points")
 
     # Check for evaluative language
-    evaluative_terms = ["important", "valuable", "insightful", "excellent", "crucial"]
-    found_evaluative = [t for t in evaluative_terms if t.lower() in abstract.lower()]
+    evaluative_terms = ["important", "valuable",
+                        "insightful", "excellent", "crucial"]
+    found_evaluative = [
+        t for t in evaluative_terms if t.lower() in abstract.lower()]
     if found_evaluative:
         issues.append(f"Contains evaluative language: {found_evaluative}")
 

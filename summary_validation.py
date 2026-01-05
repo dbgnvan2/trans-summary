@@ -193,7 +193,8 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
                 category="opening",
                 label="Opening: stated purpose",
                 required=True,
-                keywords=extract_keywords(summary_input.opening.stated_purpose)[:6],
+                keywords=extract_keywords(
+                    summary_input.opening.stated_purpose)[:6],
                 source_text=summary_input.opening.stated_purpose,
                 expected_words=summary_input.opening.word_allocation,
             )
@@ -212,7 +213,8 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
                 category="topic",
                 label=f"Topic ({topic.percentage}%): {topic.name[:50]}",
                 required=topic.percentage >= 10,  # Required if significant topic
-                keywords=list(dict.fromkeys(topic_keywords))[:10],  # Dedupe, limit
+                keywords=list(dict.fromkeys(topic_keywords))[
+                    :10],  # Dedupe, limit
                 source_text=topic.name,
                 expected_words=topic.word_allocation,
             )
@@ -245,7 +247,8 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
                 category="closing",
                 label="Closing: conclusion",
                 required=True,
-                keywords=extract_keywords(summary_input.closing.conclusion)[:6],
+                keywords=extract_keywords(
+                    summary_input.closing.conclusion)[:6],
                 source_text=summary_input.closing.conclusion,
                 expected_words=summary_input.closing.word_allocation,
             )
@@ -416,7 +419,7 @@ def check_proportionality(summary: str, summary_input, tolerance: float = 0.3) -
 
 
 def validate_summary_coverage(
-    summary: str, summary_input, use_llm_verification: bool = False, api_client=None
+    summary: str, summary_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL
 ) -> dict:
     """
     Validate summary covers required content with appropriate proportions.
@@ -426,6 +429,7 @@ def validate_summary_coverage(
         summary_input: SummaryInput used for generation
         use_llm_verification: Whether to use LLM for low-confidence items
         api_client: Anthropic client (required if use_llm_verification=True)
+        model: Model to use for LLM verification
 
     Returns:
         Validation results dict
@@ -445,7 +449,8 @@ def validate_summary_coverage(
         ]
 
         if low_confidence_required:
-            llm_results = verify_with_llm(summary, low_confidence_required, api_client)
+            llm_results = verify_with_llm(
+                summary, low_confidence_required, api_client, model=model)
             for item, result in zip(low_confidence_required, llm_results):
                 item.covered = result
                 item.confidence = "llm_verified"
@@ -512,7 +517,7 @@ def validate_summary_coverage(
     }
 
 
-def verify_with_llm(summary: str, items: list[CoverageItem], api_client) -> list[bool]:
+def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL) -> list[bool]:
     """Use LLM to verify coverage of specific items."""
     items_text = "\n".join(
         [
@@ -539,7 +544,7 @@ def verify_with_llm(summary: str, items: list[CoverageItem], api_client) -> list
     # Use centralized call with retry
     response = call_claude_with_retry(
         client=api_client,
-        model=config.AUX_MODEL,
+        model=model,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
         temperature=0.0,  # Strict for validation
@@ -592,7 +597,8 @@ def format_review_checklist(
             deviation_pct = issue["deviation"] * 100
             direction = "over" if issue["actual"] > issue["expected"] else "under"
 
-            lines.append(f"- ⚠️ {issue['name']}: {direction} by {deviation_pct:.0f}%")
+            lines.append(
+                f"- ⚠️ {issue['name']}: {direction} by {deviation_pct:.0f}%")
             lines.append(
                 f"  Expected: ~{issue['expected']} words, Actual: {issue['actual']} words"
             )
@@ -609,7 +615,8 @@ def generate_validation_summary(
 ) -> str:
     """Generate one-line summary of validation results."""
     if passed:
-        low_confidence = sum(1 for i in items if i.confidence in ("low", "medium"))
+        low_confidence = sum(
+            1 for i in items if i.confidence in ("low", "medium"))
         if low_confidence > 0:
             return f"PASSED with {low_confidence} low-confidence items - human review recommended"
         return "PASSED - all requirements met"
@@ -662,7 +669,8 @@ def generate_review_checklist(summary_input) -> str:
     )
 
     for topic in summary_input.body.topics:
-        lines.append(f"  - {topic.name[:40]}...: {topic.word_allocation} words")
+        lines.append(
+            f"  - {topic.name[:40]}...: {topic.word_allocation} words")
 
     if summary_input.qa.include:
         lines.append(f"- Q&A: {summary_input.qa.word_allocation} words")
@@ -726,7 +734,8 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
 
     # Removed 'important', 'significant', 'crucial' as they often reflect speaker's emphasis
     evaluative_terms = config.EVALUATIVE_TERMS
-    found_evaluative = [t for t in evaluative_terms if t.lower() in summary.lower()]
+    found_evaluative = [
+        t for t in evaluative_terms if t.lower() in summary.lower()]
     if found_evaluative:
         issues.append(f"Contains evaluative language: {found_evaluative}")
 
@@ -742,7 +751,7 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
 
 
 def validate_and_report(
-    summary: str, summary_input, api_client=None
+    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL
 ) -> tuple[bool, str]:
     """
     Validate summary and return pass/fail with report.
@@ -762,6 +771,7 @@ def validate_and_report(
         summary_input,
         use_llm_verification=api_client is not None,
         api_client=api_client,
+        model=model,
     )
 
     report_lines = [

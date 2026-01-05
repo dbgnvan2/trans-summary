@@ -3,95 +3,83 @@ Centralized configuration for AI model specifications and pricing.
 """
 
 # Pricing per Million Tokens (USD)
-# Updated as of late 2024 (Estimates)
+# Updated as of January 2026, reflecting user-provided 5min Cache Write and Cache Hit/Refresh rates.
 PRICING = {
     # Claude 4.5 Family (Estimates based on Opus/Haiku tiers)
-    "claude-opus-4-5-20251101": { # Claude Opus 4.5
+    "claude-opus-4-5-20251101": {  # Claude Opus 4.5
         "input": 5.00,
         "output": 25.00,
         "cache_write": 6.25,  # 5min Cache Write
         "cache_read": 0.50    # Cache Hit/Refresh
     },
-    "claude-sonnet-4-5-20250929": { # Claude Sonnet 4.5
+    "claude-sonnet-4-5-20250929": {  # Claude Sonnet 4.5
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
         "cache_read": 0.30
     },
-    "claude-haiku-4-5-20251001": { # Claude Haiku 4.5
+    "claude-haiku-4-5-20251001": {  # Claude Haiku 4.5
         "input": 1.00,
         "output": 5.00,
         "cache_write": 1.25,
         "cache_read": 0.10
     },
-    "claude-opus-4-1-20250805": { # Claude Opus 4.1
+    "claude-opus-4-1-20250805": {  # Claude Opus 4.1
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
         "cache_read": 1.50
     },
-    "claude-opus-4-20250514": { # Claude Opus 4
+    "claude-opus-4-20250514": {  # Claude Opus 4
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
         "cache_read": 1.50
     },
-    "claude-sonnet-4-20250514": { # Claude Sonnet 4
+    "claude-sonnet-4-20250514": {  # Claude Sonnet 4
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
         "cache_read": 0.30
     },
-    "claude-3-7-sonnet-20250219": { # Claude Sonnet 3.7
+    "claude-3-5-sonnet": {  # No new data, keep old for now
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
         "cache_read": 0.30
     },
-    "claude-3-5-sonnet": { # No new data, keep old for now
+    "claude-3-5-sonnet-20241022": {  # No new data, keep old for now
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
         "cache_read": 0.30
     },
-    "claude-3-5-sonnet-20241022": { # No new data, keep old for now
-        "input": 3.00,
-        "output": 15.00,
-        "cache_write": 3.75,
-        "cache_read": 0.30
-    },
-    "claude-3-opus": { # No new data, keep old for now
+    "claude-3-opus": {  # No new data, keep old for now
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
         "cache_read": 1.50
     },
-    "claude-3-opus-20240229": { # Claude Opus 3 (assuming this is the generic Opus 3)
-        "input": 15.00,
-        "output": 75.00,
-        "cache_write": 18.75,
-        "cache_read": 1.50
-    },
-    "claude-3-haiku": { # Claude Haiku 3
+    "claude-3-haiku": {  # Claude Haiku 3
         "input": 0.25,
         "output": 1.25,
         "cache_write": 0.30,
         "cache_read": 0.03
     },
-    "claude-3-haiku-20240307": { # Claude Haiku 3
+    "claude-3-haiku-20240307": {  # Claude Haiku 3
         "input": 0.25,
         "output": 1.25,
         "cache_write": 0.30,
         "cache_read": 0.03
     },
     # Fallbacks / Aliases
-    "claude-3-5-haiku": { # Claude Haiku 3.5
+    "claude-3-5-haiku": {  # Claude Haiku 3.5
         "input": 0.80,
         "output": 4.00,
         "cache_write": 1.00,
         "cache_read": 0.08
     },
-    "claude-3-5-haiku-20241022": { # Claude Haiku 3.5
+    "claude-3-5-haiku-20241022": {  # Claude Haiku 3.5
         "input": 0.80,
         "output": 4.00,
         "cache_write": 1.00,
@@ -128,16 +116,14 @@ def get_pricing(model_name: str) -> dict:
         return PRICING["claude-opus-4-5-20251101"]
     if "sonnet" in model_lower and "4-5" in model_lower:
         return PRICING["claude-sonnet-4-5-20250929"]
-    if "sonnet" in model_lower and "3-7" in model_lower:
-        return PRICING["claude-3-7-sonnet-20250219"]
     if "haiku" in model_lower and "3-5" in model_lower:
-        return PRICING["claude-3-5-haiku"] # Changed to generic alias
+        return PRICING["claude-3-5-haiku"]  # Changed to generic alias
     if "sonnet" in model_lower and "3-5" in model_lower:
-        return PRICING["claude-3-5-sonnet"] # Changed to generic alias
+        return PRICING["claude-3-5-sonnet"]  # Changed to generic alias
     if "opus" in model_lower and "3" in model_lower:
-        return PRICING["claude-3-opus-20240229"] # Changed to specific dated model
+        return PRICING["claude-3-opus"]
     if "haiku" in model_lower and "3" in model_lower:
-        return PRICING["claude-3-haiku"] # Changed to generic alias
+        return PRICING["claude-3-haiku"]  # Changed to generic alias
 
     # Default fallback (Sonnet pricing)
-    return PRICING["claude-3-5-sonnet"] # FIXED: changed PRIC to PRICING
+    return PRICING["claude-3-5-sonnet"]  # FIXED: changed PRIC to PRICING

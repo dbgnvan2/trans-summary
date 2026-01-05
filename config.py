@@ -11,7 +11,8 @@ to maintain backward compatibility while enabling safer state management.
 import os
 from pathlib import Path
 from typing import Union
-import model_specs # ADDED: Import model_specs
+import model_specs  # ADDED: Import model_specs
+
 
 class ProjectSettings:
     """
@@ -35,9 +36,9 @@ class ProjectSettings:
         self._update_derived_paths()
 
         # Initialize model variables
-        self.DEFAULT_MODEL = "claude-haiku-4-5-20251001" # Moved from global
+        self.DEFAULT_MODEL = "claude-opus-4-5-20251101"  # Moved from global
         self.AUX_MODEL = "claude-haiku-4-5-20251001"     # Moved from global
-        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001" # Moved from global
+        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Moved from global
 
         self._initialized = True
 
@@ -63,19 +64,22 @@ class ProjectSettings:
         if model_name in model_specs.PRICING:
             self.DEFAULT_MODEL = model_name
         else:
-            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+            raise ValueError(
+                f"Model '{model_name}' not found in model_specs.PRICING.")
 
     def set_aux_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.AUX_MODEL = model_name
         else:
-            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+            raise ValueError(
+                f"Model '{model_name}' not found in model_specs.PRICING.")
 
     def set_formatting_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.FORMATTING_MODEL = model_name
         else:
-            raise ValueError(f"Model '{model_name}' not found in model_specs.PRICING.")
+            raise ValueError(
+                f"Model '{model_name}' not found in model_specs.PRICING.")
 
 
 # Initialize the singleton
@@ -92,7 +96,8 @@ def __getattr__(name):
     # Only proxy for non-existent attributes to allow direct access to
     # attributes already defined on the module (like SUFFIX_FORMATTED)
     # and to the model variables.
-    if name in ["DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL"]: # ADDED explicit check for model variables
+    # ADDED explicit check for model variables
+    if name in ["DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL"]:
         return getattr(settings, name)
     if hasattr(settings, name):
         return getattr(settings, name)
@@ -120,7 +125,8 @@ def set_transcripts_base(path: Union[str, Path]):
     # (Note: Code that did `from config import SOURCE_DIR` will still have the OLD value.
     # This is why `import config; config.SOURCE_DIR` is preferred.)
     global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR
-    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL # ADDED: Make model variables global
+    # ADDED: Make model variables global
+    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR

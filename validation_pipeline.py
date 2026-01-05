@@ -414,7 +414,7 @@ def validate_abstract_legacy(
 # ============================================================================
 
 
-def validate_abstract_coverage(base_name: str, logger=None) -> bool:
+def validate_abstract_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
     """Validate the abstract using the coverage validation module."""
     if logger is None:
         logger = setup_logging("validate_abstract_coverage")
@@ -438,7 +438,8 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
         if generated_abstract_file.exists():
             abstract_text = generated_abstract_file.read_text(encoding="utf-8")
         else:
-            logger.error("No generated abstract found to validate. (Step 6 likely failed)")
+            logger.error(
+                "No generated abstract found to validate. (Step 6 likely failed)")
             return False
 
         transcript = formatted_file.read_text(encoding="utf-8")
@@ -469,7 +470,7 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
 
         passed, report = abstract_validation.validate_and_report(
-            abstract_text, abstract_input, api_client=client
+            abstract_text, abstract_input, api_client=client, model=model
         )
 
         report_path = (
@@ -492,7 +493,7 @@ def validate_abstract_coverage(base_name: str, logger=None) -> bool:
         return False
 
 
-def validate_summary_coverage(base_name: str, logger=None) -> bool:
+def validate_summary_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
     """Validate the summary using the coverage validation module."""
     if logger is None:
         logger = setup_logging("validate_summary_coverage")
@@ -539,7 +540,7 @@ def validate_summary_coverage(base_name: str, logger=None) -> bool:
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
 
         passed, report = summary_validation.validate_and_report(
-            summary_text, summary_input, api_client=client
+            summary_text, summary_input, api_client=client, model=model
         )
 
         report_path = (

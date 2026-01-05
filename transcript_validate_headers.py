@@ -152,7 +152,7 @@ class HeaderValidator:
                 found.append(term)
         return found
 
-    def validate_batch(self, batch: List[Dict]) -> str:
+    def validate_batch(self, batch: List[Dict], model: str = config.AUX_MODEL) -> str:
         """Send a batch of sections to Claude for validation."""
 
         # Construct batch content string
@@ -178,7 +178,7 @@ class HeaderValidator:
         # Call API
         response = call_claude_with_retry(
             self.client,
-            model=config.AUX_MODEL,
+            model=model,
             messages=[{"role": "user", "content": batch_content}],
             max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
             logger=self.logger,
@@ -188,7 +188,7 @@ class HeaderValidator:
 
         return response.content[0].text
 
-    def run(self, input_path: Path):
+    def run(self, input_path: Path, model: str = config.AUX_MODEL):
         """Main execution flow."""
         sections = self.parse_transcript(input_path)
         if not sections:
@@ -207,7 +207,7 @@ class HeaderValidator:
         )
 
         for i in range(0, len(sections), BATCH_SIZE):
-            batch = sections[i : i + BATCH_SIZE]
+            batch = sections[i: i + BATCH_SIZE]
             batch_num = (i // BATCH_SIZE) + 1
 
             self.logger.info(
@@ -225,7 +225,7 @@ class HeaderValidator:
 
             # 2. AI Validation
             try:
-                ai_response = self.validate_batch(batch)
+                ai_response = self.validate_batch(batch, model=model)
                 results.append(
                     {"batch": batch_num, "sections": batch, "response": ai_response}
                 )
@@ -237,10 +237,12 @@ class HeaderValidator:
 
     def _save_report(self, input_path: Path, results: List[Dict]):
         """Save validation report to file."""
-        base_name = input_path.stem.replace(" - formatted", "").replace(" - yaml", "")
+        base_name = input_path.stem.replace(
+            " - formatted", "").replace(" - yaml", "")
         project_dir = config.PROJECTS_DIR / base_name
         project_dir.mkdir(parents=True, exist_ok=True)
-        report_path = project_dir / f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
+        report_path = project_dir / \
+            f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
 
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("# Header Validation Report\n")
@@ -266,14 +268,16 @@ class HeaderValidator:
                 f.write(batch_result["response"])
                 f.write("\n" + "=" * 50 + "\n")
 
-        self.logger.info(f"Validation complete. Report saved to: {report_path}")
+        self.logger.info(
+            f"Validation complete. Report saved to: {report_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Validate transcript headers in batches."
     )
-    parser.add_argument("input_file", help="Path to formatted transcript file (.md)")
+    parser.add_argument(
+        "input_file", help="Path to formatted transcript file (.md)")
     args = parser.parse_args()
 
     # Setup

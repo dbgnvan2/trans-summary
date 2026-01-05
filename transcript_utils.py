@@ -440,21 +440,25 @@ def call_claude_with_retry(
                 # Estimate breakdown
                 system_content = kwargs.get('system', [])
                 if isinstance(system_content, list):
-                    sys_text = "".join([b.get('text', '') for b in system_content if b.get('type') == 'text'])
+                    sys_text = "".join(
+                        [b.get('text', '') for b in system_content if b.get('type') == 'text'])
                 else:
                     sys_text = str(system_content) if system_content else ""
-                
-                msg_text = "".join([m.get('content', '') if isinstance(m.get('content'), str) else 
-                                   "".join([b.get('text', '') for b in m.get('content', []) if b.get('type') == 'text']) 
-                                   for m in messages])
-                
+
+                msg_text = "".join([m.get('content', '') if isinstance(m.get('content'), str) else
+                                   "".join([b.get('text', '') for b in m.get(
+                                       'content', []) if b.get('type') == 'text'])
+                                    for m in messages])
+
                 est_sys_tokens = len(sys_text) // config.CHARS_PER_TOKEN
                 est_msg_tokens = len(msg_text) // config.CHARS_PER_TOKEN
-                
+
                 # Get cache stats
-                cache_read = getattr(message.usage, 'cache_read_input_tokens', 0) or 0
-                cache_create = getattr(message.usage, 'cache_creation_input_tokens', 0) or 0
-                
+                cache_read = getattr(
+                    message.usage, 'cache_read_input_tokens', 0) or 0
+                cache_create = getattr(
+                    message.usage, 'cache_creation_input_tokens', 0) or 0
+
                 cache_msg = ""
                 if cache_read > 0:
                     cache_msg = f" (+{cache_read} cached)"
@@ -462,7 +466,7 @@ def call_claude_with_retry(
                     cache_msg = f" (created {cache_create} cache)"
 
                 logger.info("API call successful - Input: %d%s (~%d context, ~%d prompt), Output: %d, Stop: %s",
-                            message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens, 
+                            message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens,
                             message.usage.output_tokens, message.stop_reason)
 
             # Log to CSV
@@ -696,38 +700,38 @@ def extract_section(content: str, section_name: str, allow_bold: bool = True) ->
         The section content (stripped), or empty string if not found
     """
     escaped_name = re.escape(section_name).replace(r'\ ', r'\s+')
-    
+
     # 1. Find the start of the section
     # Matches: start of line, optional hash, optional bold/markup, optional number, name, anything, end of line
     # Capture group 1: The hashes (if any)
     start_pattern = re.compile(
-        rf'^(#*)\s*(?:[\*\_]+)?(?:\d+\.?\s*)?{escaped_name}\b.*?$', 
+        rf'^(#*)\s*(?:[\*\_]+)?(?:\d+\.?\s*)?{escaped_name}\b.*?$',
         re.MULTILINE | re.IGNORECASE
     )
-    
+
     match = start_pattern.search(content)
     if not match:
         return ''
-    
+
     start_hashes = match.group(1)
     # Default to level 2 if no hashes (e.g. **Topics**) so we stop at ## or #
-    start_level = len(start_hashes) if start_hashes else 2 
+    start_level = len(start_hashes) if start_hashes else 2
     start_pos = match.end()
-    
+
     # 2. Find the end of the section
     # Iterate through all subsequent headers to find one that closes this section
     header_pattern = re.compile(r'^(#+)\s', re.MULTILINE)
-    
+
     for next_header in header_pattern.finditer(content, start_pos):
         next_hashes = next_header.group(1)
         next_level = len(next_hashes)
-        
+
         # If next header is same level or higher (fewer hashes), stop here
         # e.g. if we are in ## (level 2), we stop at ## (2) or # (1).
         # We do NOT stop at ### (3).
         if next_level <= start_level:
             return content[start_pos:next_header.start()].strip()
-            
+
     # If no matching end header found, return everything to the end
     return content[start_pos:].strip()
 
@@ -746,10 +750,12 @@ def extract_bowen_references(content: str) -> list:
     # If the outer section is not found or is empty, try to directly extract
     # "Bowen References Extracted from Transcript" from the main content
     if not outer_section_content:
-        target_content = extract_section(content, "Bowen References Extracted from Transcript")
+        target_content = extract_section(
+            content, "Bowen References Extracted from Transcript")
     else:
         # If outer section exists, search within it for the more specific header
-        target_content = extract_section(outer_section_content, "Bowen References Extracted from Transcript")
+        target_content = extract_section(
+            outer_section_content, "Bowen References Extracted from Transcript")
         # Fallback if specific header not found within outer, use outer content itself
         if not target_content:
             target_content = outer_section_content
@@ -785,7 +791,16 @@ def load_bowen_references(base_name: str) -> list:
         with open(bowen_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
-        return extract_bowen_references(content)
+
+        refs = extract_bowen_references(content)
+        if refs:
+            return refs
+
+        # Fallback: If file exists but extraction failed (likely missing header),
+        # try to parse the whole content directly as a list of quotes.
+        quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
+        quotes = re.findall(quote_pattern, content, flags=re.MULTILINE)
+        return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
     # Fall back to All Key Items
     extracts_file = config.PROJECTS_DIR / base_name / \

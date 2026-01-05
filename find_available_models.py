@@ -8,7 +8,7 @@ import os
 
 import anthropic
 from dotenv import load_dotenv
-import model_specs # ADDED
+import model_specs  # ADDED
 
 # Load environment variables
 load_dotenv()
@@ -65,8 +65,6 @@ def main():
             "claude-3-5-sonnet-latest",
             "claude-3-5-sonnet-20240620",
             "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
             "claude-3-haiku-20240307",
             "claude-2.1",
             "claude-2.0",
@@ -74,10 +72,10 @@ def main():
         ]
         models_to_test = known_models
 
-    print(f"{ 'Model ID':<35} | {'Status & Pricing':<30}") # MODIFIED header
-    print("-" * 66) # MODIFIED separator length
+    print(f"{ 'Model ID':<35} | {'Status & Pricing':<30}")  # MODIFIED header
+    print("-" * 66)  # MODIFIED separator length
 
-    working_models_with_pricing = [] # MODIFIED to store tuples
+    working_models_with_pricing = []  # MODIFIED to store tuples
 
     for model_id in models_to_test:
         print(f"{model_id:<35} | ", end="", flush=True)
@@ -87,9 +85,12 @@ def main():
                 max_tokens=10,
                 messages=[{"role": "user", "content": "Hi"}],
             )
-            pricing = model_specs.get_pricing(model_id) # ADDED
-            print(f"✅ OK (In: ${pricing['input']}/M, Out: ${pricing['output']}/M)") # MODIFIED print
-            working_models_with_pricing.append((model_id, pricing)) # MODIFIED to store pricing
+            pricing = model_specs.get_pricing(model_id)  # ADDED
+            # MODIFIED print
+            print(
+                f"✅ OK (In: ${pricing['input']}/M, Out: ${pricing['output']}/M)")
+            working_models_with_pricing.append(
+                (model_id, pricing))  # MODIFIED to store pricing
         except anthropic.NotFoundError:
             print("❌ 404 (Not Found)")
         except anthropic.AuthenticationError:
@@ -102,20 +103,24 @@ def main():
     print("\n" + "=" * 60)
     print("SUMMARY OF WORKING MODELS")
     print("=" * 60)
-    if working_models_with_pricing: # MODIFIED
+    if working_models_with_pricing:  # MODIFIED
         # MODIFIED to unpack model_id and pricing
         for model_id, pricing in working_models_with_pricing:
-            print(f"- {model_id:<30} (Input: ${pricing['input']}/M, Output: ${pricing['output']}/M)")
+            print(
+                f"- {model_id:<30} (Input: ${pricing['input']}/M, Output: ${pricing['output']}/M)")
 
         print("\nRecommended Config Update:")
         # MODIFIED to unpack model_id from the first working model
-        print(f'DEFAULT_MODEL = "{working_models_with_pricing[0][0]}"') # Unpack model_id from tuple
+        # Unpack model_id from tuple
+        print(f'DEFAULT_MODEL = "{working_models_with_pricing[0][0]}"')
         if len(working_models_with_pricing) > 1:
             # MODIFIED to unpack model_id and pricing
-            aux = next((m_id for m_id, _ in working_models_with_pricing if "haiku" in m_id), working_models_with_pricing[-1][0]) # Unpack
+            aux = next((m_id for m_id, _ in working_models_with_pricing if "haiku" in m_id),
+                       working_models_with_pricing[-1][0])  # Unpack
             print(f'AUX_MODEL = "{aux}"')
         else:
-            print(f'AUX_MODEL = "{working_models_with_pricing[0][0]}"') # Unpack
+            # Unpack
+            print(f'AUX_MODEL = "{working_models_with_pricing[0][0]}"')
     else:
         print("No working models found. Please check your API key and billing status.")
 

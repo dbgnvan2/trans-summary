@@ -146,52 +146,23 @@ def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dic
     """Parse Topics section and extract key points from transcript using robust block parsing."""
     topics = []
 
-    # Split by level 3 headers
-    blocks = [
-        b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
-    ]
+    # Regex matches: ### Name \n Description \n Metadata line
+    # Matches format: *_(~25% of transcript; Sections 1-5)_*
+    # Robust pattern handling spaces, brackets, and various separators
+    pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
-    for block in blocks:
-        lines = block.split("\n")
-        if not lines:
-            continue
+    matches = re.findall(pattern, topics_markdown, re.DOTALL)
 
-        # First line is title
-        name = lines[0].strip()
+    for match in matches:
+        name = match[0].strip()
+        description = match[1].strip()
+        percentage = int(match[2])
+        sections = match[3].strip()
 
-        percentage = 0
-        sections = ""
-        description_lines = []
-
-        metadata_found = False
-
-        # Check lines for metadata pattern
-        for line in lines[1:]:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Check if line looks like metadata (contains % and Section)
-            if re.search(r"\d+%", line) and re.search(
-                r"Sections?", line, re.IGNORECASE
-            ):
-                pct_match = re.search(r"(\d+)\%", line)
-                sect_match = re.search(
-                    r"Sections?\s*[:\-]?\s*([0-9\-\s,]+)", line, re.IGNORECASE
-                )
-
-                if pct_match:
-                    percentage = int(pct_match.group(1))
-                    sections = sect_match.group(1).strip() if sect_match else ""
-                    metadata_found = True
-            else:
-                # If not metadata, it's part of description
-                # Clean up potential markdown formatting if it was just a wrapper line
-                if not re.match(r"^[\*_\-()[\]]+$", line):
-                    description_lines.append(line)
-
-        if metadata_found and percentage >= 5:
-            description = " ".join(description_lines).strip()
+        if percentage >= 5:
+            # Clean up description if it has leading/trailing markdown wrapper lines that regex captured
+            # (The regex is greedy on description, so it might capture trailing newlines/spacers)
+            description = description.strip()
 
             # Extract key points from the description and transcript sections
             key_points = extract_key_points(description, sections, transcript)
@@ -261,7 +232,8 @@ def simplify_to_key_point(sentence: str) -> Optional[str]:
 
     # Capitalize first letter
     if point:
-        point = point[0].upper() + point[1:] if len(point) > 1 else point.upper()
+        point = point[0].upper() + \
+            point[1:] if len(point) > 1 else point.upper()
 
     # Remove trailing period for consistency
     point = point.rstrip(".")
@@ -330,76 +302,52 @@ def parse_themes(themes_markdown: str) -> list[dict]:
         blocks = [
             b.strip() for b in re.split(r"(?:^|\n)###\s+", themes_markdown) if b.strip()
         ]
-        
+
         for block in blocks:
             lines = block.split("\n")
             if not lines:
                 continue
-                
+
             # First line is the theme name
             name = lines[0].strip()
             sections = ""
             description_lines = []
-            
+
             for line in lines[1:]:
                 line = line.strip()
                 if not line:
                     continue
-                    
+
                  # Check for Source Sections indicator
                 if "Source Section" in line:
                     # Extract sections if possible
-                    sect_match = re.search(r"Sections:?\s*([^*]+)", line, re.IGNORECASE)
+                    sect_match = re.search(
+                        r"Sections:?\s*([^*]+)", line, re.IGNORECASE)
                     if sect_match:
                         sections = sect_match.group(1).strip().rstrip("*_")
                     continue
-                    
+
                 description_lines.append(line)
-                
+
             description = " ".join(description_lines).strip()
             if name and description:
                 themes.append(
                     {"name": name, "description": description, "sections": sections}
                 )
-        
+
         return themes
 
     # Strategy 2: Fallback to numbered list parsing (Legacy)
-    # Regex to find the start of a theme
-    header_pattern = r"(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*"
+    # Regex matches: 1. **Name**: Description \n *Source Sections: 1, 2*
+    # Captures: Name, Description, Sections
+    pattern = r"\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*\s*Source Sections:?\s*([^*_\n]+)"
 
-    matches = list(re.finditer(header_pattern, themes_markdown))
+    matches = re.findall(pattern, themes_markdown, re.DOTALL)
 
-    for i, match in enumerate(matches):
-        name = match.group(2).strip()
-
-        start_idx = match.end()
-        end_idx = (
-            matches[i + 1].start() if i + 1 < len(matches) else len(themes_markdown)
-        )
-
-        raw_content = themes_markdown[start_idx:end_idx].strip()
-
-        lines = raw_content.split("\n")
-        description_lines = []
-        sections = ""
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Check for Source Sections indicator
-            if "Source Section" in line:
-                # Extract sections if possible
-                sect_match = re.search(r"Sections:?\s*([^*]+)", line, re.IGNORECASE)
-                if sect_match:
-                    sections = sect_match.group(1).strip().rstrip("*_")
-                continue
-
-            description_lines.append(line)
-
-        description = " ".join(description_lines).strip()
+    for match in matches:
+        name = match[0].strip()
+        description = match[1].strip()
+        sections = match[2].strip().rstrip("*_")
 
         if name and description:
             themes.append(
@@ -464,7 +412,8 @@ def extract_opening_content(transcript: str, section_count: int) -> dict:
 
 def extract_closing_content(transcript: str, section_count: int) -> dict:
     """Extract closing content: conclusion, open questions, future direction."""
-    closing_start = max(section_count - (section_count // 10), section_count - 3)
+    closing_start = max(
+        section_count - (section_count // 10), section_count - 3)
 
     # Get text from closing sections
     closing_text = ""
@@ -552,10 +501,12 @@ def analyze_qa_content(transcript: str) -> dict:
                 len(re.findall(p, part, re.IGNORECASE)) for p in qa_indicators
             )
             if qa_count >= 2:
-                qa_sections.append({"header": current_section, "content": part})
+                qa_sections.append(
+                    {"header": current_section, "content": part})
 
     qa_percentage = (
-        int((len(qa_sections) / total_sections) * 100) if total_sections > 0 else 0
+        int((len(qa_sections) / total_sections)
+            * 100) if total_sections > 0 else 0
     )
 
     # Extract question types and notable exchanges

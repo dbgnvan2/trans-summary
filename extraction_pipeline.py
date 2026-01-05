@@ -104,14 +104,53 @@ def _normalize_headers(text: str) -> str:
     """Ensure standard headers for key sections."""
     # Matches lines that look like headers:
     # ^ (start), optional #, optional *, "Topics", optional *, optional :, space*, $ (end)
-    
+
     # Normalize Topics
-    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$', '## Topics', text, flags=re.MULTILINE|re.IGNORECASE)
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$',
+                  '## Topics', text, flags=re.MULTILINE | re.IGNORECASE)
     # Normalize Key Themes
-    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Themes\b.*$', '## Key Themes', text, flags=re.MULTILINE|re.IGNORECASE)
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Themes\b.*$',
+                  '## Key Themes', text, flags=re.MULTILINE | re.IGNORECASE)
     # Normalize Key Terms
-    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Terms\b.*$', '## Key Terms', text, flags=re.MULTILINE|re.IGNORECASE)
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Terms\b.*$',
+                  '## Key Terms', text, flags=re.MULTILINE | re.IGNORECASE)
     return text
+
+
+def _clean_bowen_output(text: str) -> str:
+    """
+    Cleans the raw output from the LLM for Bowen references.
+    Removes any leading heading like "## Bowen References" and ensures each
+    reference starts with '> '.
+    Also strips list markers (1., -, *) to ensure clean blockquote format.
+    """
+    lines = text.strip().split('\n')
+    cleaned_lines = []
+
+    # Remove leading heading if present
+    if lines and re.match(r'^\s*#+\s*Bowen\s+References', lines[0], re.IGNORECASE):
+        lines.pop(0)  # Remove the heading line
+        # Also remove any potential blank lines or separator lines that might follow
+        while lines and (not lines[0].strip() or lines[0].strip() == '---'):
+            lines.pop(0)
+
+    for line in lines:
+        stripped_line = line.strip()
+        if stripped_line:
+            # Remove existing blockquote marker to clean up what follows
+            if stripped_line.startswith('>'):
+                content = stripped_line[1:].strip()
+            else:
+                content = stripped_line
+
+            # Remove list markers (1., -, *)
+            # Matches "1. ", "1) ", "- ", "* " at start of content
+            content = re.sub(r'^(?:\d+[\.\)]|[-*])\s+', '', content)
+
+            # Re-add blockquote marker
+            cleaned_lines.append(f"> {content}")
+
+    return "\n".join(cleaned_lines)
 
 
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
@@ -300,7 +339,10 @@ def extract_bowen_references_from_transcript(
             **call_kwargs,
         )
 
-        final_content = response
+        final_content = _clean_bowen_output(response)
+        # Ensure header is present for standard parsing
+        final_content = f"## Bowen References\n\n{final_content}"
+
         stem = (
             Path(formatted_filename)
             .stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
@@ -326,6 +368,7 @@ def generate_structured_summary(
     summary_target_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT,
     logger=None,
     transcript_system_message=None,
+    model: str = config.AUX_MODEL,
 ) -> bool:
     """Generate a structured summary using the pipeline."""
     if logger is None:
@@ -388,7 +431,7 @@ def generate_structured_summary(
 
         client = anthropic.Anthropic(api_key=api_key)
         summary_text = summary_pipeline.generate_summary(
-            summary_input, client, system=transcript_system_message
+            summary_input, client, model=model, system=transcript_system_message
         )
 
         output_path = (
@@ -405,7 +448,7 @@ def generate_structured_summary(
 
 
 def generate_structured_abstract(
-    base_name: str, logger=None, transcript_system_message=None
+    base_name: str, logger=None, transcript_system_message=None, model: str = config.AUX_MODEL
 ) -> bool:
     """
     Generate an abstract using the structured pipeline.
@@ -478,7 +521,7 @@ def generate_structured_abstract(
 
         client = anthropic.Anthropic(api_key=api_key)
         abstract_text = abstract_pipeline.generate_abstract(
-            abstract_input, client, system=transcript_system_message
+            abstract_input, client, model=model, system=transcript_system_message
         )
 
         output_path = (

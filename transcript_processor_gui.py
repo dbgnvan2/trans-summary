@@ -959,7 +959,7 @@ class TranscriptProcessorGUI:
         # Step 1: Format & Validate
         self.log("\n--- STEP 1: Formatting ---")
         # Use config.settings.FORMATTING_MODEL
-        if not pipeline.format_transcript(self.formatted_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
+        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
             return False
 
         # Step 1b: Header Validation
