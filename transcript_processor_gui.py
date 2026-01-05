@@ -440,14 +440,16 @@ class TranscriptProcessorGUI:
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
         self.base_name = self.selected_file.stem
-        self.formatted_file = config.PROJECTS_DIR / self.base_name /
-            f"{self.base_name}{config.SUFFIX_FORMATTED}"
+        if self.base_name is None: # ADDED check
+            return                 # ADDED return
+        self.formatted_file = (config.PROJECTS_DIR / self.base_name / \
+                               f"{self.base_name}{config.SUFFIX_FORMATTED}")
         self.check_file_status()
         self.update_button_states()
 
     def check_file_status(self):
         self.status_text.delete(1.0, tk.END)
-        if not self.selected_file:
+        if not self.selected_file or self.base_name is None: # MODIFIED check
             return
 
         base = self.base_name
@@ -641,7 +643,7 @@ class TranscriptProcessorGUI:
         self.base_name = self.selected_file.stem
 
         # Update formatted file path expectation (though format step hasn't run yet)
-        self.formatted_file = config.PROJECTS_DIR / self.base_name /
+        self.formatted_file = config.PROJECTS_DIR / self.base_name / \
             f"{self.base_name}{config.SUFFIX_FORMATTED}"
 
         # Refresh list to show the new file
@@ -703,8 +705,8 @@ class TranscriptProcessorGUI:
 
     def do_summaries(self):
         """Generate Key Items, Bowen References, and initial Blog Post."""
-        yaml_file = config.PROJECTS_DIR / self.base_name /
-            f"{self.base_name}{config.SUFFIX_YAML}"
+        yaml_file = (config.PROJECTS_DIR / self.base_name /
+                     f"{self.base_name}{config.SUFFIX_YAML}")
         if not yaml_file.exists():
             if self.formatted_file.exists():
                 with open(self.formatted_file, 'r', encoding='utf-8') as f:
@@ -917,8 +919,8 @@ class TranscriptProcessorGUI:
 
         archives_dir = logs_dir / "archives"
         archives_dir.mkdir(exist_ok=True)
-        zip_base_name = archives_dir /
-            f"logs_{datetime.now():%Y%m%d_%H%M%S}"
+        zip_base_name = (archives_dir /
+                         f"logs_{datetime.now():%Y%m%d_%H%M%S}")
 
         try:
             shutil.make_archive(str(zip_base_name), 'zip',
