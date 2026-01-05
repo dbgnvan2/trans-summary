@@ -45,7 +45,7 @@ class EmphasisDetector:
             ("Emphasis Directives", r"(?:just to|So|Now)\s+(?:emphasize|stress)"),
             (
                 "Explicit Key/Critical",
-                r"(?:the\s+key|critical)\s+(?:thing|note|concept|idea|point)\s+(?:is|that|about)",
+                r"(?:the\s+key|critical)\s+(?:thing|note|concept|idea|point)(?:\s+(?:is|that|about))?",
             ),
         ]
 
@@ -81,7 +81,7 @@ class EmphasisDetector:
             ),
             (
                 "Bowen Attribution",
-                r"(?:Murray\s+)?Bowen\s+(?:said|wrote|thought|believed|described|called|,)",
+                r"(?:Murray\s+)?Bowen\s*(?:said|wrote|thought|believed|described|called|,)",
             ),
         ]
 

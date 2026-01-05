@@ -315,3 +315,21 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-04 20:16:38,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13179),823,1365,0,13179
 2026-01-04 20:16:56,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 12997),2156,1322,12997,0
 2026-01-04 20:17:03,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 12997),703,387,0,12997
+2026-01-04 20:53:29,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Created 3150),443,910,3150,0
+2026-01-04 20:53:31,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,130,0,0
+2026-01-04 20:54:08,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,502,0,3150
+2026-01-04 20:54:10,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,117,0,0
+2026-01-04 20:54:43,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,678,0,3150
+2026-01-04 20:54:45,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0
+2026-01-04 20:55:12,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,1061,0,3150
+2026-01-04 20:55:14,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0
+2026-01-04 20:55:57,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,865,0,3150
+2026-01-04 20:56:00,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,98,0,0
+2026-01-04 20:56:31,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,716,0,3150
+2026-01-04 20:56:33,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0
+2026-01-04 20:56:56,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,484,0,3150
+2026-01-04 20:56:58,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0
+2026-01-04 20:57:34,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 3150),443,883,0,3150
+2026-01-04 20:57:36,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0
+2026-01-04 22:05:32,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,746,0,0
+2026-01-04 22:05:35,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,94,0,0

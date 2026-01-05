@@ -300,11 +300,7 @@ def extract_bowen_references_from_transcript(
             **call_kwargs,
         )
 
-        # Clean up potential double headers from LLM
-        # Matches "# Bowen References", "# Bowen References Extracted...", etc.
-        response = re.sub(r'^#+\s*.*(?:Bowen|Reference).*$', '', response, flags=re.MULTILINE | re.IGNORECASE).strip()
-
-        final_content = f"## Bowen References\n\n{response}"
+        final_content = response
         stem = (
             Path(formatted_filename)
             .stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")

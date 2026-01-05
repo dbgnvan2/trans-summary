@@ -116,7 +116,7 @@ SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Default Model
-DEFAULT_MODEL = "claude-3-7-sonnet-20250219"
+DEFAULT_MODEL = "claude-opus-4-5-20251101"
 
 # Auxiliary Model (used for validation and specific generation tasks)
 AUX_MODEL = "claude-haiku-4-5-20251001"

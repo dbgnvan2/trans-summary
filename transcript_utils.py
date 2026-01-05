@@ -740,8 +740,21 @@ def extract_bowen_references(content: str) -> list:
     Returns:
         List of tuples: [(concept, quote), ...]
     """
-    section_content = extract_section(content, "Bowen References")
-    if not section_content:
+    # First, try to extract the main "Bowen References" section
+    outer_section_content = extract_section(content, "Bowen References")
+
+    # If the outer section is not found or is empty, try to directly extract
+    # "Bowen References Extracted from Transcript" from the main content
+    if not outer_section_content:
+        target_content = extract_section(content, "Bowen References Extracted from Transcript")
+    else:
+        # If outer section exists, search within it for the more specific header
+        target_content = extract_section(outer_section_content, "Bowen References Extracted from Transcript")
+        # Fallback if specific header not found within outer, use outer content itself
+        if not target_content:
+            target_content = outer_section_content
+
+    if not target_content:
         return []
 
     # Relaxed pattern using MULTILINE mode
@@ -750,7 +763,7 @@ def extract_bowen_references(content: str) -> list:
     # - **Label**: "Quote" (colon outside bold)
     # - Label: "Quote" (no bold)
     quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'  # noqa
-    quotes = re.findall(quote_pattern, section_content, flags=re.MULTILINE)
+    quotes = re.findall(quote_pattern, target_content, flags=re.MULTILINE)
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 

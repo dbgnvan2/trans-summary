@@ -2,7 +2,7 @@ import re
 import unittest
 
 # The function to test is in pipeline.py
-from pipeline import strip_sic_annotations
+from formatting_pipeline import strip_sic_annotations
 
 
 class TestFormattingHelpers(unittest.TestCase):
