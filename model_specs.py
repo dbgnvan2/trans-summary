@@ -10,75 +10,93 @@ PRICING = {
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
-        "cache_read": 1.50,
+        "cache_read": 1.50
     },
     "claude-sonnet-4-5-20250929": {
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
-        "cache_read": 0.30,
+        "cache_read": 0.30
     },
     "claude-haiku-4-5-20251001": {
         "input": 0.25,
         "output": 1.25,
         "cache_write": 0.30,
-        "cache_read": 0.03,
+        "cache_read": 0.03
+    },
+    "claude-opus-4-1-20250805": {
+        "input": 15.00,
+        "output": 75.00,
+        "cache_write": 18.75,
+        "cache_read": 1.50
+    },
+    "claude-opus-4-20250514": {
+        "input": 15.00,
+        "output": 75.00,
+        "cache_write": 18.75,
+        "cache_read": 1.50
+    },
+    "claude-sonnet-4-20250514": {
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30
     },
     "claude-3-7-sonnet-20250219": {
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
-        "cache_read": 0.30,
+        "cache_read": 0.30
     },
     "claude-3-5-sonnet": {
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
-        "cache_read": 0.30,
+        "cache_read": 0.30
     },
     "claude-3-5-sonnet-20241022": {
         "input": 3.00,
         "output": 15.00,
         "cache_write": 3.75,
-        "cache_read": 0.30,
+        "cache_read": 0.30
     },
     "claude-3-opus": {
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
-        "cache_read": 1.50,
+        "cache_read": 1.50
     },
     "claude-3-opus-20240229": {
         "input": 15.00,
         "output": 75.00,
         "cache_write": 18.75,
-        "cache_read": 1.50,
+        "cache_read": 1.50
     },
     "claude-3-haiku": {
         "input": 0.25,
         "output": 1.25,
         "cache_write": 0.30,
-        "cache_read": 0.03,
+        "cache_read": 0.03
     },
     "claude-3-haiku-20240307": {
         "input": 0.25,
         "output": 1.25,
         "cache_write": 0.30,
-        "cache_read": 0.03,
+        "cache_read": 0.03
     },
     # Fallbacks / Aliases
     "claude-3-5-haiku": {
         "input": 1.00,
         "output": 5.00,
         "cache_write": 1.25,
-        "cache_read": 0.10,
+        "cache_read": 0.10
     },
     "claude-3-5-haiku-20241022": {
         "input": 1.00,
         "output": 5.00,
         "cache_write": 1.25,
-        "cache_read": 0.10,
-    },
+        "cache_read": 0.10
+    }
 }
 
 

@@ -4,19 +4,6 @@ This module acts as a facade, orchestrating the business logic by delegating
 to specialized pipeline modules.
 """
 
-from formatting_pipeline import (
-    add_yaml,
-    format_transcript,
-    validate_format,
-)
-from validation_pipeline import (
-    validate_abstract_coverage,
-    validate_headers,
-    validate_summary_coverage,
-)
-from validation_pipeline import (
-    validate_abstract_legacy as validate_abstract,  # Legacy
-)
 from extraction_pipeline import (
     _load_formatted_transcript,  # Helper used by CLI scripts
     extract_bowen_references_from_transcript,
@@ -25,6 +12,11 @@ from extraction_pipeline import (
     generate_structured_summary,
     summarize_transcript,
 )
+from formatting_pipeline import (
+    add_yaml,
+    format_transcript,
+    validate_format,
+)
 from html_generator import (
     generate_pdf,
     generate_simple_webpage,
@@ -32,6 +24,14 @@ from html_generator import (
 )
 from packaging_pipeline import package_transcript
 from transcript_utils import delete_logs, setup_logging
+from validation_pipeline import (
+    validate_abstract_coverage,
+    validate_headers,
+    validate_summary_coverage,
+)
+from validation_pipeline import (
+    validate_abstract_legacy as validate_abstract,  # Legacy
+)
 
 # Explicitly export symbols to prevent linters from removing them
 __all__ = [

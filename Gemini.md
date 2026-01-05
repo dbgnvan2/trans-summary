@@ -84,3 +84,8 @@ The project emphasizes correctness. Every generation step has a corresponding va
 
 - **Changing Models**:
   - Update `DEFAULT_MODEL` or `AUX_MODEL` in `config.py`.
+
+- **Testing & QA**:
+  - Always run `pytest tests` after making logic changes.
+  - Run `ruff check .` to ensure code style compliance.
+  - Add new tests in `tests/` if introducing new logic.

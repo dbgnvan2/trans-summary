@@ -40,7 +40,7 @@ def find_best_match_in_html(needle, haystack_normalized, threshold=0.85):
     # Optimization: Check window only if first word matches (optional, but speeds up large files)
     # For now, we use standard sliding window
     for i in range(len(haystack_words) - needle_len + 1):
-        window = " ".join(haystack_words[i : i + needle_len])
+        window = ' '.join(haystack_words[i:i + needle_len])
         ratio = SequenceMatcher(None, needle_normalized, window).ratio()
 
         if ratio > best_ratio:
@@ -54,33 +54,33 @@ def find_best_match_in_html(needle, haystack_normalized, threshold=0.85):
 
 def validate_html_highlights(base_name: str, logger=None):
     if logger is None:
-        logger = setup_logging("validate_html_highlights")
+        logger = setup_logging('validate_html_highlights')
 
-    html_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_WEBPAGE}"
+    html_file = config.PROJECTS_DIR / base_name / \
+        f"{base_name}{config.SUFFIX_WEBPAGE}"
 
     if not html_file.exists():
-        logger.error(f"HTML file not found: {html_file}")
+        logger.error("HTML file not found: %s", html_file)
         return False
 
-    logger.info(f"Validating HTML content for: {html_file.name}")
+    logger.info("Validating HTML content for: %s", html_file.name)
 
     # Read and normalize HTML (stripping tags to check text presence)
-    html_content = html_file.read_text(encoding="utf-8")
+    html_content = html_file.read_text(encoding='utf-8')
     html_normalized = normalize_text(html_content, aggressive=True)
 
     # Load items to validate
     bowen_refs = load_bowen_references(base_name)
     emphasis_items = load_emphasis_items(base_name)
 
-    all_items = [("Bowen Ref", label, quote) for label, quote in bowen_refs] + [
-        ("Emphasis", label, quote) for label, quote in emphasis_items
-    ]
+    all_items = [("Bowen Ref", label, quote) for label, quote in bowen_refs] + \
+                [("Emphasis", label, quote) for label, quote in emphasis_items]
 
     if not all_items:
         logger.warning("No items found to validate.")
         return True
 
-    logger.info(f"Checking {len(all_items)} items against HTML content...")
+    logger.info("Checking %d items against HTML content...", len(all_items))
 
     found_count = 0
     missing_count = 0
@@ -88,19 +88,21 @@ def validate_html_highlights(base_name: str, logger=None):
     for type_, label, quote in all_items:
         # We use a slightly lower threshold for HTML because of potential
         # spacing/tag artifacts that normalization might miss
-        ratio, _ = find_best_match_in_html(quote, html_normalized, threshold=0.80)
+        ratio, _ = find_best_match_in_html(
+            quote, html_normalized, threshold=0.80)
 
         if ratio >= 0.85:
             found_count += 1
             # logger.info(f"  ✓ Found {type_}: {label}")
         else:
             missing_count += 1
-            logger.error(f"  ❌ MISSING in HTML {type_}: {label}")
-            logger.error(f"     Quote: {quote[:100]}...")
-            logger.error(f"     Best match ratio: {ratio:.2f}")
+            logger.error("  ❌ MISSING in HTML %s: %s", type_, label)
+            logger.error("     Quote: %s...", quote[:100])
+            logger.error("     Best match ratio: %.2f", ratio)
 
     logger.info("-" * 40)
-    logger.info(f"Validation Complete: {found_count} found, {missing_count} missing.")
+    logger.info("Validation Complete: %d found, %d missing.",
+                found_count, missing_count)
     return missing_count == 0
 
 

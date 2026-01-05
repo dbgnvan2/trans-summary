@@ -5,6 +5,7 @@ Extracts raw text, formats it via LLM, and performs word-level validation.
 
 import os
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
@@ -66,9 +67,8 @@ def format_transcript_with_claude(
     if logger:
         logger.info("Sending transcript to Claude...")
         word_count = len(raw_transcript.split())
-        logger.info(
-            f"Transcript length: {word_count:,} words, {len(raw_transcript):,} characters"
-        )
+        logger.info("Transcript length: %d words, %d characters",
+                    word_count, len(raw_transcript))
         logger.info("Waiting for Claude response...")
     else:
         print("Sending transcript to Claude...", flush=True)
@@ -136,7 +136,8 @@ def format_transcript(
 
     try:
         if not config.SOURCE_DIR.exists():
-            raise FileNotFoundError(f"Source directory not found: {config.SOURCE_DIR}")
+            raise FileNotFoundError(
+                f"Source directory not found: {config.SOURCE_DIR}")
 
         logger.info(
             f"Loading prompt template from: {config.TRANSCRIPTS_BASE / 'prompts'}"
@@ -156,7 +157,8 @@ def format_transcript(
         if not check_token_budget(
             full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger
         ):
-            logger.error("Token budget exceeded for formatting. Aborting API call.")
+            logger.error(
+                "Token budget exceeded for formatting. Aborting API call.")
             return False
 
         formatted_content = format_transcript_with_claude(
@@ -165,19 +167,20 @@ def format_transcript(
 
         formatted_content, sic_count = strip_sic_annotations(formatted_content)
         if sic_count > 0 and logger:
-            logger.info(f"Removed {sic_count} [sic] annotation(s).")
+            logger.info("Removed %d [sic] annotation(s).", sic_count)
 
-        output_path = save_formatted_transcript(formatted_content, raw_filename)
+        output_path = save_formatted_transcript(
+            formatted_content, raw_filename)
 
         logger.info("✓ Success!")
-        logger.info(f"Formatted transcript saved to: {output_path}")
+        logger.info("Formatted transcript saved to: %s", output_path)
         return True
 
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
         raise e
     except Exception as e:
-        logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return False
 
 
@@ -214,7 +217,7 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         logger = setup_logging("add_yaml")
 
     try:
-        logger.info(f"Adding YAML to {transcript_filename}")
+        logger.info("Adding YAML to %s", transcript_filename)
 
         meta = parse_filename_metadata(transcript_filename)
         stem = meta["stem"]
@@ -229,10 +232,11 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
 
-        output_path = config.PROJECTS_DIR / stem / f"{meta['stem']}{config.SUFFIX_YAML}"
+        output_path = config.PROJECTS_DIR / stem / \
+            f"{meta['stem']}{config.SUFFIX_YAML}"
         output_path.write_text(final_content, encoding="utf-8")
 
-        logger.info(f"✓ Success! YAML added. Output saved to: {output_path}")
+        logger.info("✓ Success! YAML added. Output saved to: %s", output_path)
 
         # Validation: Log first 20 lines
         logger.info("\n--- YAML Validation (First 20 lines) ---")
@@ -247,7 +251,7 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return False
 
 
@@ -317,6 +321,15 @@ def _compare_transcripts(
             i += 1
             j += 1
         else:
+            # Check for Fuzzy Match (Typo correction)
+            # e.g. "livel" vs "life"
+            if len(a_n) > 0 and len(b_norm[j]) > 0 and a_n[0] == b_norm[j][0]:
+                matcher = SequenceMatcher(None, a_n, b_norm[j])
+                if matcher.ratio() > 0.65:
+                    i += 1
+                    j += 1
+                    continue
+
             # Bidirectional Lookahead Strategy
             b_match_offset = None
             for offset in range(1, max_lookahead + 1):
@@ -393,12 +406,15 @@ def _compare_transcripts(
                 stopped_reason = "mismatch_ratio"
                 break
 
+    mismatch_count = len(mismatches)
+    mismatch_ratio = mismatch_count / checked if checked > 0 else 0.0
+
     return {
         "a_word_count": len(a_words),
         "b_word_count": len(b_words),
         "checked_words": checked,
-        "mismatch_count": len(mismatches),
-        "mismatch_ratio": mismatch_ratio if checked > 0 else 0.0,
+        "mismatch_count": mismatch_count,
+        "mismatch_ratio": mismatch_ratio,
         "mismatches": mismatches,
         "stopped_reason": stopped_reason,
     }
@@ -437,7 +453,8 @@ def validate_format(
             raw_text,
             flags=re.MULTILINE,
         )
-        raw_clean = re.sub(r"^\s*Transcribed by\b.*", "", raw_clean, flags=re.MULTILINE)
+        raw_clean = re.sub(r"^\s*Transcribed by\b.*", "",
+                           raw_clean, flags=re.MULTILINE)
 
         raw_clean = re.sub(
             r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?",
@@ -447,10 +464,34 @@ def validate_format(
         )
         raw_clean = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", raw_clean)
 
-        formatted_clean, _ = re.subn(r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
+        # Remove procedural speech from raw text to avoid validation errors
+        # These are commonly removed by the formatting model
+        procedural_patterns = [
+            r"\bnext slide(?:,? please)?\.?",
+            r"\bnext one(?:,? please)?\.?",
+            r"\bslide please\.?",
+            r"\bintro\b",  
+            r"(?:^|[\.\!\?]\s+)so(?:,)?\s+",   # Sentence-starting 'So'
+            r"(?:^|[\.\!\?]\s+)okay(?:,)?\s+", # Sentence-starting 'Okay'
+            r"(?:^|[\.\!\?]\s+)right(?:,)?\s+", # Sentence-starting 'Right'
+            r"\bjust to emphasize(?: this)?",
+            r"\bone please",
+            r"\bthere you see",
+            r"\bthanks\.?",
+            r"\bnext(?:,)?\s+",
+            r"\bone(?:,)?\s+",
+            r"\bslide(?:,)?\s+",
+            r"\bplease\.?"
+        ]
+        for p in procedural_patterns:
+            raw_clean = re.sub(p, " ", raw_clean, flags=re.IGNORECASE | re.MULTILINE)
+
+        formatted_clean, _ = re.subn(
+            r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
         formatted_clean = re.sub(r"\*\*[^*]+:\*\*\s*", "", formatted_clean)
 
-        formatted_clean = re.sub(r"^\s*#+.*$", "", formatted_clean, flags=re.MULTILINE)
+        formatted_clean = re.sub(
+            r"^\s*#+.*$", "", formatted_clean, flags=re.MULTILINE)
 
         skip_words = set()
         if skip_words_file:
@@ -475,28 +516,25 @@ def validate_format(
                 logger.info(f"{key}: {value}")
 
         if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
-            logger.error(
-                f"Validation FAILED: Mismatch ratio {result['mismatch_ratio']:.2%} exceeds limit ({config.VALIDATION_MISMATCH_RATIO:.1%})."
-            )
+            logger.error("Validation FAILED: Mismatch ratio %.2f%% exceeds limit (%.1f%%).",
+                         result['mismatch_ratio'] * 100, config.VALIDATION_MISMATCH_RATIO * 100)
             for m in result["mismatches"][:20]:
-                logger.error(
-                    f"  Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'"
-                )
+                logger.error("  Mismatch (%s): A[%s]='%s' vs B[%s]='%s'", m.get(
+                    'reason', 'Unknown'), m['a_index'], m['a_word'], m['b_index'], m.get('b_word'))
             return False
 
         if result["mismatch_count"] > 0:
-            logger.warning(
-                f"Validation PASSED with warnings: {result['mismatch_count']} mismatches ({result['mismatch_ratio']:.2%})."
-            )
+            logger.warning("Validation PASSED with warnings: %d mismatches (%.2f%%).",
+                           result['mismatch_count'], result['mismatch_ratio'] * 100)
             for m in result["mismatches"][:10]:
-                logger.warning(
-                    f"  Ignored Mismatch ({m.get('reason', 'Unknown')}): A[{m['a_index']}]='{m['a_word']}' vs B[{m['b_index']}]='{m.get('b_word')}'"
-                )
+                logger.warning("  Ignored Mismatch (%s): A[%s]='%s' vs B[%s]='%s'", m.get(
+                    'reason', 'Unknown'), m['a_index'], m['a_word'], m['b_index'], m.get('b_word'))
         else:
             logger.info("Validation PASSED: No mismatches found.")
 
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred during format validation: {e}", exc_info=True)
+        logger.error(
+            "An error occurred during format validation: %s", e, exc_info=True)
         return False

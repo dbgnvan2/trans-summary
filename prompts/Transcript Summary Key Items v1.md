@@ -17,8 +17,8 @@ Your response MUST contain the following markdown sections, in this exact order.
 ## Key Themes
 
 - Identify 2-3 major cross-cutting themes.
-- Use a numbered list.
-- Format: `1. **Theme Name**: Description of the theme.`
+- For each theme, create a sub-header: `### Theme Name`
+- Below the sub-header, write a description of the theme.
 
 ---
 

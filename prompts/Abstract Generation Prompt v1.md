@@ -5,7 +5,7 @@ You will receive a JSON object with structured data extracted from a transcript.
 Generate a ~{target_word_count} word abstract as a single paragraph containing these components in sequence:
 
 Context (1-2 sentences): Speaker, event type, subject domain
-Central Argument (1-2 sentences): The opening_purpose restated as thesis
+Central Argument (1-2 sentences): The opening_purpose restated as thesis. Unless provided the event type is always "webinar"; or "conference" if indicated in the transcript. 
 Key Content (2-3 sentences): Cover the topics in order, stating what the speaker does with each
 Conclusions (1-2 sentences): The closing_conclusion restated
 Q&A note (1 sentence, only if qa_percentage > 20): Mention qa_topics

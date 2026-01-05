@@ -51,6 +51,7 @@ A18[92-98%] VULNERABILITY: "slow learner", "humbling experience", "I wish I'd se
 A19[90-96%] NARRATIVE CLIMAX: "that woke me up", "I suddenly recognized", "incredibly useful"
 A20[87-93%] DIFFICULTY: "so difficult to pull off", "it's hard to"
 A21[92-98%] CERTAINTY: "I know within me", "like the back of my hand"
+A22[92-98%] EMPHASIS: "just to emphasize", "that's the key note", "that's a key note"
 
 ═══════════════════════════════════════════════════════════════
 IMPLICIT MARKERS (16 categories) - rank shown:

@@ -90,6 +90,28 @@ Global settings are managed in `config.py`. You can adjust:
 - **Token Limits**: Safety limits for API calls.
 - **Validation Thresholds**: Strictness of fuzzy matching and coverage checks.
 
+## Development & Testing
+
+### Setup
+Install development dependencies:
+```bash
+pip install -r requirements.txt
+pip install ruff pytest
+```
+
+### Running Tests
+This project uses `pytest` for unit testing.
+```bash
+pytest tests
+```
+
+### Linting & Formatting
+This project uses `ruff` for fast linting and formatting.
+```bash
+ruff check .
+ruff format .
+```
+
 ## Validation Pipeline
 
 The system employs a "Trust but Verify" approach:

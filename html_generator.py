@@ -21,9 +21,9 @@ from transcript_utils import (
     validate_input_file,
 )
 
-# ============================================================================ 
+# ============================================================================
 # WEBPAGE GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _extract_webpage_metadata(topics_themes_file):
@@ -54,14 +54,16 @@ def _extract_webpage_metadata(topics_themes_file):
 def _load_abstract(base_name):
     """Load abstract from generated file, falling back to All Key Items."""
     gen_file = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+        config.PROJECTS_DIR / base_name /
+        f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
     )
     if gen_file.exists():
         return gen_file.read_text(encoding="utf-8")
 
     # Fallback: Extract from All Key Items
     topics_themes_file = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+        config.PROJECTS_DIR / base_name /
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     )
     if topics_themes_file.exists():
         content = topics_themes_file.read_text(encoding="utf-8")
@@ -73,20 +75,23 @@ def _load_abstract(base_name):
 def _load_summary(base_name):
     """Load summary from generated or initial file."""
     gen_file = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
+        config.PROJECTS_DIR / base_name /
+        f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
     )
     if gen_file.exists():
         content = gen_file.read_text(encoding="utf-8")
         content = strip_yaml_frontmatter(content)
         # Remove "Summary" header if present
-        content = re.sub(r"^#+\s*Summary\s*", "", content, flags=re.IGNORECASE).strip()
+        content = re.sub(r"^#+\s*Summary\s*", "", content,
+                         flags=re.IGNORECASE).strip()
         # Stop at next section header (Topics, etc.) to prevent inclusion of other sections
         content = re.split(r"^##\s+", content, flags=re.MULTILINE)[0].strip()
         return content
 
     # Fallback: Extract from All Key Items
     topics_themes_file = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+        config.PROJECTS_DIR / base_name /
+        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     )
     if topics_themes_file.exists():
         content = topics_themes_file.read_text(encoding="utf-8")
@@ -377,7 +382,8 @@ def generate_webpage(base_name: str) -> bool:
     logger = setup_logging("generate_webpage")
     try:
         formatted_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         topics_themes_file = (
             config.PROJECTS_DIR
@@ -385,7 +391,8 @@ def generate_webpage(base_name: str) -> bool:
             / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         )
         output_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_WEBPAGE}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_WEBPAGE}"
         )
 
         validate_input_file(formatted_file)
@@ -402,8 +409,7 @@ def generate_webpage(base_name: str) -> bool:
         # Override abstract with the best available version
         metadata["abstract"] = _load_abstract(base_name)
         logger.info(
-            f"Found {len(bowen_refs)} Bowen references and {len(emphasis_items)} emphasis items."
-        )
+            "Found %d Bowen references and %d emphasis items.", len(bowen_refs), len(emphasis_items))
 
         logger.info("Highlighting transcript...")
         formatted_html = markdown_to_html(formatted_content)
@@ -429,17 +435,17 @@ def generate_webpage(base_name: str) -> bool:
 
         output_file.write_text(html, encoding="utf-8")
 
-        logger.info(f"✓ Webpage generated successfully: {output_file}")
+        logger.info("✓ Webpage generated successfully: %s", output_file)
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return False
 
 
-# ============================================================================ 
+# ============================================================================
 # SIMPLE WEBPAGE GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _extract_abstract(topics_themes_file):
@@ -499,16 +505,19 @@ def _extract_key_term_definitions(topics_themes_file):
 
     # Normalize Key Terms header to ## for extraction if it appears as #
     if re.search(r"^# Key Terms", content, re.MULTILINE):
-        content = re.sub(r"^# Key Terms", "## Key Terms", content, flags=re.MULTILINE)
+        content = re.sub(r"^# Key Terms", "## Key Terms",
+                         content, flags=re.MULTILINE)
 
     # Extract ONLY the Key Terms section to avoid picking up Topics/Themes
     key_terms_section = extract_section(content, "Key Terms")
     if not key_terms_section:
         # Fallback for alternative header
-        key_terms_section = extract_section(content, "Part 2: Key Term Definitions")
+        key_terms_section = extract_section(
+            content, "Part 2: Key Term Definitions")
 
     term_pattern = r"###\s+(.+?)\n(.*?)(?=\n###|\Z)"
-    matches = re.findall(term_pattern, key_terms_section, re.DOTALL | re.MULTILINE)
+    matches = re.findall(term_pattern, key_terms_section,
+                         re.DOTALL | re.MULTILINE)
 
     results = []
     for name, raw_def in matches:
@@ -533,7 +542,8 @@ def _extract_key_term_definitions(topics_themes_file):
                 flags=re.IGNORECASE,
             ).strip()
 
-        results.append({"name": name, "definition": clean_def, "type": def_type})
+        results.append(
+            {"name": name, "definition": clean_def, "type": def_type})
 
     return results
 
@@ -598,7 +608,7 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
                 if tok[j] == "&":
                     end_entity = tok.find(";", j, j + 10)
                     if end_entity != -1:
-                        entity = tok[j : end_entity + 1]
+                        entity = tok[j: end_entity + 1]
                         decoded = unescape(entity)
                         for char in decoded:
                             search_chars.append(char)
@@ -624,22 +634,26 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
         n_quote = len(quote_words)
         text_positions = [m for m in re.finditer(r"\b\w+\b", search_text)]
         text_words = [m.group(0) for m in text_positions]
-        text_words_norm = [normalize_text(w, aggressive=True) for w in text_words]
+        text_words_norm = [normalize_text(
+            w, aggressive=True) for w in text_words]
 
         for i in range(len(text_words_norm) - n_quote + 1):
-            if text_words_norm[i : i + n_quote] == quote_words:
+            if text_words_norm[i: i + n_quote] == quote_words:
                 start_char = text_positions[i].start()
                 end_char = text_positions[i + n_quote - 1].end()
                 return (start_char, end_char)
 
         text_positions = [m for m in re.finditer(r"\b\w+\b", search_text)]
         text_words = [m.group(0) for m in text_positions]
-        text_words_norm = [normalize_text(w, aggressive=True) for w in text_words]
+        text_words_norm = [normalize_text(
+            w, aggressive=True) for w in text_words]
 
-        matcher = SequenceMatcher(None, text_words_norm, quote_words, autojunk=False)
+        matcher = SequenceMatcher(
+            None, text_words_norm, quote_words, autojunk=False)
 
         # Get all matching blocks (sequences of matching words)
-        matching_blocks = [b for b in matcher.get_matching_blocks() if b.size > 0]
+        matching_blocks = [
+            b for b in matcher.get_matching_blocks() if b.size > 0]
         if not matching_blocks:
             return (None, None)
 
@@ -668,7 +682,7 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
 
             if current_score > best_score:
                 best_score = current_score
-                best_cluster = matching_blocks[left : right + 1]
+                best_cluster = matching_blocks[left: right + 1]
 
         # Calculate match ratio based on the best cluster found
         match_ratio = best_score / len(quote_words) if quote_words else 0
@@ -729,7 +743,8 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
         end_text = tokens[end_tok]
         tokens[end_tok] = end_text[:end_off] + close_tag + end_text[end_off:]
         start_text = tokens[start_tok]
-        tokens[start_tok] = start_text[:start_off] + open_tag + start_text[start_off:]
+        tokens[start_tok] = start_text[:start_off] + \
+            open_tag + start_text[start_off:]
 
     def add_bowen_label(existing, label):
         if not existing[3]:
@@ -1119,7 +1134,8 @@ def generate_simple_webpage(base_name: str) -> bool:
     logger = setup_logging("generate_simple_webpage")
     try:
         formatted_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         topics_themes_file = (
             config.PROJECTS_DIR
@@ -1168,17 +1184,17 @@ def generate_simple_webpage(base_name: str) -> bool:
 
         output_file.write_text(html, encoding="utf-8")
 
-        logger.info(f"✓ Simple webpage generated successfully: {output_file}")
+        logger.info("✓ Simple webpage generated successfully: %s", output_file)
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return False
 
 
-# ============================================================================ 
+# ============================================================================
 # PDF GENERATION
-# ============================================================================ 
+# ============================================================================
 
 
 def _sort_key_term_sections(content: str) -> str:
@@ -1236,7 +1252,8 @@ def _extract_pdf_metadata(topics_themes_file):
             flags=re.MULTILINE,
         ).strip()
         if definitions_content:
-            metadata["key_terms"] = _sort_key_term_sections(definitions_content)
+            metadata["key_terms"] = _sort_key_term_sections(
+                definitions_content)
 
     return metadata
 
@@ -1511,7 +1528,8 @@ def generate_pdf(base_name: str) -> bool:
 
     try:
         formatted_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         topics_themes_file = (
             config.PROJECTS_DIR
@@ -1557,9 +1575,10 @@ def generate_pdf(base_name: str) -> bool:
 
         logger.info("Generating PDF...")
         HTML(string=html_content).write_pdf(output_file)
-        logger.info(f"✓ PDF generated successfully: {output_file}")
+        logger.info("✓ PDF generated successfully: %s", output_file)
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred during PDF generation: {e}", exc_info=True)
+        logger.error("An error occurred during PDF generation: %s",
+                     e, exc_info=True)
         return False

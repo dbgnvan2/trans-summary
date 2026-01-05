@@ -317,9 +317,54 @@ def parse_section_range(sections_str: str) -> list[int]:
 
 
 def parse_themes(themes_markdown: str) -> list[dict]:
-    """Parse Key Themes using a robust line-based approach."""
+    """
+    Parse Key Themes using a robust line-based approach.
+    Supports both new header format (### Theme) and legacy numbered lists (1. **Theme**:).
+    """
     themes = []
 
+    # Strategy 1: Check for header-based structure (###)
+    # This is the new standard as of Jan 2026
+    if "###" in themes_markdown:
+        # Split by level 3 headers
+        blocks = [
+            b.strip() for b in re.split(r"(?:^|\n)###\s+", themes_markdown) if b.strip()
+        ]
+        
+        for block in blocks:
+            lines = block.split("\n")
+            if not lines:
+                continue
+                
+            # First line is the theme name
+            name = lines[0].strip()
+            sections = ""
+            description_lines = []
+            
+            for line in lines[1:]:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                 # Check for Source Sections indicator
+                if "Source Section" in line:
+                    # Extract sections if possible
+                    sect_match = re.search(r"Sections:?\s*([^*]+)", line, re.IGNORECASE)
+                    if sect_match:
+                        sections = sect_match.group(1).strip().rstrip("*_")
+                    continue
+                    
+                description_lines.append(line)
+                
+            description = " ".join(description_lines).strip()
+            if name and description:
+                themes.append(
+                    {"name": name, "description": description, "sections": sections}
+                )
+        
+        return themes
+
+    # Strategy 2: Fallback to numbered list parsing (Legacy)
     # Regex to find the start of a theme
     header_pattern = r"(?:^|\n)(\d+)\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*"
 

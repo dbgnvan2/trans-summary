@@ -62,7 +62,8 @@ def _fill_prompt_template(
     """Fill in the prompt template."""
     placeholders = {**metadata, **kwargs}
     for key, value in placeholders.items():
-        pattern = re.compile(r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
+        pattern = re.compile(
+            r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
         template = pattern.sub(lambda m: str(value), template)
     template = template.replace("{{insert_transcript_text_here}}", transcript)
     return template
@@ -87,7 +88,7 @@ def _generate_summary_with_claude(
         client=client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=32000,
+        max_tokens=config.MAX_TOKENS_EXTRACTION,
         temperature=temperature,
         stream=True,
         min_length=min_length,
@@ -97,6 +98,20 @@ def _generate_summary_with_claude(
         **kwargs,
     )
     return message.content[0].text
+
+
+def _normalize_headers(text: str) -> str:
+    """Ensure standard headers for key sections."""
+    # Matches lines that look like headers:
+    # ^ (start), optional #, optional *, "Topics", optional *, optional :, space*, $ (end)
+    
+    # Normalize Topics
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$', '## Topics', text, flags=re.MULTILINE|re.IGNORECASE)
+    # Normalize Key Themes
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Themes\b.*$', '## Key Themes', text, flags=re.MULTILINE|re.IGNORECASE)
+    # Normalize Key Terms
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Terms\b.*$', '## Key Terms', text, flags=re.MULTILINE|re.IGNORECASE)
+    return text
 
 
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
@@ -163,7 +178,7 @@ def _process_key_items_output(all_key_items_path: Path, logger):
 
         combined_path = project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
         combined_path.write_text(combined_output, encoding="utf-8")
-        logger.info(f"  ✓ Topics, Themes, Terms → {combined_path.name}")
+        logger.info("  ✓ Topics, Themes, Terms → %s", combined_path.name)
 
 
 # Main Exported Functions
@@ -180,8 +195,10 @@ def extract_scored_emphasis(
         logger = setup_logging("extract_scored_emphasis")
 
     try:
-        logger.info(f"Starting Scored Emphasis Extraction for: {formatted_filename}")
-        prompt_template = _load_summary_prompt(config.PROMPT_EMPHASIS_SCORING_FILENAME)
+        logger.info("Starting Scored Emphasis Extraction for: %s",
+                    formatted_filename)
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_EMPHASIS_SCORING_FILENAME)
 
         call_kwargs = {}
         if transcript_system_message:
@@ -208,11 +225,10 @@ def extract_scored_emphasis(
             _save_summary(response, formatted_filename, "emphasis-scored")
             return False
 
-        logger.info(f"Extracted {len(items)} scored emphasis items.")
+        logger.info("Extracted %d scored emphasis items.", len(items))
 
         validated_items = []
         final_content_lines = []
-        bowen_items = []
         for item in items:
             is_valid, issues = validate_emphasis_item(item)
             if is_valid:
@@ -221,45 +237,25 @@ def extract_scored_emphasis(
                     f"[{item['type']} - {item['category']} - Rank: {item['score']}%] Concept: {item['concept']}"
                 )
                 final_content_lines.append(f'"{item["quote"]}"')
-
-                if (
-                    "bowen" in item["concept"].lower()
-                    or "bowen" in item["quote"].lower()
-                ):
-                    bowen_items.append(item)
             else:
-                logger.warning(
-                    f"Filtered out invalid emphasis item: {', '.join(issues)}"
-                )
+                logger.warning("Filtered out invalid emphasis item: %s",
+                               ', '.join(issues))
 
-        logger.info(f"Retained {len(validated_items)} items after validation.")
+        logger.info("Retained %d items after validation.",
+                    len(validated_items))
         final_content = (
             "\n\n".join(final_content_lines) if validated_items else response
         )
         output_path = _save_summary(
             final_content, formatted_filename, "emphasis-scored"
         )
-        logger.info(f"✓ Scored emphasis saved to: {output_path}")
+        logger.info("✓ Scored emphasis saved to: %s", output_path)
 
-        if bowen_items:
-            stem = (
-                Path(formatted_filename)
-                .stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
-                .replace(config.SUFFIX_YAML.replace(".md", ""), "")
-            )
-            project_dir = config.PROJECTS_DIR / stem
-            bowen_output = "## Bowen References\n\n" + "\n\n".join(
-                [f'> **{item["concept"]}:** "{item["quote"]}"' for item in bowen_items]
-            )
-            bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
-            bowen_path.write_text(bowen_output, encoding="utf-8")
-            logger.info(
-                f"✓ Derived {len(bowen_items)} Bowen references from scored emphasis → {bowen_path.name}"
-            )
         return True
 
     except Exception as e:
-        logger.error(f"Error in scored emphasis extraction: {e}", exc_info=True)
+        logger.error("Error in scored emphasis extraction: %s",
+                     e, exc_info=True)
         return False
 
 
@@ -274,15 +270,18 @@ def extract_bowen_references_from_transcript(
         logger = setup_logging("extract_bowen_references")
 
     try:
-        logger.info(f"Starting Bowen Reference Extraction for: {formatted_filename}")
-        prompt_template = _load_summary_prompt(config.PROMPT_BOWEN_EXTRACTION_FILENAME)
+        logger.info("Starting Bowen Reference Extraction for: %s",
+                    formatted_filename)
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_BOWEN_EXTRACTION_FILENAME)
 
         call_kwargs = {}
         if transcript_system_message:
             full_prompt = prompt_template.replace(
                 "TRANSCRIPT:\n\n{{insert_transcript_text_here}}", ""
             ).strip()
-            full_prompt = full_prompt.replace("{{insert_transcript_text_here}}", "")
+            full_prompt = full_prompt.replace(
+                "{{insert_transcript_text_here}}", "")
             call_kwargs["system"] = transcript_system_message
         else:
             transcript = _load_formatted_transcript(formatted_filename)
@@ -301,6 +300,10 @@ def extract_bowen_references_from_transcript(
             **call_kwargs,
         )
 
+        # Clean up potential double headers from LLM
+        # Matches "# Bowen References", "# Bowen References Extracted...", etc.
+        response = re.sub(r'^#+\s*.*(?:Bowen|Reference).*$', '', response, flags=re.MULTILINE | re.IGNORECASE).strip()
+
         final_content = f"## Bowen References\n\n{response}"
         stem = (
             Path(formatted_filename)
@@ -311,13 +314,14 @@ def extract_bowen_references_from_transcript(
         bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
         bowen_path.write_text(final_content, encoding="utf-8")
 
-        num_found = len(re.findall(r"^\s*>\s*\*\*", final_content, re.MULTILINE))
-        logger.info(
-            f"✓ Found {num_found} Bowen references. Saved to: {bowen_path.name}"
-        )
+        num_found = len(re.findall(r"^\s*>\s*\*\*",
+                        final_content, re.MULTILINE))
+        logger.info("✓ Found %d Bowen references. Saved to: %s",
+                    num_found, bowen_path.name)
         return True
     except Exception as e:
-        logger.error(f"Error in Bowen reference extraction: {e}", exc_info=True)
+        logger.error("Error in Bowen reference extraction: %s",
+                     e, exc_info=True)
         return False
 
 
@@ -335,13 +339,13 @@ def generate_structured_summary(
         try:
             summary_target_word_count = int(summary_target_word_count)
         except (TypeError, ValueError):
-            logger.error(
-                f"Error: summary_target_word_count expected int, got {summary_target_word_count}"
-            )
+            logger.error("Error: summary_target_word_count expected int, got %s",
+                         summary_target_word_count)
             return False
 
         formatted_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         all_key_items_file = (
             config.PROJECTS_DIR
@@ -374,12 +378,12 @@ def generate_structured_summary(
             target_word_count=summary_target_word_count,
         )
 
-        logger.info(
-            f"Parsed {len(summary_input.body.topics)} topics and {len(summary_input.themes)} themes."
-        )
+        logger.info("Parsed %d topics and %d themes.",
+                    len(summary_input.body.topics), len(summary_input.themes))
 
         if not transcript_system_message:
-            transcript_system_message = create_system_message_with_cache(transcript)
+            transcript_system_message = create_system_message_with_cache(
+                transcript)
 
         logger.info("Generating summary via API...")
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -392,13 +396,15 @@ def generate_structured_summary(
         )
 
         output_path = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
         )
         output_path.write_text(summary_text, encoding="utf-8")
-        logger.info(f"Generated summary saved to {output_path}")
+        logger.info("Generated summary saved to %s", output_path)
         return True
     except Exception as e:
-        logger.error(f"Error generating structured summary: {e}", exc_info=True)
+        logger.error("Error generating structured summary: %s",
+                     e, exc_info=True)
         return False
 
 
@@ -413,7 +419,8 @@ def generate_structured_abstract(
 
     try:
         formatted_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         all_key_items_file = (
             config.PROJECTS_DIR
@@ -436,7 +443,8 @@ def generate_structured_abstract(
         themes_section = extract_section(extracts_content, "Key Themes")
 
         if not topics_section or not themes_section:
-            logger.error("Could not find Topics or Key Themes in All Key Items file.")
+            logger.error(
+                "Could not find Topics or Key Themes in All Key Items file.")
             return False
 
         # Calculate target word count
@@ -460,12 +468,12 @@ def generate_structured_abstract(
             )
             return False
 
-        logger.info(
-            f"Parsed {len(abstract_input.topics)} topics and {len(abstract_input.themes)} themes."
-        )
+        logger.info("Parsed %d topics and %d themes.",
+                    len(abstract_input.topics), len(abstract_input.themes))
 
         if not transcript_system_message:
-            transcript_system_message = create_system_message_with_cache(transcript)
+            transcript_system_message = create_system_message_with_cache(
+                transcript)
 
         logger.info("Generating abstract via API...")
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -478,14 +486,16 @@ def generate_structured_abstract(
         )
 
         output_path = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
         )
         output_path.write_text(abstract_text, encoding="utf-8")
-        logger.info(f"Generated abstract saved to {output_path}")
+        logger.info("Generated abstract saved to %s", output_path)
 
         return True
     except Exception as e:
-        logger.error(f"Error generating structured abstract: {e}", exc_info=True)
+        logger.error("Error generating structured abstract: %s",
+                     e, exc_info=True)
         return False
 
 
@@ -507,21 +517,24 @@ def summarize_transcript(
 
     try:
         if not config.SOURCE_DIR.exists():
-            raise FileNotFoundError(f"Source directory not found: {config.SOURCE_DIR}")
+            raise FileNotFoundError(
+                f"Source directory not found: {config.SOURCE_DIR}")
 
-        logger.info(f"Loading formatted transcript: {formatted_filename}")
+        logger.info("Loading formatted transcript: %s", formatted_filename)
         transcript = _load_formatted_transcript(formatted_filename)
         transcript_word_count = len(transcript.split())
         metadata = parse_filename_metadata(formatted_filename)
-        logger.info(f"Transcript metadata: {metadata}")
+        logger.info("Transcript metadata: %s", metadata)
 
-        transcript_system_message = create_system_message_with_cache(transcript)
+        transcript_system_message = create_system_message_with_cache(
+            transcript)
 
         all_key_items_path = None
 
         if not skip_extracts_summary:
             logger.info("PART 1: Generating Key Items...")
-            prompt_template = _load_summary_prompt(config.PROMPT_EXTRACTS_FILENAME)
+            prompt_template = _load_summary_prompt(
+                config.PROMPT_EXTRACTS_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template,
                 metadata,
@@ -548,13 +561,15 @@ def summarize_transcript(
                 system=transcript_system_message,
             )
 
+            # Enforce consistent headers
+            output = _normalize_headers(output)
+
             all_key_items_path = _save_summary(
                 output, formatted_filename, "All Key Items"
             )
             output_words = len(output.split())
-            logger.info(
-                f"✓ Key Items raw analysis saved ({output_words:,} words) to: {all_key_items_path}"
-            )
+            logger.info("✓ Key Items raw analysis saved (%d words) to: %s",
+                        output_words, all_key_items_path)
 
             _process_key_items_output(all_key_items_path, logger)
         else:
@@ -563,13 +578,13 @@ def summarize_transcript(
             # Try to guess
             stem = metadata["stem"]
             potential_path = (
-                config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}"
+                config.PROJECTS_DIR / stem /
+                f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}"
             )
             if potential_path.exists():
                 all_key_items_path = potential_path
-                logger.info(
-                    f"Skipping Key Items generation, using existing file: {all_key_items_path}"
-                )
+                logger.info("Skipping Key Items generation, using existing file: %s",
+                            all_key_items_path)
 
         if not skip_emphasis:
             logger.info("\n--- PART 2: Extracting Emphasis Items ---")
@@ -601,7 +616,7 @@ def summarize_transcript(
                 system=transcript_system_message,
             )
             blog_path = _save_summary(output, formatted_filename, "blog")
-            logger.info(f"✓ Blog post saved to: {blog_path}")
+            logger.info("✓ Blog post saved to: %s", blog_path)
 
         logger.info("✓ Transcript processing complete!")
 
@@ -612,7 +627,8 @@ def summarize_transcript(
                 config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_FORMATTED}"
             )
             if formatted_path.exists():
-                validate_emphasis_items(formatted_path, all_key_items_path, logger)
+                validate_emphasis_items(
+                    formatted_path, all_key_items_path, logger)
 
         if generate_structured:
             if all_key_items_path:
@@ -638,5 +654,5 @@ def summarize_transcript(
         return True
 
     except Exception as e:
-        logger.error(f"An error occurred: {e}", exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return False
