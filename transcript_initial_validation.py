@@ -94,21 +94,28 @@ class TranscriptValidator:
             # Robust JSON Parsing
             try:
                 # 1. Remove markdown fences
-                json_str = re.sub(r'^```(?:json)?\s*|\s*```$',
-                                  '', response_text.strip(), flags=re.MULTILINE)
+                # Note: We capture the content inside fences if present, or just the whole string
+                json_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])\s*```', response_text)
+                if json_match:
+                    json_str = json_match.group(1)
+                else:
+                    # 2. Fallback: Search for the first valid JSON array structure
+                    # Matches [ ... ] across multiple lines
+                    # Using a non-greedy match for the content inside
+                    json_match = re.search(r'(\[[\s\S]*?\])', response_text)
+                    if json_match:
+                        json_str = json_match.group(1)
+                    else:
+                        self.logger.warning("No JSON block found in the response.")
+                        findings = []
+                        json_str = ""
 
-                # 2. Find the start of the actual JSON data ([ or {)
-                start_index = json_str.find('[')
-                if start_index == -1:
-                    start_index = json_str.find('{')
-
-                # 3. Parse from that point
-                if start_index != -1:
-                    json_str = json_str[start_index:]
+                # 3. Parse if we found something
+                if json_str:
                     findings = json.loads(json_str)
                 else:
-                    self.logger.warning("No JSON block found in the response.")
                     findings = []
+
                 self.logger.info("Parsed %d findings.", len(findings))
                 return findings
             except json.JSONDecodeError as e:
@@ -166,7 +173,8 @@ class TranscriptValidator:
                 # Try fuzzy matching from transcript_utils
                 start, end, ratio = transcript_utils.find_text_in_content(
                     original, content)
-                if start is not None and ratio >= 0.85:
+                # Increased threshold to 0.90 for safety
+                if start is not None and ratio >= 0.90:
                     self.logger.info("Fuzzy match found (ratio %.2f). Applying correction.",
                                      ratio)
                     # Reconstruct content: before + replacement + after
@@ -181,13 +189,16 @@ class TranscriptValidator:
                 applied_count += 1
             else:
                 # For multiple occurrences, we need to be careful.
-                # Without context/line numbers, replacing all is the default behavior but risky.
-                # However, usually transcription errors like "their/there" are specific.
-                # If the user provided context in the prompt, we could use it, but we don't have it here.
-                self.logger.warning("Found %d occurrences of '%s'. Replacing ALL.",
-                                    count, original)
-                content = content.replace(original, replacement)
-                applied_count += count  # Count all replacements
+                # Safety Check: If the original text is short (< 20 chars), it might be a false positive collision.
+                if len(original) < 20:
+                    self.logger.warning(
+                        "Ambiguous match: Found %d occurrences of short phrase '%s'. Skipping to avoid errors.",
+                        count, original)
+                else:
+                    self.logger.warning("Found %d occurrences of '%s'. Replacing ALL.",
+                                        count, original)
+                    content = content.replace(original, replacement)
+                    applied_count += count  # Count all replacements
 
         if output_path is None:
             output_path = transcript_path.parent / \

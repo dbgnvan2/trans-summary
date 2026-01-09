@@ -28,7 +28,8 @@ def main():
         "test_summary_pipeline_parsing.py",
         "test_extraction_model_passing.py",
         "test_pipeline_integration.py",
-        "test_bowen_cleaning.py"
+        "test_bowen_cleaning.py",
+        "test_initial_validation_logic.py"
     ]
 
     # Integration tests: Slower, require API calls
