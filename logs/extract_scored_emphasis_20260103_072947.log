@@ -1,9 +1,0 @@
-2026-01-03 07:29:47,580 - extract_scored_emphasis - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/extract_scored_emphasis_20260103_072947.log
-2026-01-03 07:29:47,580 - extract_scored_emphasis - INFO - Starting Scored Emphasis Extraction for: This is a test - Dave Galloway - 2025-12-07 - yaml.md
-2026-01-03 07:29:47,581 - extract_scored_emphasis - INFO - Sending request to Claude...
-2026-01-03 07:29:48,951 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2026-01-03 07:30:13,347 - extract_scored_emphasis - INFO - API call successful - Prompt: 1717 tokens, Response: 977 tokens, Stop reason: end_turn
-2026-01-03 07:30:13,349 - extract_scored_emphasis - INFO - Extracted 8 scored emphasis items.
-2026-01-03 07:30:13,349 - extract_scored_emphasis - INFO - Retained 8 items after validation.
-2026-01-03 07:30:13,349 - extract_scored_emphasis - INFO - ✓ Scored emphasis saved to: /Users/davemini2/transcripts/projects/This is a test - Dave Galloway - 2025-12-07/This is a test - Dave Galloway - 2025-12-07 - emphasis-scored.md
-2026-01-03 07:30:13,349 - extract_scored_emphasis - INFO - ✓ Derived 4 Bowen references from scored emphasis → This is a test - Dave Galloway - 2025-12-07 - bowen-references.md

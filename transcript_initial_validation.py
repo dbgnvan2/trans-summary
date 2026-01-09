@@ -80,9 +80,12 @@ class TranscriptValidator:
                 self.client,
                 model=model,
                 messages=messages,
-                max_tokens=4096,  # JSON can be large
+                # JSON can be large - use higher limit
+                max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
                 system=system_message,
-                logger=self.logger
+                logger=self.logger,
+                stream=True,
+                timeout=config.TIMEOUT_FORMATTING
             )
 
             response_text = response_msg.content[0].text
@@ -112,10 +115,8 @@ class TranscriptValidator:
                 self.logger.error("Failed to parse JSON response: %s", e)
                 self.logger.warning(
                     "Raw response content (first 500 chars): %s", response_text[:500])
-                # return empty list or raise?
-                # Let's try to recover valid objects if it's a malformed list?
-                # For now, return empty and log error.
-                return []
+                # Raise error to fail validation instead of returning empty list (false positive)
+                raise
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             self.logger.error("Error during validation: %s", e)

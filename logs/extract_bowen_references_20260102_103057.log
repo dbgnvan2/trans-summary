@@ -1,7 +1,0 @@
-2026-01-02 10:30:57,118 - extract_bowen_references - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/extract_bowen_references_20260102_103057.log
-2026-01-02 10:30:57,118 - extract_bowen_references - INFO - Starting Bowen Reference Extraction for: This is a test - Dave Galloway - 2025-12-07 - yaml.md
-2026-01-02 10:30:57,119 - extract_bowen_references - INFO - Sending request to Claude for Bowen references...
-2026-01-02 10:30:57,145 - extract_bowen_references - WARNING - ⚠️ Large message 0 (16,280 chars) sent without caching! Consider using create_system_message_with_cache.
-2026-01-02 10:32:13,687 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
-2026-01-02 10:32:20,954 - extract_bowen_references - INFO - API call successful - Prompt: 3859 tokens, Response: 357 tokens, Stop reason: end_turn
-2026-01-02 10:32:20,955 - extract_bowen_references - INFO - ✓ Found 0 Bowen references. Saved to: This is a test - Dave Galloway - 2025-12-07 - bowen-references.md

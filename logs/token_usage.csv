@@ -410,3 +410,75 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-05 13:10:15,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,276,0,0
 2026-01-05 13:10:47,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,964,0,0
 2026-01-05 13:10:51,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0
+2026-01-06 12:10:28,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13851),443,1084,13851,0
+2026-01-06 12:13:23,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 13855),443,1435,0,13855
+2026-01-07 17:37:55,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 7283),443,1209,7283,0
+2026-01-07 17:38:36,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 7302),443,1226,7302,0
+2026-01-07 17:39:21,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 7306),443,807,7306,0
+2026-01-07 17:41:31,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 9847),2,7888,9847,0
+2026-01-07 17:41:49,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1689,2102,0,0
+2026-01-07 17:42:09,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2171,2227,0,0
+2026-01-07 17:42:27,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1936,2088,0,0
+2026-01-07 17:42:41,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1785,1619,0,0
+2026-01-07 17:43:01,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2181,2149,0,0
+2026-01-07 17:43:19,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1580,2090,0,0
+2026-01-07 17:43:28,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,921,855,0,0
+2026-01-07 17:48:46,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 9847),2,7965,9847,0
+2026-01-07 17:49:04,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1693,1975,0,0
+2026-01-07 17:49:23,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1592,2236,0,0
+2026-01-07 17:49:39,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2302,1929,0,0
+2026-01-07 17:49:57,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1820,2205,0,0
+2026-01-07 17:50:13,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2248,1872,0,0
+2026-01-07 17:50:26,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1536,1697,0,0
+2026-01-07 17:50:36,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1161,1263,0,0
+2026-01-07 17:51:02,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 8143),306,1299,8143,0
+2026-01-07 17:51:49,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 8143),1749,2004,0,8143
+2026-01-07 17:52:25,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 8143),72,1503,0,8143
+2026-01-07 17:52:58,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 8143),823,1370,0,8143
+2026-01-07 17:53:11,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 7963),1753,971,7963,0
+2026-01-07 17:53:15,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 7963),672,226,0,7963
+2026-01-08 20:11:33,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 9110),443,1040,9110,0
+2026-01-08 20:13:37,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 9110),443,701,0,9110
+2026-01-08 20:14:34,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 9106),443,1073,9106,0
+2026-01-08 20:19:06,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 11672),3,10324,11672,0
+2026-01-08 20:19:24,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2229,1962,0,0
+2026-01-08 20:19:40,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2538,1631,0,0
+2026-01-08 20:20:00,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2872,2178,0,0
+2026-01-08 20:20:24,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3154,2312,0,0
+2026-01-08 20:20:42,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2664,1883,0,0
+2026-01-08 20:21:08,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 10528),306,962,10528,0
+2026-01-08 20:21:52,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 10528),1749,1889,0,10528
+2026-01-08 20:22:16,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 10528),72,976,0,10528
+2026-01-08 20:22:50,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 10528),823,1343,0,10528
+2026-01-08 20:23:04,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 10322),1625,954,10322,0
+2026-01-08 20:23:10,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 10322),714,334,0,10322
+2026-01-09 12:39:42,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13901),443,1095,13901,0
+2026-01-09 12:41:35,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 13899),443,973,13899,0
+2026-01-09 12:46:00,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 16467),2,14672,16467,0
+2026-01-09 12:46:17,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1787,1905,0,0
+2026-01-09 12:46:38,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1831,2258,0,0
+2026-01-09 12:46:53,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1998,1679,0,0
+2026-01-09 12:47:10,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1573,1977,0,0
+2026-01-09 12:47:28,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1591,2243,0,0
+2026-01-09 12:47:42,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2110,1487,0,0
+2026-01-09 12:48:00,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2999,1983,0,0
+2026-01-09 12:48:14,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3343,1661,0,0
+2026-01-09 12:48:32,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2424,1971,0,0
+2026-01-09 12:48:40,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1314,977,0,0
+2026-01-09 12:49:07,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 14857),306,1029,14857,0
+2026-01-09 12:50:15,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 14857),1749,2488,0,14857
+2026-01-09 12:50:39,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 14857),72,964,0,14857
+2026-01-09 12:51:14,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 14857),823,1368,0,14857
+2026-01-09 12:51:30,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 14670),1589,1066,14670,0
+2026-01-09 12:51:38,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Read 14670),670,448,0,14670
+2026-01-09 13:57:20,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 16361),443,1364,0,16361
+2026-01-09 14:05:54,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,196,0,0
+2026-01-09 14:05:57,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,221,0,0
+2026-01-09 14:10:04,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,197,0,0
+2026-01-09 14:10:07,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,168,0,0
+2026-01-09 14:12:59,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,184,0,0
+2026-01-09 14:13:02,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,195,0,0
+2026-01-09 14:15:04,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,270,0,0
+2026-01-09 14:15:06,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,172,0,0
+2026-01-09 14:15:32,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,932,0,0
+2026-01-09 14:15:35,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,105,0,0
