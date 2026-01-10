@@ -174,7 +174,7 @@ class TranscriptProcessorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Transcript Processor")
-        self.root.geometry("900x700")
+        self.root.geometry("900x850")
 
         self.selected_file = None
         self.base_name = None
@@ -201,7 +201,13 @@ class TranscriptProcessorGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(5, weight=1) # Modified row for log frame (was 3)
+        
+        # Configure row weights for resizing
+        # Row 1 (File List): Expand slightly (weight 1)
+        main_frame.rowconfigure(1, weight=1)
+        # Row 4 (Log): Expand significantly (weight 3)
+        main_frame.rowconfigure(4, weight=3)
+        # Other rows (0, 2, 3, 5, 6, 7) have default weight 0 (fixed height)
 
         # Directory selection
         dir_frame = ttk.Frame(main_frame)

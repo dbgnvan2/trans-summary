@@ -540,3 +540,27 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-09 17:24:30,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,944,0,0
 2026-01-09 17:24:33,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,94,0,0
 2026-01-09 17:28:33,unknown_script,claude-haiku-4-5-20251001,end_turn,Yes (Created 14904),1744,972,14904,0
+2026-01-09 18:07:04,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16361),443,5886,16361,0
+2026-01-09 18:07:54,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16378),443,2731,16378,0
+2026-01-09 18:08:30,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16404),443,1678,16404,0
+2026-01-09 18:09:13,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16429),443,1668,16429,0
+2026-01-09 18:09:56,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16455),443,717,16455,0
+2026-01-09 18:18:42,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16455),443,18188,16455,0
+2026-01-09 20:02:59,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 16457),443,1337,16457,0
+2026-01-09 20:07:17,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 16479),443,1100,0,16479
+2026-01-09 20:11:59,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,281,0,0
+2026-01-09 20:12:02,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,257,0,0
+2026-01-09 20:12:27,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,934,0,0
+2026-01-09 20:12:30,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,117,0,0
+2026-01-09 20:15:50,GuiLogger,claude-haiku-4-5-20251001,end_turn,Yes (Created 19049),2,17085,19049,0
+2026-01-09 20:16:05,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1997,1729,0,0
+2026-01-09 20:16:26,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2415,2276,0,0
+2026-01-09 20:16:48,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2399,2395,0,0
+2026-01-09 20:17:06,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,2598,2065,0,0
+2026-01-09 20:17:27,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3660,2210,0,0
+2026-01-09 20:17:48,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,3204,2458,0,0
+2026-01-09 20:18:07,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,4409,2132,0,0
+2026-01-09 20:18:14,GuiLogger,claude-haiku-4-5-20251001,end_turn,No,1404,860,0,0
+2026-01-09 20:18:47,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Created 17276),306,1364,17276,0
+2026-01-09 20:20:37,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 17276),1749,4520,0,17276
+2026-01-09 20:21:11,GuiLogger,claude-opus-4-5-20251101,end_turn,Yes (Read 17276),72,1387,0,17276

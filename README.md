@@ -123,11 +123,14 @@ ruff format .
 The system employs a "Trust but Verify" approach:
 
 1.  **API Response Validation**: (7-level) Ensures every AI response is complete, valid, and not truncated before processing.
-2.  **Format Validation**: Ensures no words were lost during formatting.
-3.  **Header Validation**: Checks that section headers accurately reflect content.
-4.  **Coverage Validation**: Verifies summaries and abstracts cover all key topics and comply with structure.
-5.  **Fidelity Validation**: Ensures quoted text (Bowen References, Emphasis) exists in the source.
-6.  **Completeness Validation**: Verifies all required artifacts (files) were generated and meet minimum length requirements.
+2.  **Initial Transcript Validation**: Checks for phonetic errors, typos, and repeated phrases before processing begins. Uses fuzzy matching and interactive review.
+3.  **Format Validation**: Ensures no words were lost during formatting.
+4.  **Header Validation**: Checks that section headers accurately reflect content.
+5.  **Coverage & Structure Validation**: Verifies summaries and abstracts cover all key topics.
+    *   **Failures**: Missing required semantic content (topics, speaker ID, purpose).
+    *   **Warnings**: deviations in length, word allocation, or stylistic constraints (e.g., evaluative language).
+6.  **Fidelity Validation**: Ensures quoted text (Bowen References, Emphasis) exists in the source.
+7.  **Completeness Validation**: Verifies all required artifacts (files) were generated and meet minimum length requirements.
 
 ## Technical Details
 

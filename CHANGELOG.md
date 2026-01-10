@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-01-09
+
+### Added
+
+- **Validation Warnings**: Downgraded "Length Check" and "Evaluative Language" from failure conditions to warnings in both Summary and Abstract validation. This allows stylistically deviant but semantically correct content to pass.
+- **Robust JSON Parsing**: Improved `transcript_initial_validation.py` to correctly parse JSON responses even when followed by extraneous text.
+- **UI Resizing**: Updated `transcript_processor_gui.py` to allow the main window and log panel to expand vertically, and increased the default window height to ensure all buttons are visible.
+- **Explicit Token Logging**: Added detailed token usage logging (Input, Output, Cache Read, Cache Creation) to `transcript_initial_validation.py`.
+- **Validation Dialog Feedback**: Added "Waiting for user review..." log message to the GUI to clarify when the process is paused for user input.
+- **New Tests**: Added `test_validation_warnings.py` and `test_initial_validation_logic.py` to verify the new warning logic and parsing robustness.
+
+### Changed
+
+- **Proportionality Checks**: Downgraded word allocation deviations in Summary validation to warnings.
+- **Initial Validation Safety**: Increased fuzzy match threshold to 0.90 and disabled "Replace All" for short phrases (<20 chars) to prevent accidental corruption of transcripts.
+
 ## [Unreleased] - 2026-01-05
 
 ### Added

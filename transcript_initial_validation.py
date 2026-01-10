@@ -89,6 +89,18 @@ class TranscriptValidator:
             )
 
             response_text = response_msg.content[0].text
+            
+            # Log token usage explicitly
+            usage = response_msg.usage
+            input_tokens = usage.input_tokens
+            output_tokens = usage.output_tokens
+            cache_read = getattr(usage, 'cache_read_input_tokens', 0) or 0
+            cache_create = getattr(usage, 'cache_creation_input_tokens', 0) or 0
+            
+            self.logger.info(
+                f"Token Usage: Input: {input_tokens} (Cache Read: {cache_read}, Created: {cache_create}), Output: {output_tokens}"
+            )
+            
             self.logger.info("Validation response received.")
 
             # Robust JSON Parsing

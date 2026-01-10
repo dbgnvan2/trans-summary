@@ -40,6 +40,15 @@ setup_logging(script_name: str) -> Logger
 
 ## Validation Checklist for Each Task
 
+### Initial Validation (New)
+
+- ✅ API key validation
+- ✅ Token usage logging (Input, Output, Cache Read/Created)
+- ✅ Truncation detection & retry
+- ✅ JSON parsing robustness (regex-based)
+- ✅ Safety check: No replace-all for short ambiguous phrases
+- ✅ Fuzzy matching (0.90 threshold)
+
 ### Format & Validate
 
 - ✅ API key validation
@@ -66,7 +75,8 @@ setup_logging(script_name: str) -> Logger
 - ✅ Retry logic for rate limits
 - ✅ All required sections present (completeness validator)
 - ✅ Minimum 800 words (completeness validator)
-- ✅ Each section has content (completeness validator)
+- ✅ Coverage Validation (FAIL if missing topics)
+- ✅ Proportionality & Length (WARN only)
 
 ### Extract Key Terms
 
@@ -88,6 +98,8 @@ setup_logging(script_name: str) -> Logger
 
 - ✅ Truncation detection
 - ✅ Retry logic
+- ✅ Coverage Validation (FAIL if missing topics)
+- ✅ Length & Style (WARN only)
 - ✅ Quality score >= 4.0 (existing)
 - ✅ Best score tracking (existing)
 - ✅ Both versions present (completeness validator)
