@@ -30,7 +30,8 @@ def main():
         "test_pipeline_integration.py",
         "test_bowen_cleaning.py",
         "test_initial_validation_logic.py",
-        "test_validation_warnings.py"
+        "test_validation_warnings.py",
+        "test_cleanup_pipeline.py"
     ]
 
     # Integration tests: Slower, require API calls

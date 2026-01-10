@@ -17,6 +17,7 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 import analyze_token_usage
 import config
 import pipeline
+import cleanup_pipeline
 import transcript_config_check
 import transcript_cost_estimator
 import transcript_initial_validation
@@ -385,6 +386,11 @@ class TranscriptProcessorGUI:
         self.do_all_btn.grid(row=0, column=6, rowspan=3,
                              padx=(10, 5), sticky=(tk.N, tk.S))
 
+        # Row 3 (Maintenance)
+        self.cleanup_btn = ttk.Button(
+            button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
+        self.cleanup_btn.grid(row=3, column=0, padx=(0, 5), pady=2)
+
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
         self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W) # MODIFIED row from 7 to 8
@@ -411,6 +417,31 @@ class TranscriptProcessorGUI:
             elif model_type == "FORMATTING_MODEL":
                 self.model_vars[model_type].set(config.settings.FORMATTING_MODEL)
 
+    def do_cleanup(self):
+        """Cleanup source files (move original/validated to processed, delete versions)."""
+        if not self.base_name:
+            return
+            
+        if not messagebox.askokcancel(
+            "Confirm Cleanup", 
+            f"This will:\n1. Move '{self.base_name}.txt' and validated copy to 'processed/'\n2. DELETE all intermediate '_vN' files.\n\nAre you sure?"
+        ):
+            return
+
+        self.log("STEP: Cleaning up source files...")
+        self.run_task_in_thread(self._run_cleanup)
+
+    def _run_cleanup(self):
+        if cleanup_pipeline.cleanup_transcript_files(self.base_name, self.logger):
+            self.log("✅ Cleanup complete.")
+            # Refresh to show files moved/deleted
+            self.root.after(0, self.refresh_file_list)
+            # Clear selection as the file might have moved
+            self.root.after(0, lambda: self.status_text.delete(1.0, tk.END))
+            self.selected_file = None
+            self.base_name = None
+            return True
+        return False
 
     def select_transcripts_directory(self):
         dir_path = filedialog.askdirectory(
@@ -1043,6 +1074,7 @@ class TranscriptProcessorGUI:
         self.webpdf_btn.config(state=state)
         self.emphasis_btn.config(state=state)
         self.cost_btn.config(state=state)
+        self.cleanup_btn.config(state=state) # ADDED
         # Config check button is always enabled
         self.package_btn.config(state=state)
         self.do_all_btn.config(
