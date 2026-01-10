@@ -467,8 +467,8 @@ def validate_summary_coverage(
 
     coverage_passed = all(item.covered for item in required_items)
 
-    # Overall pass requires both coverage and proportionality
-    passed = coverage_passed and proportionality["proportionality_ok"]
+    # Overall pass requires coverage (proportionality is now advisory/warning)
+    passed = coverage_passed
 
     # Generate human review checklist
     needs_review = [
@@ -615,10 +615,18 @@ def generate_validation_summary(
 ) -> str:
     """Generate one-line summary of validation results."""
     if passed:
+        warnings = []
         low_confidence = sum(
             1 for i in items if i.confidence in ("low", "medium"))
+        
         if low_confidence > 0:
-            return f"PASSED with {low_confidence} low-confidence items - human review recommended"
+            warnings.append(f"{low_confidence} low-confidence items")
+        
+        if not proportionality_passed:
+            warnings.append("proportionality deviations")
+
+        if warnings:
+            return f"PASSED with warnings: {'; '.join(warnings)}"
         return "PASSED - all requirements met"
 
     issues = []
@@ -626,9 +634,6 @@ def generate_validation_summary(
         required = [i for i in items if i.required]
         missing = [i.label for i in required if not i.covered]
         issues.append(f"missing: {', '.join(missing[:2])}")
-
-    if not proportionality_passed:
-        issues.append("word allocation issues")
 
     return f"FAILED - {'; '.join(issues)}"
 
@@ -709,16 +714,17 @@ def generate_review_checklist(summary_input) -> str:
 def validate_structural(summary: str, target_word_count: int) -> dict:
     """Structural validation for summary."""
     issues = []
+    warnings = []
     word_count = len(summary.split())
 
-    # Word count check (±20% tolerance)
+    # Word count check (±20% tolerance) - Now a WARNING
     min_words = int(target_word_count * 0.80)
     max_words = int(target_word_count * 1.20)
 
     if word_count < min_words:
-        issues.append(f"Too short: {word_count} words (minimum {min_words})")
+        warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")
     elif word_count > max_words:
-        issues.append(f"Too long: {word_count} words (maximum {max_words})")
+        warnings.append(f"Length check: Too long ({word_count} words, maximum {max_words})")
 
     # Paragraph check
     paragraphs = [p for p in summary.split("\n\n") if p.strip()]
@@ -732,18 +738,19 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
     if re.search(r"^\s*[-•*]\s", summary, re.MULTILINE):
         issues.append("Contains bullet points")
 
-    # Removed 'important', 'significant', 'crucial' as they often reflect speaker's emphasis
+    # Evaluative language - Now a WARNING
     evaluative_terms = config.EVALUATIVE_TERMS
     found_evaluative = [
         t for t in evaluative_terms if t.lower() in summary.lower()]
     if found_evaluative:
-        issues.append(f"Contains evaluative language: {found_evaluative}")
+        warnings.append(f"Evaluative language check: Contains {found_evaluative}")
 
     return {
         "valid": len(issues) == 0,
         "word_count": word_count,
         "paragraph_count": len(paragraphs),
         "issues": issues,
+        "warnings": warnings,
     }
 
 
@@ -759,6 +766,7 @@ def validate_and_report(
     # Structural validation
     structural = validate_structural(summary, summary_input.target_word_count)
 
+    # Fail only on fatal issues
     if not structural["valid"]:
         report = "Structural validation failed:\n" + "\n".join(
             f"  - {i}" for i in structural["issues"]
@@ -781,6 +789,11 @@ def validate_and_report(
         f"Word count: {coverage['word_count']['actual']}/{coverage['word_count']['target']} ({coverage['word_count']['deviation']} deviation)",
         f"Proportionality: {'OK' if coverage['proportionality_passed'] else 'ISSUES'}",
     ]
+
+    # Add structural warnings to report
+    if structural["warnings"]:
+        report_lines.append("\nStructural Warnings:")
+        report_lines.extend([f"  - {w}" for w in structural["warnings"]])
 
     if coverage["human_review_checklist"]:
         report_lines.extend(["", coverage["human_review_checklist"]])

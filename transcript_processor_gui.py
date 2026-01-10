@@ -574,6 +574,7 @@ class TranscriptProcessorGUI:
             self.log("⚠️ Found %d issues.", len(findings))
 
             # Instead of applying immediately, show the review dialog on main thread
+            self.log("Waiting for user review in popup dialog...")
             self.root.after(0, lambda: self.show_validation_dialog(
                 findings, file_to_validate))
             return True

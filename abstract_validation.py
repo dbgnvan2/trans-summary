@@ -551,6 +551,8 @@ def validate_and_report(
     # Structural validation first
     target_word_count = getattr(abstract_input, "target_word_count", 250)
     structural = validate_structural(abstract, target_word_count)
+    
+    # Fail only on fatal issues
     if not structural["valid"]:
         return False, f"Structural validation failed: {structural['issues']}"
 
@@ -570,6 +572,11 @@ def validate_and_report(
         f"Word count: {structural['word_count']}",
     ]
 
+    # Add structural warnings to report
+    if structural["warnings"]:
+        report_lines.append("\nStructural Warnings:")
+        report_lines.extend([f"  - {w}" for w in structural["warnings"]])
+
     if coverage["human_review_checklist"]:
         report_lines.extend(["", coverage["human_review_checklist"]])
 
@@ -581,16 +588,17 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     Structural validation (from original validate_abstract).
     """
     issues = []
+    warnings = []
     word_count = len(abstract.split())
 
-    # Allow 20% tolerance
+    # Allow 20% tolerance - Now a WARNING
     min_words = int(target_word_count * 0.8)
     max_words = int(target_word_count * 1.2)
 
     if word_count < min_words:
-        issues.append(f"Too short: {word_count} words (minimum {min_words})")
+        warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")
     elif word_count > max_words:
-        issues.append(f"Too long: {word_count} words (maximum {max_words})")
+        warnings.append(f"Length check: Too long ({word_count} words, maximum {max_words})")
 
     if re.search(r"Section \d+", abstract):
         issues.append("Contains section references")
@@ -598,14 +606,20 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     if re.search(r"^\s*[-•*]\s", abstract, re.MULTILINE):
         issues.append("Contains bullet points")
 
+    # Evaluative language - Now a WARNING
     evaluative_terms = ["important", "valuable",
                         "insightful", "excellent", "crucial"]
     found_evaluative = [
         t for t in evaluative_terms if t.lower() in abstract.lower()]
     if found_evaluative:
-        issues.append(f"Contains evaluative language: {found_evaluative}")
+        warnings.append(f"Evaluative language check: Contains {found_evaluative}")
 
-    return {"valid": len(issues) == 0, "word_count": word_count, "issues": issues}
+    return {
+        "valid": len(issues) == 0, 
+        "word_count": word_count, 
+        "issues": issues,
+        "warnings": warnings
+    }
 
 
 # === Example Usage ===
