@@ -27,6 +27,9 @@ from anthropic import (
 import config
 
 
+import model_specs
+
+
 # Configure logging
 def setup_logging(script_name: str) -> logging.Logger:
     """Set up logging for a script."""
@@ -243,7 +246,7 @@ def validate_api_response(
 
 
 def log_token_usage(script_name: str, model: str, usage_data: object, stop_reason: str):
-    """Log token usage to a CSV file."""
+    """Log token usage and estimated cost to a CSV file."""
     try:
         log_file = config.LOGS_DIR / "token_usage.csv"
         # Ensure logs directory exists
@@ -259,6 +262,17 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
             usage_data, 'cache_creation_input_tokens', 0) or 0
         cache_read = getattr(usage_data, 'cache_read_input_tokens', 0) or 0
 
+        # Calculate Cost
+        pricing = model_specs.get_pricing(model)
+        input_cost = (input_tokens / 1_000_000) * pricing.get("input", 0)
+        output_cost = (output_tokens / 1_000_000) * pricing.get("output", 0)
+        cache_write_cost = (cache_creation / 1_000_000) * \
+            pricing.get("cache_write", 0)
+        cache_read_cost = (cache_read / 1_000_000) * \
+            pricing.get("cache_read", 0)
+
+        total_cost = input_cost + output_cost + cache_write_cost + cache_read_cost
+
         cache_str = "No"
         if cache_read > 0:
             cache_str = f"Yes (Read {cache_read})"
@@ -270,7 +284,7 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
             if not file_exists:
                 writer.writerow(['Timestamp', 'Script Name', 'Items',
                                 'Status', 'Cache', 'Tokens Sent', 'Tokens Response',
-                                 'Cache Creation Tokens', 'Cache Read Tokens'])
+                                 'Cache Creation Tokens', 'Cache Read Tokens', 'Estimated Cost ($)'])
 
             writer.writerow([
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -281,7 +295,8 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
                 input_tokens,
                 output_tokens,
                 cache_creation,
-                cache_read
+                cache_read,
+                f"{total_cost:.4f}"
             ])
     except Exception as e:
         # Fail silently to not disrupt the pipeline, but print error
@@ -336,6 +351,7 @@ def call_claude_with_retry(
     logger: Optional[logging.Logger] = None,
     min_length: int = 50,
     min_words: int = 0,
+    stream: bool = False,
     **kwargs
 ):
     """
@@ -351,6 +367,7 @@ def call_claude_with_retry(
         logger: Optional logger
         min_length: Minimum expected length of response text
         min_words: Minimum expected length of response in words
+        stream: Whether to stream the response (recommended for long outputs)
 
     Returns:
         API response message
@@ -378,7 +395,9 @@ def call_claude_with_retry(
             if current_timeout is not None:
                 call_kwargs['timeout'] = current_timeout
 
-            is_streaming = call_kwargs.pop('stream', False)
+            # Handle streaming argument
+            # Check if 'stream' was also in kwargs (legacy support)
+            is_streaming = stream or call_kwargs.pop('stream', False)
 
             if is_streaming:
                 with client.messages.stream(
@@ -387,8 +406,8 @@ def call_claude_with_retry(
                     temperature=temperature,
                     messages=messages,
                     **call_kwargs
-                ) as stream:
-                    message = stream.get_final_message()
+                ) as stream_manager:
+                    message = stream_manager.get_final_message()
             else:
                 message = client.messages.create(
                     model=model,

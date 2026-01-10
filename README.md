@@ -62,7 +62,7 @@ Or run individual steps manually:
 
 ## Project Structure
 
-The project separates code (logic) from data (transcripts).
+The project separates code (logic) from data (transcripts). By default, data directories are located within the project root, but this can be configured.
 
 ```text
 trans-summary/
@@ -71,14 +71,14 @@ trans-summary/
 ├── transcript_utils.py     # Shared utilities (logging, API calls)
 ├── transcript_*.py         # CLI wrappers for specific tasks
 ├── prompts/                # Markdown prompt templates for Claude
-
-
-transcripts/            # Data directory (configurable)
-    ├── source/             # Raw input files
-    ├── formatted/          # Cleaned markdown files
-    ├── summaries/          # Generated analysis & extracts
-    ├── webpages/           # Final HTML outputs
-    └── pdfs/               # Final PDF outputs
+├── source/                 # Raw input files (txt)
+├── projects/               # Project-specific output folders
+│   └── [Transcript Name]/
+│       ├── formatted/      # Cleaned markdown files
+│       ├── summaries/      # Generated analysis & extracts
+│       ├── webpages/       # Final HTML outputs
+│       └── pdfs/           # Final PDF outputs
+└── processed/              # Archive for completed source files
 ```
 
 ## Configuration

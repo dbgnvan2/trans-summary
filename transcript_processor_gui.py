@@ -175,7 +175,7 @@ class TranscriptProcessorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Transcript Processor")
-        self.root.geometry("900x850")
+        self.root.geometry("900x950")
 
         self.selected_file = None
         self.base_name = None
@@ -222,7 +222,7 @@ class TranscriptProcessorGUI:
         # File selection
         file_frame = ttk.LabelFrame(
             main_frame, text="Select Source File", padding="10")
-        file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         file_frame.columnconfigure(0, weight=1)
 
         list_frame = ttk.Frame(file_frame)

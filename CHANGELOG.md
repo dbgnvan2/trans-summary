@@ -6,17 +6,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Validation Warnings**: Downgraded "Length Check" and "Evaluative Language" from failure conditions to warnings in both Summary and Abstract validation. This allows stylistically deviant but semantically correct content to pass.
-- **Robust JSON Parsing**: Improved `transcript_initial_validation.py` to correctly parse JSON responses even when followed by extraneous text.
-- **UI Resizing**: Updated `transcript_processor_gui.py` to allow the main window and log panel to expand vertically, and increased the default window height to ensure all buttons are visible.
-- **Explicit Token Logging**: Added detailed token usage logging (Input, Output, Cache Read, Cache Creation) to `transcript_initial_validation.py`.
-- **Validation Dialog Feedback**: Added "Waiting for user review..." log message to the GUI to clarify when the process is paused for user input.
-- **New Tests**: Added `test_validation_warnings.py` and `test_initial_validation_logic.py` to verify the new warning logic and parsing robustness.
+- **Cost Estimation**: Added estimated cost calculation (Input, Output, Cache Write/Read) to `transcript_utils.py` and `token_usage.csv`.
+- **Cleanup GUI**: Added "Cleanup Source" button to the GUI to move original/validated files to `processed/` and delete intermediate versions.
+- **Robust JSON Parsing**: Enhanced `transcript_initial_validation.py` to handle JSON responses with trailing text or "Extra data" errors using `raw_decode`.
+- **Explicit Streaming**: Updated `transcript_utils.py` to explicitly handle the `stream` parameter, preventing "Streaming is required" errors for long requests.
 
 ### Changed
 
-- **Proportionality Checks**: Downgraded word allocation deviations in Summary validation to warnings.
-- **Initial Validation Safety**: Increased fuzzy match threshold to 0.90 and disabled "Replace All" for short phrases (<20 chars) to prevent accidental corruption of transcripts.
+- **Project Documentation**: Corrected the "Project Structure" section in `README.md` to reflect the actual directory layout.
+- **GUI Resizing**: Improved `transcript_processor_gui.py` to allow the "Select Source File" list to resize vertically and increased default window height to 950px.
+- **Validation Warnings**: Downgraded "Length Check" and "Evaluative Language" from failure conditions to warnings in both Summary and Abstract validation. This allows stylistically deviant but semantically correct content to pass.
+- **Robust JSON Parsing**: Improved `transcript_initial_validation.py` to correctly parse JSON responses even when followed by extraneous text.
 
 ## [Unreleased] - 2026-01-05
 

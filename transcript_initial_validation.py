@@ -105,26 +105,46 @@ class TranscriptValidator:
 
             # Robust JSON Parsing
             try:
-                # 1. Remove markdown fences
-                # Note: We capture the content inside fences if present, or just the whole string
+                # 1. First, try to extract JSON from markdown fences
                 json_match = re.search(r'```(?:json)?\s*(\[[\s\S]*?\])\s*```', response_text)
                 if json_match:
                     json_str = json_match.group(1)
                 else:
-                    # 2. Fallback: Search for the first valid JSON array structure
-                    # Matches [ ... ] across multiple lines
-                    # Using a non-greedy match for the content inside
-                    json_match = re.search(r'(\[[\s\S]*?\])', response_text)
-                    if json_match:
-                        json_str = json_match.group(1)
+                    # 2. Fallback: Try to find the first valid JSON array
+                    # We look for the first '[' and then try to parse from there
+                    start_index = response_text.find('[')
+                    if start_index != -1:
+                        # Try to parse progressively or use raw_decode
+                        try:
+                            json_str = response_text[start_index:]
+                            # raw_decode parses the first valid JSON object/array and returns (obj, end_index)
+                            findings, _ = json.JSONDecoder().raw_decode(json_str)
+                            # If successful, we are done
+                            self.logger.info("Parsed %d findings.", len(findings))
+                            return findings
+                        except json.JSONDecodeError:
+                             # If raw_decode fails (maybe not valid yet), try looking for the last ']'
+                             # This is a heuristic for when the JSON is embedded in text without fences
+                             last_index = response_text.rfind(']')
+                             if last_index != -1 and last_index > start_index:
+                                 json_str = response_text[start_index:last_index+1]
+                             else:
+                                 # No closing bracket found after start
+                                 self.logger.warning("No closing bracket ']' found for JSON array.")
+                                 json_str = ""
                     else:
-                        self.logger.warning("No JSON block found in the response.")
-                        findings = []
+                        self.logger.warning("No JSON start bracket '[' found in the response.")
                         json_str = ""
 
-                # 3. Parse if we found something
+                # 3. Parse if we found a candidate string (from fences or index heuristic)
                 if json_str:
-                    findings = json.loads(json_str)
+                    try:
+                        findings = json.loads(json_str)
+                    except json.JSONDecodeError:
+                        # Attempt to fix common issues if simple load fails
+                        # e.g. "Extra data" if the regex matched too much?
+                        # Using raw_decode on the candidate string
+                        findings, _ = json.JSONDecoder().raw_decode(json_str)
                 else:
                     findings = []
 

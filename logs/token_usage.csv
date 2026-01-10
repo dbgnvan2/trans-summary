@@ -3,3 +3,7 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-09 20:29:42,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,279,0,0
 2026-01-09 20:30:08,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,900,0,0
 2026-01-09 20:30:11,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0
+2026-01-09 22:19:07,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,263,0,0,0.0014
+2026-01-09 22:19:09,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,211,0,0,0.0012
+2026-01-09 22:19:33,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,814,0,0,0.0383
+2026-01-09 22:19:36,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0,0.0051
