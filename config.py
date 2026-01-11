@@ -36,9 +36,10 @@ class ProjectSettings:
         self._update_derived_paths()
 
         # Initialize model variables
-        self.DEFAULT_MODEL = "claude-opus-4-5-20251101"  # Moved from global
-        self.AUX_MODEL = "claude-haiku-4-5-20251001"     # Moved from global
-        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Moved from global
+        self.DEFAULT_MODEL = "claude-3-7-sonnet-20250219"  # Updated for Caching Support
+        self.AUX_MODEL = "claude-3-5-haiku-20241022"      # Updated for Caching Support
+        self.FORMATTING_MODEL = "claude-3-5-haiku-20241022" # Updated for Caching Support
+        self.VALIDATION_MODEL = "claude-3-5-haiku-20241022" # Cheaper model for validation
 
         self._initialized = True
 
@@ -97,7 +98,7 @@ def __getattr__(name):
     # attributes already defined on the module (like SUFFIX_FORMATTED)
     # and to the model variables.
     # ADDED explicit check for model variables
-    if name in ["DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL"]:
+    if name in ["DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL", "VALIDATION_MODEL"]:
         return getattr(settings, name)
     if hasattr(settings, name):
         return getattr(settings, name)
@@ -116,6 +117,7 @@ LOGS_DIR = settings.LOGS_DIR
 DEFAULT_MODEL = settings.DEFAULT_MODEL
 AUX_MODEL = settings.AUX_MODEL
 FORMATTING_MODEL = settings.FORMATTING_MODEL
+VALIDATION_MODEL = settings.VALIDATION_MODEL
 
 
 def set_transcripts_base(path: Union[str, Path]):
@@ -246,3 +248,42 @@ TOKEN_USAGE_WARNING_THRESHOLD = 0.9
 FUZZY_MATCH_THRESHOLD = 0.85
 FUZZY_MATCH_EARLY_STOP = 0.98
 FUZZY_MATCH_PREFIX_LEN = 20
+
+# ============================================================================
+# VALIDATION V2 SETTINGS
+# ============================================================================
+
+# Chunked Processing
+VALIDATION_CHUNK_SIZE = 1500           # WORDS per chunk (not tokens)
+VALIDATION_CHUNK_OVERLAP = 200         # WORDS overlap
+
+# Context Requirements
+VALIDATION_MIN_CONTEXT_WORDS = 5       # Min words for unique context
+VALIDATION_MAX_CONTEXT_WORDS = 30      # Max words to include
+VALIDATION_MIN_UNIQUE_WORDS = 7        # Threshold for ambiguous matches
+
+# Fuzzy Matching Thresholds (V2)
+VALIDATION_FUZZY_AUTO_APPLY = 0.95     # 95% similarity for auto-apply
+VALIDATION_FUZZY_REVIEW = 0.90         # 90% for manual review
+VALIDATION_FUZZY_REJECT = 0.85         # < 85% reject
+VALIDATION_FUZZY_HALLUCINATION = 0.85  # Hallucination detection threshold
+
+# Confidence Filtering
+VALIDATION_AUTO_APPLY_CONFIDENCE = {'high'}
+VALIDATION_REVIEW_CONFIDENCE = {'medium'}
+VALIDATION_SKIP_CONFIDENCE = {'low'}
+
+# Iteration Control
+VALIDATION_MAX_ITERATIONS = 5
+VALIDATION_STALL_THRESHOLD = 0.20      # Stop if < 20% improvement
+VALIDATION_MAX_STALLED_ITERATIONS = 2
+
+# Error Types
+VALIDATION_ERROR_TYPES = {
+    'homophone', 'proper_noun',
+    'capitalization', 'incomplete', 'grammar'
+}
+
+# Logging
+VALIDATION_VERBOSE_LOGGING = True
+VALIDATION_SAVE_REVIEW_FILE = True

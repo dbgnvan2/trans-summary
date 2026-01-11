@@ -405,6 +405,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=messages,
+                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
                     **call_kwargs
                 ) as stream_manager:
                     message = stream_manager.get_final_message()
@@ -414,6 +415,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=messages,
+                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
                     **call_kwargs
                 )
 

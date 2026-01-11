@@ -21,6 +21,7 @@ import cleanup_pipeline
 import transcript_config_check
 import transcript_cost_estimator
 import transcript_initial_validation
+import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
 
@@ -281,6 +282,14 @@ class TranscriptProcessorGUI:
         )
         self.formatting_model_cb.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
         self.formatting_model_cb.bind("<<ComboboxSelected>>", lambda event: self._on_model_selected("FORMATTING_MODEL"))
+
+        # Validation Mode (V1/V2)
+        self.validation_mode_var = tk.StringVar(value="v2")
+        val_frame = ttk.Frame(model_selection_frame)
+        val_frame.grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(5, 0))
+        ttk.Label(val_frame, text="Validation Mode:").pack(side=tk.LEFT)
+        ttk.Radiobutton(val_frame, text="V2 (Chunked/Safe)", variable=self.validation_mode_var, value="v2").pack(side=tk.LEFT, padx=5)
+        ttk.Radiobutton(val_frame, text="V1 (Legacy)", variable=self.validation_mode_var, value="v1").pack(side=tk.LEFT, padx=5)
 
 
         # Status and Log
@@ -590,17 +599,37 @@ class TranscriptProcessorGUI:
             self.log("❌ Error: ANTHROPIC_API_KEY not found.")
             return False
 
+        mode = self.validation_mode_var.get()
+        self.log(f"Starting Initial Validation (Mode: {mode.upper()})...")
+
         try:
-            validator = transcript_initial_validation.TranscriptValidator(
-                api_key, self.logger)
+            findings = []
+            file_to_validate = None
+            
+            if mode == "v2":
+                validator = transcript_initial_validation_v2.TranscriptValidatorV2(api_key, self.logger)
+                # Use latest version logic (reusing V1's helper for now or just checking path)
+                # V2 doesn't have `get_latest_version` explicitly exposed in my previous code, 
+                # but we can assume we want to process self.selected_file or its latest variant.
+                # Let's use the V1 helper to find the latest file, as it's file-system based.
+                v1_validator = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                file_to_validate = v1_validator.get_latest_version(self.selected_file)
+                
+                if file_to_validate != self.selected_file:
+                     self.log("ℹ️  Auto-detected latest version: %s", file_to_validate.name)
 
-            # Use latest version
-            file_to_validate = validator.get_latest_version(self.selected_file)
-            if file_to_validate != self.selected_file:
-                self.log("ℹ️  Auto-detected latest version: %s",
-                         file_to_validate.name)
-
-            findings = validator.validate(file_to_validate)
+                # V2 Validate (Chunked)
+                # Use DEFAULT_MODEL for validation as configured
+                findings = validator.validate_chunked(file_to_validate, model=config.settings.DEFAULT_MODEL)
+                
+            else:
+                # Legacy V1
+                validator = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                file_to_validate = validator.get_latest_version(self.selected_file)
+                if file_to_validate != self.selected_file:
+                    self.log("ℹ️  Auto-detected latest version: %s", file_to_validate.name)
+                
+                findings = validator.validate(file_to_validate)
 
             if not findings:
                 self.log("✅ No issues found.")
@@ -618,6 +647,8 @@ class TranscriptProcessorGUI:
 
         except Exception as e:
             self.log("❌ Validation failed: %s", e)
+            import traceback
+            traceback.print_exc()
             return False
 
     def _prompt_finalize_no_issues(self, source_file):
@@ -662,19 +693,30 @@ class TranscriptProcessorGUI:
             new_filename = f"{base_name}_v{version}{source_file.suffix}"
 
         output_path = source_file.parent / new_filename
-
         api_key = os.getenv("ANTHROPIC_API_KEY")
-        validator = transcript_initial_validation.TranscriptValidator(
-            api_key, self.logger)
-
+        mode = self.validation_mode_var.get()
+        
         self.log("🛠️ Writing to -> %s", new_filename)
 
-        if corrections:
-            validator.apply_corrections(source_file, corrections, output_path)
+        if not corrections and finalize:
+             # Just copy
+             shutil.copy2(source_file, output_path)
+             self.log("No corrections to apply. Created copy.")
         else:
-            # Just copy if no corrections but finalizing
-            shutil.copy2(source_file, output_path)
-            self.log("No corrections to apply. Created copy.")
+            if mode == "v2":
+                validator = transcript_initial_validation_v2.TranscriptValidatorV2(api_key, self.logger)
+                try:
+                    out_path, applied, skipped = validator.apply_corrections_safe(source_file, corrections, output_path)
+                    self.log(f"Applied {applied} corrections safely.")
+                    if skipped:
+                        self.log(f"⚠️ Skipped {len(skipped)} ambiguous corrections (see log for details).")
+                except Exception as e:
+                    self.log(f"❌ Error applying V2 corrections: {e}")
+                    return False
+            else:
+                # V1 Legacy
+                validator = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                validator.apply_corrections(source_file, corrections, output_path)
 
         # Update selected file to the new one so next run uses it automatically
         self.selected_file = output_path

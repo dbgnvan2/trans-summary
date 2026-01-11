@@ -7,3 +7,147 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-09 22:19:09,unknown_script,claude-haiku-4-5-20251001,end_turn,No,98,211,0,0,0.0012
 2026-01-09 22:19:33,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,3593,814,0,0,0.0383
 2026-01-09 22:19:36,HeadlessTest,claude-opus-4-5-20251101,end_turn,No,488,108,0,0,0.0051
+2026-01-10 11:06:41,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3738,2641,0,0,0.0847
+2026-01-10 11:32:30,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3757,2833,0,0,0.0896
+2026-01-10 11:32:44,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3759,994,0,0,0.0436
+2026-01-10 11:33:00,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3769,1332,0,0,0.0521
+2026-01-10 12:04:28,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3757,2199,0,0,0.0738
+2026-01-10 12:04:50,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3759,1863,0,0,0.0654
+2026-01-10 12:05:23,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3760,1913,0,0,0.0666
+2026-01-10 12:26:36,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3757,2923,0,0,0.0919
+2026-01-10 12:26:55,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3768,1429,0,0,0.0546
+2026-01-10 12:37:00,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2628,3275,0,0,0.0950
+2026-01-10 12:37:33,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2012,2725,0,0,0.0782
+2026-01-10 12:37:56,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2636,1623,0,0,0.0538
+2026-01-10 12:38:15,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2016,1330,0,0,0.0433
+2026-01-10 12:38:33,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2639,1350,0,0,0.0469
+2026-01-10 12:38:47,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2018,995,0,0,0.0350
+2026-01-10 13:23:12,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3821,2600,0,0,0.0841
+2026-01-10 13:23:58,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3205,3696,0,0,0.1084
+2026-01-10 13:24:10,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3832,845,0,0,0.0403
+2026-01-10 13:24:36,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3211,1778,0,0,0.0605
+2026-01-10 13:24:48,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3835,676,0,0,0.0361
+2026-01-10 13:25:00,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3210,983,0,0,0.0406
+2026-01-10 14:28:18,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3604,1637,0,0,0.0589
+2026-01-10 14:28:29,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2988,718,0,0,0.0329
+2026-01-10 14:28:41,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3602,836,0,0,0.0389
+2026-01-10 14:28:51,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2988,527,0,0,0.0281
+2026-01-10 14:29:04,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3605,906,0,0,0.0407
+2026-01-10 14:29:08,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,2988,119,0,0,0.0179
+2026-01-10 14:47:53,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3425,770,0,0,0.0364
+2026-01-10 14:48:02,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3508,523,0,0,0.0306
+2026-01-10 14:48:18,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3540,1239,0,0,0.0487
+2026-01-10 14:48:36,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3593,1148,0,0,0.0467
+2026-01-10 14:48:46,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3541,589,0,0,0.0324
+2026-01-10 14:48:58,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3592,891,0,0,0.0402
+2026-01-10 14:49:05,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3581,387,0,0,0.0276
+2026-01-10 14:49:11,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3787,412,0,0,0.0292
+2026-01-10 14:49:21,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3426,565,0,0,0.0313
+2026-01-10 14:49:39,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3508,1050,0,0,0.0438
+2026-01-10 14:49:51,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3539,737,0,0,0.0361
+2026-01-10 14:50:07,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3594,662,0,0,0.0345
+2026-01-10 14:50:26,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3533,1409,0,0,0.0529
+2026-01-10 14:50:36,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3587,557,0,0,0.0319
+2026-01-10 14:50:46,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3582,619,0,0,0.0334
+2026-01-10 14:51:00,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,3771,923,0,0,0.0419
+2026-01-10 15:22:41,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4366,1183,0,0,0.0514
+2026-01-10 15:22:52,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4449,669,0,0,0.0390
+2026-01-10 15:23:09,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4481,1238,0,0,0.0534
+2026-01-10 15:23:26,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4534,1170,0,0,0.0519
+2026-01-10 15:23:36,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4482,495,0,0,0.0348
+2026-01-10 15:23:46,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4533,690,0,0,0.0399
+2026-01-10 15:23:54,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4522,429,0,0,0.0333
+2026-01-10 15:24:03,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4728,554,0,0,0.0375
+2026-01-10 15:24:20,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4367,854,0,0,0.0432
+2026-01-10 15:24:24,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4446,191,0,0,0.0270
+2026-01-10 15:24:34,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4477,493,0,0,0.0347
+2026-01-10 15:24:57,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4542,1404,0,0,0.0578
+2026-01-10 15:25:21,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4474,1513,0,0,0.0602
+2026-01-10 15:25:39,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4526,1094,0,0,0.0500
+2026-01-10 15:25:46,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4522,398,0,0,0.0326
+2026-01-10 15:25:57,TranscriptValidatorV2,claude-opus-4-5-20251101,end_turn,No,4707,604,0,0,0.0386
+2026-01-10 15:36:42,CachingTest,claude-opus-4-5-20251101,end_turn,No,2211,12,0,0,0.0114
+2026-01-10 15:36:44,CachingTest,claude-opus-4-5-20251101,end_turn,No,2211,12,0,0,0.0114
+2026-01-10 15:42:03,CachingTest,claude-opus-4-5-20251101,end_turn,No,2211,12,0,0,0.0114
+2026-01-10 15:42:04,CachingTest,claude-opus-4-5-20251101,end_turn,No,2211,12,0,0,0.0114
+2026-01-10 15:48:33,CachingTest,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2201),9,12,2201,0,0.0085
+2026-01-10 15:48:34,CachingTest,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2201),9,12,0,2201,0.0009
+2026-01-10 15:51:03,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2545),1821,1293,2545,0,0.0344
+2026-01-10 15:51:16,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1904,887,0,2545,0.0198
+2026-01-10 15:51:27,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1936,676,0,2545,0.0167
+2026-01-10 15:51:43,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1989,1017,0,2545,0.0220
+2026-01-10 15:51:53,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1937,619,0,2545,0.0159
+2026-01-10 15:52:06,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1988,910,0,2545,0.0204
+2026-01-10 15:52:17,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1977,640,0,2545,0.0163
+2026-01-10 15:52:34,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2183,1071,0,2545,0.0234
+2026-01-10 15:52:51,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1821,771,0,2545,0.0178
+2026-01-10 15:53:11,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1902,1320,0,2545,0.0263
+2026-01-10 15:53:25,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1933,866,0,2545,0.0196
+2026-01-10 15:53:39,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2009,704,0,2545,0.0174
+2026-01-10 15:54:00,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1938,1351,0,2545,0.0268
+2026-01-10 15:54:12,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1983,660,0,2545,0.0166
+2026-01-10 15:54:24,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1977,718,0,2545,0.0175
+2026-01-10 15:54:37,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2155,856,0,2545,0.0201
+2026-01-10 16:58:04,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Created 2545),2000,412,2545,0,0.0058
+2026-01-10 16:58:12,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1384,403,0,2545,0.0029
+2026-01-10 16:58:19,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2000,374,0,2545,0.0033
+2026-01-10 16:58:27,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1386,452,0,2545,0.0031
+2026-01-10 16:58:36,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2001,466,0,2545,0.0037
+2026-01-10 16:58:44,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1389,407,0,2545,0.0029
+2026-01-10 17:00:49,CachingTest,claude-3-5-haiku-20241022,end_turn,Yes (Created 10001),11,19,10001,0,0.0101
+2026-01-10 17:00:51,CachingTest,claude-3-5-haiku-20241022,end_turn,Yes (Read 10001),12,39,0,10001,0.0010
+2026-01-10 17:01:05,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2000,520,0,2545,0.0039
+2026-01-10 17:01:13,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1384,488,0,2545,0.0033
+2026-01-10 17:02:57,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1821,591,0,2545,0.0040
+2026-01-10 17:03:06,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1904,451,0,2545,0.0035
+2026-01-10 17:03:15,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1936,491,0,2545,0.0037
+2026-01-10 17:03:24,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1989,448,0,2545,0.0036
+2026-01-10 17:03:34,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1937,496,0,2545,0.0037
+2026-01-10 17:03:43,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1988,499,0,2545,0.0038
+2026-01-10 17:03:51,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1977,386,0,2545,0.0033
+2026-01-10 17:04:00,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2183,458,0,2545,0.0038
+2026-01-10 17:04:12,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1822,553,0,2545,0.0039
+2026-01-10 17:04:23,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1907,593,0,2545,0.0041
+2026-01-10 17:04:31,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1936,505,0,2545,0.0038
+2026-01-10 17:04:40,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1997,456,0,2545,0.0036
+2026-01-10 17:04:50,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1932,531,0,2545,0.0039
+2026-01-10 17:04:57,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1982,320,0,2545,0.0031
+2026-01-10 17:05:05,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),1978,416,0,2545,0.0034
+2026-01-10 17:05:14,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2164,402,0,2545,0.0035
+2026-01-10 17:20:46,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Created 2545),2320,473,2545,0,0.0063
+2026-01-10 17:20:55,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2249,519,0,2545,0.0041
+2026-01-10 17:21:03,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2216,445,0,2545,0.0038
+2026-01-10 17:21:13,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2221,487,0,2545,0.0039
+2026-01-10 17:21:23,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2130,464,0,2545,0.0038
+2026-01-10 17:21:34,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2202,577,0,2545,0.0043
+2026-01-10 17:21:43,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2264,524,0,2545,0.0041
+2026-01-10 17:21:53,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2227,548,0,2545,0.0042
+2026-01-10 17:22:05,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2607,584,0,2545,0.0046
+2026-01-10 17:22:40,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2323,456,0,2545,0.0039
+2026-01-10 17:22:50,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2250,551,0,2545,0.0042
+2026-01-10 17:22:57,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2213,452,0,2545,0.0038
+2026-01-10 17:23:07,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2218,495,0,2545,0.0040
+2026-01-10 17:23:15,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2150,400,0,2545,0.0035
+2026-01-10 17:23:24,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2208,479,0,2545,0.0039
+2026-01-10 17:23:34,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2253,456,0,2545,0.0038
+2026-01-10 17:23:44,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2230,586,0,2545,0.0043
+2026-01-10 17:23:56,TranscriptValidatorV2,claude-3-5-haiku-20241022,end_turn,Yes (Read 2545),2589,590,0,2545,0.0046
+2026-01-10 18:18:47,CachingTest,claude-3-7-sonnet-20250219,end_turn,Yes (Created 10001),11,36,10001,0,0.0381
+2026-01-10 18:20:24,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2545),2320,683,2545,0,0.0267
+2026-01-10 18:20:39,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2249,960,0,2545,0.0219
+2026-01-10 18:20:55,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2216,1067,0,2545,0.0234
+2026-01-10 18:21:08,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2221,839,0,2545,0.0200
+2026-01-10 18:21:19,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2130,695,0,2545,0.0176
+2026-01-10 18:21:35,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2202,959,0,2545,0.0218
+2026-01-10 18:21:49,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2264,938,0,2545,0.0216
+2026-01-10 18:22:06,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2227,1015,0,2545,0.0227
+2026-01-10 18:22:22,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2607,1082,0,2545,0.0248
+2026-01-10 18:22:52,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2321,711,0,2545,0.0184
+2026-01-10 18:23:04,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2251,801,0,2545,0.0195
+2026-01-10 18:23:18,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2221,837,0,2545,0.0200
+2026-01-10 18:23:32,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2222,926,0,2545,0.0213
+2026-01-10 18:23:43,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2143,747,0,2545,0.0184
+2026-01-10 18:23:59,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2220,1004,0,2545,0.0225
+2026-01-10 18:24:08,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2259,605,0,2545,0.0166
+2026-01-10 18:24:24,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2231,912,0,2545,0.0211
+2026-01-10 18:24:40,TranscriptValidatorV2,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2597,970,0,2545,0.0231
