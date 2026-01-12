@@ -1,0 +1,120 @@
+2026-01-11 07:36:47,757 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_073647.log
+2026-01-11 07:36:47,757 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 07:36:47,762 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 07:36:48,849 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 07:36:48,856 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated - simple.html
+2026-01-11 07:36:48,872 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_073648.log
+2026-01-11 07:36:48,873 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 07:36:48,875 - generate_webpage - INFO - Found 13 Bowen references and 18 emphasis items.
+2026-01-11 07:36:48,875 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 07:36:49,913 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 07:36:49,916 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.html
+2026-01-11 07:36:49,939 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_073649.log
+2026-01-11 07:36:50,368 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 07:36:50,371 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 07:36:51,438 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 07:36:51,441 - generate_pdf - INFO - Generating PDF...
+2026-01-11 07:36:51,474 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 07:36:51,474 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 07:36:51,474 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 07:36:51,475 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 07:36:51,475 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 07:36:51,475 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 07:36:52,005 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.pdf
+2026-01-11 12:36:25,140 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:36:55,552 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:37:32,825 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:37:53,919 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:38:22,081 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:38:42,316 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:38:51,264 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:39:10,909 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:40:41,244 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:46:54,784 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:55,128 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:55,465 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:55,830 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:56,077 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:56,475 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:46:56,717 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 12:47:00,025 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:47:38,922 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:49:00,087 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:49:38,480 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:50:36,555 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:50:38,547 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:50:46,608 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:50:49,509 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:50:49,864 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_125049.log
+2026-01-11 12:50:49,864 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 12:50:49,867 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 12:50:51,340 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 12:50:51,341 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated - simple.html
+2026-01-11 12:50:51,364 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_125051.log
+2026-01-11 12:50:51,365 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 12:50:51,367 - generate_webpage - INFO - Found 16 Bowen references and 22 emphasis items.
+2026-01-11 12:50:51,367 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 12:50:52,707 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 12:50:52,708 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.html
+2026-01-11 12:50:52,712 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_125052.log
+2026-01-11 12:50:52,713 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 12:50:52,715 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 12:50:54,056 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 12:50:54,056 - generate_pdf - INFO - Generating PDF...
+2026-01-11 12:50:54,093 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 12:50:54,093 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 12:50:54,093 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 12:50:54,094 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 12:50:54,094 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 12:50:54,094 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 12:50:54,633 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.pdf
+2026-01-11 12:57:48,400 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:57:58,824 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:58:14,125 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:58:38,116 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 12:59:21,564 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:00:02,309 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:00:18,059 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:00:44,806 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:01:22,593 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:02:20,347 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:26:44,631 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:33:30,780 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 13:33:31,058 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 13:33:31,430 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 13:33:31,779 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 13:33:34,107 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:34:06,743 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:35:42,229 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:36:07,027 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:36:58,626 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:37:01,185 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:37:08,484 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:37:09,946 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 13:37:10,442 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_133710.log
+2026-01-11 13:37:10,443 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 13:37:10,449 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 13:37:11,981 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 13:37:11,983 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated - simple.html
+2026-01-11 13:37:12,007 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_133712.log
+2026-01-11 13:37:12,008 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 13:37:12,010 - generate_webpage - INFO - Found 17 Bowen references and 23 emphasis items.
+2026-01-11 13:37:12,010 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 13:37:13,442 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 13:37:13,443 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated.html
+2026-01-11 13:37:13,476 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_133713.log
+2026-01-11 13:37:13,476 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 13:37:13,479 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 13:37:14,908 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 13:37:14,909 - generate_pdf - INFO - Generating PDF...
+2026-01-11 13:37:14,945 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 13:37:14,945 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 13:37:14,946 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 13:37:14,946 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 13:37:14,946 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 13:37:14,946 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 13:37:15,617 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated/Systems Theory of Cancer - Michael Kerr - 2020-04-01_validated.pdf
+2026-01-11 14:26:15,762 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 14:26:21,314 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 14:26:52,519 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 14:26:56,815 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"

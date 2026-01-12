@@ -279,7 +279,7 @@ def load_prompt() -> str:
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
-    model: str = config.AUX_MODEL,
+    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed content (was AUX_MODEL/Haiku)
     system: Optional[list] = None,
 ) -> str:
     """

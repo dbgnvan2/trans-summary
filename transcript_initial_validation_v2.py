@@ -208,7 +208,8 @@ class TranscriptValidatorV2:
                 max_tokens=8000, # Adjusted for Haiku limit
                 logger=self.logger,
                 stream=True,
-                timeout=config.TIMEOUT_FORMATTING
+                timeout=config.TIMEOUT_FORMATTING,
+                suppress_caching_warnings=True
             )
             
             self.metrics.record_api_call(response_msg.usage)

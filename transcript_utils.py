@@ -246,7 +246,12 @@ def validate_api_response(
 
 
 def log_token_usage(script_name: str, model: str, usage_data: object, stop_reason: str):
-    """Log token usage and estimated cost to a CSV file."""
+    """
+    Log token usage and estimated cost to a CSV file.
+
+    This function is designed to never crash the pipeline - token logging
+    is informational only and should not disrupt API operations.
+    """
     try:
         log_file = config.LOGS_DIR / "token_usage.csv"
         # Ensure logs directory exists
@@ -298,9 +303,23 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
                 cache_read,
                 f"{total_cost:.4f}"
             ])
+    except (OSError, IOError, PermissionError) as e:
+        # Expected file system errors (disk full, permissions, etc.)
+        # These are informational - token logging should not crash the pipeline
+        print(f"⚠️  Failed to log token usage (file system error): {e}")
+    except (csv.Error, UnicodeEncodeError) as e:
+        # CSV formatting or encoding errors
+        print(f"⚠️  Failed to log token usage (data formatting error): {e}")
     except Exception as e:
-        # Fail silently to not disrupt the pipeline, but print error
-        print(f"⚠️ Failed to log token usage: {e}")
+        # Unexpected errors - log with full context for debugging
+        # Use logging module to capture stack trace
+        logger = logging.getLogger('token_usage')
+        logger.error(
+            "Unexpected error logging token usage for %s: %s",
+            script_name, e, exc_info=True
+        )
+        # Also print to console as this function may be called before logging setup
+        print(f"⚠️  Failed to log token usage (unexpected error): {e}")
 
 
 def _check_caching_for_large_input(messages: list, system: Any, logger: Optional[logging.Logger] = None):
@@ -444,8 +463,9 @@ def call_claude_with_retry(
                     logger.error("Response validation failed: %s", e)
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
-                    logger.warning("Retrying due to validation failure (%d/%d)...",
-                                   attempt + 1, max_retries)
+                    if logger:
+                        logger.warning("Retrying due to validation failure (%d/%d)...",
+                                       attempt + 1, max_retries)
                     continue
                 raise
 
@@ -594,13 +614,100 @@ def call_claude_with_retry(
             raise
 
 
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename to prevent path traversal attacks and ensure safety.
+
+    Removes:
+    - Path separators (/, \)
+    - Parent directory references (..)
+    - Null bytes
+    - Control characters
+    - Leading/trailing whitespace and dots
+
+    Args:
+        filename: The filename to sanitize
+
+    Returns:
+        Sanitized filename safe for use in file operations
+
+    Raises:
+        ValueError: If filename is empty or becomes empty after sanitization
+    """
+    if not filename or not isinstance(filename, str):
+        raise ValueError(f"Filename must be a non-empty string, got: {type(filename).__name__}")
+
+    # Get just the filename component (remove any path)
+    filename = Path(filename).name
+
+    # Remove null bytes (can cause security issues)
+    filename = filename.replace('\0', '')
+
+    # Remove or replace dangerous characters
+    # Keep: letters, numbers, spaces, hyphens, underscores, periods
+    # Remove: path separators, control characters, etc.
+    safe_chars = []
+    for char in filename:
+        if char in ('/', '\\'):
+            # Path separators - skip completely
+            continue
+        elif char == '\0':
+            # Null byte - skip
+            continue
+        elif ord(char) < 32:
+            # Control characters - skip
+            continue
+        else:
+            safe_chars.append(char)
+
+    filename = ''.join(safe_chars)
+
+    # Remove any parent directory references
+    filename = filename.replace('..', '')
+
+    # Strip leading/trailing whitespace and dots
+    filename = filename.strip().strip('.')
+
+    # Validate result
+    if not filename:
+        raise ValueError("Filename is empty after sanitization")
+
+    if len(filename) > 255:
+        raise ValueError(f"Filename too long: {len(filename)} characters (max 255)")
+
+    # Additional security check: ensure no path separators remain
+    if '/' in filename or '\\' in filename:
+        raise ValueError(f"Filename contains path separators after sanitization: {filename}")
+
+    return filename
+
+
 def parse_filename_metadata(filename: str) -> dict:
     """
     Extract metadata from filename pattern: 'Title - Presenter - Date.ext'
 
-    Returns a dictionary with title, presenter, author, date, year, and stem.
+    This function sanitizes the filename to prevent path traversal attacks
+    before processing.
+
+    Args:
+        filename: The filename to parse (e.g., "Talk - Speaker - 2024-01-01.md")
+
+    Returns:
+        Dictionary with title, presenter, author, date, year, and stem.
+
+    Raises:
+        ValueError: If filename doesn't match expected pattern or is unsafe
+
+    Security:
+        - Sanitizes filename to prevent directory traversal
+        - Validates all components are non-empty
+        - Ensures date contains a valid year
     """
-    stem = Path(filename).stem
+    # SECURITY: Sanitize filename first to prevent path traversal
+    safe_filename = sanitize_filename(filename)
+
+    # Use sanitized filename for all operations
+    stem = Path(safe_filename).stem
 
     # Strip known suffixes to get the base stem
     # We iterate through known suffix constants that start with " - "
@@ -621,7 +728,7 @@ def parse_filename_metadata(filename: str) -> dict:
 
     if len(parts) < 3:
         raise ValueError(
-            f"Filename must follow pattern 'Title - Presenter - Date.ext', got: {filename}")
+            f"Filename must follow pattern 'Title - Presenter - Date.ext', got: {safe_filename}")
 
     # Handle case where title or presenter contains ' - '
     if len(parts) > 3:
@@ -631,8 +738,19 @@ def parse_filename_metadata(filename: str) -> dict:
     else:
         title, presenter, date = parts
 
+    # Validate that components are non-empty
+    if not title or not title.strip():
+        raise ValueError(f"Title cannot be empty in filename: {safe_filename}")
+    if not presenter or not presenter.strip():
+        raise ValueError(f"Presenter cannot be empty in filename: {safe_filename}")
+    if not date or not date.strip():
+        raise ValueError(f"Date cannot be empty in filename: {safe_filename}")
+
+    # Validate date contains a year
     year_match = re.search(r'(\d{4})', date)
-    year = year_match.group(1) if year_match else "unknown"
+    if not year_match:
+        raise ValueError(f"Date must contain a 4-digit year, got: {date}")
+    year = year_match.group(1)
 
     return {
         "title": title,
@@ -640,7 +758,7 @@ def parse_filename_metadata(filename: str) -> dict:
         "author": presenter,  # for backward compatibility
         "date": date,
         "year": year,
-        "filename": filename,
+        "filename": safe_filename,  # Return sanitized filename
         "stem": stem
     }
 

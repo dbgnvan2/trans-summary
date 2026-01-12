@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ common_css }}
+
+{{ webpage_css }}
+{% endblock %}
+
+{% block body %}
+<header>
+    <h1>{{ meta.title }}</h1>
+    <div class="meta">
+        <strong>{{ meta.author }}</strong> | {{ meta.date }}
+    </div>
+</header>
+
+<div class="container">
+    <aside class="sidebar">
+        <h2>Abstract</h2>
+        {{ abstract_html|safe }}
+
+        <h2>Summary</h2>
+        {{ summary_html|safe }}
+
+        <h2>Key Topics</h2>
+        {{ topics_html|safe }}
+
+        <h2>Key Themes</h2>
+        {{ themes_html|safe }}
+
+        <h2>Key Terms</h2>
+        {{ key_terms_html|safe }}
+
+        <h2>Bowen References</h2>
+        {{ bowen_html|safe }}
+
+        <h2>Emphasized Items</h2>
+        {{ emphasis_html|safe }}
+    </aside>
+
+    <main class="main-content">
+        <div class="legend">
+            <strong>Highlights:</strong>
+            <span><mark class="bowen-ref">Bowen References</mark></span>
+            <span><mark class="emphasis">Emphasis (&lt;90%)</mark></span>
+            <span><mark class="emphasis score-90">High Emphasis (90-94%)</mark></span>
+            <span><mark class="emphasis score-95">Top Emphasis (95%+)</mark></span>
+        </div>
+
+        <div class="transcript">
+            {{ formatted_content|safe }}
+        </div>
+    </main>
+</div>
+{% endblock %}

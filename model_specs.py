@@ -54,6 +54,12 @@ PRICING = {
         "cache_write": 3.75,
         "cache_read": 0.30
     },
+    "claude-3-7-sonnet-20250219": {  # Claude 3.7 Sonnet (Beta)
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30
+    },
     "claude-3-opus": {  # No new data, keep old for now
         "input": 15.00,
         "output": 75.00,

@@ -1,0 +1,97 @@
+/* Styles specific to the full webpage with sidebar */
+
+body {
+    background: #f5f5f5;
+}
+
+.container {
+    display: flex;
+    max-width: 1400px;
+    margin: 0 auto;
+    background: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+}
+
+header {
+    background: #2c3e50;
+    color: white;
+    padding: 2rem;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+header .meta {
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.sidebar {
+    flex: 0 0 350px;
+    padding: 2rem;
+    background: #ecf0f1;
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+    position: sticky;
+    top: 0;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    margin: 1.5rem 0 0.5rem 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.3rem;
+}
+
+.sidebar h2:first-child {
+    margin-top: 0;
+}
+
+.sidebar p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+}
+
+.main-content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+.transcript {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.transcript p {
+    text-align: justify;
+}
+
+/* Responsive design */
+@media (max-width: 968px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        flex: none;
+        max-height: none;
+        position: relative;
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar {
+        display: none;
+    }
+
+    mark {
+        background: white !important;
+        font-weight: bold;
+    }
+}

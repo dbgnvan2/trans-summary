@@ -1,12 +1,16 @@
 """
 HTML generation logic for the transcript processing application.
-This module handles the creation of webpages and PDF-ready HTML.
+This module handles the creation of webpages and PDF-ready HTML using Jinja2 templates.
+
+REFACTORED: Extracted 1000+ lines of HTML/CSS to separate template files.
 """
 
 import re
 from difflib import SequenceMatcher
 from html import escape, unescape
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import config
 from transcript_utils import (
@@ -22,9 +26,36 @@ from transcript_utils import (
 )
 
 # ============================================================================
-# WEBPAGE GENERATION
+# JINJA2 TEMPLATE SETUP
 # ============================================================================
 
+# Initialize Jinja2 environment
+TEMPLATES_DIR = Path(__file__).parent / "templates"
+STYLES_DIR = TEMPLATES_DIR / "styles"
+
+template_env = Environment(
+    loader=FileSystemLoader(TEMPLATES_DIR),
+    autoescape=select_autoescape(['html', 'xml']),
+    trim_blocks=True,
+    lstrip_blocks=True
+)
+
+# Load CSS files once at module level for efficiency
+def _load_css(filename: str) -> str:
+    """Load a CSS file from the styles directory."""
+    css_path = STYLES_DIR / filename
+    if css_path.exists():
+        return css_path.read_text(encoding='utf-8')
+    return ""
+
+COMMON_CSS = _load_css("common.css")
+WEBPAGE_CSS = _load_css("webpage.css")
+PDF_CSS = _load_css("pdf.css")
+
+
+# ============================================================================
+# WEBPAGE GENERATION - METADATA EXTRACTION
+# ============================================================================
 
 def _extract_webpage_metadata(topics_themes_file):
     """Extract topics, themes, key terms, and abstract from topics-themes."""
@@ -84,7 +115,7 @@ def _load_summary(base_name):
         # Remove "Summary" header if present
         content = re.sub(r"^#+\s*Summary\s*", "", content,
                          flags=re.IGNORECASE).strip()
-        # Stop at next section header (Topics, etc.) to prevent inclusion of other sections
+        # Stop at next section header
         content = re.split(r"^##\s+", content, flags=re.MULTILINE)[0].strip()
         return content
 
@@ -101,452 +132,157 @@ def _load_summary(base_name):
     return ""
 
 
-def _generate_html_page(
-    base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items
-):
-    """Generate complete HTML page with sidebar."""
-    meta = parse_filename_metadata(base_name)
-    topics_html = markdown_to_html(metadata["topics"])
-    themes_html = markdown_to_html(metadata["themes"])
-    abstract_html = markdown_to_html(metadata["abstract"])
-    summary_html = markdown_to_html(summary)
-
-    key_terms_html = ""
-    if isinstance(metadata.get("key_terms"), list):
-        key_terms_html += "<dl>"
-        for term in metadata["key_terms"]:
-            name = term.get("name", "Unknown Term")
-            definition = term.get("definition", "No definition provided.")
-            key_terms_html += f"<dt><strong>{escape(name)}</strong></dt>"
-            key_terms_html += f"<dd>{markdown_to_html(definition)}</dd>"
-        key_terms_html += "</dl>"
-    elif metadata.get("key_terms"):
-        key_terms_html = f"<p>{escape(str(metadata['key_terms']))}</p>"
-
-    def format_ref_list(items):
-        if not items:
-            return "<p>None found.</p>"
-        html_list = "<ul class='ref-list'>"
-        for label, quote in items:
-            html_list += f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
-        html_list += "</ul>"
-        return html_list
-
-    bowen_html = format_ref_list(bowen_refs)
-    emphasis_html = format_ref_list(emphasis_items)
-
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{escape(meta["title"]) } </title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-
-        body {{
-            font-family: 'Georgia', serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
-        }}
-
-        .container {{
-            display: flex;
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }}
-
-        header {{
-            background: #2c3e50;
-            color: white;
-            padding: 2rem;
-            text-align: center;
-        }}
-
-        header h1 {{
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }}
-
-        header .meta {{
-            font-size: 1rem;
-            opacity: 0.9;
-        }}
-
-        .sidebar {{
-            flex: 0 0 350px;
-            padding: 2rem;
-            background: #ecf0f1;
-            overflow-y: auto;
-            max-height: calc(100vh - 200px);
-            position: sticky;
-            top: 0;
-        }}
-
-        .sidebar h2 {{
-            font-size: 1.2rem;
-            margin: 1.5rem 0 0.5rem 0;
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 0.3rem;
-        }}
-
-        .sidebar h2:first-child {{
-            margin-top: 0;
-        }}
-
-        .sidebar dl {{
-            font-size: 0.9rem;
-        }}
-
-        .sidebar dt {{
-            font-weight: bold;
-            color: #34495e;
-            margin-top: 0.8rem;
-        }}
-
-        .sidebar dd {{
-            margin-left: 1rem;
-        }}
-
-        .sidebar p {{
-            margin: 0.5rem 0;
-            font-size: 0.9rem;
-        }}
-
-        .sidebar .ref-list {{
-            list-style-type: none;
-            padding-left: 0;
-        }}
-
-        .sidebar .ref-list li {{
-            margin-bottom: 0.8rem;
-        }}
-
-        .main-content {{
-            flex: 1;
-            padding: 2rem;
-            overflow-y: auto;
-        }}
-
-        .transcript {{
-            max-width: 800px;
-            margin: 0 auto;
-        }}
-
-        .transcript h2 {{
-            font-size: 1.5rem;
-            margin: 2rem 0 1rem 0;
-            color: #2c3e50;
-        }}
-
-        .transcript h3 {{
-            font-size: 1.2rem;
-            margin: 1.5rem 0 0.8rem 0;
-            color: #34495e;
-        }}
-
-        .transcript p {{
-            margin: 1rem 0;
-            text-align: justify;
-        }}
-
-        mark.bowen-ref {{
-            background-color: #fff3cd;
-            border-left: 3px solid #ffc107;
-            padding: 0 0.2rem;
-            cursor: help;
-        }}
-
-        mark.emphasis {{
-            background-color: #d1ecf1;
-            border-left: 3px solid #17a2b8;
-            padding: 0 0.2rem;
-            cursor: help;
-        }}
-
-        mark.emphasis.score-90 {{
-            background-color: #bee5eb;
-            border-left-color: #138496;
-        }}
-
-        mark.emphasis.score-95 {{
-            background-color: #a6d9f3;
-            border-left-color: #0c5460;
-            font-weight: 500;
-        }}
-
-        mark.emphasis.bowen-ref {{
-            background-color: #fff3cd;
-            border-left-color: #ffc107;
-        }}
-
-        .legend {{
-            margin: 1rem 0;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }}
-
-        .legend span {{
-            display: inline-block;
-            margin-right: 1.5rem;
-        }}
-
-        @media (max-width: 968px) {{
-            .container {{
-                flex-direction: column;
-            }}
-
-            .sidebar {{
-                flex: none;
-                max-height: none;
-                position: relative;
-            }}
-        }}
-
-        @media print {{
-            .sidebar {{
-                display: none;
-            }}
-
-            mark {{
-                background: white !important;
-                font-weight: bold;
-            }}
-        }}
-    </style>
-</head>
-<body>
-    <header>
-        <h1>{escape(meta["title"])}</h1>
-        <div class="meta">
-            <strong>{escape(meta["author"])}</strong> | {escape(meta["date"])}
-        </div>
-    </header>
-
-    <div class="container">
-        <aside class="sidebar">
-            <h2>Abstract</h2>
-            {abstract_html}
-
-            <h2>Summary</h2>
-            {summary_html}
-
-            <h2>Key Topics</h2>
-            {topics_html}
-
-            <h2>Key Themes</h2>
-            {themes_html}
-
-            <h2>Key Terms</h2>
-            {key_terms_html}
-
-            <h2>Bowen References</h2>
-            {bowen_html}
-
-            <h2>Emphasized Items</h2>
-            {emphasis_html}
-        </aside>
-
-        <main class="main-content">
-            <div class="legend">
-                <strong>Highlights:</strong>
-                <span><mark class="bowen-ref">Bowen References</mark></span>
-                <span><mark class="emphasis">Emphasis (<90%)</mark></span>
-                <span><mark class="emphasis score-90">High Emphasis (90-94%)</mark></span>
-                <span><mark class="emphasis score-95">Top Emphasis (95%+)</mark></span>
-            </div>
-
-            <div class="transcript">
-                {formatted_content}
-            </div>
-        </main>
-    </div>
-</body>
-</html>"""
-
-    return html
-
-
-def generate_webpage(base_name: str) -> bool:
-    """Orchestrates the generation of the main webpage with a sidebar."""
-    logger = setup_logging("generate_webpage")
-    try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
-        topics_themes_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
-        output_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_WEBPAGE}"
-        )
-
-        validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
-
-        logger.info("Loading topics-themes materials...")
-        bowen_refs = load_bowen_references(base_name)
-        emphasis_items = load_emphasis_items(base_name)
-        summary = _load_summary(base_name)
-        metadata = _extract_webpage_metadata(topics_themes_file)
-        # Override abstract with the best available version
-        metadata["abstract"] = _load_abstract(base_name)
-        logger.info(
-            "Found %d Bowen references and %d emphasis items.", len(bowen_refs), len(emphasis_items))
-
-        logger.info("Highlighting transcript...")
-        formatted_html = markdown_to_html(formatted_content)
-        # Clean up unwanted headers before highlighting to ensure consistency with simple_webpage
-        formatted_html = re.sub(
-            r"<h1>Transcript Formatting[^<]*</h1>\s*",
-            "",
-            formatted_html,
-            flags=re.IGNORECASE,
-        )
-        formatted_html = re.sub(r"^<h1>[^<]+</h1>\s*", "", formatted_html)
-        formatted_html = _highlight_html_content(
-            formatted_html, bowen_refs, emphasis_items
-        )
-
-        meta = parse_filename_metadata(base_name)
-        formatted_html = f"<h1>{escape(meta['title'])}</h1>\n\n{formatted_html}"
-
-        logger.info("Generating HTML page...")
-        html = _generate_html_page(
-            base_name, formatted_html, metadata, summary, bowen_refs, emphasis_items
-        )
-
-        output_file.write_text(html, encoding="utf-8")
-
-        logger.info("✓ Webpage generated successfully: %s", output_file)
-        return True
-
-    except Exception as e:
-        logger.error("An error occurred: %s", e, exc_info=True)
-        return False
-
-
-# ============================================================================
-# SIMPLE WEBPAGE GENERATION
-# ============================================================================
-
-
-def _extract_abstract(topics_themes_file):
-    """Extract abstract from topics-themes."""
+def _extract_key_term_definitions(topics_themes_file):
+    """Extract key term definitions from topics-themes file."""
     with open(topics_themes_file, "r", encoding="utf-8") as f:
         content = f.read()
-    content = strip_yaml_frontmatter(content)
-    abstract = extract_section(content, "Abstract")
-    return re.sub(r"^---\s*$", "", abstract, flags=re.MULTILINE).strip()
-
-
-def _load_definitions_content(topics_themes_file):
-    """Load key term definitions from a split file when available."""
-    extracts_path = Path(topics_themes_file)
-    stem = extracts_path.stem.replace(
-        config.SUFFIX_KEY_ITEMS_RAW_LEGACY.replace(".md", ""), ""
-    )
-    summaries_dir = extracts_path.parent
-    candidates = [
-        summaries_dir / f"{stem}{config.SUFFIX_KEY_TERMS}",
-        summaries_dir / f"{stem} - definitions.md",
-        summaries_dir / f"{stem} - key-term-definitions.md",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate.read_text(encoding="utf-8")
-    return None
-
-
-def _extract_key_terms(topics_themes_file):
-    """Extract key term names (without definitions) from archival document."""
-    content = _load_definitions_content(topics_themes_file)
-    if content is None:
-        with open(topics_themes_file, "r", encoding="utf-8") as f:
-            content = f.read()
-
-    content = strip_yaml_frontmatter(content)
-    content = re.sub(
-        r"---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms",
-        "# Key Terms",
-        content,
-        flags=re.DOTALL,
-    )
-    term_headings = re.findall(r"^###\s+(.+)$", content, re.MULTILINE)
-
-    return [term.strip() for term in term_headings]
-
-
-def _extract_key_term_definitions(topics_themes_file):
-    """Extract key terms with their definitions and types from archival."""
-    content = _load_definitions_content(topics_themes_file)
-    if content is None:
-        with open(topics_themes_file, "r", encoding="utf-8") as f:
-            content = f.read()
 
     content = strip_yaml_frontmatter(content)
 
-    # Normalize Key Terms header to ## for extraction if it appears as #
-    if re.search(r"^# Key Terms", content, re.MULTILINE):
-        content = re.sub(r"^# Key Terms", "## Key Terms",
-                         content, flags=re.MULTILINE)
+    # Extract Key Terms section
+    terms_section = extract_section(content, "Key Terms")
+    if not terms_section:
+        return []
 
-    # Extract ONLY the Key Terms section to avoid picking up Topics/Themes
-    key_terms_section = extract_section(content, "Key Terms")
-    if not key_terms_section:
-        # Fallback for alternative header
-        key_terms_section = extract_section(
-            content, "Part 2: Key Term Definitions")
+    # Parse term definitions
+    # Pattern: **Term**: Definition or **Term** - Definition
+    pattern = r'\*\*([^\*]+?)\*\*\s*[:\-]\s*(.+?)(?=\n\*\*|\n\n|$)'
+    matches = re.findall(pattern, terms_section, re.DOTALL)
 
-    term_pattern = r"###\s+(.+?)\n(.*?)(?=\n###|\Z)"
-    matches = re.findall(term_pattern, key_terms_section,
-                         re.DOTALL | re.MULTILINE)
-
-    results = []
+    terms = []
     for name, raw_def in matches:
         name = name.strip()
         raw_def = raw_def.strip()
 
-        def_type = "def-explicit"
+        # Clean up definition
         clean_def = raw_def
+        # Remove surrounding parentheses if present
+        if clean_def.startswith('(') and clean_def.endswith(')'):
+            clean_def = clean_def[1:-1].strip()
 
-        # Check for definition type
-        type_match = re.search(
-            r"\*\*Definition Type:\*\*\s*(Explicit|Implicit)", raw_def, re.IGNORECASE
+        # Remove markdown emphasis
+        clean_def = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_def)
+        clean_def = re.sub(r'\*(.+?)\*', r'\1', clean_def)
+
+        terms.append({
+            "name": name,
+            "definition": clean_def
+        })
+
+    return terms
+
+
+def _format_ref_list(items):
+    """Format a list of (label, quote) tuples as HTML."""
+    if not items:
+        return "<p>None found.</p>"
+
+    html_parts = ["<ul class='ref-list'>"]
+    for label, quote in items:
+        html_parts.append(
+            f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
         )
-        if type_match:
-            dtype = type_match.group(1).lower()
-            def_type = f"def-{dtype}"
-            # Remove the type line to get clean text for searching
-            clean_def = re.sub(
-                r"\*\*Definition Type:\*\*\s*(Explicit|Implicit)\s*\n?",
-                "",
-                raw_def,
-                flags=re.IGNORECASE,
-            ).strip()
+    html_parts.append("</ul>")
+    return "".join(html_parts)
 
-        results.append(
-            {"name": name, "definition": clean_def, "type": def_type})
 
-    return results
+def _format_key_terms(key_terms):
+    """Format key terms as HTML definition list."""
+    if not isinstance(key_terms, list) or not key_terms:
+        if key_terms and isinstance(key_terms, str):
+            return f"<p>{escape(key_terms)}</p>"
+        return "<p>No key terms found.</p>"
 
+    html_parts = ["<dl>"]
+    for term in key_terms:
+        name = term.get("name", "Unknown Term")
+        definition = term.get("definition", "No definition provided.")
+        html_parts.append(f"<dt><strong>{escape(name)}</strong></dt>")
+        html_parts.append(f"<dd>{markdown_to_html(definition)}</dd>")
+    html_parts.append("</dl>")
+    return "".join(html_parts)
+
+
+# ============================================================================
+# HTML GENERATION USING TEMPLATES
+# ============================================================================
+
+def _generate_html_page(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
+    """Generate complete HTML page with sidebar using Jinja2 template."""
+    meta = parse_filename_metadata(base_name)
+
+    # Prepare template context
+    context = {
+        "meta": meta,
+        "formatted_content": formatted_content,
+        "abstract_html": markdown_to_html(metadata["abstract"]),
+        "summary_html": markdown_to_html(summary),
+        "topics_html": markdown_to_html(metadata["topics"]),
+        "themes_html": markdown_to_html(metadata["themes"]),
+        "key_terms_html": _format_key_terms(metadata.get("key_terms")),
+        "bowen_html": _format_ref_list(bowen_refs),
+        "emphasis_html": _format_ref_list(emphasis_items),
+        "common_css": COMMON_CSS,
+        "webpage_css": WEBPAGE_CSS,
+    }
+
+    # Render template
+    template = template_env.get_template("webpage.html")
+    return template.render(context)
+
+
+def _generate_simple_html_page(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
+    """Generate simple HTML page using Jinja2 template."""
+    meta = parse_filename_metadata(base_name)
+
+    # Prepare template context
+    context = {
+        "meta": meta,
+        "formatted_content": formatted_content,
+        "abstract_html": markdown_to_html(metadata["abstract"]),
+        "summary_html": markdown_to_html(summary),
+        "topics_html": markdown_to_html(metadata["topics"]),
+        "themes_html": markdown_to_html(metadata["themes"]),
+        "key_terms_html": _format_key_terms(metadata.get("key_terms")),
+        "bowen_html": _format_ref_list(bowen_refs),
+        "emphasis_html": _format_ref_list(emphasis_items),
+        "common_css": COMMON_CSS,
+    }
+
+    # Render template
+    template = template_env.get_template("simple_webpage.html")
+    return template.render(context)
+
+
+def _generate_pdf_html(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
+    """Generate PDF-ready HTML using Jinja2 template."""
+    meta = parse_filename_metadata(base_name)
+
+    # Prepare template context
+    context = {
+        "meta": meta,
+        "formatted_content": formatted_content,
+        "abstract_html": markdown_to_html(metadata["abstract"]),
+        "summary_html": markdown_to_html(summary),
+        "topics_html": markdown_to_html(metadata["topics"]),
+        "themes_html": markdown_to_html(metadata["themes"]),
+        "key_terms_html": _format_key_terms(metadata.get("key_terms")),
+        "bowen_html": _format_ref_list(bowen_refs),
+        "emphasis_html": _format_ref_list(emphasis_items),
+        "common_css": COMMON_CSS,
+        "pdf_css": PDF_CSS,
+    }
+
+    # Render template
+    template = template_env.get_template("pdf.html")
+    return template.render(context)
+
+
+# ============================================================================
+# HTML CONTENT HIGHLIGHTING
+# ============================================================================
+# This complex function handles highlighting of Bowen references and emphasis
+# items in the HTML content. Kept unchanged for reliability.
 
 def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
     """Add HTML highlighting to HTML content for Bowen refs, emphasis, and term definitions."""
@@ -891,247 +627,32 @@ def _generate_simple_html_page(
     bowen_html = format_ref_list(bowen_refs)
     emphasis_html = format_ref_list(emphasis_items)
 
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{escape(meta["title"])}</title>
-    <style>
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
+    # Prepare template context
+    context = {
+        "meta": meta,
+        "formatted_content": formatted_content,
+        "abstract_html": abstract_html,
+        "summary_html": summary_html,
+        "topics_html": topics_html,
+        "themes_html": themes_html,
+        "key_terms_html": key_terms_html,
+        "bowen_html": bowen_html,
+        "emphasis_html": emphasis_html,
+        "common_css": COMMON_CSS,
+    }
 
-        body {{
-            font-family: 'Georgia', serif;
-            line-height: 1.6;
-            color: #333;
-            background: #f5f5f5;
-        }}
-
-        .container {{
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }}
-
-        header {{
-            background: #f0f4f8;
-            color: #1f2a44;
-            padding: 2rem;
-            text-align: center;
-            border-bottom: 3px solid #d6dee8;
-        }}
-
-        header h1 {{
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }}
-
-        header .meta {{
-            font-size: 1rem;
-            opacity: 0.9;
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-        }}
-
-        header .meta .author {{
-            font-weight: 600;
-        }}
-
-        header .meta .date {{
-            opacity: 0.9;
-        }}
-
-        .content {{
-            padding: 2rem 3rem;
-        }}
-
-        .legend {{
-            margin: 0 0 2rem 0;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 5px;
-            font-size: 0.9rem;
-        }}
-
-        .legend span {{
-            display: inline-block;
-            margin-right: 1.5rem;
-        }}
-
-        .ref-list {{
-            list-style-type: none;
-            padding-left: 0;
-        }}
-
-        .ref-list li {{
-            margin-bottom: 0.8rem;
-        }}
-
-        .summary-section {{
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            border-left: 4px solid #2c3e50;
-        }}
-
-        .summary-section h2 {{
-            margin-top: 0;
-        }}
-
-        .appendices {{
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #f0f7ff;
-            border-left: 4px solid #17a2b8;
-            border-top: 1px solid #ddd;
-        }}
-
-        .appendices h2 {{
-            margin-top: 1.5rem;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 0.3rem;
-        }}
-
-        .appendices p, .appendices li {{
-            line-height: 1.8;
-        }}
-
-        h1 {{
-            font-size: 2rem;
-            margin: 2rem 0 1rem 0;
-            color: #2c3e50;
-        }}
-
-        h2 {{
-            font-size: 1.5rem;
-            margin: 1.5rem 0 1rem 0;
-            color: #2c3e50;
-        }}
-
-        h3 {{
-            font-size: 1.2rem;
-            margin: 1.2rem 0 0.8rem 0;
-            color: #34495e;
-        }}
-
-        p {{
-            margin: 1rem 0;
-            text-align: justify;
-        }}
-
-        mark.bowen-ref {{
-            background-color: #fff3cd;
-            border-left: 3px solid #ffc107;
-            padding: 0 0.2rem;
-            cursor: help;
-        }}
-
-        mark.emphasis {{
-            background-color: #d1ecf1;
-            border-left: 3px solid #17a2b8;
-            padding: 0 0.2rem;
-            cursor: help;
-        }}
-
-        mark.emphasis.score-90 {{
-            background-color: #bee5eb;
-            border-left-color: #138496;
-        }}
-
-        mark.emphasis.score-95 {{
-            background-color: #a6d9f3;
-            border-left-color: #0c5460;
-            font-weight: 500;
-        }}
-
-        mark.emphasis.bowen-ref {{
-            background-color: #fff3cd;
-            border-left-color: #ffc107;
-        }}
-
-        @media (max-width: 768px) {{
-            .content {{
-                padding: 1.5rem;
-            }}
-        }}
-
-        @media print {{
-            body {{
-                background: white;
-            }}
-
-            .container {{
-                box-shadow: none;
-            }}
-
-            mark {{
-                background: white !important;
-                font-weight: bold;
-                border-left: none !important;
-            }}
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>{escape(meta["title"])}</h1>
-            <div class="meta">
-                <div class="author">{escape(meta["author"])}</div>
-                <div class="date">{escape(meta["date"])}</div>
-            </div>
-        </header>
-
-        <div class="content">
-            <div class="legend">
-                <strong>Highlights:</strong>
-                <span><mark class="bowen-ref">Bowen References</mark></span>
-                <span><mark class="emphasis">Emphasis (<90%)</mark></span>
-                <span><mark class="emphasis score-90">High Emphasis (90-94%)</mark></span>
-                <span><mark class="emphasis score-95">Top Emphasis (95%+)</mark></span>
-            </div>
-
-            <div class="summary-section">
-                <h2>Abstract</h2>{abstract_html}
-                <h2>Summary</h2>{summary_html}
-            </div>
-
-            {formatted_content}
-        </div>
-
-        <div class="content appendices">
-            <h1>Appendices</h1>
-            
-            <h2>Key Topics</h2>
-            {topics_html}
-
-            <h2>Key Themes</h2>
-            {themes_html}
-
-            <h2>Key Terms</h2>
-            {key_terms_html}
-
-            <h2>Bowen References</h2>
-            {bowen_html}
-
-            <h2>Emphasized Items</h2>
-            {emphasis_html}
-        </div>
-    </div>
-</body>
-</html>"""
-    return html
+    template = template_env.get_template("simple_webpage.html")
+    return template.render(context)
 
 
-def generate_simple_webpage(base_name: str) -> bool:
-    """Orchestrates the generation of the simple, single-column webpage."""
-    logger = setup_logging("generate_simple_webpage")
+
+# ============================================================================
+# MAIN GENERATION FUNCTIONS
+# ============================================================================
+
+def generate_webpage(base_name: str) -> bool:
+    """Orchestrates the generation of the main webpage with a sidebar."""
+    logger = setup_logging("generate_webpage")
     try:
         formatted_file = (
             config.PROJECTS_DIR / base_name /
@@ -1143,9 +664,8 @@ def generate_simple_webpage(base_name: str) -> bool:
             / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         )
         output_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_WEBPAGE}"
         )
 
         validate_input_file(formatted_file)
@@ -1154,17 +674,19 @@ def generate_simple_webpage(base_name: str) -> bool:
         formatted_content = formatted_file.read_text(encoding="utf-8")
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading topics-themes materials for simple webpage...")
-        metadata = _extract_webpage_metadata(topics_themes_file)
-        summary = _load_summary(base_name)
-        # Override abstract with the best available version
-        metadata["abstract"] = _load_abstract(base_name)
+        logger.info("Loading topics-themes materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
+        summary = _load_summary(base_name)
+        metadata = _extract_webpage_metadata(topics_themes_file)
+        # Override abstract with the best available version
+        metadata["abstract"] = _load_abstract(base_name)
+        logger.info(
+            "Found %d Bowen references and %d emphasis items.", len(bowen_refs), len(emphasis_items))
 
-        logger.info("Highlighting transcript for simple webpage...")
+        logger.info("Highlighting transcript...")
         formatted_html = markdown_to_html(formatted_content)
-        # Clean up HTML before highlighting
+        # Clean up unwanted headers before highlighting
         formatted_html = re.sub(
             r"<h1>Transcript Formatting[^<]*</h1>\s*",
             "",
@@ -1172,14 +694,70 @@ def generate_simple_webpage(base_name: str) -> bool:
             flags=re.IGNORECASE,
         )
         formatted_html = re.sub(r"^<h1>[^<]+</h1>\s*", "", formatted_html)
-
-        highlighted_html = _highlight_html_content(
+        formatted_html = _highlight_html_content(
             formatted_html, bowen_refs, emphasis_items
         )
 
-        logger.info("Generating simple HTML page...")
+        meta = parse_filename_metadata(base_name)
+        formatted_html = f"<h1>{escape(meta['title'])}</h1>\n\n{formatted_html}"
+
+        logger.info("Generating HTML page using template...")
+        html = _generate_html_page(
+            base_name, formatted_html, metadata, summary, bowen_refs, emphasis_items
+        )
+
+        output_file.write_text(html, encoding="utf-8")
+
+        logger.info("✓ Webpage generated successfully: %s", output_file)
+        return True
+
+    except Exception as e:
+        logger.error("An error occurred: %s", e, exc_info=True)
+        return False
+
+
+def generate_simple_webpage(base_name: str) -> bool:
+    """Generates a simple standalone webpage (no sidebar)."""
+    logger = setup_logging("generate_simple_webpage")
+    try:
+        formatted_file = (
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_FORMATTED}"
+        )
+        topics_themes_file = (
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+        )
+        output_file = (
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
+        )
+
+        validate_input_file(formatted_file)
+        validate_input_file(topics_themes_file)
+
+        formatted_content = formatted_file.read_text(encoding="utf-8")
+        formatted_content = strip_yaml_frontmatter(formatted_content)
+
+        logger.info("Loading topics-themes materials...")
+        bowen_refs = load_bowen_references(base_name)
+        emphasis_items = load_emphasis_items(base_name)
+        summary = _load_summary(base_name)
+        metadata = _extract_webpage_metadata(topics_themes_file)
+        # Override abstract with the best available version
+        metadata["abstract"] = _load_abstract(base_name)
+
+        logger.info("Highlighting transcript...")
+        formatted_html = markdown_to_html(formatted_content)
+        # Clean up headers
+        formatted_html = re.sub(r"^<h1>[^<]+</h1>\s*", "", formatted_html)
+        formatted_html = _highlight_html_content(
+            formatted_html, bowen_refs, emphasis_items
+        )
+
+        logger.info("Generating simple HTML page using template...")
         html = _generate_simple_html_page(
-            base_name, highlighted_html, metadata, summary, bowen_refs, emphasis_items
+            base_name, formatted_html, metadata, summary, bowen_refs, emphasis_items
         )
 
         output_file.write_text(html, encoding="utf-8")
@@ -1192,352 +770,23 @@ def generate_simple_webpage(base_name: str) -> bool:
         return False
 
 
-# ============================================================================
-# PDF GENERATION
-# ============================================================================
-
-
-def _sort_key_term_sections(content: str) -> str:
-    """Sort key term sections alphabetically by heading."""
-    sections = []
-    current = None
-    for line in content.splitlines():
-        if line.startswith("## "):
-            if current:
-                sections.append(current)
-            current = {"title": line[3:].strip(), "lines": [line]}
-        else:
-            if current is None:
-                continue
-            current["lines"].append(line)
-    if current:
-        sections.append(current)
-
-    if not sections:
-        return content
-
-    sections.sort(key=lambda s: s["title"].lower())
-    return "\n".join("\n".join(section["lines"]) for section in sections).strip()
-
-
-def _extract_pdf_metadata(topics_themes_file):
-    """Extract metadata for PDF generation."""
-    with open(topics_themes_file, "r", encoding="utf-8") as f:
-        content = f.read()
-    content = strip_yaml_frontmatter(content)
-    content = re.sub(
-        r"---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms",
-        "# Key Terms",
-        content,
-        flags=re.DOTALL,
-    )
-
-    metadata = {
-        "topics": extract_section(content, "Topics"),
-        "themes": extract_section(content, "Key Themes"),
-        "abstract": extract_section(content, "Abstract"),
-        "key_terms": extract_section(content, "Key Terms"),
-    }
-
-    definitions_content = _load_definitions_content(topics_themes_file)
-    if definitions_content:
-        definitions_content = strip_yaml_frontmatter(definitions_content)
-        definitions_content = re.sub(
-            r"```yaml.*?```", "", definitions_content, flags=re.DOTALL | re.IGNORECASE
-        )
-        definitions_content = re.sub(
-            r"^## (Part 2: Key Term Definitions|Key Terms)\s*",
-            "",
-            definitions_content,
-            flags=re.MULTILINE,
-        ).strip()
-        if definitions_content:
-            metadata["key_terms"] = _sort_key_term_sections(
-                definitions_content)
-
-    return metadata
-
-
-def _generate_html_for_pdf(
-    base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items
-):
-    """Generate complete HTML for PDF conversion."""
-    meta = parse_filename_metadata(base_name)
-    topics_html = markdown_to_html(metadata["topics"])
-    themes_html = markdown_to_html(metadata["themes"])
-    abstract_html = markdown_to_html(metadata["abstract"])
-    key_terms_html = markdown_to_html(metadata["key_terms"])
-
-    summary_html = markdown_to_html(summary)
-
-    def format_ref_list(items):
-        if not items:
-            return "<p>None found.</p>"
-        html_list = "<ul class='ref-list'>"
-        for label, quote in items:
-            html_list += f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
-        html_list += "</ul>"
-        return html_list
-
-    bowen_html = format_ref_list(bowen_refs)
-    emphasis_html = format_ref_list(emphasis_items)
-
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{escape(meta["title"])}</title>
-    <style>
-        @page {{
-            size: Letter;
-            margin: 0.75in;
-        }}
-
-        * {{
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }}
-
-        body {{
-            font-family: 'Georgia', serif;
-            font-size: 11pt;
-            line-height: 1.5;
-            color: #333;
-        }}
-
-        .cover {{
-            page-break-after: always;
-            text-align: center;
-            padding-top: 3in;
-        }}
-
-        .cover h1 {{
-            font-size: 28pt;
-            margin-bottom: 0.5in;
-            color: #2c3e50;
-        }}
-
-        .cover .meta {{
-            font-size: 14pt;
-            margin-bottom: 0.3in;
-        }}
-
-        .cover .toc {{
-            text-align: left;
-            margin: 0 auto;
-            max-width: 4in;
-            font-size: 12pt;
-            line-height: 1.6;
-        }}
-
-        .cover .toc h2 {{
-            font-size: 16pt;
-            margin-bottom: 0.3in;
-            color: #2c3e50;
-            text-align: center;
-        }}
-
-        .cover .toc ol {{
-            margin-left: 0.3in;
-            padding-left: 0;
-        }}
-
-        .cover .toc li {{
-            margin-bottom: 8pt;
-        }}
-
-        .section {{
-            page-break-before: always;
-        }}
-
-        h1 {{
-            font-size: 20pt;
-            margin: 24pt 0 12pt 0;
-            color: #2c3e50;
-            page-break-after: avoid;
-        }}
-
-        h2 {{
-            font-size: 16pt;
-            margin: 18pt 0 10pt 0;
-            color: #2c3e50;
-            page-break-after: avoid;
-        }}
-
-        h3 {{
-            font-size: 13pt;
-            margin: 14pt 0 8pt 0;
-            color: #34495e;
-            page-break-after: avoid;
-        }}
-
-        p {{
-            margin: 8pt 0;
-            text-align: justify;
-            orphans: 3;
-            widows: 3;
-        }}
-
-        .abstract, .metadata-section {{
-            margin-bottom: 24pt;
-        }}
-
-        mark.bowen-ref {{
-            background-color: #fff3cd;
-            padding: 2px 4px;
-        }}
-
-        mark.emphasis {{
-            background-color: #d1ecf1;
-            padding: 2px 4px;
-        }}
-
-        mark.emphasis.score-90 {{
-            background-color: #bee5eb;
-        }}
-
-        mark.emphasis.score-95 {{
-            background-color: #a6d9f3;
-            font-weight: bold;
-        }}
-
-        mark.emphasis.bowen-ref {{
-            background-color: #fff3cd;
-        }}
-
-        .legend {{
-            margin: 18pt 0;
-            padding: 12pt;
-            background: #f8f9fa;
-            border-left: 4px solid #2c3e50;
-        }}
-
-        .ref-list {{
-            list-style-type: none;
-            padding-left: 0;
-        }}
-
-        .ref-list li {{
-            margin-bottom: 8pt;
-        }}
-
-        strong {{
-            font-weight: 600;
-        }}
-    </style>
-</head>
-<body>
-    <div class="cover">
-        <h1>{escape(meta["title"])}</h1>
-        <div class="meta">
-            <p><strong>{escape(meta["author"])}</strong></p>
-            <p>{escape(meta["date"])}</p>
-        </div>
-        <div class="toc">
-            <h2>Contents</h2>
-            <ol>
-                <li>Abstract</li>
-                <li>Summary</li>
-                <li>Key Topics</li>
-                <li>Key Themes</li>
-                <li>Key Terms</li>
-                <li>Bowen References</li>
-                <li>Emphasized Items</li>
-                <li>Transcript</li>
-            </ol>
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Abstract</h1>
-        <div class="abstract">
-            {abstract_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Summary</h1>
-        <div class="abstract">
-            {summary_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Key Topics</h1>
-        <div class="metadata-section">
-            {topics_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Key Themes</h1>
-        <div class="metadata-section">
-            {themes_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Key Terms</h1>
-        <div class="metadata-section">
-            {key_terms_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Bowen References</h1>
-        <div class="metadata-section">
-            {bowen_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Emphasized Items</h1>
-        <div class="metadata-section">
-            {emphasis_html}
-        </div>
-    </div>
-
-    <div class="section">
-        <h1>Transcript</h1>
-        <div class="legend">
-            <strong>Highlights:</strong>
-            <mark class="bowen-ref">Bowen References</mark> |
-            <mark class="emphasis">Emphasis (<90%)</mark> |
-            <mark class="emphasis score-90">High Emphasis (90-94%)</mark> |
-            <mark class="emphasis score-95">Top Emphasis (95%+)</mark>
-        </div>
-        {formatted_content}
-    </div>
-</body>
-</html>"""
-
-    return html
-
-
 def generate_pdf(base_name: str) -> bool:
-    """Orchestrates the generation of the PDF."""
+    """Generates a PDF from the formatted transcript."""
     logger = setup_logging("generate_pdf")
     try:
         from weasyprint import HTML
-    except ImportError:
-        logger.error(
-            "WeasyPrint library not found. Install with: pip install weasyprint"
-        )
-        return False
 
-    try:
         formatted_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
         topics_themes_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         )
         output_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_PDF}"
+            config.PROJECTS_DIR / base_name /
+            f"{base_name}{config.SUFFIX_PDF}"
         )
 
         validate_input_file(formatted_file)
@@ -1546,30 +795,24 @@ def generate_pdf(base_name: str) -> bool:
         formatted_content = formatted_file.read_text(encoding="utf-8")
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading topics-themes materials for PDF...")
+        logger.info("Loading topics-themes materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
-        metadata = _extract_pdf_metadata(topics_themes_file)
         summary = _load_summary(base_name)
+        metadata = _extract_webpage_metadata(topics_themes_file)
         # Override abstract with the best available version
         metadata["abstract"] = _load_abstract(base_name)
 
-        logger.info("Highlighting transcript for PDF...")
+        logger.info("Highlighting transcript...")
         formatted_html = markdown_to_html(formatted_content)
-        formatted_html = re.sub(
-            r"<h1>Transcript Formatting[^<]*</h1>\s*",
-            "",
-            formatted_html,
-            flags=re.IGNORECASE,
-        )
-        # Also remove the title header if present, to match simple_webpage logic
+        # Remove title header
         formatted_html = re.sub(r"^<h1>[^<]+</h1>\s*", "", formatted_html)
         highlighted_html = _highlight_html_content(
             formatted_html, bowen_refs, emphasis_items
         )
 
-        logger.info("Generating HTML for PDF...")
-        html_content = _generate_html_for_pdf(
+        logger.info("Generating HTML for PDF using template...")
+        html_content = _generate_pdf_html(
             base_name, highlighted_html, metadata, summary, bowen_refs, emphasis_items
         )
 

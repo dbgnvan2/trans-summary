@@ -314,7 +314,7 @@ def check_keyword_coverage(
 
 
 def validate_abstract_coverage(
-    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL
+    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL, logger=None
 ) -> dict:
     """
     Validate abstract covers required content from source.
@@ -325,6 +325,7 @@ def validate_abstract_coverage(
         use_llm_verification: Whether to use LLM for low-confidence items
         api_client: Anthropic client (required if use_llm_verification=True)
         model: Model to use for LLM verification
+        logger: Optional logger for warnings
 
     Returns:
         Validation results dict
@@ -345,7 +346,7 @@ def validate_abstract_coverage(
 
         if low_confidence_required:
             llm_results = verify_with_llm(
-                abstract, low_confidence_required, api_client, model=model)
+                abstract, low_confidence_required, api_client, model=model, logger=logger)
             for item, result in zip(low_confidence_required, llm_results):
                 item.covered = result
                 item.confidence = "llm_verified"
@@ -388,7 +389,7 @@ def validate_abstract_coverage(
     }
 
 
-def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL) -> list[bool]:
+def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list[bool]:
     """
     Use LLM to verify coverage of specific items.
 
@@ -421,6 +422,7 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
         messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
         temperature=0.0,  # Strict for validation
+        logger=logger,
     )
 
     response_text = response.content[0].text.strip()
@@ -534,7 +536,7 @@ def generate_review_checklist(abstract_input) -> str:
 
 
 def validate_and_report(
-    abstract: str, abstract_input, api_client=None, model: str = config.AUX_MODEL
+    abstract: str, abstract_input, api_client=None, model: str = config.AUX_MODEL, logger=None
 ) -> tuple[bool, str]:
     """
     Convenience function: validate and return pass/fail with report.
@@ -563,6 +565,7 @@ def validate_and_report(
         use_llm_verification=api_client is not None,
         api_client=api_client,
         model=model,
+        logger=logger,
     )
 
     report_lines = [

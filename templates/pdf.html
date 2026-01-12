@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ common_css }}
+
+{{ pdf_css }}
+{% endblock %}
+
+{% block body %}
+<div class="cover">
+    <h1>{{ meta.title }}</h1>
+    <div class="meta">
+        <p><strong>{{ meta.author }}</strong></p>
+        <p>{{ meta.date }}</p>
+    </div>
+    <div class="toc">
+        <h2>Contents</h2>
+        <ol>
+            <li>Abstract</li>
+            <li>Summary</li>
+            <li>Key Topics</li>
+            <li>Key Themes</li>
+            <li>Key Terms</li>
+            <li>Bowen References</li>
+            <li>Emphasized Items</li>
+            <li>Transcript</li>
+        </ol>
+    </div>
+</div>
+
+<div class="section">
+    <h1>Abstract</h1>
+    <div class="abstract">
+        {{ abstract_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Summary</h1>
+    <div class="abstract">
+        {{ summary_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Key Topics</h1>
+    <div class="metadata-section">
+        {{ topics_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Key Themes</h1>
+    <div class="metadata-section">
+        {{ themes_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Key Terms</h1>
+    <div class="metadata-section">
+        {{ key_terms_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Bowen References</h1>
+    <div class="metadata-section">
+        {{ bowen_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Emphasized Items</h1>
+    <div class="metadata-section">
+        {{ emphasis_html|safe }}
+    </div>
+</div>
+
+<div class="section">
+    <h1>Transcript</h1>
+    <div class="legend">
+        <strong>Highlights:</strong>
+        <span><mark class="bowen-ref">Bowen References</mark></span>
+        <span><mark class="emphasis">Emphasis (&lt;90%)</mark></span>
+        <span><mark class="emphasis score-90">High Emphasis (90-94%)</mark></span>
+        <span><mark class="emphasis score-95">Top Emphasis (95%+)</mark></span>
+    </div>
+    {{ formatted_content|safe }}
+</div>
+{% endblock %}

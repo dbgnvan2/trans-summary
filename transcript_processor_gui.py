@@ -7,6 +7,7 @@ A graphical interface for the transcript processing pipeline.
 import io
 import os
 import re
+import resource
 import shutil
 import threading
 import tkinter as tk
@@ -404,6 +405,39 @@ class TranscriptProcessorGUI:
             main_frame, text="Ready", foreground="green")
         self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W) # MODIFIED row from 7 to 8
 
+        # Memory Usage Label
+        self.memory_label = ttk.Label(
+            main_frame, text="Mem: -- MB", foreground="gray")
+        self.memory_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.E)
+
+        # Start memory monitoring
+        self.monitor_memory()
+
+    def monitor_memory(self):
+        """Periodically check and display memory usage."""
+        try:
+            # On macOS, ru_maxrss is in bytes. On Linux, it's in KB.
+            # Python docs say: "ru_maxrss: maximum resident set size"
+            # Since user is on Darwin (macOS), standard getrusage behavior applies.
+            # However, Python's resource module documentation says:
+            # "On OS X, ru_maxrss is in bytes."
+            usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            usage_mb = usage / (1024 * 1024)  # Bytes -> MB
+            
+            self.memory_label.config(text=f"Mem: {usage_mb:.1f} MB")
+            
+            # Check for high memory usage (e.g., > 2 GB)
+            if usage_mb > 2000:
+                self.memory_label.config(foreground="red")
+            else:
+                self.memory_label.config(foreground="gray")
+                
+        except Exception:
+            self.memory_label.config(text="Mem: N/A")
+            
+        # Update every 2 seconds
+        self.root.after(2000, self.monitor_memory)
+
     # ADDED: Callback for model selection
     def _on_model_selected(self, model_type: str):
         selected_model = self.model_vars[model_type].get()
@@ -502,6 +536,7 @@ class TranscriptProcessorGUI:
         project_dir = config.PROJECTS_DIR / base
         checks = [
             ("Source", self.selected_file),
+            ("Initial Val", self.selected_file.parent / f"{base}_validated{self.selected_file.suffix}"),
             ("Formatted", project_dir /
              f"{base}{config.SUFFIX_FORMATTED}"),
             ("Header Val", project_dir /
@@ -542,6 +577,14 @@ class TranscriptProcessorGUI:
                 text = f"{message} {args}"
         else:
             text = str(message)
+
+        # Truncate log if it gets too long (prevent memory issues)
+        # Check current line count
+        num_lines = int(self.log_text.index('end-1c').split('.')[0])
+        if num_lines > 5000:
+            # Delete first 500 lines
+            self.log_text.delete(1.0, 501.0)
+            self.log_text.insert(tk.END, "\n... [Older logs truncated to save memory] ...\n")
 
         self.log_text.insert(tk.END, text + "\n")
         self.log_text.see(tk.END)
@@ -819,7 +862,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 4: Generating Structured Summary...")
         self.run_task_in_thread(
-            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for summaries
 
     def do_validate_summary(self):
         """Validate the generated summary for coverage and proportions."""
@@ -904,7 +947,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 6: Generating Structured Abstract...")
         self.run_task_in_thread(
-            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for abstracts
 
     def do_validate_abstracts(self):
         """Validate the generated abstract for coverage."""
@@ -1064,16 +1107,16 @@ class TranscriptProcessorGUI:
 
         # Step 4: Generate Summary
         self.log("\n--- STEP 4: Generate Structured Summary ---")
-        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.AUX_MODEL): # MODIFIED
+        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for summaries
             self.log("⚠️ Summary generation failed or skipped.")
 
         # Step 5: Validate Summary
         self.log("\n--- STEP 5: Validate Summary ---")
-        pipeline.validate_summary_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+        pipeline.validate_summary_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL)  # Haiku is fine for validation
 
         # Step 6: Generate Abstract
         self.log("\n--- STEP 6: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.AUX_MODEL): # MODIFIED
+        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for abstracts
             self.log("⚠️ Abstract generation failed or skipped.")
 
         # Step 7: Validate Abstracts

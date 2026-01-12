@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ common_css }}
+
+/* Simple webpage specific styles */
+body {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+    background: white;
+}
+
+header {
+    text-align: center;
+    padding: 2rem 0;
+    border-bottom: 3px solid #2c3e50;
+    margin-bottom: 2rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    color: #2c3e50;
+}
+
+header .meta {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    margin-top: 0.5rem;
+}
+
+.section {
+    margin: 3rem 0;
+}
+
+.section h2 {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.metadata-section p {
+    margin: 0.5rem 0;
+}
+
+.transcript {
+    margin: 2rem 0;
+}
+
+.transcript p {
+    text-align: justify;
+}
+
+@media print {
+    mark {
+        background: white !important;
+        font-weight: bold;
+    }
+}
+{% endblock %}
+
+{% block body %}
+<header>
+    <h1>{{ meta.title }}</h1>
+    <div class="meta">
+        <strong>{{ meta.author }}</strong> | {{ meta.date }}
+    </div>
+</header>
+
+<div class="legend">
+    <strong>Highlights:</strong>
+    <span><mark class="bowen-ref">Bowen References</mark></span>
+    <span><mark class="emphasis">Emphasis (&lt;90%)</mark></span>
+    <span><mark class="emphasis score-90">High Emphasis (90-94%)</mark></span>
+    <span><mark class="emphasis score-95">Top Emphasis (95%+)</mark></span>
+</div>
+
+<section class="section">
+    <h2>Abstract</h2>
+    <div class="abstract">
+        {{ abstract_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Summary</h2>
+    <div class="metadata-section">
+        {{ summary_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Key Topics</h2>
+    <div class="metadata-section">
+        {{ topics_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Key Themes</h2>
+    <div class="metadata-section">
+        {{ themes_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Key Terms</h2>
+    <div class="metadata-section">
+        {{ key_terms_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Bowen References</h2>
+    <div class="metadata-section">
+        {{ bowen_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Emphasized Items</h2>
+    <div class="metadata-section">
+        {{ emphasis_html|safe }}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Transcript</h2>
+    <div class="transcript">
+        {{ formatted_content|safe }}
+    </div>
+</section>
+{% endblock %}

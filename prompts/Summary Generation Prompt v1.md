@@ -1,40 +1,42 @@
 Summary Generation Prompt (from summary_pipeline.py)
 
-You will receive a JSON object with structured data extracted from a transcript, including word allocations for each section.
+You have been provided with the **FULL TRANSCRIPT** in the system message.
+You will receive a JSON object below with structural metadata (word targets, topic list).
 
-Generate a summary as continuous prose with clearly separated paragraphs following this structure:
+**LENGTH REQUIREMENT:**
+This summary should be approximately {opening_words} + {body_words} + {qa_words} + {closing_words} words total (aim for 650-750 words).
+Summaries under 600 words will be rejected. Aim to be thorough but stay reasonably close to the target.
 
-Opening Paragraph (~{opening_words} words)
+**TASK:** Generate a rich, detailed, and cohesive summary of the transcript.
+**SOURCE:** You MUST use the **FULL TRANSCRIPT** (system message) as the primary source for all content, details, and examples.
+**APPROACH:** Write comprehensive prose with specific examples, evidence, and details from the transcript. Balance detail with conciseness to meet the word count target.
 
-Identify speaker with credentials
-State event type and context
-Present the stated_purpose as thesis
-Preview major content areas (referencing the 'topics')
-Body Paragraphs (~{body_words} words total)
-For each topic in order:
+Follow this structure (aim for the word counts shown):
 
-Allocate approximately the specified word_allocation to each topic
-State what the speaker addresses
-Include 2-3 key points
-Weave in the Key Themes where relevant to connect topics or deepen analysis
-Connect to next topic with transitional phrase
-Q&A Paragraph (~{qa_words} words, {qa_instruction})
+### Opening Paragraph (~{opening_words} words)
+Identify speaker with credentials, event context, stated purpose, and preview of content areas.
 
-State types of questions
-Mention 1-2 notable exchanges
-Closing Paragraph (~{closing_words} words)
+### Body Section (~{body_words} words - the main content)
+Write a comprehensive narrative synthesis covering all topics.
+*   Include specific examples, evidence, and detailed explanations from the transcript
+*   **Use the `body.topics` list in the JSON only as a checklist** of areas that must be covered
+*   **Mine the transcript** for details, quotes, examples, and evidence
+*   Weave in the Key Themes to deepen the analysis
+*   Write naturally to capture the flow of ideas
 
-State the conclusion
-Mention open questions and future direction if present
-Constraints:
+### Q&A Section (~{qa_words} words, {qa_instruction})
+If included: Summarize key questions and interaction types. Highlight 1-2 notable exchanges or insights.
 
-Third person, present tense
-Chronological order—do not reorganize
-No citations, quotations, or section numbers
-No evaluation of content quality
-No bullet points or lists
-Preserve technical terminology
-Output only the summary paragraphs—no headers or commentary
+### Closing Paragraph (~{closing_words} words)
+State the conclusion, open questions, and future directions.
+
+**Constraints:**
+*   Third person, present tense.
+*   Chronological narrative flow.
+*   No citations (e.g. "Section 1 says...").
+*   No bullet points.
+*   **Length:** Aim for 650-750 words total. Include specific details, examples, and evidence from the transcript. Summaries under 600 words will be rejected, but avoid significantly exceeding 800 words.
+
 Input data:
 {input_json}
 

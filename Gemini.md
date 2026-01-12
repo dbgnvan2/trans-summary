@@ -89,3 +89,9 @@ The project emphasizes correctness. Every generation step has a corresponding va
   - Always run `pytest tests` after making logic changes.
   - Run `ruff check .` to ensure code style compliance.
   - Add new tests in `tests/` if introducing new logic.
+
+## 7. Workflows
+
+- **Request Logging**:
+  - Automatically track user requests and task completion status in `REQUEST_LOG.md`.
+  - Update this log at the start and end of significant tasks.

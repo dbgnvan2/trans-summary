@@ -419,7 +419,7 @@ def check_proportionality(summary: str, summary_input, tolerance: float = 0.3) -
 
 
 def validate_summary_coverage(
-    summary: str, summary_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL
+    summary: str, summary_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL, logger=None
 ) -> dict:
     """
     Validate summary covers required content with appropriate proportions.
@@ -430,6 +430,7 @@ def validate_summary_coverage(
         use_llm_verification: Whether to use LLM for low-confidence items
         api_client: Anthropic client (required if use_llm_verification=True)
         model: Model to use for LLM verification
+        logger: Optional logger
 
     Returns:
         Validation results dict
@@ -450,7 +451,7 @@ def validate_summary_coverage(
 
         if low_confidence_required:
             llm_results = verify_with_llm(
-                summary, low_confidence_required, api_client, model=model)
+                summary, low_confidence_required, api_client, model=model, logger=logger)
             for item, result in zip(low_confidence_required, llm_results):
                 item.covered = result
                 item.confidence = "llm_verified"
@@ -517,7 +518,7 @@ def validate_summary_coverage(
     }
 
 
-def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL) -> list[bool]:
+def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list[bool]:
     """Use LLM to verify coverage of specific items."""
     items_text = "\n".join(
         [
@@ -548,6 +549,7 @@ def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: 
         messages=[{"role": "user", "content": prompt}],
         max_tokens=100,
         temperature=0.0,  # Strict for validation
+        logger=logger,
     )
 
     response_text = response.content[0].text.strip()
@@ -590,19 +592,8 @@ def format_review_checklist(
             lines.append(f"  Keywords: {', '.join(item.keywords[:5])}")
             lines.append("")
 
-    if proportion_issues:
-        lines.append("### Proportionality Issues\n")
-
-        for issue in proportion_issues:
-            deviation_pct = issue["deviation"] * 100
-            direction = "over" if issue["actual"] > issue["expected"] else "under"
-
-            lines.append(
-                f"- ⚠️ {issue['name']}: {direction} by {deviation_pct:.0f}%")
-            lines.append(
-                f"  Expected: ~{issue['expected']} words, Actual: {issue['actual']} words"
-            )
-            lines.append("")
+    # Removed Proportionality Issues section per user request ("too many constraints")
+    # if proportion_issues: ...
 
     return "\n".join(lines)
 
@@ -717,14 +708,19 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
     warnings = []
     word_count = len(summary.split())
 
-    # Word count check (±20% tolerance) - Now a WARNING
-    min_words = int(target_word_count * 0.80)
-    max_words = int(target_word_count * 1.20)
+    # Word count check
+    # Minimum: 600 words (strict minimum)
+    # Target: Should be close to target_word_count
+    min_words = 600
 
     if word_count < min_words:
         warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")
-    elif word_count > max_words:
-        warnings.append(f"Length check: Too long ({word_count} words, maximum {max_words})")
+
+    # Check if significantly below target (less than 85% of target)
+    if word_count < target_word_count * 0.85:
+        warnings.append(f"Length check: Below target ({word_count} words, target {target_word_count}, {word_count/target_word_count*100:.0f}%)")
+
+    # No upper limit - longer summaries are acceptable
 
     # Paragraph check
     paragraphs = [p for p in summary.split("\n\n") if p.strip()]
@@ -758,7 +754,7 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
 
 
 def validate_and_report(
-    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL
+    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL, logger=None
 ) -> tuple[bool, str]:
     """
     Validate summary and return pass/fail with report.
@@ -780,6 +776,7 @@ def validate_and_report(
         use_llm_verification=api_client is not None,
         api_client=api_client,
         model=model,
+        logger=logger,
     )
 
     report_lines = [

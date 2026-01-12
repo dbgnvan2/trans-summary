@@ -470,7 +470,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
 
         passed, report = abstract_validation.validate_and_report(
-            abstract_text, abstract_input, api_client=client, model=model
+            abstract_text, abstract_input, api_client=client, model=model, logger=logger
         )
 
         report_path = (
@@ -540,7 +540,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
         client = anthropic.Anthropic(api_key=api_key) if api_key else None
 
         passed, report = summary_validation.validate_and_report(
-            summary_text, summary_input, api_client=client, model=model
+            summary_text, summary_input, api_client=client, model=model, logger=logger
         )
 
         report_path = (

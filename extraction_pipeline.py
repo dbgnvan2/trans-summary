@@ -365,14 +365,17 @@ def extract_bowen_references_from_transcript(
 
 def generate_structured_summary(
     base_name: str,
-    summary_target_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT,
+    summary_target_word_count: int = None,
     logger=None,
     transcript_system_message=None,
-    model: str = config.AUX_MODEL,
+    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed summaries (was AUX_MODEL/Haiku)
 ) -> bool:
     """Generate a structured summary using the pipeline."""
     if logger is None:
         logger = setup_logging("generate_structured_summary")
+
+    if summary_target_word_count is None:
+        summary_target_word_count = config.DEFAULT_SUMMARY_WORD_COUNT
 
     try:
         try:
@@ -424,7 +427,8 @@ def generate_structured_summary(
             transcript_system_message = create_system_message_with_cache(
                 transcript)
 
-        logger.info("Generating summary via API...")
+        logger.info("Generating summary via API (Target: %d words)...", summary_target_word_count)
+        logger.info("Using model: %s", model)  # Log which model we're using
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY not set")
@@ -448,10 +452,11 @@ def generate_structured_summary(
 
 
 def generate_structured_abstract(
-    base_name: str, logger=None, transcript_system_message=None, model: str = config.AUX_MODEL
+    base_name: str, logger=None, transcript_system_message=None, model: str = config.DEFAULT_MODEL
 ) -> bool:
     """
     Generate an abstract using the structured pipeline.
+    Note: Uses Sonnet for detailed content generation (was AUX_MODEL/Haiku).
     """
     if logger is None:
         logger = setup_logging("generate_structured_abstract")

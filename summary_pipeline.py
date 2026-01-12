@@ -104,7 +104,7 @@ def calculate_word_allocations(
     target_word_count: int, topic_percentages: list[int], qa_percentage: int
 ) -> dict:
     """Calculate word allocations for each section."""
-    include_qa = qa_percentage > 15
+    include_qa = qa_percentage > 5
 
     # Base allocations
     opening_pct = config.SUMMARY_OPENING_PCT
@@ -429,7 +429,6 @@ def extract_closing_content(transcript: str, section_count: int) -> dict:
         r"[Ii]n conclusion[^.]+\.",
         r"[Tt]o conclude[^.]+\.",
         r"[Ss]o[,]? (?:the |my )?(?:answer|conclusion|point)[^.]+\.",
-        r"[Ii] (?:conclude|believe|think)[^.]+\.",
     ]
 
     conclusion = "No explicit conclusion stated"
@@ -575,6 +574,8 @@ def prepare_summary_input(
     qa_analysis = analyze_qa_content(transcript)
 
     # Calculate word allocations
+    # Use target_word_count directly without inflation
+    # Model is instructed to aim for these word counts
     topic_percentages = [t["percentage"] for t in topics]
     allocations = calculate_word_allocations(
         target_word_count, topic_percentages, qa_analysis["percentage"]
@@ -652,17 +653,32 @@ def load_prompt() -> str:
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
-    model: str = config.AUX_MODEL,
+    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed summaries (was AUX_MODEL/Haiku)
     system: Optional[list] = None,
 ) -> str:
     """
     Generate summary via API call.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("generate_summary called with model: %s", model)
+    logger.info("Summary target_word_count: %d", summary_input.target_word_count)
+
     qa_instruction = (
         "include this section" if summary_input.qa.include else "skip this section"
     )
 
     prompt_template = load_prompt()
+
+    # Log word allocations being sent to model
+    logger.info("Word allocations - Opening: %d, Body: %d, QA: %d, Closing: %d, Total: %d",
+                summary_input.opening.word_allocation,
+                summary_input.body.word_allocation,
+                summary_input.qa.word_allocation,
+                summary_input.closing.word_allocation,
+                summary_input.opening.word_allocation + summary_input.body.word_allocation +
+                summary_input.qa.word_allocation + summary_input.closing.word_allocation)
+
     prompt = prompt_template.format(
         opening_words=summary_input.opening.word_allocation,
         body_words=summary_input.body.word_allocation,
@@ -681,9 +697,10 @@ def generate_summary(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,  # Increased for structured summary
+        max_tokens=4000,  # Allow for 750-word summaries (~3000 tokens)
         temperature=config.TEMP_BALANCED,
-        min_length=300,  # Ensure substantial summary
+        min_length=2400,  # Ensure substantial summary (~600 words minimum)
+        min_words=600,    # Enforce strict minimum of 600 words
         **kwargs,
     )
 

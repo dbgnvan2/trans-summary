@@ -1,0 +1,163 @@
+/* Styles specific to PDF generation */
+
+@page {
+    size: letter;
+    margin: 0.75in;
+}
+
+body {
+    font-family: 'Georgia', serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #000;
+}
+
+h1 {
+    font-size: 20pt;
+    margin-bottom: 12pt;
+    page-break-after: avoid;
+}
+
+h2 {
+    font-size: 14pt;
+    margin-top: 18pt;
+    margin-bottom: 9pt;
+    page-break-after: avoid;
+}
+
+h3 {
+    font-size: 12pt;
+    margin-top: 12pt;
+    margin-bottom: 6pt;
+    page-break-after: avoid;
+}
+
+p {
+    margin: 9pt 0;
+    text-align: justify;
+}
+
+/* Cover page */
+.cover {
+    page-break-after: always;
+    text-align: center;
+    padding-top: 30%;
+}
+
+.cover h1 {
+    font-size: 24pt;
+    margin-bottom: 18pt;
+}
+
+.cover .meta {
+    font-size: 12pt;
+    margin-top: 18pt;
+}
+
+.cover .meta p {
+    margin: 6pt 0;
+}
+
+/* Table of contents */
+.toc {
+    margin-top: 48pt;
+}
+
+.toc h2 {
+    font-size: 16pt;
+    margin-bottom: 12pt;
+}
+
+.toc ol {
+    list-style-type: decimal;
+    padding-left: 24pt;
+}
+
+.toc li {
+    margin: 6pt 0;
+}
+
+/* Sections */
+.section {
+    page-break-before: always;
+}
+
+.section:first-of-type {
+    page-break-before: auto;
+}
+
+.section h1 {
+    font-size: 16pt;
+    margin-bottom: 12pt;
+    border-bottom: 2pt solid #2c3e50;
+    padding-bottom: 6pt;
+}
+
+/* Abstract and summary */
+.abstract {
+    font-style: italic;
+    margin: 12pt 0;
+    padding: 12pt;
+    background: #f5f5f5;
+    border-left: 4px solid #2c3e50;
+}
+
+/* Metadata sections */
+.metadata-section {
+    margin: 12pt 0;
+}
+
+/* Highlighting */
+mark.bowen-ref {
+    background-color: #fff3cd;
+    font-weight: bold;
+}
+
+mark.emphasis {
+    background-color: #d1ecf1;
+}
+
+mark.emphasis.score-90 {
+    background-color: #bee5eb;
+}
+
+mark.emphasis.score-95 {
+    background-color: #a6d9f3;
+    font-weight: bold;
+}
+
+mark.emphasis.bowen-ref {
+    background-color: #fff3cd;
+}
+
+/* Legend */
+.legend {
+    margin: 18pt 0;
+    padding: 12pt;
+    background: #f8f9fa;
+    border-left: 4px solid #2c3e50;
+}
+
+/* Page breaks */
+h1, h2, h3 {
+    page-break-after: avoid;
+}
+
+p {
+    orphans: 3;
+    widows: 3;
+}
+
+/* Lists */
+ul, ol {
+    padding-left: 24pt;
+}
+
+li {
+    margin: 6pt 0;
+}
+
+/* Strong emphasis */
+strong {
+    font-weight: 600;
+}
