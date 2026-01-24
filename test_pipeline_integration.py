@@ -47,19 +47,27 @@ class TestPipelineIntegration(unittest.TestCase):
 
     @patch('extraction_pipeline.call_claude_with_retry')
     @patch('validation_pipeline.call_claude_with_retry')
-    @patch('pathlib.Path.read_text')
+    @patch('summary_pipeline.call_claude_with_retry')
+    @patch('abstract_pipeline.call_claude_with_retry')
+    @patch('pathlib.Path.read_text', autospec=True)
     @patch('pathlib.Path.write_text')
     @patch('extraction_pipeline.validate_input_file')
     @patch('validation_pipeline.validate_input_file')
+    @patch('os.getenv')
     def test_full_extraction_validation_flow(
-        self, mock_val_input_val, mock_val_input_ext,
+        self, mock_getenv, mock_val_input_val, mock_val_input_ext,
         mock_write_text, mock_read_text,
+        mock_call_claude_abstract, # Added argument
+        mock_call_claude_summary,
         mock_call_claude_val, mock_call_claude_ext
     ):
         """
         Simulate the flow: 
         Summarize -> Gen Structured Summary -> Validate Summary -> Gen Abstract -> Validate Abstract
         """
+        # Setup API Key
+        mock_getenv.return_value = "dummy-key"
+        
         # 1. Setup Mock Data
         transcript_text = "## Section 1\nThis is a test transcript.\n## Section 2\nIt has content."
         yaml_text = "---\ntitle: Test\n---\n" + transcript_text
@@ -79,10 +87,16 @@ Description.
 
         # Configure read_text to return content for prompts (real paths) and data (mocks)
         def read_text_side_effect(*args, **kwargs):
-            # If called on a real Path object (like prompts), args[0] is self
-            # But since we patch the class method, we need to handle how it's called.
-            # For simplicity, we'll just return a generic prompt if it seems like one, else content.
-            return "Dummy Prompt {{insert_transcript_text_here}} {{blog_content}}"
+            # args[0] is the Path object instance
+            path_obj = args[0]
+            path_str = str(path_obj)
+            
+            # If it's a prompt file (in prompts dir or has Prompt in name)
+            if "prompts" in path_str or "Prompt" in path_obj.name:
+                return "Dummy Prompt {{insert_transcript_text_here}} {{blog_content}} {{topics_list}} {{themes_list}}"
+            
+            # For data files (transcript, key items, etc.), return our mock content
+            return combined_content
 
         mock_read_text.side_effect = read_text_side_effect
         self.mock_file.read_text.return_value = combined_content
@@ -96,6 +110,10 @@ Description.
         mock_call_claude_ext.return_value = mock_response
         # For validation LLM calls if any
         mock_call_claude_val.return_value = mock_response
+        # For summary generation
+        mock_call_claude_summary.return_value = mock_response
+        # For abstract generation
+        mock_call_claude_abstract.return_value = mock_response
 
         # 2. Run Step 3: Summarize Transcript (Extracts)
         print("\n--- Testing Step 3: Summarize Transcript ---")

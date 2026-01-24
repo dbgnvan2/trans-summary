@@ -519,7 +519,13 @@ class TranscriptProcessorGUI:
             return
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
-        self.base_name = self.selected_file.stem
+
+        # Get base name and strip _validated suffix if present
+        base_name = self.selected_file.stem
+        if base_name.endswith("_validated"):
+            base_name = base_name[:-10]  # Remove "_validated" suffix
+        self.base_name = base_name
+
         if self.base_name is None: # ADDED check
             return                 # ADDED return
         self.formatted_file = (config.PROJECTS_DIR / self.base_name / \
@@ -534,9 +540,14 @@ class TranscriptProcessorGUI:
 
         base = self.base_name
         project_dir = config.PROJECTS_DIR / base
+
+        # Always check for the base source file (without _validated)
+        source_file = config.SOURCE_DIR / f"{base}{self.selected_file.suffix}"
+        validated_file = config.SOURCE_DIR / f"{base}_validated{self.selected_file.suffix}"
+
         checks = [
-            ("Source", self.selected_file),
-            ("Initial Val", self.selected_file.parent / f"{base}_validated{self.selected_file.suffix}"),
+            ("Source", source_file),
+            ("Initial Val", validated_file),
             ("Formatted", project_dir /
              f"{base}{config.SUFFIX_FORMATTED}"),
             ("Header Val", project_dir /

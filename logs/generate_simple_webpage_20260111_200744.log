@@ -1,0 +1,258 @@
+2026-01-11 20:07:44,488 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_200744.log
+2026-01-11 20:07:44,488 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:07:44,490 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 20:07:44,929 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 20:07:44,935 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated - simple.html
+2026-01-11 20:07:44,954 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_200744.log
+2026-01-11 20:07:44,954 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:07:44,956 - generate_webpage - INFO - Found 7 Bowen references and 8 emphasis items.
+2026-01-11 20:07:44,956 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 20:07:45,381 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 20:07:45,384 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.html
+2026-01-11 20:07:45,388 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_200745.log
+2026-01-11 20:07:45,755 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 20:07:45,756 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 20:07:46,193 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 20:07:46,195 - generate_pdf - INFO - Generating PDF...
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 20:07:46,225 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 20:07:46,678 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated/Clinical Case Symptom Development - Michael Kerr - 2020-03-01_validated.pdf
+2026-01-11 20:10:02,975 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:10:21,325 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:10:33,385 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:10:45,082 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:11:07,172 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:11:21,945 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:11:36,066 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:11:54,787 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:12:30,824 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:18:52,503 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:18:52,772 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:18:53,157 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:18:53,777 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:18:54,080 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:18:56,901 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:19:17,961 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:19:45,675 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:20:02,607 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:20:31,154 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-11 20:20:31,154 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-11 20:20:31,154 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-11 20:20:55,965 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:21:05,672 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:21:05,848 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_202105.log
+2026-01-11 20:21:05,848 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:21:05,850 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 20:21:06,381 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 20:21:06,383 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated - simple.html
+2026-01-11 20:21:06,398 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_202106.log
+2026-01-11 20:21:06,398 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:21:06,399 - generate_webpage - INFO - Found 6 Bowen references and 8 emphasis items.
+2026-01-11 20:21:06,399 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 20:21:06,833 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 20:21:06,834 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated.html
+2026-01-11 20:21:06,865 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_202106.log
+2026-01-11 20:21:06,865 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 20:21:06,866 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 20:21:07,299 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 20:21:07,299 - generate_pdf - INFO - Generating PDF...
+2026-01-11 20:21:07,328 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 20:21:07,328 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 20:21:07,328 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 20:21:07,329 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 20:21:07,329 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 20:21:07,329 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 20:21:07,814 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated/Proccess of Differentiation of Self - Michael Kerr - 2020-01-01_validated.pdf
+2026-01-11 20:27:29,477 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:27:41,115 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:27:53,304 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:28:04,603 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:28:21,029 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:28:34,256 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:28:54,580 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:29:09,168 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:31:04,063 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:37:48,282 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:37:48,658 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:37:48,891 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:37:49,181 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:37:49,493 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-11 20:37:52,050 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:38:16,413 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:38:45,911 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:39:01,875 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:39:30,074 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-11 20:39:30,074 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-11 20:39:30,074 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-11 20:39:53,423 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:40:02,532 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-11 20:40:02,702 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260111_204002.log
+2026-01-11 20:40:02,703 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:40:02,704 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-11 20:40:03,377 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-11 20:40:03,378 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated - simple.html
+2026-01-11 20:40:03,383 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260111_204003.log
+2026-01-11 20:40:03,383 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-11 20:40:03,384 - generate_webpage - INFO - Found 9 Bowen references and 9 emphasis items.
+2026-01-11 20:40:03,384 - generate_webpage - INFO - Highlighting transcript...
+2026-01-11 20:40:03,967 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-11 20:40:03,968 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated.html
+2026-01-11 20:40:03,986 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260111_204003.log
+2026-01-11 20:40:03,986 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-11 20:40:03,987 - generate_pdf - INFO - Highlighting transcript...
+2026-01-11 20:40:04,568 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-11 20:40:04,569 - generate_pdf - INFO - Generating PDF...
+2026-01-11 20:40:04,599 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-11 20:40:04,599 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-11 20:40:04,599 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-11 20:40:04,599 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-11 20:40:04,599 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-11 20:40:04,600 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-11 20:40:05,080 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated.pdf
+2026-01-12 12:28:24,925 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:28:37,134 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:28:48,670 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:28:59,971 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:29:25,199 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:29:36,681 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:29:54,589 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:30:10,201 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:36:36,999 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:43:22,256 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 12:43:22,538 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 12:43:22,843 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 12:43:23,302 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 12:43:23,505 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 12:43:25,796 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:43:49,693 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:44:17,529 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:44:33,452 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:45:02,627 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-12 12:45:02,627 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-12 12:45:02,627 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-12 12:45:30,984 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:45:41,049 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 12:45:41,355 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260112_124541.log
+2026-01-12 12:45:41,356 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-12 12:45:41,358 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-12 12:45:42,063 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-12 12:45:42,066 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated - simple.html
+2026-01-12 12:45:42,088 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260112_124542.log
+2026-01-12 12:45:42,088 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-12 12:45:42,089 - generate_webpage - INFO - Found 10 Bowen references and 8 emphasis items.
+2026-01-12 12:45:42,089 - generate_webpage - INFO - Highlighting transcript...
+2026-01-12 12:45:42,694 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-12 12:45:42,696 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated.html
+2026-01-12 12:45:42,701 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260112_124542.log
+2026-01-12 12:45:42,701 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-12 12:45:42,703 - generate_pdf - INFO - Highlighting transcript...
+2026-01-12 12:45:43,304 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-12 12:45:43,305 - generate_pdf - INFO - Generating PDF...
+2026-01-12 12:45:43,338 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-12 12:45:43,338 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-12 12:45:43,338 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-12 12:45:43,339 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-12 12:45:43,339 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-12 12:45:43,339 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-12 12:45:43,883 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated/Hidden Valley Road 1 Concept of Self - Michael Kerr - 2020-06-01_validated.pdf
+2026-01-12 13:21:25,426 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:21:40,733 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:21:53,344 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:22:10,093 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:22:22,191 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:22:36,092 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:22:55,134 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:23:11,602 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:23:55,215 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:30:34,501 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:34,780 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:35,081 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:35,423 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:35,825 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:36,125 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 13:30:38,545 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:31:02,500 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:31:28,993 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:31:49,656 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:32:18,923 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-12 13:32:18,923 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-12 13:32:18,924 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-12 13:32:42,373 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:32:44,907 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:32:54,532 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:32:56,487 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:32:56,835 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260112_133256.log
+2026-01-12 13:32:56,835 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-12 13:32:56,838 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-12 13:32:57,777 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-12 13:32:57,779 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated - simple.html
+2026-01-12 13:32:57,820 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260112_133257.log
+2026-01-12 13:32:57,820 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-12 13:32:57,821 - generate_webpage - INFO - Found 8 Bowen references and 8 emphasis items.
+2026-01-12 13:32:57,821 - generate_webpage - INFO - Highlighting transcript...
+2026-01-12 13:32:58,500 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-12 13:32:58,502 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated.html
+2026-01-12 13:32:58,552 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260112_133258.log
+2026-01-12 13:32:58,552 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-12 13:32:58,553 - generate_pdf - INFO - Highlighting transcript...
+2026-01-12 13:32:59,225 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-12 13:32:59,225 - generate_pdf - INFO - Generating PDF...
+2026-01-12 13:32:59,269 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-12 13:32:59,269 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-12 13:32:59,270 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-12 13:32:59,274 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-12 13:32:59,274 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-12 13:32:59,274 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-12 13:32:59,844 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated/Hidden Valley Road 2 Don Kolker - Michael Kerr - 2020-09-01_validated.pdf
+2026-01-12 13:33:31,072 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:33:42,854 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:33:54,480 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:34:10,955 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:34:25,048 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:34:41,816 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:34:56,263 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 13:35:10,470 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:26:45,139 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:32:58,094 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:32:58,388 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:32:58,736 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:32:59,015 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:32:59,260 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:32:59,585 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-12 14:33:01,994 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:33:23,582 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:33:45,405 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:33:51,297 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:34:18,868 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-12 14:34:18,868 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-12 14:34:18,869 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-12 14:34:43,499 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:34:45,967 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:34:57,023 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-12 14:34:57,462 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260112_143457.log
+2026-01-12 14:34:57,462 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-12 14:34:57,463 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-12 14:34:57,983 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-12 14:34:57,985 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated - simple.html
+2026-01-12 14:34:58,045 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260112_143458.log
+2026-01-12 14:34:58,045 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-12 14:34:58,046 - generate_webpage - INFO - Found 5 Bowen references and 8 emphasis items.
+2026-01-12 14:34:58,046 - generate_webpage - INFO - Highlighting transcript...
+2026-01-12 14:34:58,497 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-12 14:34:58,498 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated.html
+2026-01-12 14:34:58,527 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260112_143458.log
+2026-01-12 14:34:58,527 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-12 14:34:58,528 - generate_pdf - INFO - Highlighting transcript...
+2026-01-12 14:34:58,971 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-12 14:34:58,971 - generate_pdf - INFO - Generating PDF...
+2026-01-12 14:34:59,003 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-12 14:34:59,003 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-12 14:34:59,003 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-12 14:34:59,004 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-12 14:34:59,004 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-12 14:34:59,004 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-12 14:34:59,483 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated/Clinical Case What Results in Divorce - Michael Kerr - 2020-10-01_validated.pdf

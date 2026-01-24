@@ -29,26 +29,20 @@ class MockInput:
 class TestValidationWarnings(unittest.TestCase):
 
     def test_summary_too_long_warning(self):
-        """Test that a summary exceeding max length passes with a warning."""
-        target_count = 100
-        # Create a summary that is definitely too long (> 1.2 * 100 = 120 words)
-        # 150 words
-        long_summary = "word " * 150
-        
-        # Valid structure (3 paragraphs) to avoid other errors
-        long_summary = f"{'word ' * 50}\n\n{'word ' * 50}\n\n{'word ' * 50}"
+        """Test that a summary exceeding max length is ACCEPTED (upper limit removed)."""
+        target_count = 600
+        # 800 words
+        words_per_para = "word " * 270
+        long_summary = f"{words_per_para}\n\n{words_per_para}\n\n{words_per_para}"
 
         structural = summary_validation.validate_structural(long_summary, target_count)
         
-        # Should be valid (no fatal errors)
-        self.assertTrue(structural['valid'], "Summary should pass structural validation despite length")
+        # Should be valid
+        self.assertTrue(structural['valid'], "Summary should pass structural validation")
         
-        # Should have 0 fatal issues
-        self.assertEqual(len(structural['issues']), 0)
-        
-        # Should have at least 1 warning about length
-        self.assertTrue(any("Too long" in w for w in structural['warnings']),
-                        f"Expected length warning, got: {structural['warnings']}")
+        # Should NOT have "Too long" warning (feature change)
+        self.assertFalse(any("Too long" in w for w in structural['warnings']),
+                        f"Did not expect length warning for long summary, got: {structural['warnings']}")
 
         def test_summary_evaluative_warning(self):
             """Test that a summary with evaluative language passes with a warning."""

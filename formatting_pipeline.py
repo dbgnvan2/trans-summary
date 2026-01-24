@@ -15,6 +15,7 @@ import config
 from transcript_utils import (
     call_claude_with_retry,
     check_token_budget,
+    clean_project_name,
     normalize_text,
     parse_filename_metadata,
     setup_logging,
@@ -114,7 +115,8 @@ def format_transcript_with_claude(
 
 def save_formatted_transcript(content: str, original_filename: str) -> Path:
     """Save formatted transcript with naming convention."""
-    stem = Path(original_filename).stem
+    # Use clean project name (stripping _validated, _vN) for consistency
+    stem = clean_project_name(original_filename)
     output_filename = f"{stem}{config.SUFFIX_FORMATTED}"
 
     project_dir = config.PROJECTS_DIR / stem
@@ -430,7 +432,8 @@ def validate_format(
     if logger is None:
         logger = setup_logging("validate_format")
     try:
-        stem = Path(raw_filename).stem
+        # Use clean project name to locate the project directory
+        stem = clean_project_name(raw_filename)
         raw_file_path = config.SOURCE_DIR / raw_filename
         if formatted_filename:
             formatted_file_path = config.PROJECTS_DIR / stem / formatted_filename

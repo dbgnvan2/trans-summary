@@ -619,7 +619,7 @@ def sanitize_filename(filename: str) -> str:
     Sanitize a filename to prevent path traversal attacks and ensure safety.
 
     Removes:
-    - Path separators (/, \)
+    - Path separators (/, \\)
     - Parent directory references (..)
     - Null bytes
     - Control characters
@@ -680,6 +680,33 @@ def sanitize_filename(filename: str) -> str:
         raise ValueError(f"Filename contains path separators after sanitization: {filename}")
 
     return filename
+
+
+def clean_project_name(filename_or_stem: str) -> str:
+    """
+    Get the clean project/base name from a filename or stem.
+    Strips extensions and version suffixes like '_validated' or '_v1'.
+
+    Args:
+        filename_or_stem: The input filename or stem (e.g., "MyVideo_validated.txt", "MyVideo_v2")
+
+    Returns:
+        The clean base name (e.g., "MyVideo")
+    """
+    # Remove extension if present
+    stem = Path(filename_or_stem).stem
+
+    # Strip suffixes using regex
+    # Matches _validated or _v<numbers> at the end of the string
+    # We loop to handle cases like "Name_v1_validated" (though rare)
+    while True:
+        match = re.search(r'(_validated|_v\d+)$', stem)
+        if match:
+            stem = stem[:match.start()]
+        else:
+            break
+
+    return stem
 
 
 def parse_filename_metadata(filename: str) -> dict:
