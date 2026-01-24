@@ -25,6 +25,7 @@ import transcript_initial_validation
 import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
+from transcript_utils import clean_project_name
 
 
 class GuiLoggerAdapter:
@@ -520,11 +521,8 @@ class TranscriptProcessorGUI:
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file = config.SOURCE_DIR / filename
 
-        # Get base name and strip _validated suffix if present
-        base_name = self.selected_file.stem
-        if base_name.endswith("_validated"):
-            base_name = base_name[:-10]  # Remove "_validated" suffix
-        self.base_name = base_name
+        # Get base name using centralized cleaning logic
+        self.base_name = clean_project_name(self.selected_file.stem)
 
         if self.base_name is None: # ADDED check
             return                 # ADDED return
@@ -774,7 +772,7 @@ class TranscriptProcessorGUI:
 
         # Update selected file to the new one so next run uses it automatically
         self.selected_file = output_path
-        self.base_name = self.selected_file.stem
+        self.base_name = clean_project_name(self.selected_file.stem)
 
         # Update formatted file path expectation (though format step hasn't run yet)
         self.formatted_file = config.PROJECTS_DIR / self.base_name / \

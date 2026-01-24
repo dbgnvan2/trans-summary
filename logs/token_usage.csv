@@ -495,3 +495,6 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-23 20:00:28,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2106,798,0,2545,0.0191
 2026-01-23 20:00:49,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1984,1307,0,2545,0.0263
 2026-01-23 20:01:01,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2246,738,0,2545,0.0186
+2026-01-23 20:15:00,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18637),2,16385,18637,0,0.3157
+2026-01-24 10:30:38,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,Yes (Created 3150),443,1542,3150,0,0.0363
+2026-01-24 10:30:40,HeadlessTest,claude-3-7-sonnet-20250219,end_turn,No,488,110,0,0,0.0031
