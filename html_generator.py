@@ -144,16 +144,36 @@ def _extract_key_term_definitions(topics_themes_file):
     if not terms_section:
         return []
 
-    # Parse term definitions
-    # Pattern: **Term**: Definition or **Term** - Definition
-    pattern = r'\*\*([^\*]+?)\*\*\s*[:\-]\s*(.+?)(?=\n\*\*|\n\n|$)'
-    matches = re.findall(pattern, terms_section, re.DOTALL)
-
     terms = []
-    for name, raw_def in matches:
-        name = name.strip()
-        raw_def = raw_def.strip()
 
+    # Strategy 1: Look for Header-based terms (### Term Name)
+    # Matches: ### Term \n Definition
+    # We use a lookahead to stop at the next header or end of string
+    header_pattern = r'(?:^|\n)###\s+([^\n]+)\s*\n+(.+?)(?=\n###|\Z)'
+    header_matches = re.findall(header_pattern, terms_section, re.DOTALL)
+
+    if header_matches:
+        for name, raw_def in header_matches:
+            name = name.strip()
+            # Clean up definition (remove formatting if it leaked)
+            clean_def = raw_def.strip()
+            terms.append({"name": name, "definition": clean_def})
+    
+    # Strategy 2: Look for Bold-based terms (**Term**: Definition)
+    # Only run if Strategy 1 failed to find significant items, or combine them?
+    # Usually a file uses one style or the other. We'll append if not duplicates.
+    
+    bold_pattern = r'\*\*([^\*]+?)\*\*\s*[:\-]\s*(.+?)(?=\n\*\*|\n\n|$)'
+    bold_matches = re.findall(bold_pattern, terms_section, re.DOTALL)
+
+    existing_names = {t['name'].lower() for t in terms}
+
+    for name, raw_def in bold_matches:
+        name = name.strip()
+        if name.lower() in existing_names:
+            continue
+
+        raw_def = raw_def.strip()
         # Clean up definition
         clean_def = raw_def
         # Remove surrounding parentheses if present

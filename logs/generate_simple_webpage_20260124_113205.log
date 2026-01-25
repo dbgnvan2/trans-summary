@@ -1,0 +1,175 @@
+2026-01-24 11:32:05,582 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260124_113205.log
+2026-01-24 11:32:05,583 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-24 11:32:05,586 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-24 11:32:06,399 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-24 11:32:06,405 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12 - simple.html
+2026-01-24 11:32:06,410 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260124_113206.log
+2026-01-24 11:32:06,410 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-24 11:32:06,412 - generate_webpage - INFO - Found 10 Bowen references and 8 emphasis items.
+2026-01-24 11:32:06,412 - generate_webpage - INFO - Highlighting transcript...
+2026-01-24 11:32:07,151 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-24 11:32:07,155 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12.html
+2026-01-24 11:32:07,170 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260124_113207.log
+2026-01-24 11:32:07,453 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-24 11:32:07,454 - generate_pdf - INFO - Highlighting transcript...
+2026-01-24 11:32:08,222 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-24 11:32:08,225 - generate_pdf - INFO - Generating PDF...
+2026-01-24 11:32:08,262 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-24 11:32:08,262 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-24 11:32:08,262 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-24 11:32:08,263 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-24 11:32:08,263 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-24 11:32:08,263 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-24 11:32:08,872 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12/2021 12 Societal Emotional Process - Michael Kerr - 2021-12-12.pdf
+2026-01-24 11:50:17,816 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:50:28,093 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:50:44,204 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:50:55,346 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:51:06,020 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:51:23,486 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:51:42,340 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:51:58,846 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:52:17,678 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:52:30,267 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 11:52:41,775 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:00:04,814 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:08:43,504 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:08:43,859 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:08:44,445 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:08:47,723 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:09:07,458 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:09:31,349 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:09:46,810 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:10:12,365 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-24 12:10:12,366 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-24 12:10:12,366 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-24 12:10:35,847 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:10:45,348 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:10:45,627 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260124_121045.log
+2026-01-24 12:10:45,627 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:10:45,629 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-24 12:10:46,570 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-24 12:10:46,572 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23 - simple.html
+2026-01-24 12:10:46,609 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260124_121046.log
+2026-01-24 12:10:46,609 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:10:46,610 - generate_webpage - INFO - Found 10 Bowen references and 7 emphasis items.
+2026-01-24 12:10:46,610 - generate_webpage - INFO - Highlighting transcript...
+2026-01-24 12:10:47,416 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-24 12:10:47,417 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23.html
+2026-01-24 12:10:47,442 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260124_121047.log
+2026-01-24 12:10:47,442 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-24 12:10:47,444 - generate_pdf - INFO - Highlighting transcript...
+2026-01-24 12:10:48,251 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-24 12:10:48,251 - generate_pdf - INFO - Generating PDF...
+2026-01-24 12:10:48,285 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-24 12:10:48,285 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-24 12:10:48,285 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-24 12:10:48,286 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-24 12:10:48,286 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-24 12:10:48,286 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-24 12:10:48,896 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23/2011 04 Making a Difference in Self and Family Public Lecture - Michael Kerr - 2011-04-23.pdf
+2026-01-24 12:19:32,118 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:19:42,970 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:19:57,043 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:20:09,324 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:20:29,372 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:20:43,402 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:20:59,069 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:21:11,913 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:21:55,083 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:28:48,804 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:49,053 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:49,347 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:49,736 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:49,967 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:50,330 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:50,580 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:50,811 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:51,107 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:51,427 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:51,646 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:51,856 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:52,154 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:52,498 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:52,785 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:53,002 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:28:55,588 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:29:20,235 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:29:51,470 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:30:03,239 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:30:30,961 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-24 12:30:30,961 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-24 12:30:30,962 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 520, QA: 0, Closing: 39, Total: 650
+2026-01-24 12:30:52,937 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:30:55,044 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:31:06,379 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:31:08,225 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:31:08,387 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260124_123108.log
+2026-01-24 12:31:08,387 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:31:08,389 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-24 12:31:09,080 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-24 12:31:09,083 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080 - simple.html
+2026-01-24 12:31:09,088 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260124_123109.log
+2026-01-24 12:31:09,089 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:31:09,090 - generate_webpage - INFO - Found 8 Bowen references and 10 emphasis items.
+2026-01-24 12:31:09,090 - generate_webpage - INFO - Highlighting transcript...
+2026-01-24 12:31:09,666 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-24 12:31:09,667 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080.html
+2026-01-24 12:31:09,673 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260124_123109.log
+2026-01-24 12:31:09,673 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-24 12:31:09,675 - generate_pdf - INFO - Highlighting transcript...
+2026-01-24 12:31:10,239 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-24 12:31:10,240 - generate_pdf - INFO - Generating PDF...
+2026-01-24 12:31:10,273 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-24 12:31:10,273 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-24 12:31:10,273 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-24 12:31:10,274 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-24 12:31:10,274 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-24 12:31:10,274 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-24 12:31:10,828 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080/2021 06 Rethinking Cancer  - Michael Kerr - 2021-06-25    GMT20210625-173020_Recording_1920x1080.pdf
+2026-01-24 12:44:21,066 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:44:35,562 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:44:52,502 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:45:07,659 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:45:18,725 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:45:29,626 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:45:47,455 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:46:03,364 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:46:32,856 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:53:02,796 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:53:03,081 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:53:03,427 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:53:03,731 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:53:03,984 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 400 Bad Request"
+2026-01-24 12:53:06,793 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:53:34,148 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:54:05,742 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:54:25,642 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:54:52,532 - summary_pipeline - INFO - generate_summary called with model: claude-3-7-sonnet-20250219
+2026-01-24 12:54:52,533 - summary_pipeline - INFO - Summary target_word_count: 650
+2026-01-24 12:54:52,533 - summary_pipeline - INFO - Word allocations - Opening: 91, Body: 455, QA: 65, Closing: 39, Total: 650
+2026-01-24 12:55:14,769 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:55:24,728 - httpx - INFO - HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-01-24 12:55:25,111 - generate_simple_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_simple_webpage_20260124_125525.log
+2026-01-24 12:55:25,111 - generate_simple_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:55:25,113 - generate_simple_webpage - INFO - Highlighting transcript...
+2026-01-24 12:55:26,113 - generate_simple_webpage - INFO - Generating simple HTML page using template...
+2026-01-24 12:55:26,115 - generate_simple_webpage - INFO - ✓ Simple webpage generated successfully: /Users/davemini2/transcripts/projects/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18 - simple.html
+2026-01-24 12:55:26,143 - generate_webpage - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_webpage_20260124_125526.log
+2026-01-24 12:55:26,143 - generate_webpage - INFO - Loading topics-themes materials...
+2026-01-24 12:55:26,145 - generate_webpage - INFO - Found 16 Bowen references and 10 emphasis items.
+2026-01-24 12:55:26,145 - generate_webpage - INFO - Highlighting transcript...
+2026-01-24 12:55:27,052 - generate_webpage - INFO - Generating HTML page using template...
+2026-01-24 12:55:27,052 - generate_webpage - INFO - ✓ Webpage generated successfully: /Users/davemini2/transcripts/projects/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18.html
+2026-01-24 12:55:27,076 - generate_pdf - INFO - Logging initialized: /Users/davemini2/ProjectsLocal/Projects/trans-summary/logs/generate_pdf_20260124_125527.log
+2026-01-24 12:55:27,076 - generate_pdf - INFO - Loading topics-themes materials...
+2026-01-24 12:55:27,078 - generate_pdf - INFO - Highlighting transcript...
+2026-01-24 12:55:27,988 - generate_pdf - INFO - Generating HTML for PDF using template...
+2026-01-24 12:55:27,988 - generate_pdf - INFO - Generating PDF...
+2026-01-24 12:55:28,020 - weasyprint - WARNING - Ignored `font-family: &#39` at 11:5, invalid value.
+2026-01-24 12:55:28,020 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:34.
+2026-01-24 12:55:28,020 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 11:42.
+2026-01-24 12:55:28,021 - weasyprint - WARNING - Ignored `font-family: &#39` at 118:5, invalid value.
+2026-01-24 12:55:28,021 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:34.
+2026-01-24 12:55:28,021 - weasyprint - WARNING - Error: Stop token reached before {} block for a qualified rule. at 118:42.
+2026-01-24 12:55:28,552 - generate_pdf - INFO - ✓ PDF generated successfully: /Users/davemini2/transcripts/projects/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18/Roots of Bowen Thoery and Brain - Michael Kerr - 2022-02-18.pdf
