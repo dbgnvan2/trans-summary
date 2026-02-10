@@ -5,6 +5,8 @@ from anthropic import Anthropic
 import transcript_utils
 import config
 
+pytestmark = pytest.mark.live_api
+
 # Use pytest-style test
 class TestCachingIntegration:
     @pytest.fixture

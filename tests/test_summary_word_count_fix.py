@@ -24,14 +24,14 @@ from summary_validation import validate_structural
 class TestConfigChanges:
     """Test configuration changes for word count fix."""
 
-    def test_default_summary_word_count_is_750(self):
-        """DEFAULT_SUMMARY_WORD_COUNT should be 750 (not 600)."""
-        assert config.DEFAULT_SUMMARY_WORD_COUNT == 750
+    def test_default_summary_word_count_is_650(self):
+        """DEFAULT_SUMMARY_WORD_COUNT should be 650."""
+        assert config.DEFAULT_SUMMARY_WORD_COUNT == 650
 
     def test_default_is_reasonable_ratio(self):
-        """750 words is reasonable for 6-10k transcripts (7.5-12.5%)."""
-        # For 6k transcript: 750/6000 = 12.5%
-        # For 10k transcript: 750/10000 = 7.5%
+        """650 words is reasonable for 6-10k transcripts (6.5-10.8%)."""
+        # For 6k transcript: 650/6000 = 10.8%
+        # For 10k transcript: 650/10000 = 6.5%
         assert 600 <= config.DEFAULT_SUMMARY_WORD_COUNT <= 1000
 
 

@@ -338,21 +338,57 @@ def parse_themes(themes_markdown: str) -> list[dict]:
         return themes
 
     # Strategy 2: Fallback to numbered list parsing (Legacy)
-    # Regex matches: 1. **Name**: Description \n *Source Sections: 1, 2*
-    # Captures: Name, Description, Sections
-    pattern = r"\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*\s*Source Sections:?\s*([^*_\n]+)"
+    # Supports both:
+    #   1. **Theme**: Description
+    #   *Source Sections: 1, 2*
+    # and:
+    #   2. **Theme Two**: Description only
+    blocks = re.finditer(
+        r"(?:^|\n)\s*\d+\.\s+(.*?)(?=(?:\n\s*\d+\.\s+)|\Z)",
+        themes_markdown,
+        re.DOTALL,
+    )
 
-    matches = re.findall(pattern, themes_markdown, re.DOTALL)
+    for block_match in blocks:
+        block = block_match.group(1).strip()
+        if not block:
+            continue
 
-    for match in matches:
-        name = match[0].strip()
-        description = match[1].strip()
-        sections = match[2].strip().rstrip("*_")
+        # First line is expected to carry "Name: Description"
+        first_line, _, rest = block.partition("\n")
+        line_match = re.match(
+            r"(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+)$",
+            first_line.strip(),
+        )
+        if not line_match:
+            continue
+
+        name = line_match.group(1).strip()
+        description = line_match.group(2).strip()
+        sections = ""
+
+        # Optional "Source Sections" may appear on following lines.
+        combined_rest = rest.strip()
+        if combined_rest:
+            sect_match = re.search(
+                r"Source Sections?:?\s*([^*_\n]+)",
+                combined_rest,
+                re.IGNORECASE,
+            )
+            if sect_match:
+                sections = sect_match.group(1).strip().rstrip("*_")
+            # Keep descriptive text that isn't source metadata.
+            cleaned_rest = re.sub(
+                r"[\*_ \-]*Source Sections?:?\s*[^*_\n]+[\*_ \-]*",
+                "",
+                combined_rest,
+                flags=re.IGNORECASE,
+            ).strip()
+            if cleaned_rest:
+                description = f"{description} {cleaned_rest}".strip()
 
         if name and description:
-            themes.append(
-                {"name": name, "description": description, "sections": sections}
-            )
+            themes.append({"name": name, "description": description, "sections": sections})
 
     return themes
 

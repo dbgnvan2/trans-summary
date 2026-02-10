@@ -37,7 +37,7 @@ class ProjectSettings:
         self._update_derived_paths()
 
         # Initialize model variables
-        self.DEFAULT_MODEL = "claude-3-7-sonnet-20250219"  # Claude 3.7 Sonnet WITH Caching Support (deprecated but works)
+        self.DEFAULT_MODEL = "claude-sonnet-4-20250514"  # Successor default to Claude 3.7 Sonnet
         self.AUX_MODEL = "claude-3-5-haiku-20241022"      # Updated for Caching Support
         self.FORMATTING_MODEL = "claude-3-7-sonnet-20250219" # Extended Output Support with Caching
         self.VALIDATION_MODEL = "claude-3-5-haiku-20241022" # Cheaper model for validation
@@ -169,9 +169,9 @@ SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Model variables moved into ProjectSettings and exposed as globals
-# Defaults: DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+# Defaults: DEFAULT_MODEL = "claude-sonnet-4-20250514"
 #           AUX_MODEL = "claude-3-5-haiku-20241022"
-#           FORMATTING_MODEL = "claude-3-5-haiku-20241022"
+#           FORMATTING_MODEL = "claude-3-7-sonnet-20250219"
 
 # Default Summary Word Count
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
@@ -470,7 +470,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
                 f"{model_var} specifies unknown model: '{model_name}'\n"
                 f"  Available models: {', '.join(available_models[:5])}...\n"
                 f"  Fix: Update config.py or set via settings.set_{model_var.lower()}()\n"
-                f"  Example: settings.set_default_model('claude-3-7-sonnet-20250219')"
+                f"  Example: settings.set_default_model('claude-sonnet-4-20250514')"
             )
 
     # ========================================================================

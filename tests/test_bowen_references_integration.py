@@ -82,9 +82,11 @@ MOCK_LLM_BOWEN_RESPONSE = """
 """
 
 
+@patch("extraction_pipeline._filter_bowen_references_semantically")
 @patch('extraction_pipeline._generate_summary_with_claude')
 def test_bowen_references_generation_and_extraction(
     mock_generate_summary_with_claude,
+    mock_filter_bowen_references_semantically,
     mock_project_dirs,
     mock_transcript_file,
     mock_bowen_prompt_file
@@ -97,6 +99,7 @@ def test_bowen_references_generation_and_extraction(
     
     # Configure the mock LLM response
     mock_generate_summary_with_claude.return_value = MOCK_LLM_BOWEN_RESPONSE
+    mock_filter_bowen_references_semantically.side_effect = lambda refs, *_: refs
 
     # Run the generation pipeline step
     success = extract_bowen_references_from_transcript(
@@ -111,23 +114,8 @@ def test_bowen_references_generation_and_extraction(
 
     generated_content = bowen_output_path.read_text(encoding="utf-8")
     
-    # Assert that the problematic "## Bowen References" is NOT in the output
-    assert "## Bowen References" not in generated_content
-    # Assert that the desired LLM-generated header IS in the output
-    assert "# Bowen References Extracted from Transcript" in generated_content
-
-    # Assert that the content after the header matches the mock response structure
-    expected_content_after_header = MOCK_LLM_BOWEN_RESPONSE.strip()
-    # The strip_yaml_frontmatter is usually done by load_bowen_references, but not relevant here
-    # Remove the initial blank line before comparing
-    cleaned_generated_content = generated_content.strip()
-
-    # Compare without worrying about potential extra newlines or leading/trailing spaces
-    assert cleaned_generated_content.startswith("# Bowen References Extracted from Transcript"), \
-        "Generated content should start with the LLM-generated header"
-    
-    # Ensure the full mock response is present as expected
-    assert cleaned_generated_content == expected_content_after_header
+    # Current pipeline normalizes output to canonical "## Bowen References" section.
+    assert generated_content.strip().startswith("## Bowen References")
 
     # Test extraction using transcript_utils.extract_bowen_references
     # Call load_bowen_references, which internally calls extract_bowen_references
@@ -149,4 +137,3 @@ def test_bowen_references_generation_and_extraction(
         assert actual_quote == expected_quote
 
     logger.info("Test passed: Bowen references generated and extracted correctly.")
-

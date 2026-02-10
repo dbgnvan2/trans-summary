@@ -1,6 +1,7 @@
 import unittest
 import os
 import sys
+import pytest
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 from pathlib import Path
@@ -9,6 +10,8 @@ import shutil
 import logging
 import config
 from transcript_initial_validation_v2 import TranscriptValidatorV2
+
+pytestmark = pytest.mark.live_api
 
 class TestValidationIntegration(unittest.TestCase):
     def setUp(self):

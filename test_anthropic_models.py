@@ -15,6 +15,8 @@ load_dotenv()
 # Suppress deprecation warnings from the library for cleaner output
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+pytestmark = pytest.mark.live_api
+
 
 @pytest.fixture(scope="module")
 def anthropic_client_fixture():

@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Documentation
 
 - Updated `README.md`, `DOCUMENT_REFERENCE.md`, and `PROJECT_STATUS.md` to align with current code-level behavior:
-  - Current model defaults from `config.py` (`claude-3-7-sonnet-20250219` / `claude-3-5-haiku-20241022`)
+  - Current model defaults from `config.py` (`claude-sonnet-4-20250514` / `claude-3-5-haiku-20241022`)
   - Current artifact naming and pipeline stage outputs (config suffix-based)
   - `TRANSCRIPTS_BASE`-driven directory semantics replacing hardcoded `~/transcripts` assumptions
   - Current test collection snapshot and duplicate test-module collection mismatch note

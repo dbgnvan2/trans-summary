@@ -4,6 +4,8 @@ import sys
 import traceback
 from pathlib import Path
 
+import pytest
+
 from transcript_initial_validation import TranscriptValidator
 
 # Ensure project root is in path
@@ -13,6 +15,8 @@ sys.path.append(os.getcwd())
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("HeadlessTest")
+
+pytestmark = pytest.mark.live_api
 
 
 def test_validation():

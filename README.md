@@ -93,7 +93,7 @@ trans-summary/
 Global settings are managed in `config.py`. You can adjust:
 
 - **Directories**: Default locations for inputs/outputs
-- **Models**: Default Claude models (currently `DEFAULT_MODEL` = `claude-3-7-sonnet-20250219`, `AUX_MODEL` = `claude-3-5-haiku-20241022`, `FORMATTING_MODEL` = `claude-3-7-sonnet-20250219`)
+- **Models**: Default Claude models (currently `DEFAULT_MODEL` = `claude-sonnet-4-20250514`, `AUX_MODEL` = `claude-3-5-haiku-20241022`, `FORMATTING_MODEL` = `claude-3-7-sonnet-20250219`)
 - **Token Limits**: Safety limits for API calls
 - **Validation Thresholds**: Strictness of fuzzy matching and coverage checks
 
