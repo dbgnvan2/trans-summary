@@ -16,3 +16,6 @@ __pycache__/
 
 #log files
 *.log
+
+# Archived prompt templates (not part of active runtime prompt set)
+prompts/old\ prompts/
