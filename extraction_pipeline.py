@@ -14,6 +14,7 @@ import summary_pipeline
 from transcript_utils import (
     call_claude_with_retry,
     create_system_message_with_cache,
+    extract_bowen_references,
     extract_section,
     parse_filename_metadata,
     parse_scored_emphasis_output,
@@ -151,6 +152,69 @@ def _clean_bowen_output(text: str) -> str:
             cleaned_lines.append(f"> {content}")
 
     return "\n".join(cleaned_lines)
+
+
+def _format_bowen_refs(refs: list[tuple[str, str]]) -> str:
+    """Format Bowen references as blockquote lines."""
+    lines = []
+    for concept, quote in refs:
+        concept = " ".join(str(concept).split()).strip()
+        quote = " ".join(str(quote).split()).strip()
+        if not concept or not quote:
+            continue
+        # Avoid breaking the quote wrapper
+        quote = quote.replace('"', "'")
+        lines.append(f'> **{concept}:** "{quote}"')
+    return "\n".join(lines)
+
+
+def _filter_bowen_references_semantically(
+    refs: list[tuple[str, str]],
+    model: str,
+    logger,
+) -> list[tuple[str, str]]:
+    """Use LLM to keep only explicit Murray Bowen attributions."""
+    if not refs:
+        return refs
+
+    try:
+        prompt_template = _load_summary_prompt(
+            config.PROMPT_BOWEN_FILTER_FILENAME
+        )
+        items_text = "\n".join(
+            [f'- Label: {label}\n  Quote: {quote}' for label, quote in refs]
+        )
+        prompt = _fill_prompt_template(prompt_template, {}, "", items=items_text)
+
+        logger.info("Filtering Bowen references semantically...")
+        response = _generate_summary_with_claude(
+            prompt,
+            model,
+            config.TEMP_ANALYSIS,
+            logger,
+            min_length=20,
+            timeout=config.TIMEOUT_SUMMARY,
+        )
+
+        cleaned = _clean_bowen_output(response)
+        if not cleaned.strip():
+            return []
+
+        parsed = extract_bowen_references(
+            "## Bowen References\n\n" + cleaned
+        )
+
+        # Drop placeholder outputs like "None Found"
+        filtered = [
+            (c, q) for c, q in parsed
+            if c.strip().lower() != "none found"
+        ]
+        return filtered
+    except Exception as e:
+        logger.warning(
+            "Bowen semantic filter failed; keeping original refs. Error: %s", e
+        )
+        return refs
 
 
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
@@ -340,8 +404,18 @@ def extract_bowen_references_from_transcript(
         )
 
         final_content = _clean_bowen_output(response)
+
+        # Semantic filter: keep only explicit Murray Bowen attributions
+        parsed_refs = extract_bowen_references(
+            "## Bowen References\n\n" + final_content
+        )
+        filtered_refs = _filter_bowen_references_semantically(
+            parsed_refs, model, logger
+        )
+        final_content = _format_bowen_refs(filtered_refs)
+
         # Ensure header is present for standard parsing
-        final_content = f"## Bowen References\n\n{final_content}"
+        final_content = f"## Bowen References\n\n{final_content}".rstrip()
 
         stem = (
             Path(formatted_filename)

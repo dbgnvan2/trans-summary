@@ -572,3 +572,111 @@ Timestamp,Script Name,Items,Status,Cache,Tokens Sent,Tokens Response,Cache Creat
 2026-01-24 13:45:35,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13865),823,1220,0,13865,0.0249
 2026-01-24 13:46:00,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 13692),2053,1009,13692,0,0.0726
 2026-01-24 13:46:09,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13692),677,392,0,13692,0.0120
+2026-01-24 19:47:06,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 15810),2,13473,15810,0,0.2614
+2026-01-24 19:47:34,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 13644),306,1099,13644,0,0.0686
+2026-01-24 19:47:52,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13644),1749,811,0,13644,0.0215
+2026-01-24 19:48:22,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13644),72,1191,0,13644,0.0222
+2026-01-24 19:48:50,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13644),823,1342,0,13644,0.0267
+2026-01-24 19:49:19,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 13471),2130,1147,13471,0,0.0741
+2026-01-24 19:49:21,GuiLogger,claude-3-5-haiku-20241022,end_turn,No,1235,54,0,0,0.0012
+2026-01-24 19:49:30,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 13471),663,370,0,13471,0.0116
+2026-01-24 19:49:35,GuiLogger,claude-3-5-haiku-20241022,end_turn,No,453,78,0,0,0.0007
+2026-01-24 20:01:39,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 16615),2,14408,16615,0,0.2784
+2026-01-24 20:02:09,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 14591),306,1232,14591,0,0.0741
+2026-01-24 20:02:40,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14591),1749,1222,0,14591,0.0280
+2026-01-24 20:02:56,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14591),72,610,0,14591,0.0137
+2026-01-24 20:03:23,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14591),823,1323,0,14591,0.0267
+2026-01-24 20:03:47,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 14406),2059,941,14406,0,0.0743
+2026-01-24 20:03:56,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14406),681,390,0,14406,0.0122
+2026-01-25 12:05:34,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18271),2,15296,18271,0,0.2980
+2026-01-25 12:06:05,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 15471),306,1273,15471,0,0.0780
+2026-01-25 12:06:31,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15471),1749,930,0,15471,0.0238
+2026-01-25 12:06:56,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15471),72,925,0,15471,0.0187
+2026-01-25 12:07:26,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15471),823,1402,0,15471,0.0281
+2026-01-25 12:07:54,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 15294),1940,1142,15294,0,0.0803
+2026-01-25 12:08:04,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15294),683,436,0,15294,0.0132
+2026-01-25 14:56:47,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 16896),2,14887,16896,0,0.2867
+2026-01-25 14:57:17,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 15099),306,1284,15099,0,0.0768
+2026-01-25 14:57:48,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15099),1749,1253,0,15099,0.0286
+2026-01-25 14:57:58,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15099),72,351,0,15099,0.0100
+2026-01-25 14:58:26,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 15099),823,1311,0,15099,0.0267
+2026-01-25 14:58:48,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 14885),1934,916,14885,0,0.0754
+2026-01-25 14:58:50,GuiLogger,claude-3-5-haiku-20241022,end_turn,No,989,49,0,0,0.0010
+2026-01-25 14:58:59,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 14885),720,348,0,14885,0.0118
+2026-01-25 14:59:01,GuiLogger,claude-3-5-haiku-20241022,end_turn,No,421,52,0,0,0.0005
+2026-01-25 15:15:23,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 20914),2,18583,20914,0,0.3572
+2026-01-25 15:15:49,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18774),306,1057,18774,0,0.0872
+2026-01-25 15:16:17,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 18774),1749,1054,0,18774,0.0267
+2026-01-25 15:16:29,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 18774),72,480,0,18774,0.0130
+2026-01-25 15:16:56,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 18774),823,1359,0,18774,0.0285
+2026-01-25 15:17:21,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18581),2013,993,18581,0,0.0906
+2026-01-25 15:17:32,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 18581),706,477,0,18581,0.0148
+2026-01-25 15:28:48,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18637),2,16928,18637,0,0.3238
+2026-01-25 15:29:18,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 17109),306,1130,17109,0,0.0820
+2026-01-25 15:29:46,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 17109),1749,1078,0,17109,0.0265
+2026-01-25 15:30:04,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 17109),72,591,0,17109,0.0142
+2026-01-25 15:30:34,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 17109),823,1342,0,17109,0.0277
+2026-01-25 15:30:58,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 16926),1894,928,16926,0,0.0831
+2026-01-25 15:31:01,GuiLogger,claude-3-5-haiku-20241022,end_turn,No,999,53,0,0,0.0010
+2026-01-25 15:31:12,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 16926),671,392,0,16926,0.0130
+2026-02-01 20:26:51,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2545),1988,499,2545,0,0.0230
+2026-02-01 20:27:10,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1958,1239,0,2545,0.0252
+2026-02-01 20:27:22,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1897,698,0,2545,0.0169
+2026-02-01 20:27:35,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1920,750,0,2545,0.0178
+2026-02-01 20:27:46,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1897,610,0,2545,0.0156
+2026-02-01 20:28:10,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2000,1556,0,2545,0.0301
+2026-02-01 20:28:21,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1973,802,0,2545,0.0187
+2026-02-01 20:28:46,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1962,1648,0,2545,0.0314
+2026-02-01 20:29:12,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2037,1966,0,2545,0.0364
+2026-02-01 20:29:38,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1989,1506,0,2545,0.0293
+2026-02-01 20:29:57,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2006,1372,0,2545,0.0274
+2026-02-01 20:30:12,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1927,915,0,2545,0.0203
+2026-02-01 20:30:28,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1962,943,0,2545,0.0208
+2026-02-01 20:30:47,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1991,1353,0,2545,0.0270
+2026-02-01 20:31:01,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1927,810,0,2545,0.0187
+2026-02-01 20:31:15,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1988,834,0,2545,0.0192
+2026-02-01 20:31:39,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2010,1430,0,2545,0.0282
+2026-02-01 20:31:56,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1949,1234,0,2545,0.0251
+2026-02-01 20:32:20,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1967,1641,0,2545,0.0313
+2026-02-01 20:32:43,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1906,1605,0,2545,0.0306
+2026-02-01 20:32:56,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1941,821,0,2545,0.0189
+2026-02-01 20:33:11,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2062,979,0,2545,0.0216
+2026-02-01 20:33:29,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2009,1072,0,2545,0.0229
+2026-02-01 20:33:41,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1942,704,0,2545,0.0171
+2026-02-01 20:34:02,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1994,1373,0,2545,0.0273
+2026-02-01 20:34:22,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),2440,1282,0,2545,0.0273
+2026-02-05 12:47:01,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2545),1974,1448,2545,0,0.0372
+2026-02-05 12:47:26,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1924,1708,0,2545,0.0322
+2026-02-05 12:47:46,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1900,1201,0,2545,0.0245
+2026-02-05 12:48:03,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1939,1114,0,2545,0.0233
+2026-02-05 12:48:23,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1927,1316,0,2545,0.0263
+2026-02-05 12:48:44,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1989,1367,0,2545,0.0272
+2026-02-05 12:48:57,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1549,883,0,2545,0.0187
+2026-02-05 13:01:44,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 14248),2,11965,14248,0,0.2329
+2026-02-05 13:02:13,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 12142),306,1272,12142,0,0.0655
+2026-02-05 13:02:42,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 12142),1749,1211,0,12142,0.0271
+2026-02-05 13:03:06,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 12142),72,872,0,12142,0.0169
+2026-02-05 13:03:40,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 12142),823,1617,0,12142,0.0304
+2026-02-05 13:04:04,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 11963),2037,1003,11963,0,0.0660
+2026-02-05 13:04:13,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 11963),683,302,0,11963,0.0102
+2026-02-05 22:26:25,extract_bowen_references,claude-3-7-sonnet-20250219,end_turn,Yes (Created 18774),366,80,18774,0,0.0727
+2026-02-05 22:26:30,extract_bowen_references,claude-3-7-sonnet-20250219,end_turn,No,357,273,0,0,0.0052
+2026-02-06 07:56:12,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 2545),1873,827,2545,0,0.0276
+2026-02-06 07:56:30,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1848,1155,0,2545,0.0236
+2026-02-06 07:56:43,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1869,804,0,2545,0.0184
+2026-02-06 07:57:01,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1873,1344,0,2545,0.0265
+2026-02-06 07:57:14,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 2545),1310,896,0,2545,0.0181
+2026-02-06 08:02:10,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 10276),3,8812,10276,0,0.1707
+2026-02-06 08:16:23,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 10276),3,8974,10276,0,0.1732
+2026-02-06 08:17:02,GuiLogger,claude-opus-4-5-20251101,end_turn,No,2273,1226,0,0,0.0420
+2026-02-06 08:17:28,GuiLogger,claude-opus-4-5-20251101,end_turn,No,2170,1476,0,0,0.0478
+2026-02-06 08:17:49,GuiLogger,claude-opus-4-5-20251101,end_turn,No,2021,1221,0,0,0.0406
+2026-02-06 08:18:08,GuiLogger,claude-opus-4-5-20251101,end_turn,No,2140,1210,0,0,0.0410
+2026-02-06 08:18:32,GuiLogger,claude-opus-4-5-20251101,end_turn,No,2259,1385,0,0,0.0459
+2026-02-06 08:18:52,GuiLogger,claude-opus-4-5-20251101,end_turn,No,1907,1244,0,0,0.0406
+2026-02-06 08:19:34,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Created 9183),306,973,9183,0,0.0499
+2026-02-06 08:19:51,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 9183),1749,699,0,9183,0.0185
+2026-02-06 08:20:02,GuiLogger,claude-3-7-sonnet-20250219,end_turn,Yes (Read 9183),366,403,0,9183,0.0099
+2026-02-06 08:21:07,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Created 8972),1887,910,8972,0,0.0530
+2026-02-06 08:21:53,unknown_script,claude-3-7-sonnet-20250219,end_turn,Yes (Read 8972),735,269,0,8972,0.0089
+2026-02-06 08:22:51,GuiLogger,claude-3-7-sonnet-20250219,end_turn,No,10939,986,0,0,0.0476

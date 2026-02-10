@@ -1,110 +1,60 @@
 # Document Reference Guide
 
-This table shows what content is included in each document type produced by the transcript processing pipeline.
+This guide reflects the current artifact set produced by the transcript processing pipeline as of 2026-02-10.
 
-## Document Content Matrix
+## Base Path and Naming
 
-| Document Type            | Filename Pattern                                 | YAML Metadata | Abstract | Topics | Themes | Key Terms | Bowen Refs | Emphasis Items | Full Transcript | Notes                                                      |
-| ------------------------ | ------------------------------------------------ | ------------- | -------- | ------ | ------ | --------- | ---------- | -------------- | --------------- | ---------------------------------------------------------- |
-| **Source Transcript**    | `Title - Presenter - Date.txt`                   | ❌            | ❌       | ❌     | ❌     | ❌        | ❌         | ❌             | ✅              | Raw transcript from transcription service                  |
-| **Formatted Transcript** | `Title - Presenter - Date - formatted.md`        | ❌            | ❌       | ❌     | ❌     | ❌        | ❌         | ❌             | ✅              | Validated formatting, speaker labels, timestamps           |
-| **YAML Transcript**      | `Title - Presenter - Date_yaml.md`               | ✅            | ❌       | ❌     | ❌     | ❌        | ❌         | ❌             | ✅              | Formatted transcript with YAML front matter                |
-| **Key Terms**            | `Title - Presenter - Date - key-terms.md`        | ✅            | ❌       | ❌     | ❌     | ✅        | ❌         | ❌             | ❌              | Terminology extraction with definitions                    |
-| **Extracts-Summary**     | `Title - Presenter - Date - extracts-summary.md` | ✅            | ✅       | ✅     | ✅     | ✅        | ✅         | ✅             | ❌              | Comprehensive extracts-summary document with all summaries |
-| **Abstracts**            | `Title - Presenter - Date - abstracts.md`        | ❌            | ✅ (3x)  | ❌     | ❌     | ❌        | ❌         | ❌             | ❌              | Quality assessment + Short + Extended validated abstracts  |
-| **Blog Post**            | `Title - Presenter - Date - blog.md`             | ✅            | ✅       | ❌     | ❌     | ✅        | ❌         | ❌             | ❌              | SEO-optimized blog format for website                      |
-| **Simple Webpage**       | `Title - Presenter - Date - simple.html`         | ❌            | ❌       | ❌     | ❌     | ❌        | ❌         | ❌             | ✅              | Single-column HTML with highlighting                       |
-| **Full Webpage**         | `Title - Presenter - Date.html`                  | ❌            | ✅       | ✅     | ✅     | ✅        | ❌         | ❌             | ✅              | Two-column HTML with sidebar metadata and highlighting     |
-| **PDF**                  | `Title - Presenter - Date.pdf`                   | ❌            | ✅       | ✅     | ✅     | ✅        | ✅         | ✅             | ✅              | Comprehensive print-ready document with all materials      |
+- All data paths are derived from `config.TRANSCRIPTS_BASE` (default: current project directory, overridable with `TRANSCRIPTS_DIR` or GUI directory selection).
+- Source inputs live in `TRANSCRIPTS_BASE/source/`.
+- Per-transcript artifacts live in `TRANSCRIPTS_BASE/projects/<Base Name>/`.
+- `<Base Name>` follows `Title - Presenter - Date`.
 
-## Content Details
+## Artifact Matrix
 
-### YAML Metadata
+| Artifact | Filename Pattern | Contains | Producer |
+| --- | --- | --- | --- |
+| Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
+| Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
+| YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter | `formatting_pipeline.add_yaml` |
+| All Key Items | `<Base Name> - All Key Items.md` | Abstract + Topics + Key Themes + Key Terms (LLM extract) | `extraction_pipeline.summarize_transcript` |
+| Topics/Themes/Terms (clean split) | `<Base Name> - topics-themes-terms.md` | Normalized Topics, Key Themes, Key Terms sections | `extraction_pipeline._process_key_items_output` |
+| Key Terms | `<Base Name> - key-terms.md` | Term-focused extract (if generated in flow) | `extraction_pipeline` |
+| Bowen references | `<Base Name> - bowen-references.md` | Filtered explicit Bowen references | `extraction_pipeline.extract_bowen_references_from_transcript` |
+| Emphasis (scored) | `<Base Name> - emphasis-scored.md` | Scored emphasis items | `extraction_pipeline.extract_scored_emphasis` |
+| Blog post | `<Base Name> - blog.md` | Blog-style adaptation | `extraction_pipeline.summarize_transcript` |
+| Structured summary | `<Base Name> - summary-generated.md` | Long-form structured summary | `extraction_pipeline.generate_structured_summary` |
+| Summary validation report | `<Base Name> - summary-validation.txt` | Coverage/structure validation report | `validation_pipeline.validate_summary_coverage` |
+| Structured abstract | `<Base Name> - abstract-generated.md` | Structured abstract | `extraction_pipeline.generate_structured_abstract` |
+| Abstract validation report | `<Base Name> - abstract-validation.txt` | Coverage/structure validation report | `validation_pipeline.validate_abstract_coverage` |
+| Header validation report | `<Base Name> - header-validation.md` | Header quality report | `validation_pipeline.validate_headers` |
+| Legacy abstracts report | `<Base Name> - abstracts.md` | Legacy iterative abstract scoring output | `validation_pipeline.validate_abstract_legacy` |
+| Full webpage | `<Base Name>.html` | Sidebar layout with transcript + extracted content | `html_generator.generate_webpage` |
+| Simple webpage | `<Base Name> - simple.html` | Single-column webpage | `html_generator.generate_simple_webpage` |
+| PDF | `<Base Name>.pdf` | Print-ready PDF | `html_generator.generate_pdf` |
+| Package | `<Base Name>.zip` | Bundled final artifacts | `packaging_pipeline.package_transcript` |
 
-- Title, presenter, date, year
-- Source recording filename
-- Authenticity confirmation
-- Processing stage indicators
+## Current Pipeline Stages
 
-### Abstract
+1. Initial transcript validation (optional/manual stage in GUI/CLI workflows).
+2. Formatting (`format_transcript`) -> ` - formatted.md`
+3. Format validation (`validate_format`) checks word-preservation fidelity.
+4. Header validation (`validate_headers`) -> ` - header-validation.md`
+5. YAML front matter (`add_yaml`) -> ` - yaml.md`
+6. Core extraction (`summarize_transcript`) -> ` - All Key Items.md`, ` - topics-themes-terms.md`, Bowen/Emphasis/Blog outputs.
+7. Structured generation (optional flag/GUI flow):
+   - `generate_structured_summary` -> ` - summary-generated.md`
+   - `generate_structured_abstract` -> ` - abstract-generated.md`
+8. Structured validation:
+   - `validate_summary_coverage` -> ` - summary-validation.txt`
+   - `validate_abstract_coverage` -> ` - abstract-validation.txt`
+9. Rendering:
+   - `generate_webpage` -> `.html`
+   - `generate_simple_webpage` -> ` - simple.html`
+   - `generate_pdf` -> `.pdf`
+10. Packaging (`package_transcript`) -> `.zip`
 
-- **In extracts-summary**: Initial abstract (165+ words) generated by Claude from transcript
-- **In abstracts file**: Three versions:
-  - **Assessment**: Quality scores (1-5) across 5 dimensions + recommendations
-  - **Short Abstract**: Validated revision <150 words for quick reference
-  - **Extended Abstract**: Validated revision 350-400 words for comprehensive overview
-- Main focus, key insights, and theoretical contributions
+## Notes
 
-### Topics
-
-- Bulleted list of main subjects covered
-- Organized hierarchically when applicable
-
-### Themes
-
-- Major conceptual threads
-- Overarching ideas and patterns
-
-### Key Terms
-
-- 15-25 important terms with definitions
-- Definition type (Explicit/Implicit/Not Defined)
-- Source location and context notes
-- Separated by horizontal rules (`---`)
-
-### Bowen References
-
-- Direct mentions of Bowen Family Systems Theory concepts
-- Concept name and exact quote from transcript
-
-### Emphasis Items
-
-- Notable quotes or key moments
-- Labeled with importance markers
-
-### Full Transcript
-
-- Complete transcript with speaker labels
-- Timestamps at regular intervals
-- Formatted for readability
-- Highlighted key terms, Bowen references, emphasis items (in HTML/PDF)
-
-## Workflow Stages
-
-1. **Format & Validate**: Produces `formatted.md`
-2. **Add YAML**: Produces `_yaml.md`
-3. **Generate Summaries**: Produces `key-terms.md`, `extracts-summary.md`, and `blog.md`
-4. **Validate Abstracts**: Produces `abstracts.md` with quality assessment and revised versions
-5. **Generate Web-PDF**: Produces `simple.html`, `.html`, and `.pdf`
-
-## File Locations
-
-- Source transcripts: `~/transcripts/source/`
-- Formatted transcripts: `~/transcripts/formatted/`
-- Summaries: `~/transcripts/summaries/`
-- Webpages: `~/transcripts/webpages/`
-- PDFs: `~/transcripts/pdfs/`
-- Processed (archived): `~/transcripts/processed/`
-
-## Production Pipeline Detail
-
-This section maps exactly how each file is created, tracing the flow of data from source to final artifacts.
-
-| Step | Script / Module | Inputs | Key Operations | Outputs |
-| :--- | :--- | :--- | :--- | :--- |
-| **0. Initial Validation** | `transcript_initial_validation.py` | `[Source].txt` | Checks for typos, phonetic errors, and repeated phrases. Creates a clean version if errors are found. | `[Source]_validated.txt` |
-| **1. Formatting** | `transcript_format.py` | `[Source]_validated.txt` | **LLM (Format Prompt)**: Removes timestamps, speaker labels, and filler words. Adds markdown headers. | `[Project]/[Name] - formatted.md` |
-| **1b. Header Validation** | `transcript_validate_headers.py` | `formatted.md` | **LLM (Val Prompt)**: Checks headers for "editorializing" or non-neutral language. | `[Project]/[Name] - header-validation.md` |
-| **2. Add Metadata** | `transcript_add_yaml.py` | `formatted.md` | Parses filename (`Title - Presenter - Date`) and prepends YAML front matter. | `[Project]/[Name] - yaml.md` |
-| **3. Extract Insights** | `transcript_summarize.py` | `yaml.md` | **LLM (Extracts Prompt)**: Identifies Topics, Themes, and Key Terms. | `[Project]/[Name] - All Key Items.md`<br>`[Project]/[Name] - topics-themes-terms.md` |
-| **3b. Emphasis** | `transcript_extract_emphasis.py` | `yaml.md` | **LLM (Emphasis Prompt)**: Scores quotes (0-100%) for importance. | `[Project]/[Name] - emphasis-scored.md` |
-| **3c. Bowen Refs** | `transcript_extract_bowen.py` | `yaml.md` | **LLM (Bowen Prompt)**: Extracts specific references to Bowen Theory concepts. | `[Project]/[Name] - bowen-references.md` |
-| **4. Generate Summary** | `transcript_process.py` (via pipeline) | `yaml.md`<br>`All Key Items.md` | **LLM (Summary Prompt)**: Synthesizes a structured summary using extracted topics. | `[Project]/[Name] - summary-generated.md` |
-| **5. Validate Summary** | `transcript_validate_completeness.py` | `summary-generated.md` | **Algo + LLM**: Checks word count and topic coverage against `All Key Items.md`. | `[Project]/[Name] - summary-validation.txt` |
-| **6. Generate Abstract** | `transcript_process.py` (via pipeline) | `yaml.md`<br>`All Key Items.md` | **LLM (Abstract Prompt)**: Drafts a high-level abstract based on the transcript and themes. | `[Project]/[Name] - abstract-generated.md` |
-| **7. Validate Abstract** | `transcript_validate_abstract.py` | `abstract-generated.md` | **Algo + LLM**: Verifies coverage and length constraints. | `[Project]/[Name] - abstract-validation.txt` |
-| **8. Blog Post** | `transcript_summarize.py` | `yaml.md` | **LLM (Blog Prompt)**: Rewrites content into an engaging blog format. | `[Project]/[Name] - blog.md` |
-| **9. Webpages** | `transcript_to_webpage.py`<br>`html_generator.py` | `formatted.md`<br>`All Key Items.md`<br>`summary-generated.md`<br>`abstract-generated.md` | **Jinja2 Templates**: Combines all markdown artifacts into HTML with CSS styling and highlighting. | `[Project]/[Name].html`<br>`[Project]/[Name] - simple.html` |
-| **10. PDF** | `transcript_to_pdf.py` | (Same as Webpages) | **WeasyPrint**: Renders the HTML content into a print-ready PDF. | `[Project]/[Name].pdf` |
-| **11. Packaging** | `transcript_package.py` | All Outputs | Zips final artifacts into a single delivery file. | `[Project]/[Name].zip` |
-
+- Webpage/PDF generation loads summary and abstract from generated files when available, with fallback extraction from ` - All Key Items.md`.
+- Bowen and emphasis items are both used for transcript highlighting in HTML/PDF.
+- Legacy paths like `~/transcripts/...` are no longer the canonical default; use `config.TRANSCRIPTS_BASE`-derived directories.

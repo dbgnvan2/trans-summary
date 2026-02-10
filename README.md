@@ -4,8 +4,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 
 [![Code Quality](https://img.shields.io/badge/Code%20Quality-A---%23brightgreen)]()
 [![Security](https://img.shields.io/badge/Security-Secure-brightgreen)]()
-[![Test Coverage](https://img.shields.io/badge/Coverage-55%25-yellow)]()
-[![Tests](https://img.shields.io/badge/Tests-87%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-pytest-blue)]()
 
 ## Features
 
@@ -85,11 +84,7 @@ trans-summary/
 ├── prompts/                # Markdown prompt templates for Claude
 ├── source/                 # Raw input files (txt)
 ├── projects/               # Project-specific output folders
-│   └── [Transcript Name]/
-│       ├── formatted/      # Cleaned markdown files
-│       ├── summaries/      # Generated analysis & extracts
-│       ├── webpages/       # Final HTML outputs
-│       └── pdfs/           # Final PDF outputs
+│   └── [Transcript Name]/  # Flat artifact set per transcript (md/html/pdf/zip)
 └── processed/              # Archive for completed source files
 ```
 
@@ -98,7 +93,7 @@ trans-summary/
 Global settings are managed in `config.py`. You can adjust:
 
 - **Directories**: Default locations for inputs/outputs
-- **Models**: Default Claude models (e.g., `DEFAULT_MODEL` = `claude-sonnet-4-5-20250929`, `AUX_MODEL` = `claude-3-5-haiku-20241022`)
+- **Models**: Default Claude models (currently `DEFAULT_MODEL` = `claude-3-7-sonnet-20250219`, `AUX_MODEL` = `claude-3-5-haiku-20241022`, `FORMATTING_MODEL` = `claude-3-7-sonnet-20250219`)
 - **Token Limits**: Safety limits for API calls
 - **Validation Thresholds**: Strictness of fuzzy matching and coverage checks
 
@@ -148,7 +143,7 @@ pip install ruff pytest
 
 ### Running Tests
 
-This project uses `pytest` for unit testing with 87 comprehensive tests:
+This project uses `pytest` for unit and integration testing:
 
 ```bash
 # Run all tests
@@ -172,7 +167,7 @@ pytest --cov=. --cov-report=html
 - **Integration Tests**: End-to-end workflow validation
 - **Parsing Tests**: Regex and metadata parsing verification
 
-**Test Coverage:** 55% (up from 40%)
+Note: there are duplicate test module names in both the repository root and `tests/` package, which can cause `pytest` collection-import mismatch errors unless naming is normalized.
 
 ### Linting & Formatting
 
@@ -278,7 +273,7 @@ templates/
 from html_generator import generate_webpage
 
 # Generate HTML with sidebar
-generate_webpage("Transcript - Speaker - 2024-01-01.txt")
+generate_webpage("Transcript - Speaker - 2024-01-01")
 
 # Output: projects/Transcript.../Transcript....html
 ```
@@ -301,10 +296,10 @@ r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;
 
 ## Code Quality
 
-**Current Metrics** (as of 2026-01-10):
+**Current Metrics** (as of 2026-02-10):
 - **Overall Grade**: A- (up from C+)
 - **Security**: ✅ Secure (no known vulnerabilities)
-- **Test Coverage**: 55% (87 passing tests)
+- **Testing**: `pytest` suite active with root-level and `tests/` package coverage
 - **Technical Debt**: 42.5 hours (down from 54 hours)
 - **Critical Issues**: 0/4 remaining (100% complete)
 

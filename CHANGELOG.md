@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-01-11
 
+### Documentation
+
+- Updated `README.md`, `DOCUMENT_REFERENCE.md`, and `PROJECT_STATUS.md` to align with current code-level behavior:
+  - Current model defaults from `config.py` (`claude-3-7-sonnet-20250219` / `claude-3-5-haiku-20241022`)
+  - Current artifact naming and pipeline stage outputs (config suffix-based)
+  - `TRANSCRIPTS_BASE`-driven directory semantics replacing hardcoded `~/transcripts` assumptions
+  - Current test collection snapshot and duplicate test-module collection mismatch note
+
 ### 🎯 **Critical Fix: Summary Generation Word Count**
 
 Fixed critical issue where summaries were generating only 423-460 words instead of 600-750 word target. Issue required 13 separate fixes across 6 files.

@@ -13,3 +13,6 @@ oldfiles
 # Python cache directories
 __pycache__/
 *.pyc
+
+#log files
+*.log

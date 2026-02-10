@@ -751,6 +751,9 @@ def parse_filename_metadata(filename: str) -> dict:
             stem = stem[:-len(suffix)]
             break  # Assume only one suffix type applies
 
+    # Allow common copy suffixes (e.g., " - copy", " - copy 2")
+    stem = re.sub(r'\s+-\s+copy(?:\s+\d+)?$', '', stem, flags=re.IGNORECASE)
+
     parts = [p.strip() for p in stem.split(' - ')]
 
     if len(parts) < 3:

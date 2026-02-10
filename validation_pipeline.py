@@ -96,11 +96,19 @@ def _generate_validation_response(
     if system:
         kwargs["system"] = system
 
+    max_tokens = config.MAX_TOKENS_HEADER_VALIDATION
+    # Cap output tokens for model-specific limits (e.g., haiku max 8192)
+    if "haiku" in model.lower() and max_tokens > 8192:
+        logger.warning(
+            "Capping max_tokens from %d to 8192 for model %s", max_tokens, model
+        )
+        max_tokens = 8192
+
     message = call_claude_with_retry(
         client=client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,  # Use ample tokens
+        max_tokens=max_tokens,  # Use ample tokens (capped per model)
         temperature=temperature,
         stream=True,
         min_length=min_length,

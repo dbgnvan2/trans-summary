@@ -351,7 +351,7 @@ def extract_html_metadata(html_file):
             ]
         else:
             text = " ".join(e.get_text(strip=True) for e in terms_elems)
-            if text:
+            if text and "No key terms found" not in text:
                 metadata["has_key_terms"] = True
                 metadata["key_terms_list"] = [
                     t.strip() for t in text.split(",") if t.strip()
@@ -480,13 +480,22 @@ def extract_html_simple_metadata(html_file):
         # Key Terms
         terms_h2 = appendices.find("h2", string="Key Terms")
         if terms_h2:
-            metadata["has_key_terms"] = True
             curr = terms_h2.find_next_sibling()
             while curr and curr.name != "h2":
                 if curr.name == "dl":
+                    metadata["has_key_terms"] = True
                     metadata["key_terms_list"].extend(
                         [dt.get_text(strip=True) for dt in curr.find_all("dt")]
                     )
+                elif curr.name == "p" and "No key terms found" not in curr.get_text():
+                     # If it's a paragraph but NOT the 'No key terms found' message, count it
+                     # This covers cases where terms might be comma-separated in a <p>
+                     text = curr.get_text(strip=True)
+                     if text:
+                         metadata["has_key_terms"] = True
+                         metadata["key_terms_list"].extend(
+                             [t.strip() for t in text.split(",") if t.strip()]
+                         )
                 curr = curr.find_next_sibling()
 
     # Count highlights
