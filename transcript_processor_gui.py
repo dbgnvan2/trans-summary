@@ -339,7 +339,7 @@ class TranscriptProcessorGUI:
         self.yaml_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
         self.summary_btn = ttk.Button(
-            button_frame, text="4. Key Items", command=self.do_summaries, state=tk.DISABLED)
+            button_frame, text="4. Core (ST/IT/T/KT/L)", command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
 
         self.cost_btn = ttk.Button(
@@ -369,7 +369,7 @@ class TranscriptProcessorGUI:
 
         # Row 3
         self.blog_btn = ttk.Button(
-            button_frame, text="9. Blog", command=self.do_generate_blog, state=tk.DISABLED)
+            button_frame, text="9. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
         self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
         self.webpdf_btn = ttk.Button(
@@ -551,8 +551,16 @@ class TranscriptProcessorGUI:
             ("Header Val", project_dir /
              f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
             ("YAML", project_dir / f"{base}{config.SUFFIX_YAML}"),
-            ("Topics, Themes, Terms", project_dir /
-             f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
+            ("All Key Items", project_dir /
+             f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
+            ("TSIT (ST/IT/T/KT)", project_dir / f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
+            ("Structural Themes", project_dir /
+             f"{base}{config.SUFFIX_STRUCTURAL_THEMES}"),
+            ("Interpretive Themes", project_dir /
+             f"{base}{config.SUFFIX_INTERPRETIVE_THEMES}"),
+            ("Topics", project_dir / f"{base}{config.SUFFIX_TOPICS}"),
+            ("Key Terms", project_dir / f"{base}{config.SUFFIX_KEY_TERMS}"),
+            ("Lenses (Ranked)", project_dir / f"{base}{config.SUFFIX_LENSES}"),
             ("Scored Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
             ("Bowen References", project_dir /
@@ -836,7 +844,7 @@ class TranscriptProcessorGUI:
             pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger) # No model parameter here
 
     def do_summaries(self):
-        """Generate Key Items, Bowen References, and initial Blog Post."""
+        """Run core extraction: abstract, structural/interpretive themes, topics, terms, lenses."""
         yaml_file = (config.PROJECTS_DIR / self.base_name /
                      f"{self.base_name}{config.SUFFIX_YAML}")
         if not yaml_file.exists():
@@ -851,7 +859,7 @@ class TranscriptProcessorGUI:
                 messagebox.showwarning(
                     "Not Ready", "Please format and add YAML first.")
                 return
-        self.log("STEP 3: Key Items...")
+        self.log("STEP 4: Core extraction (Abstract + ST/IT/Topics/Terms/Lenses)...")
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
@@ -862,11 +870,11 @@ class TranscriptProcessorGUI:
             False,  # skip_emphasis
             True,   # skip_blog
             logger=self.logger,
-            task_name="Key Item Generation",
+            task_name="Core Extraction",
         )
 
     def do_generate_structured_summary(self):
-        """Generate a structured summary from the extracted Key Items."""
+        """Generate a structured summary from TSIT key items."""
         if not self.base_name:
             return
         self.log("STEP 4: Generating Structured Summary...")
@@ -882,10 +890,10 @@ class TranscriptProcessorGUI:
             pipeline.validate_summary_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
     def do_generate_blog(self):
-        """Generate a blog post from the transcript."""
+        """Generate a blog post from validated top-ranked lens (#1)."""
         if not self.base_name:
             return
-        self.log("STEP 8: Generating Blog Post...")
+        self.log("STEP 9: Generating Blog Post from Lens #1...")
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
@@ -896,7 +904,7 @@ class TranscriptProcessorGUI:
             True,   # skip_emphasis
             False,  # skip_blog
             logger=self.logger,
-            task_name="Blog Post generation",
+            task_name="Blog Post (Top Lens)",
         )
 
     def do_estimate_cost(self):
@@ -1105,8 +1113,8 @@ class TranscriptProcessorGUI:
         if not pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger):
             return False
 
-        # Step 3: Extracts (Summaries)
-        self.log("\n--- STEP 3: Extracts & Terms ---")
+        # Step 3: Core Extraction (Abstract + Structural/Interpretive + Topics + Terms + Lenses + Blog)
+        self.log("\n--- STEP 3: Core Extraction ---")
         # Run all parts (skips=False)
         if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
                                              config.settings.DEFAULT_MODEL, # MODIFIED
