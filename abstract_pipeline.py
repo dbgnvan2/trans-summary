@@ -93,19 +93,50 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
 def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     """
-    Parse Key Themes using regex pattern matching.
+    Parse Interpretive Themes using robust pattern matching.
     """
     themes = []
 
-    # Regex matches: 1. **Name**: Description \n *Source Sections:*
-    pattern = r"\d+\.\s+(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+?)\s*\n\s*[\*_\-]*\s*Source Sections:"
+    # Strategy 1: Header format (### Theme Name)
+    if "###" in themes_markdown:
+        blocks = [
+            b.strip() for b in re.split(r"(?:^|\n)###\s+", themes_markdown) if b.strip()
+        ]
+        for block in blocks:
+            lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+            if not lines:
+                continue
+            name = lines[0]
+            description = " ".join(lines[1:]).strip()
+            if name and description:
+                themes.append(Theme(name=name, description=description))
 
-    matches = re.findall(pattern, themes_markdown, re.DOTALL)
-
-    for match in matches:
-        name = match[0].strip()
-        description = match[1].strip()
-        themes.append(Theme(name=name, description=description))
+    # Strategy 2: Numbered format
+    if not themes:
+        blocks = re.finditer(
+            r"(?:^|\n)\s*\d+\.\s+(.*?)(?=(?:\n\s*\d+\.\s+)|\Z)",
+            themes_markdown,
+            re.DOTALL,
+        )
+        for block_match in blocks:
+            block = block_match.group(1).strip()
+            first_line, _, rest = block.partition("\n")
+            line_match = re.match(
+                r"(?:\*\*)?(.+?)(?:\*\*)?:\s*(.+)$",
+                first_line.strip(),
+            )
+            if not line_match:
+                continue
+            name = line_match.group(1).strip()
+            description = f"{line_match.group(2).strip()} {rest.strip()}".strip()
+            description = re.sub(
+                r"[\*_ \-]*Source Sections?:?\s*[^*_\n]+[\*_ \-]*",
+                "",
+                description,
+                flags=re.IGNORECASE,
+            ).strip()
+            if name and description:
+                themes.append(Theme(name=name, description=description))
 
     # Take top 2 themes
     return themes[:2]
@@ -239,7 +270,7 @@ def prepare_abstract_input(
     Args:
         metadata: Dict with speaker, event_type, title, domain
         topics_markdown: Raw Topics section from extraction output
-        themes_markdown: Raw Key Themes section from extraction output
+        themes_markdown: Raw Interpretive Themes section from extraction output
         transcript: Full formatted transcript text
         target_word_count: Target word count for the abstract
 

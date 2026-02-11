@@ -76,7 +76,7 @@ class TestExtractionModelPassing(unittest.TestCase):
         mock_projects_dir.__truediv__.return_value.__truediv__.return_value = mock_file
 
         mock_strip_yaml.return_value = "cleaned content"
-        # We need extract_section to return something for Topics and Key Themes
+        # We need extract_section to return something for Topics and Interpretive Themes
         mock_extract_section.return_value = "section content"
 
         # Mock abstract input to have topics (required check in pipeline)

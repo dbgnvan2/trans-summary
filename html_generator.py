@@ -73,9 +73,16 @@ def _extract_webpage_metadata(topics_themes_file):
     # Get key terms with definitions
     key_term_defs = _extract_key_term_definitions(topics_themes_file)
 
+    structural = extract_section(content, "Structural Themes")
+    interpretive = extract_section(content, "Interpretive Themes")
+    if structural and interpretive:
+        themes_block = f"### Structural Themes\n\n{structural}\n\n### Interpretive Themes\n\n{interpretive}"
+    else:
+        themes_block = interpretive or structural
+
     metadata = {
         "topics": extract_section(content, "Topics"),
-        "themes": extract_section(content, "Key Themes"),
+        "themes": themes_block,
         "abstract": extract_section(content, "Abstract"),
         "key_terms": key_term_defs,
     }

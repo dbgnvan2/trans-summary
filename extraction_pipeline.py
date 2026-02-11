@@ -1,5 +1,6 @@
 "Pipeline module for extracting insights, summaries, and emphasis items."
 
+import json
 import os
 import re
 from pathlib import Path
@@ -109,13 +110,67 @@ def _normalize_headers(text: str) -> str:
     # Normalize Topics
     text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$',
                   '## Topics', text, flags=re.MULTILINE | re.IGNORECASE)
-    # Normalize Key Themes
-    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Themes\b.*$',
-                  '## Key Themes', text, flags=re.MULTILINE | re.IGNORECASE)
+    # Normalize Interpretive Themes (replaces legacy Key Themes)
+    text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?(?:Key\s+Themes|Interpretive\s+Themes)\b.*$',
+                  '## Interpretive Themes', text, flags=re.MULTILINE | re.IGNORECASE)
     # Normalize Key Terms
     text = re.sub(r'^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Terms\b.*$',
                   '## Key Terms', text, flags=re.MULTILINE | re.IGNORECASE)
     return text
+
+
+def _extract_json_object(text: str) -> dict:
+    """Best-effort extraction of a JSON object from model output."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        pass
+
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            parsed = json.loads(text[start: end + 1])
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def _extract_lens_count(transcript_word_count: int) -> int:
+    """Adaptive lens count based on transcript size/density proxy."""
+    if transcript_word_count < 4000:
+        return 6
+    if transcript_word_count < 8000:
+        return 9
+    return 12
+
+
+def _generate_with_cached_transcript(
+    prompt_filename: str,
+    model: str,
+    logger,
+    transcript_system_message,
+    min_length: int = 100,
+    **replacements,
+) -> str:
+    """Generate an artifact using a prompt template and cached transcript context."""
+    template = _load_summary_prompt(prompt_filename)
+    prompt = _fill_prompt_template(template, {}, "", **replacements)
+    return _generate_summary_with_claude(
+        prompt,
+        model,
+        config.TEMP_ANALYSIS,
+        logger,
+        min_length=min_length,
+        timeout=config.TIMEOUT_SUMMARY,
+        system=transcript_system_message,
+    )
 
 
 def _clean_bowen_output(text: str) -> str:
@@ -239,6 +294,14 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
     suffix = f" - {summary_type}.md"
     if summary_type == "All Key Items":
         suffix = config.SUFFIX_KEY_ITEMS_ALL
+    elif summary_type == "topics":
+        suffix = config.SUFFIX_TOPICS
+    elif summary_type == "structural-themes":
+        suffix = config.SUFFIX_STRUCTURAL_THEMES
+    elif summary_type == "interpretive-themes":
+        suffix = config.SUFFIX_INTERPRETIVE_THEMES
+    elif summary_type == "lenses-ranked":
+        suffix = config.SUFFIX_LENSES
     elif summary_type == "key-terms":
         suffix = config.SUFFIX_KEY_TERMS
     elif summary_type == "blog":
@@ -267,21 +330,24 @@ def _process_key_items_output(all_key_items_path: Path, logger):
     project_dir.mkdir(parents=True, exist_ok=True)
 
     topics = extract_section(clean_content, "Topics")
-    themes = extract_section(clean_content, "Key Themes")
+    structural_themes = extract_section(clean_content, "Structural Themes")
+    interpretive_themes = extract_section(clean_content, "Interpretive Themes")
     key_terms = extract_section(clean_content, "Key Terms")
 
-    if topics or themes or key_terms:
+    if topics or structural_themes or interpretive_themes or key_terms:
         combined_output = ""
         if topics:
             combined_output += f"## Key Topics\n\n{topics}\n\n"
-        if themes:
-            combined_output += f"## Key Themes\n\n{themes}\n\n"
+        if structural_themes:
+            combined_output += f"## Structural Themes\n\n{structural_themes}\n\n"
+        if interpretive_themes:
+            combined_output += f"## Interpretive Themes\n\n{interpretive_themes}\n\n"
         if key_terms:
             combined_output += f"## Key Terms\n\n{key_terms}\n\n"
 
         combined_path = project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_CLEAN}"
         combined_path.write_text(combined_output, encoding="utf-8")
-        logger.info("  ✓ Topics, Themes, Terms → %s", combined_path.name)
+        logger.info("  ✓ Topics, Structural/Interpretive Themes, Terms → %s", combined_path.name)
 
 
 # Main Exported Functions
@@ -480,7 +546,7 @@ def generate_structured_summary(
 
         metadata = parse_filename_metadata(base_name)
         topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Key Themes")
+        themes_section = extract_section(extracts_content, "Interpretive Themes")
 
         if not topics_section:
             logger.error("Could not find Topics in All Key Items file.")
@@ -558,11 +624,11 @@ def generate_structured_abstract(
         metadata = parse_filename_metadata(base_name)
 
         topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Key Themes")
+        themes_section = extract_section(extracts_content, "Interpretive Themes")
 
         if not topics_section or not themes_section:
             logger.error(
-                "Could not find Topics or Key Themes in All Key Items file.")
+                "Could not find Topics or Interpretive Themes in All Key Items file.")
             return False
 
         # Calculate target word count
@@ -617,6 +683,62 @@ def generate_structured_abstract(
         return False
 
 
+def _validate_themes_and_lenses(
+    model: str,
+    logger,
+    transcript_system_message,
+    structural_themes: str,
+    interpretive_themes: str,
+    lenses: str,
+) -> dict:
+    """Back-validate structural themes, interpretive themes, and ranked lenses."""
+    response = _generate_with_cached_transcript(
+        config.PROMPT_THEME_LENS_VALIDATION_FILENAME,
+        model,
+        logger,
+        transcript_system_message,
+        min_length=80,
+        structural_themes=structural_themes,
+        interpretive_themes=interpretive_themes,
+        lenses=lenses,
+    )
+    parsed = _extract_json_object(response)
+    if not parsed:
+        logger.warning("Theme/lens validation output was not parseable JSON.")
+        return {
+            "structural_themes_valid": False,
+            "interpretive_themes_valid": False,
+            "confirmed_lenses": [],
+            "top_lens": {},
+        }
+    return parsed
+
+
+def _compose_all_key_items(
+    abstract: str,
+    structural_themes: str,
+    interpretive_themes: str,
+    topics: str,
+    key_terms: str,
+    lenses: str,
+) -> str:
+    """Build canonical All Key Items document."""
+    return (
+        "## Abstract\n\n"
+        f"{(abstract or 'None found.').strip()}\n\n"
+        "## Structural Themes\n\n"
+        f"{(structural_themes or 'None found.').strip()}\n\n"
+        "## Interpretive Themes\n\n"
+        f"{(interpretive_themes or 'None found.').strip()}\n\n"
+        "## Topics\n\n"
+        f"{(topics or 'None found.').strip()}\n\n"
+        "## Key Terms\n\n"
+        f"{(key_terms or 'None found.').strip()}\n\n"
+        "## Lenses (Ranked)\n\n"
+        f"{(lenses or 'None found.').strip()}\n"
+    )
+
+
 def summarize_transcript(
     formatted_filename: str,
     model: str,
@@ -648,52 +770,198 @@ def summarize_transcript(
             transcript)
 
         all_key_items_path = None
+        top_lens = {}
+        abstract_output = ""
+        structural_output = ""
+        interpretive_output = ""
+        topics_output = ""
+        key_terms_output = ""
+        lenses_output = ""
 
         if not skip_extracts_summary:
-            logger.info("PART 1: Generating Key Items...")
-            prompt_template = _load_summary_prompt(
-                config.PROMPT_EXTRACTS_FILENAME)
-            prompt = _fill_prompt_template(
-                prompt_template,
-                metadata,
-                transcript="",
-                target_audience=target_audience,
-            )
-
-            min_expected_words = int(
-                transcript_word_count * config.MIN_EXTRACTS_PERCENT
-            )
-            min_expected_words = (
-                max(min_expected_words, config.MIN_EXTRACTS_WORDS_FLOOR)
-                if transcript_word_count > config.MIN_TRANSCRIPT_WORDS_FOR_FLOOR
-                else config.MIN_EXTRACTS_WORDS_ABSOLUTE
-            )
-
-            output = _generate_summary_with_claude(
-                prompt,
+            logger.info("PART 1: Generating Structural Themes...")
+            structural_output = _generate_with_cached_transcript(
+                config.PROMPT_STRUCTURAL_THEMES_FILENAME,
                 model,
-                config.TEMP_ANALYSIS,
                 logger,
-                min_length=config.MIN_EXTRACTS_CHARS,
-                min_words=min_expected_words,
-                system=transcript_system_message,
+                transcript_system_message,
+                min_length=180,
+            )
+            _save_summary(structural_output, formatted_filename, "structural-themes")
+
+            logger.info("PART 2: Generating Interpretive Themes...")
+            interpretive_output = _generate_with_cached_transcript(
+                config.PROMPT_INTERPRETIVE_THEMES_FILENAME,
+                model,
+                logger,
+                transcript_system_message,
+                min_length=260,
+                structural_themes=structural_output,
+            )
+            _save_summary(interpretive_output, formatted_filename, "interpretive-themes")
+
+            logger.info("PART 3: Generating Topics...")
+            topics_output = _generate_with_cached_transcript(
+                config.PROMPT_TOPICS_FILENAME,
+                model,
+                logger,
+                transcript_system_message,
+                min_length=220,
+            )
+            topics_output = re.sub(
+                r"^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$",
+                "## Topics",
+                topics_output,
+                flags=re.MULTILINE | re.IGNORECASE,
+            )
+            _save_summary(topics_output, formatted_filename, "topics")
+
+            logger.info("PART 4: Generating Key Terms...")
+            key_terms_output = _generate_with_cached_transcript(
+                config.PROMPT_KEY_TERMS_FILENAME,
+                model,
+                logger,
+                transcript_system_message,
+                min_length=160,
+                author=metadata.get("presenter", metadata.get("author", "")),
+                presenter=metadata.get("presenter", ""),
+                date=metadata.get("date", ""),
+                title=metadata.get("title", ""),
+                filename=formatted_filename,
+            )
+            key_terms_output = re.sub(
+                r"^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Key Terms\b.*$",
+                "## Key Terms",
+                key_terms_output,
+                flags=re.MULTILINE | re.IGNORECASE,
+            )
+            _save_summary(key_terms_output, formatted_filename, "key-terms")
+
+            logger.info("PART 5: Generating Abstract...")
+            target_word_count = max(
+                int(transcript_word_count * config.ABSTRACT_TARGET_PERCENT),
+                config.ABSTRACT_MIN_WORDS,
+            )
+            abstract_input = abstract_pipeline.prepare_abstract_input(
+                metadata=metadata,
+                topics_markdown=topics_output,
+                themes_markdown=interpretive_output,
+                transcript=transcript,
+                target_word_count=target_word_count,
+            )
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY not set")
+            client = anthropic.Anthropic(api_key=api_key)
+            abstract_output = abstract_pipeline.generate_abstract(
+                abstract_input, client, model=model, system=transcript_system_message
+            )
+            _save_summary(abstract_output, formatted_filename, "abstract-initial")
+
+            if not skip_emphasis:
+                logger.info("\n--- PART 6: Extracting Emphasis Items ---")
+                extract_scored_emphasis(
+                    formatted_filename, model, logger, transcript_system_message
+                )
+
+            logger.info("\n--- PART 7: Extracting Bowen References ---")
+            extract_bowen_references_from_transcript(
+                formatted_filename, model, logger, transcript_system_message
             )
 
-            # Enforce consistent headers
-            output = _normalize_headers(output)
+            logger.info("\n--- PART 8: Generating Ranked Lenses (Adaptive Count) ---")
+            lens_count = _extract_lens_count(transcript_word_count)
+            lenses_output = _generate_with_cached_transcript(
+                config.PROMPT_LENS_GENERATION_FILENAME,
+                model,
+                logger,
+                transcript_system_message,
+                min_length=350,
+                structural_themes=structural_output,
+                interpretive_themes=interpretive_output,
+                topics=topics_output,
+                key_terms=key_terms_output,
+                lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
+            )
 
+            # Back-validation and regeneration loop: ensure lens #1 is valid.
+            max_attempts = 3
+            for attempt in range(max_attempts):
+                validation = _validate_themes_and_lenses(
+                    model,
+                    logger,
+                    transcript_system_message,
+                    structural_output,
+                    interpretive_output,
+                    lenses_output,
+                )
+                structural_valid = bool(validation.get("structural_themes_valid"))
+                interpretive_valid = bool(validation.get("interpretive_themes_valid"))
+                top_lens = validation.get("top_lens", {}) or {}
+
+                if not structural_valid:
+                    logger.warning("Structural themes denied by validator; regenerating...")
+                    structural_output = _generate_with_cached_transcript(
+                        config.PROMPT_STRUCTURAL_THEMES_FILENAME,
+                        model,
+                        logger,
+                        transcript_system_message,
+                        min_length=180,
+                    )
+                if not interpretive_valid:
+                    logger.warning("Interpretive themes denied by validator; regenerating...")
+                    interpretive_output = _generate_with_cached_transcript(
+                        config.PROMPT_INTERPRETIVE_THEMES_FILENAME,
+                        model,
+                        logger,
+                        transcript_system_message,
+                        min_length=260,
+                        structural_themes=structural_output,
+                    )
+                if structural_valid and interpretive_valid and top_lens:
+                    break
+
+                logger.warning(
+                    "Top lens not validated yet (attempt %d/%d). Regenerating lenses...",
+                    attempt + 1,
+                    max_attempts,
+                )
+                lenses_output = _generate_with_cached_transcript(
+                    config.PROMPT_LENS_GENERATION_FILENAME,
+                    model,
+                    logger,
+                    transcript_system_message,
+                    min_length=350,
+                    structural_themes=structural_output,
+                    interpretive_themes=interpretive_output,
+                    topics=topics_output,
+                    key_terms=key_terms_output,
+                    lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
+                )
+
+            if not top_lens:
+                logger.error("Failed to produce a validated top-ranked lens after retries.")
+                return False
+
+            _save_summary(structural_output, formatted_filename, "structural-themes")
+            _save_summary(interpretive_output, formatted_filename, "interpretive-themes")
+            _save_summary(lenses_output, formatted_filename, "lenses-ranked")
+
+            all_key_items_content = _compose_all_key_items(
+                abstract_output,
+                structural_output,
+                interpretive_output,
+                topics_output,
+                key_terms_output,
+                lenses_output,
+            )
             all_key_items_path = _save_summary(
-                output, formatted_filename, "All Key Items"
+                all_key_items_content,
+                formatted_filename,
+                "All Key Items",
             )
-            output_words = len(output.split())
-            logger.info("✓ Key Items raw analysis saved (%d words) to: %s",
-                        output_words, all_key_items_path)
-
             _process_key_items_output(all_key_items_path, logger)
         else:
-            # handle if filename was already stemmed or yaml suffixed, better logic from _load_formatted_transcript
-            # Reconstruct path based on project dir
-            # Try to guess
             stem = metadata["stem"]
             potential_path = (
                 config.PROJECTS_DIR / stem /
@@ -703,20 +971,33 @@ def summarize_transcript(
                 all_key_items_path = potential_path
                 logger.info("Skipping Key Items generation, using existing file: %s",
                             all_key_items_path)
-
-        if not skip_emphasis:
-            logger.info("\n--- PART 2: Extracting Emphasis Items ---")
-            extract_scored_emphasis(
-                formatted_filename, model, logger, transcript_system_message
-            )
-
-        logger.info("\n--- PART 3: Extracting Bowen References ---")
-        extract_bowen_references_from_transcript(
-            formatted_filename, model, logger, transcript_system_message
-        )
+                existing_content = strip_yaml_frontmatter(
+                    potential_path.read_text(encoding="utf-8")
+                )
+                structural_output = extract_section(existing_content, "Structural Themes")
+                interpretive_output = extract_section(existing_content, "Interpretive Themes")
+                topics_output = extract_section(existing_content, "Topics")
+                key_terms_output = extract_section(existing_content, "Key Terms")
+                lenses_output = extract_section(existing_content, "Lenses (Ranked)")
+                abstract_output = extract_section(existing_content, "Abstract")
+                if structural_output and interpretive_output and lenses_output:
+                    validation = _validate_themes_and_lenses(
+                        model,
+                        logger,
+                        transcript_system_message,
+                        structural_output,
+                        interpretive_output,
+                        lenses_output,
+                    )
+                    top_lens = validation.get("top_lens", {}) or {}
 
         if not skip_blog:
-            logger.info("\n--- PART 4: Generating Blog Post ---")
+            if not top_lens:
+                logger.error(
+                    "No validated top-ranked lens available; blog generation aborted by policy."
+                )
+                return False
+            logger.info("\n--- PART 8: Generating Blog Post from Lens #1 ---")
             prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
             prompt = _fill_prompt_template(
                 prompt_template,
@@ -724,6 +1005,13 @@ def summarize_transcript(
                 transcript="",
                 focus_keyword=focus_keyword,
                 target_audience=target_audience,
+                top_lens_title=top_lens.get("title", ""),
+                top_lens_description=top_lens.get("description", ""),
+                top_lens_rationale=top_lens.get("rationale", ""),
+                top_lens_evidence=top_lens.get("evidence", ""),
+                top_lens_hooks="\n".join(top_lens.get("hooks", []))
+                if isinstance(top_lens.get("hooks"), list)
+                else str(top_lens.get("hooks", "")),
             )
             output = _generate_summary_with_claude(
                 prompt,

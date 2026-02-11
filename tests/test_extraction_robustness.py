@@ -70,7 +70,7 @@ Mixed content.
 **Topics**
 Content A
 
-# Key Themes:
+# Interpretive Themes:
 Content B
 
 ## 3. Key Terms
@@ -84,8 +84,8 @@ Content C
         self.assertIn("## Topics", normalized)
         self.assertNotIn("**Topics**", normalized)
         
-        self.assertIn("## Key Themes", normalized)
-        self.assertNotIn("# Key Themes:", normalized)
+        self.assertIn("## Interpretive Themes", normalized)
+        self.assertNotIn("# Interpretive Themes:", normalized)
         
         self.assertIn("## Key Terms", normalized)
         self.assertNotIn("## 3. Key Terms", normalized)

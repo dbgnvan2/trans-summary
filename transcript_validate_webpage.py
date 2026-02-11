@@ -198,22 +198,23 @@ def extract_topics_themes_metadata(topics_themes_file):
         metadata["topics_list"] = [t.strip() for t in topics]
         metadata["topics_count"] = len(topics)
 
-    # Count Key Themes (with or without bold markers)
-    themes_match = re.search(
-        r"## (?:\*\*)?Key Themes(?:\*\*)?(.*?)(?=^## |\Z)",
+    # Count Structural + Interpretive Themes
+    theme_sections = re.finditer(
+        r"## (?:\*\*)?(?:Structural Themes|Interpretive Themes|Themes)(?:\*\*)?(.*?)(?=^## |\Z)",
         content,
         re.MULTILINE | re.DOTALL,
     )
-    if themes_match:
-        themes_text = themes_match.group(1).strip()
-        # Extract theme names (### Theme Name or numbered items)
+    collected_themes = []
+    for m in theme_sections:
+        themes_text = m.group(1).strip()
         themes_h3 = re.findall(r"^### (.+)$", themes_text, re.MULTILINE)
         themes_numbered = re.findall(
             r"^\d+\.\s+\*\*([^*]+)\*\*", themes_text, re.MULTILINE
         )
-        themes = themes_h3 + themes_numbered
-        metadata["themes_list"] = [t.strip() for t in themes]
-        metadata["themes_count"] = len(themes)
+        collected_themes.extend(themes_h3 + themes_numbered)
+    if collected_themes:
+        metadata["themes_list"] = [t.strip() for t in collected_themes]
+        metadata["themes_count"] = len(collected_themes)
 
     # Count Key Terms
     key_terms_match = re.search(
@@ -324,8 +325,8 @@ def extract_html_metadata(html_file):
                 [h3.get_text(strip=True) for h3 in elem.find_all("h3")]
             )
 
-    # Key Themes
-    themes_elems = get_sidebar_section("Key Themes")
+    # Themes
+    themes_elems = get_sidebar_section("Themes")
     if themes_elems:
         metadata["has_themes"] = True
         for elem in themes_elems:
@@ -463,8 +464,8 @@ def extract_html_simple_metadata(html_file):
                     metadata["topics_list"].append(curr.get_text(strip=True))
                 curr = curr.find_next_sibling()
 
-        # Key Themes
-        themes_h2 = appendices.find("h2", string="Key Themes")
+        # Themes
+        themes_h2 = appendices.find("h2", string="Themes")
         if themes_h2:
             metadata["has_themes"] = True
             curr = themes_h2.find_next_sibling()
@@ -757,17 +758,17 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     elif source_meta["topics_count"] > 0:
         print("      ✅ Key Topics present in HTML")
 
-    # Key Themes (skip in simple mode - not included in that layout)
-    print("\n   Key Themes:")
+    # Themes (skip in simple mode - not included in that layout)
+    print("\n   Themes:")
     print(f"      Source: {source_meta['themes_count']} items")
     print(f"      HTML:   {'Present' if html_meta['has_themes'] else 'Empty'}")
 
     if source_meta["themes_count"] > 0 and not html_meta["has_themes"]:
         issues.append(
-            f"Key Themes section empty in HTML (should have {source_meta['themes_count']} items)"
+            f"Themes section empty in HTML (should have {source_meta['themes_count']} items)"
         )
     elif source_meta["themes_count"] > 0:
-        print("      ✅ Key Themes present in HTML")
+        print("      ✅ Themes present in HTML")
 
     # Key Terms
     print("\n   Key Terms:")
@@ -939,7 +940,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
             )
             print(f"   Key Topics: ⚠️  Only {matched}/{len(sample_indices)} verified")
 
-    # Verify Key Themes (sample 30% rounded up) - skip in simple mode
+    # Verify Themes (sample 30% rounded up) - skip in simple mode
     if source_meta["themes_count"] > 0 and len(html_meta["themes_list"]) > 0:
         sample_size = math.ceil(source_meta["themes_count"] * 0.3)
         sample_indices = range(0, min(sample_size, len(source_meta["themes_list"])))
@@ -957,13 +958,13 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
         if matched == len(sample_indices):
             print(
-                f"   Key Themes: ✅ {matched}/{len(sample_indices)} sampled items verified"
+                f"   Themes: ✅ {matched}/{len(sample_indices)} sampled items verified"
             )
         else:
             warnings.append(
-                f"Key Themes content mismatch: only {matched}/{len(sample_indices)} verified"
+                f"Themes content mismatch: only {matched}/{len(sample_indices)} verified"
             )
-            print(f"   Key Themes: ⚠️  Only {matched}/{len(sample_indices)} verified")
+            print(f"   Themes: ⚠️  Only {matched}/{len(sample_indices)} verified")
 
     # Verify Key Terms (sample 30% rounded up)
     if source_meta["key_terms_count"] > 0 and len(html_meta["key_terms_list"]) > 0:

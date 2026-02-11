@@ -75,7 +75,7 @@ Content of first section.
 
 Some other content.
 
-## Key Themes
+## Interpretive Themes
 
 - Theme A
 - Theme B
@@ -85,7 +85,7 @@ Some other content.
         self.assertIn("- Topic 2", topics_section)
         self.assertNotIn("Some Other Section", topics_section)
 
-        themes_section = extract_section(sample_markdown_content, "Key Themes")
+        themes_section = extract_section(sample_markdown_content, "Interpretive Themes")
         self.assertIn("- Theme A", themes_section)
         self.assertIn("- Theme B", themes_section)
 

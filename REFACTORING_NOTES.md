@@ -23,7 +23,7 @@ Extracts any markdown section by name, handling both:
 from transcript_utils import extract_section
 
 topics = extract_section(content, "Topics")  # Works for both formats
-themes = extract_section(content, "Key Themes")
+themes = extract_section(content, "Interpretive Themes")
 abstract = extract_section(content, "Abstract")
 ```
 

@@ -21,7 +21,7 @@ Write a comprehensive narrative synthesis covering all topics.
 *   Include specific examples, evidence, and detailed explanations from the transcript
 *   **Use the `body.topics` list in the JSON only as a checklist** of areas that must be covered
 *   **Mine the transcript** for details, quotes, examples, and evidence
-*   Weave in the Key Themes to deepen the analysis
+*   Weave in the Interpretive Themes to deepen the analysis
 *   Write naturally to capture the flow of ideas
 
 ### Q&A Section (~{qa_words} words, {qa_instruction})
@@ -39,4 +39,3 @@ State the conclusion, open questions, and future directions.
 
 Input data:
 {input_json}
-

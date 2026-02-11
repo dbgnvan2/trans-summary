@@ -14,9 +14,9 @@ Your response MUST contain the following markdown sections, in this exact order.
 
 ---
 
-## Key Themes
+## Interpretive Themes
 
-- Identify 2-3 major cross-cutting themes.
+- Identify 2-3 major interpretive themes.
 - For each theme, create a sub-header: `### Theme Name`
 - Below the sub-header, write a description of the theme.
 
@@ -30,7 +30,7 @@ Your response MUST contain the following markdown sections, in this exact order.
 
 ---
 
-**IMPORTANT:** Before you finish, review your output to ensure all three sections (`Topics`, `Key Themes`, `Key Terms`) are present with the correct `##` headers.
+**IMPORTANT:** Before you finish, review your output to ensure all three sections (`Topics`, `Interpretive Themes`, `Key Terms`) are present with the correct `##` headers.
 
 Analyze the following transcript:
 

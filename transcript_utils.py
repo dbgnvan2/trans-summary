@@ -862,7 +862,7 @@ def extract_section(content: str, section_name: str, allow_bold: bool = True) ->
 
     Args:
         content: The markdown content to search
-        section_name: The section name (e.g., "Topics", "Abstract", "Key Themes")
+        section_name: The section name (e.g., "Topics", "Abstract", "Interpretive Themes")
         allow_bold: If True, matches bold/numbered variations (implicitly handled by regex)
 
     Returns:

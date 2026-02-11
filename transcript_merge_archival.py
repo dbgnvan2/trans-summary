@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Merge key terms into topics-themes document.
-Inserts key terms section after Key Themes, before Bowen References.
+Inserts key terms section after Interpretive Themes, before Bowen References.
 
 Usage:
     python transcript_merge_archival.py "Title - Presenter - Date"
@@ -59,7 +59,7 @@ def merge_key_terms_into_topics_themes(base_name: str) -> bool:
     else:
         key_terms_section = key_terms_content
 
-    # Find insertion point in topics-themes (after Key Themes, before Bowen References)
+    # Find insertion point in topics-themes (after Interpretive Themes, before Bowen References)
     # Look for the "## **Bowen References**" heading
     insertion_marker = "## **Bowen References**"
 

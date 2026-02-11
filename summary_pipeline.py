@@ -290,7 +290,7 @@ def parse_section_range(sections_str: str) -> list[int]:
 
 def parse_themes(themes_markdown: str) -> list[dict]:
     """
-    Parse Key Themes using a robust line-based approach.
+    Parse Interpretive Themes using a robust line-based approach.
     Supports both new header format (### Theme) and legacy numbered lists (1. **Theme**:).
     """
     themes = []

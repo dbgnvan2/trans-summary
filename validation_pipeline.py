@@ -458,7 +458,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
 
         metadata = parse_filename_metadata(base_name)
         topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Key Themes")
+        themes_section = extract_section(extracts_content, "Interpretive Themes")
 
         transcript_words = len(transcript.split())
         target_word_count = max(
@@ -535,7 +535,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
 
         metadata = parse_filename_metadata(base_name)
         topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Key Themes")
+        themes_section = extract_section(extracts_content, "Interpretive Themes")
 
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,

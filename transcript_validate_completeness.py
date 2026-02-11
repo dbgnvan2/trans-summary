@@ -140,7 +140,7 @@ def validate_key_item_extracts(base_name: str) -> ValidationResult:
     required_sections = {
         "Abstract": r"##\s*\*?\*?Abstract\*?\*?",
         "Topics": r"##\s*\*?\*?Topics\*?\*?",
-        "Key Themes": r"##\s*\*?\*?Key Themes\*?\*?",
+        "Interpretive Themes": r"##\s*\*?\*?Interpretive Themes\*?\*?",
         "Emphasis Items": r"##\s*\*?\*?Emphasis Items\*?\*?",
     }
 
