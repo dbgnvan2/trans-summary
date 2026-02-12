@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).parent))
 
 try:
     from transcript_utils import (
+        cap_max_tokens_for_model,
         call_claude_with_retry,
         create_system_message_with_cache,
         setup_logging,
@@ -171,8 +172,11 @@ class HeaderValidator:
             f"Prompt size: Template (Cached)={template_len} chars, Content={len(batch_content)} chars"
         )
 
+        max_tokens = cap_max_tokens_for_model(
+            model, config.MAX_TOKENS_HEADER_VALIDATION, logger=self.logger
+        )
         self.logger.info(
-            f"Sending request to Claude (max_tokens={config.MAX_TOKENS_HEADER_VALIDATION})..."
+            f"Sending request to Claude (max_tokens={max_tokens})..."
         )
 
         # Call API
@@ -180,7 +184,7 @@ class HeaderValidator:
             self.client,
             model=model,
             messages=[{"role": "user", "content": batch_content}],
-            max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
+            max_tokens=max_tokens,
             logger=self.logger,
             stream=True,
             system=self.cached_system_message,
@@ -198,6 +202,7 @@ class HeaderValidator:
             return
 
         results = []
+        failed_batches = []
 
         # Process in batches
         total_batches = (len(sections) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -231,11 +236,18 @@ class HeaderValidator:
                 )
             except Exception as e:
                 self.logger.error(f"Failed to validate batch {batch_num}: {e}")
+                failed_batches.append(batch_num)
 
-        self._save_report(input_path, results)
+        self._save_report(input_path, results, failed_batches)
+        if failed_batches:
+            self.logger.error(
+                "Header validation failed for batch(es): %s",
+                ", ".join(str(b) for b in failed_batches),
+            )
+            return False
         return True
 
-    def _save_report(self, input_path: Path, results: List[Dict]):
+    def _save_report(self, input_path: Path, results: List[Dict], failed_batches: List[int]):
         """Save validation report to file."""
         base_name = input_path.stem.replace(
             " - formatted", "").replace(" - yaml", "")
@@ -267,6 +279,14 @@ class HeaderValidator:
                 f.write(f"\n### Batch {batch_result['batch']}\n")
                 f.write(batch_result["response"])
                 f.write("\n" + "=" * 50 + "\n")
+
+            if failed_batches:
+                f.write("\n## Failed Batches\n")
+                f.write(
+                    "The following batches failed API validation and were not evaluated: "
+                )
+                f.write(", ".join(str(b) for b in failed_batches))
+                f.write("\n")
 
         self.logger.info(
             f"Validation complete. Report saved to: {report_path}")

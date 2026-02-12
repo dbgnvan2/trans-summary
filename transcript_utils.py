@@ -360,6 +360,32 @@ def _check_caching_for_large_input(messages: list, system: Any, logger: Optional
         check_content(msg.get('content'), f"message {i}")
 
 
+def cap_max_tokens_for_model(
+    model: str,
+    requested_max_tokens: int,
+    logger: Optional[logging.Logger] = None,
+) -> int:
+    """
+    Cap max output tokens to model-safe limits.
+
+    Currently enforces Anthropic Haiku output cap (8192). Other models pass through.
+    """
+    capped_max_tokens = requested_max_tokens
+    model_lower = model.lower()
+
+    if "haiku" in model_lower and requested_max_tokens > 8192:
+        capped_max_tokens = 8192
+        if logger:
+            logger.warning(
+                "Capping max_tokens from %d to %d for model %s",
+                requested_max_tokens,
+                capped_max_tokens,
+                model,
+            )
+
+    return capped_max_tokens
+
+
 def call_claude_with_retry(
     client,
     model: str,

@@ -15,6 +15,7 @@ import config
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
+    cap_max_tokens_for_model,
     call_claude_with_retry,
     create_system_message_with_cache,
     extract_emphasis_items,
@@ -96,13 +97,9 @@ def _generate_validation_response(
     if system:
         kwargs["system"] = system
 
-    max_tokens = config.MAX_TOKENS_HEADER_VALIDATION
-    # Cap output tokens for model-specific limits (e.g., haiku max 8192)
-    if "haiku" in model.lower() and max_tokens > 8192:
-        logger.warning(
-            "Capping max_tokens from %d to 8192 for model %s", max_tokens, model
-        )
-        max_tokens = 8192
+    max_tokens = cap_max_tokens_for_model(
+        model, config.MAX_TOKENS_HEADER_VALIDATION, logger=logger
+    )
 
     message = call_claude_with_retry(
         client=client,
