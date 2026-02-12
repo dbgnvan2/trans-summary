@@ -127,9 +127,9 @@ def test_bowen_references_generation_and_extraction(
     extracted_references = extract_bowen_references(generated_content)
 
     expected_references = [
-        ("On Triangles and Emotional Forces", "We live our lives in networks of emotional forces. Follow triangle patterns."),
-        ("On Triangles as Molecules", "Triangles are the molecules of an emotional system."),
-        ("On Two-Person Systems", "A two person system is inherently unstable."),
+        ("Bowen Reference - On Triangles and Emotional Forces", "We live our lives in networks of emotional forces. Follow triangle patterns."),
+        ("Bowen Reference - On Triangles as Molecules", "Triangles are the molecules of an emotional system."),
+        ("Bowen Reference - On Two-Person Systems", "A two person system is inherently unstable."),
     ]
     
     assert len(extracted_references) == len(expected_references), \
@@ -207,4 +207,4 @@ def test_bowen_references_fallback_to_primary_when_filter_invalid(
     extracted = extract_bowen_references(generated_content)
 
     assert len(extracted) == 3
-    assert extracted[0][0] == "On Triangles and Emotional Forces"
+    assert extracted[0][0] == "Bowen Reference - On Triangles and Emotional Forces"

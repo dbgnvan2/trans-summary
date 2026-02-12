@@ -70,15 +70,54 @@ def _extract_webpage_metadata(topics_themes_file):
         flags=re.DOTALL,
     )
 
+    base_name = Path(topics_themes_file).stem.replace(
+        config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
+    )
+
     # Get key terms with definitions
     key_term_defs = _extract_key_term_definitions(topics_themes_file)
 
     structural = extract_section(content, "Structural Themes")
     interpretive = extract_section(content, "Interpretive Themes")
+
+    # Fallback to dedicated files when All Key Items is stale/incomplete.
+    if not structural:
+        structural_file = (
+            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
+        )
+        if structural_file.exists():
+            structural_content = strip_yaml_frontmatter(
+                structural_file.read_text(encoding="utf-8")
+            )
+            structural = extract_section(structural_content, "Structural Themes") or structural_content.strip()
+
+    if not interpretive:
+        interpretive_file = (
+            config.PROJECTS_DIR
+            / base_name
+            / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+        )
+        if interpretive_file.exists():
+            interpretive_content = strip_yaml_frontmatter(
+                interpretive_file.read_text(encoding="utf-8")
+            )
+            interpretive = (
+                extract_section(interpretive_content, "Interpretive Themes")
+                or extract_section(interpretive_content, "Themes")
+                or interpretive_content.strip()
+            )
+
     if structural and interpretive:
-        themes_block = f"### Structural Themes\n\n{structural}\n\n### Interpretive Themes\n\n{interpretive}"
+        themes_block = (
+            f"### Structural Themes\n\n{structural}\n\n"
+            f"### Interpretive Themes\n\n{interpretive}"
+        )
+    elif interpretive:
+        themes_block = f"### Interpretive Themes\n\n{interpretive}"
+    elif structural:
+        themes_block = f"### Structural Themes\n\n{structural}"
     else:
-        themes_block = interpretive or structural
+        themes_block = ""
 
     metadata = {
         "topics": extract_section(content, "Topics"),

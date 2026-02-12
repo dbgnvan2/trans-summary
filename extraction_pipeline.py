@@ -247,7 +247,7 @@ def _format_bowen_refs(refs: list[tuple[str, str]]) -> str:
             continue
         # Avoid breaking the quote wrapper
         quote = quote.replace('"', "'")
-        lines.append(f'> **{concept}:** "{quote}"')
+        lines.append(f'> **Bowen Reference - {concept}:** "{quote}"')
     return "\n".join(lines)
 
 

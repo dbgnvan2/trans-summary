@@ -1,6 +1,15 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from html_generator import _generate_simple_html_page, _highlight_html_content
+import config
+from html_generator import (
+    _extract_webpage_metadata,
+    _generate_pdf_html,
+    _generate_simple_html_page,
+    _highlight_html_content,
+)
 
 
 class TestHtmlGenerator(unittest.TestCase):
@@ -68,6 +77,57 @@ class TestHtmlGenerator(unittest.TestCase):
         self.assertIn("<p>Content</p>", html)
         self.assertIn("<strong>Term1</strong>", html)
         self.assertIn("Abstract text", html)
+
+    def test_extract_webpage_metadata_falls_back_to_dedicated_theme_files(self):
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            base_name = "Test Title - Test Author - 2025-01-01"
+            project_dir = root / base_name
+            project_dir.mkdir(parents=True, exist_ok=True)
+
+            # Stale All Key Items with no themes
+            all_key_items = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+            all_key_items.write_text("## Topics\n\n### Topic A\nBody\n", encoding="utf-8")
+
+            # Dedicated interpretive themes file should be used as fallback
+            interpretive_file = project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+            interpretive_file.write_text(
+                "## Interpretive Themes\n\n### Theme A\nInterpretive description.\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(config, "PROJECTS_DIR", root):
+                metadata = _extract_webpage_metadata(all_key_items)
+
+            self.assertIn("Interpretive Themes", metadata["themes"])
+            self.assertIn("Theme A", metadata["themes"])
+
+    def test_generate_pdf_includes_interpretive_themes_and_bowen_references(self):
+        base_name = "Test Title - Test Author - 2025-01-01"
+        formatted_content = "<p>Transcript body.</p>"
+        metadata = {
+            "abstract": "Abstract text",
+            "topics": "Topic list",
+            "themes": "### Interpretive Themes\n\n### Theme A\nInterpretive description.",
+            "key_terms": [],
+        }
+        summary = ""
+        bowen_refs = [("Bowen Reference - Differentiation", "Differentiation is central.")]
+        emphasis_items = []
+
+        html = _generate_pdf_html(
+            base_name,
+            formatted_content,
+            metadata,
+            summary,
+            bowen_refs,
+            emphasis_items,
+        )
+
+        self.assertIn("Interpretive Themes", html)
+        self.assertIn("Theme A", html)
+        self.assertIn("Bowen References", html)
+        self.assertIn("Bowen Reference - Differentiation", html)
 
 if __name__ == '__main__':
     unittest.main()
