@@ -641,8 +641,43 @@ def call_claude_with_retry(
                 raise
 
         except APIError as e:
+            error_text = str(e).lower()
+            body = getattr(e, "body", None)
+            body_error_type = ""
+            if isinstance(body, dict):
+                body_error = body.get("error", {})
+                if isinstance(body_error, dict):
+                    body_error_type = str(body_error.get("type", "")).lower()
+
+            is_overloaded = (
+                "overloaded" in error_text
+                or body_error_type == "overloaded_error"
+            )
+
+            if is_overloaded and attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                if logger:
+                    logger.warning(
+                        "API overloaded, retrying in %ds... (%d/%d)",
+                        wait_time,
+                        attempt + 2,
+                        max_retries,
+                    )
+                print(
+                    f"\n⚠️  API overloaded, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
+                )
+                time.sleep(wait_time)
+                continue
+
             if logger:
                 logger.error("API error: %s", e)
+
+            if is_overloaded:
+                raise RuntimeError(
+                    "Anthropic API is currently overloaded after retries. "
+                    "Please retry in a few minutes."
+                ) from e
+
             raise
 
 

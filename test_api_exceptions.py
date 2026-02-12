@@ -140,5 +140,39 @@ class TestAPIExceptions(unittest.TestCase):
         self.assertEqual(self.mock_client.messages.create.call_count, 2)
         mock_sleep.assert_called_with(1)
 
+    def test_overloaded_api_error_retries_then_succeeds(self):
+        """Test that overloaded APIError triggers retry/backoff and then succeeds."""
+        success_response = MagicMock()
+        success_response.type = "message"
+        success_response.role = "assistant"
+        success_response.stop_reason = "end_turn"
+        success_response.content = [
+            MagicMock(
+                type="text",
+                text="Success response content that is definitely longer than fifty characters to pass validation.",
+            )
+        ]
+        success_response.usage = MagicMock(
+            input_tokens=10,
+            output_tokens=10,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
+
+        request = MagicMock()
+        overload_body = {"error": {"type": "overloaded_error", "message": "Overloaded"}}
+        overloaded = APIError(message="Overloaded", request=request, body=overload_body)
+
+        self.mock_client.messages.create.side_effect = [overloaded, success_response]
+
+        with patch("time.sleep") as mock_sleep:
+            response = transcript_utils.call_claude_with_retry(
+                self.mock_client, "model", [], 100, logger=self.mock_logger
+            )
+
+        self.assertEqual(response, success_response)
+        self.assertEqual(self.mock_client.messages.create.call_count, 2)
+        mock_sleep.assert_called_with(1)
+
 if __name__ == "__main__":
     unittest.main()
