@@ -258,7 +258,7 @@ Cost: ~$0.05/summary (12.5× more)
 
 ### 1. Generate a Summary
 ```bash
-python transcript_processor_gui.py
+python ts_gui.py
 ```
 
 Select a transcript and run "Generate Structured Summary"

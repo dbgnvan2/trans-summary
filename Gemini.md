@@ -10,7 +10,7 @@ The project follows a **Core-Wrapper** pattern to separate business logic from u
 - **Shared Utilities (`transcript_utils.py`)**: Provides robust primitives for logging, API calls (with retry/validation), text normalization, and regex extraction.
 - **Configuration (`config.py`)**: Central source of truth for file paths, model selection, and constants.
 - **Interfaces**:
-  - **GUI (`transcript_processor_gui.py`)**: Tkinter-based interface that calls `pipeline.py` functions in threads.
+  - **GUI (`ts_gui.py`)**: Tkinter-based interface that calls `pipeline.py` functions in threads.
   - **CLI Wrappers (`transcript_*.py`)**: Simple scripts that parse arguments and call `pipeline.py` functions.
 
 ## 2. Data Pipeline Flow
@@ -57,7 +57,7 @@ Files move through specific states, denoted by suffixes and directories:
 | `html_generator.py`           | **The Publisher.** Logic for HTML/PDF creation.                         |
 | `summary_validation.py`       | **The Critic.** Deep semantic validation for summaries.                 |
 | `abstract_validation.py`      | **The Critic.** Deep semantic validation for abstracts.                 |
-| `transcript_processor_gui.py` | **The Face.** Tkinter GUI implementation.                               |
+| `ts_gui.py` | **The Face.** Tkinter GUI implementation.                               |
 
 ## 5. Validation Strategy
 
@@ -75,7 +75,7 @@ The project emphasizes correctness. Every generation step has a corresponding va
   1. Define prompt in `prompts/`.
   2. Add logic to `pipeline.py`.
   3. Add CLI wrapper `transcript_new_step.py`.
-  4. Update `transcript_processor_gui.py` to include a button.
+  4. Update `ts_gui.py` to include a button.
 
 - **Updating Prompts**:
 

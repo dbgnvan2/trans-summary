@@ -40,7 +40,7 @@ This is a well-structured Python application for processing academic/professiona
 
 | Script                            | Lines | Purpose                                                  |
 | --------------------------------- | ----- | -------------------------------------------------------- |
-| `transcript_processor_gui.py`     | 1111  | Main GUI application orchestrating the workflow          |
+| `ts_gui.py`     | 1111  | Main GUI application orchestrating the workflow          |
 | `transcript_format.py`            | 170   | Formats raw transcripts using Claude API                 |
 | `transcript_validate_format.py`   | 536   | Validates word preservation between source and formatted |
 | `transcript_add_yaml.py`          | 221   | Adds YAML front matter with metadata                     |
@@ -377,7 +377,7 @@ from config import SOURCE_DIR, FORMATTED_DIR, SUMMARIES_DIR, PROMPTS_DIR
 **Example**:
 
 ```python
-# transcript_processor_gui.py
+# ts_gui.py
 def _run_format_validate(self):
     self.processing = True  # Not thread-safe!
     # ... long-running work ...
@@ -1272,7 +1272,7 @@ summaries, web pages, and PDFs.
 ### GUI Application
 
 ```bash
-python transcript_processor_gui.py
+python ts_gui.py
 ```
 
 ### Command Line

@@ -173,7 +173,7 @@ def generate_structured_summary(
 
 1. **Generate a summary:**
    ```bash
-   python transcript_processor_gui.py
+   python ts_gui.py
    ```
 
 2. **Check the logs:**

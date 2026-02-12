@@ -46,7 +46,7 @@ Fixed critical issue where summaries were generating only 423-460 words instead 
   - Added model logging
 - **Abstract Pipeline** (`abstract_pipeline.py`):
   - Updated generate_abstract() to use DEFAULT_MODEL (was AUX_MODEL)
-- **GUI** (`transcript_processor_gui.py`):
+- **GUI** (`ts_gui.py`):
   - Fixed all summary/abstract generation calls to use DEFAULT_MODEL instead of AUX_MODEL (4 locations)
 - **Summary Validation** (`summary_validation.py`):
   - Increased minimum word count: 450 → 600
@@ -205,7 +205,7 @@ None - All changes are 100% backward compatible.
 ### Changed
 
 - **Project Documentation**: Corrected the "Project Structure" section in `README.md` to reflect the actual directory layout.
-- **GUI Resizing**: Improved `transcript_processor_gui.py` to allow the "Select Source File" list to resize vertically and increased default window height to 950px.
+- **GUI Resizing**: Improved `ts_gui.py` to allow the "Select Source File" list to resize vertically and increased default window height to 950px.
 - **Validation Warnings**: Downgraded "Length Check" and "Evaluative Language" from failure conditions to warnings in both Summary and Abstract validation. This allows stylistically deviant but semantically correct content to pass.
 - **Robust JSON Parsing**: Improved `transcript_initial_validation.py` to correctly parse JSON responses even when followed by extraneous text.
 

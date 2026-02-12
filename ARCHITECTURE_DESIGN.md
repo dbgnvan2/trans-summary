@@ -15,11 +15,11 @@ The system emphasizes:
 
 ## 2. Core Architecture
 
-The architecture is primarily a **pipeline-driven system** orchestrated by a central `pipeline.py` module, which is invoked by either the GUI (`transcript_processor_gui.py`) or individual CLI scripts.
+The architecture is primarily a **pipeline-driven system** orchestrated by a central `pipeline.py` module, which is invoked by either the GUI (`ts_gui.py`) or individual CLI scripts.
 
 ### 2.1. Major Components
 
-- **GUI (`transcript_processor_gui.py`)**:
+- **GUI (`ts_gui.py`)**:
     - Provides an interactive user interface for executing pipeline stages.
     - Manages file selection, status display, and log output with vertical resizing support.
     - Orchestrates calls to the `pipeline.py` functions in a sequential workflow.

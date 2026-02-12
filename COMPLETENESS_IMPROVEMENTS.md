@@ -251,7 +251,7 @@ while attempts < 3:
 
 ```bash
 # Process transcript
-python transcript_processor_gui.py  # or CLI scripts
+python ts_gui.py  # or CLI scripts
 
 # Validate completeness
 python transcript_validate_completeness.py "My Transcript - Speaker - 2025-01-15"

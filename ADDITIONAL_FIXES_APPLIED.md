@@ -152,7 +152,7 @@ Expected status: ✅ PASSED
 
 ### 1. Run Summary Generation
 ```bash
-python transcript_processor_gui.py
+python ts_gui.py
 ```
 
 Select your transcript and run "Generate Structured Summary"

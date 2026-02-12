@@ -52,7 +52,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 The GUI guides you through the entire process step-by-step.
 
 ```bash
-python transcript_processor_gui.py
+python ts_gui.py
 ```
 
 ### Command Line Interface

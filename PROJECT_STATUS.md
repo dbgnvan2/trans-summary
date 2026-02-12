@@ -7,7 +7,7 @@
 
 - Core architecture is pipeline-driven and modular (`pipeline.py` facade with formatting/extraction/validation/rendering modules).
 - GUI and CLI entry points are both present and functional:
-  - GUI: `transcript_processor_gui.py`
+  - GUI: `ts_gui.py`
   - Interactive CLI: `transcript_process.py`
   - Stage-specific CLIs: `transcript_*.py`
 - Security and reliability controls introduced in the January quality initiative remain in place:

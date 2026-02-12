@@ -98,7 +98,7 @@ Cost: ~$0.053 per summary (with caching)
 3. `extraction_pipeline.py` - Switched to DEFAULT_MODEL, added logging
 4. `abstract_pipeline.py` - Switched to DEFAULT_MODEL
 5. `summary_validation.py` - Added proximity checks, increased minimum
-6. `transcript_processor_gui.py` - Fixed to use DEFAULT_MODEL instead of AUX_MODEL
+6. `ts_gui.py` - Fixed to use DEFAULT_MODEL instead of AUX_MODEL
 
 ### Prompt Files
 7. `prompts/Summary Generation Prompt v1.md` - Enhanced and balanced length instructions

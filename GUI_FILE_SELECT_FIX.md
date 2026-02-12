@@ -23,7 +23,7 @@ This caused all status checks to fail because:
 
 ### Fix 1: Strip `_validated` Suffix from Base Name
 
-**File:** `transcript_processor_gui.py` (lines 523-527)
+**File:** `ts_gui.py` (lines 523-527)
 
 **Before:**
 ```python
@@ -45,7 +45,7 @@ self.base_name = base_name
 
 ### Fix 2: Always Check Correct Source and Validated Files
 
-**File:** `transcript_processor_gui.py` (lines 544-550)
+**File:** `ts_gui.py` (lines 544-550)
 
 **Before:**
 ```python
@@ -181,7 +181,7 @@ projects/example_validated/example_validated-formatted.md
 
 ## Files Modified
 
-1. `transcript_processor_gui.py`
+1. `ts_gui.py`
    - Lines 523-527: Strip `_validated` suffix from base_name
    - Lines 544-550: Always check correct source and validated files
 
