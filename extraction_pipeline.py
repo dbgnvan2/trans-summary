@@ -509,20 +509,31 @@ def extract_bowen_references_from_transcript(
         filtered_refs = _filter_bowen_references_semantically(
             parsed_refs, model, logger
         )
-        grounded_refs = []
-        for concept, quote in filtered_refs:
-            _, _, ratio = find_text_in_content(
-                quote, transcript_text, aggressive_normalization=True
-            )
-            if ratio >= 0.90:
-                grounded_refs.append((concept, quote))
-            else:
-                logger.warning(
-                    "Dropping ungrounded Bowen reference (match %.2f): %s",
-                    ratio,
-                    concept,
+
+        def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
+            grounded = []
+            for concept, quote in refs:
+                _, _, ratio = find_text_in_content(
+                    quote, transcript_text, aggressive_normalization=True
                 )
-        filtered_refs = grounded_refs
+                if ratio >= 0.90:
+                    grounded.append((concept, quote))
+                else:
+                    logger.warning(
+                        "Dropping ungrounded Bowen reference (match %.2f): %s",
+                        ratio,
+                        concept,
+                    )
+            return grounded
+
+        grounded_semantic = _ground_refs(filtered_refs)
+        if not grounded_semantic and parsed_refs:
+            logger.warning(
+                "Semantic filter produced no grounded Bowen references; falling back to grounded primary extraction output."
+            )
+            grounded_semantic = _ground_refs(parsed_refs)
+
+        filtered_refs = grounded_semantic
         final_content = _format_bowen_refs(filtered_refs)
 
         # Ensure header is present for standard parsing

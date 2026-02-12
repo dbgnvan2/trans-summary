@@ -339,7 +339,7 @@ class TranscriptProcessorGUI:
         self.yaml_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
         self.summary_btn = ttk.Button(
-            button_frame, text="4. Core (ST/IT/T/KT/L)", command=self.do_summaries, state=tk.DISABLED)
+            button_frame, text="4. Core (ST/IT/T/KT/L/BR/EM)", command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
 
         self.cost_btn = ttk.Button(

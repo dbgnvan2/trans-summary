@@ -176,3 +176,35 @@ def test_bowen_references_drop_ungrounded_placeholder(
     assert generated_content.strip().startswith("## Bowen References")
     # No grounded references should be emitted
     assert '> **' not in generated_content
+
+
+@patch("extraction_pipeline._filter_bowen_references_semantically")
+@patch("extraction_pipeline._generate_summary_with_claude")
+def test_bowen_references_fallback_to_primary_when_filter_invalid(
+    mock_generate_summary_with_claude,
+    mock_filter_bowen_references_semantically,
+    mock_project_dirs,
+    mock_transcript_file,
+    mock_bowen_prompt_file,
+):
+    """
+    If semantic filter returns junk, keep grounded references from primary extraction output.
+    """
+    formatted_filename, base_name, project_dir = mock_transcript_file
+    mock_generate_summary_with_claude.return_value = MOCK_LLM_BOWEN_RESPONSE
+    mock_filter_bowen_references_semantically.return_value = [
+        ("Placeholder", "I do not see any input items provided in your message.")
+    ]
+
+    success = extract_bowen_references_from_transcript(
+        formatted_filename=formatted_filename,
+        logger=logger,
+    )
+    assert success
+
+    bowen_output_path = project_dir / f"{base_name}{config.SUFFIX_BOWEN}"
+    generated_content = bowen_output_path.read_text(encoding="utf-8")
+    extracted = extract_bowen_references(generated_content)
+
+    assert len(extracted) == 3
+    assert extracted[0][0] == "On Triangles and Emotional Forces"

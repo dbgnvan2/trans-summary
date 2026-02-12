@@ -21,6 +21,7 @@ from transcript_utils import (
     extract_emphasis_items,
     extract_section,
     find_text_in_content,
+    parse_scored_emphasis_output,
     parse_filename_metadata,
     setup_logging,
     strip_yaml_frontmatter,
@@ -126,7 +127,18 @@ def _extract_emphasis_quotes_from_file(all_key_items_file):
     stem = extracts_path.stem.replace(
         config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
     )
+    scored_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
     emphasis_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS}"
+
+    if scored_file.exists():
+        scored_content = strip_yaml_frontmatter(scored_file.read_text(encoding="utf-8"))
+        scored_items = parse_scored_emphasis_output(scored_content)
+        if scored_items:
+            return [
+                (f"{item.get('concept', 'Item')} ({item.get('score', 0)}%)", item["quote"])
+                for item in scored_items
+                if item.get("quote")
+            ]
 
     source_file = emphasis_file if emphasis_file.exists() else extracts_path
     content = source_file.read_text(encoding="utf-8")
