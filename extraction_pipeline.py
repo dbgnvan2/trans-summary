@@ -922,7 +922,7 @@ def summarize_transcript(
                 formatted_filename, model, logger, transcript_system_message
             )
 
-            logger.info("\n--- PART 8: Generating Ranked Lenses (Adaptive Count) ---")
+            logger.info("\n--- PART 8a: Generating Ranked Lenses (Adaptive Count) ---")
             lens_count = _extract_lens_count(transcript_word_count)
             lenses_output = _generate_with_cached_transcript(
                 config.PROMPT_LENS_GENERATION_FILENAME,
@@ -937,9 +937,17 @@ def summarize_transcript(
                 lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
             )
 
+            logger.info(
+                "--- PART 8b: Validating Structural/Interpretive Themes and Top Lens ---"
+            )
             # Back-validation and regeneration loop: ensure lens #1 is valid.
             max_attempts = 3
             for attempt in range(max_attempts):
+                logger.info(
+                    "Theme/lens validation attempt %d/%d...",
+                    attempt + 1,
+                    max_attempts,
+                )
                 validation = _validate_themes_and_lenses(
                     model,
                     logger,
@@ -972,6 +980,10 @@ def summarize_transcript(
                         structural_themes=structural_output,
                     )
                 if structural_valid and interpretive_valid and top_lens:
+                    logger.info(
+                        "✓ Top-ranked lens validated: %s",
+                        top_lens.get("title", "(untitled lens)"),
+                    )
                     break
 
                 logger.warning(
@@ -1144,6 +1156,8 @@ def summarize_transcript(
             )
             blog_path = _save_summary(output, formatted_filename, "blog")
             logger.info("✓ Blog post saved to: %s", blog_path)
+        else:
+            logger.info("Blog generation skipped (skip_blog=True).")
 
         logger.info("✓ Transcript processing complete!")
 
