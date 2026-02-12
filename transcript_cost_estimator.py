@@ -29,11 +29,19 @@ class CostEstimator:
         self._log("Transcript: %s", transcript_path.name)
         self._log("Estimated Tokens: %s\n", f"{self.transcript_tokens:,}")
 
-    def _log(self, message: str):
-        if self.logger:
-            self.logger.info(message)
+    def _log(self, message: str, *args):
+        if args:
+            try:
+                text = message % args
+            except TypeError:
+                text = f"{message} {' '.join(str(a) for a in args)}"
         else:
-            print(message)
+            text = str(message)
+
+        if self.logger:
+            self.logger.info(text)
+        else:
+            print(text)
 
     def _calculate_cost(self, step_name: str, model: str, input_tokens: int, output_tokens: int, is_cached_read: bool = False, cached_tokens: int = 0, is_cache_write: bool = False):
         """Calculates and records the cost for a single pipeline step."""

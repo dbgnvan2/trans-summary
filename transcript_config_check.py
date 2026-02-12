@@ -90,9 +90,15 @@ def check_model_availability():
         print("❌ Cannot check model: ANTHROPIC_API_KEY not set.")
         return False
 
-    models_to_check = [config.DEFAULT_MODEL]
-    if config.AUX_MODEL != config.DEFAULT_MODEL:
-        models_to_check.append(config.AUX_MODEL)
+    models_to_check = []
+    for model in [
+        config.DEFAULT_MODEL,
+        config.AUX_MODEL,
+        config.FORMATTING_MODEL,
+        config.VALIDATION_MODEL,
+    ]:
+        if model not in models_to_check:
+            models_to_check.append(model)
 
     all_available = True
     client = anthropic.Anthropic(api_key=api_key)
@@ -115,6 +121,24 @@ def check_model_availability():
     return all_available
 
 
+def check_internal_config_validation():
+    """Run config.py's built-in validation to catch logical drift."""
+    print("\n--- Internal Config Validation ---")
+    result = config.validate_configuration(verbose=False, auto_fix=False)
+    if result.is_valid():
+        if result.warnings:
+            print(f"⚠️  Internal validation warnings: {len(result.warnings)}")
+        else:
+            print("✅ Internal config validation passed")
+        return True
+
+    print(f"❌ Internal config validation errors: {len(result.errors)}")
+    for error in result.errors:
+        first_line = error.splitlines()[0]
+        print(f"   - {first_line}")
+    return False
+
+
 def main():
     print("=" * 60)
     print("TRANSCRIPT PIPELINE CONFIGURATION CHECK")
@@ -125,11 +149,12 @@ def main():
     prompts_ok = check_prompt_files()
 
     model_ok = True
+    internal_ok = check_internal_config_validation()
     if env_ok:
         model_ok = check_model_availability()
 
     print("\n" + "=" * 60)
-    if env_ok and dirs_ok and prompts_ok and model_ok:
+    if env_ok and dirs_ok and prompts_ok and model_ok and internal_ok:
         print("✅ CONFIGURATION VALID. Ready to run pipeline.")
         return 0
     else:
