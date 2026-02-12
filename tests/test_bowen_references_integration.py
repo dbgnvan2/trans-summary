@@ -45,11 +45,15 @@ def mock_transcript_file(mock_project_dirs):
     project_dir.mkdir(exist_ok=True)
     
     file_path = project_dir / formatted_filename
-    file_path.write_text("This is a mock transcript content with some text.\n" \
-                         "## Section 1\n" \
-                         "Content for section 1.\n" \
-                         "## Section 2\n" \
-                         "Content for section 2.", encoding="utf-8")
+    file_path.write_text(
+        "This is a mock transcript content with some text.\n"
+        "## Section 1\n"
+        "We live our lives in networks of emotional forces. Follow triangle patterns.\n"
+        "Triangles are the molecules of an emotional system.\n"
+        "## Section 2\n"
+        "A two person system is inherently unstable.\n",
+        encoding="utf-8",
+    )
     return formatted_filename, base_name, project_dir
 
 
@@ -137,3 +141,38 @@ def test_bowen_references_generation_and_extraction(
         assert actual_quote == expected_quote
 
     logger.info("Test passed: Bowen references generated and extracted correctly.")
+
+
+@patch("extraction_pipeline._filter_bowen_references_semantically")
+@patch("extraction_pipeline._generate_summary_with_claude")
+def test_bowen_references_drop_ungrounded_placeholder(
+    mock_generate_summary_with_claude,
+    mock_filter_bowen_references_semantically,
+    mock_project_dirs,
+    mock_transcript_file,
+    mock_bowen_prompt_file,
+):
+    """
+    Ensure placeholder/non-transcript references are removed before saving.
+    """
+    formatted_filename, base_name, project_dir = mock_transcript_file
+    mock_generate_summary_with_claude.return_value = (
+        '> **Placeholder:** "I do not see any input items provided in your message."'
+    )
+    mock_filter_bowen_references_semantically.return_value = [
+        ("Placeholder", "I do not see any input items provided in your message.")
+    ]
+
+    success = extract_bowen_references_from_transcript(
+        formatted_filename=formatted_filename,
+        logger=logger,
+    )
+    assert success
+
+    bowen_output_path = project_dir / f"{base_name}{config.SUFFIX_BOWEN}"
+    generated_content = bowen_output_path.read_text(encoding="utf-8")
+
+    assert "I do not see any input items provided in your message." not in generated_content
+    assert generated_content.strip().startswith("## Bowen References")
+    # No grounded references should be emitted
+    assert '> **' not in generated_content

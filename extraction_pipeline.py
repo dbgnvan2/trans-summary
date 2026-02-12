@@ -17,6 +17,7 @@ from transcript_utils import (
     create_system_message_with_cache,
     extract_bowen_references,
     extract_section,
+    find_text_in_content,
     parse_filename_metadata,
     parse_scored_emphasis_output,
     setup_logging,
@@ -468,6 +469,9 @@ def extract_bowen_references_from_transcript(
     try:
         logger.info("Starting Bowen Reference Extraction for: %s",
                     formatted_filename)
+        transcript_text = strip_yaml_frontmatter(
+            _load_formatted_transcript(formatted_filename)
+        )
         prompt_template = _load_summary_prompt(
             config.PROMPT_BOWEN_EXTRACTION_FILENAME)
 
@@ -505,6 +509,20 @@ def extract_bowen_references_from_transcript(
         filtered_refs = _filter_bowen_references_semantically(
             parsed_refs, model, logger
         )
+        grounded_refs = []
+        for concept, quote in filtered_refs:
+            _, _, ratio = find_text_in_content(
+                quote, transcript_text, aggressive_normalization=True
+            )
+            if ratio >= 0.90:
+                grounded_refs.append((concept, quote))
+            else:
+                logger.warning(
+                    "Dropping ungrounded Bowen reference (match %.2f): %s",
+                    ratio,
+                    concept,
+                )
+        filtered_refs = grounded_refs
         final_content = _format_bowen_refs(filtered_refs)
 
         # Ensure header is present for standard parsing

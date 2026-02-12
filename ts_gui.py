@@ -960,20 +960,16 @@ class TranscriptProcessorGUI:
         if not pipeline.generate_simple_webpage(self.base_name):
             self.log("  - Simple webpage generation failed.")
             success = False
-        self.log("  - Generating main webpage...")
-        if not pipeline.generate_webpage(self.base_name):
-            self.log("  - Main webpage generation failed.")
-            success = False
         self.log("  - Generating PDF...")
         if not pipeline.generate_pdf(self.base_name):
             self.log("  - PDF generation failed.")
             success = False
 
-        self.log("  - Validating generated webpages...")
+        self.log("  - Validating simple webpage...")
         f = io.StringIO()
         with redirect_stdout(f):
             transcript_validate_webpage.validate_webpage(
-                self.base_name, simple_mode=False)
+                self.base_name, simple_mode=True)
 
         validation_output = f.getvalue()
         self.log(validation_output)
