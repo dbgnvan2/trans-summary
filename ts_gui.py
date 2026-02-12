@@ -347,20 +347,12 @@ class TranscriptProcessorGUI:
         self.cost_btn.grid(row=0, column=5, padx=(0, 5), pady=2)
 
         # Row 2
-        self.gen_summary_btn = ttk.Button(
-            button_frame, text="5. Gen Summary", command=self.do_generate_structured_summary, state=tk.DISABLED)
-        self.gen_summary_btn.grid(row=1, column=0, padx=(0, 5), pady=2)
-
-        self.val_summary_btn = ttk.Button(
-            button_frame, text="6. Val Summary", command=self.do_validate_summary, state=tk.DISABLED)
-        self.val_summary_btn.grid(row=1, column=1, padx=(0, 5), pady=2)
-
         self.gen_abstract_btn = ttk.Button(
-            button_frame, text="7. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
+            button_frame, text="5. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
         self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
 
         self.abstracts_btn = ttk.Button(
-            button_frame, text="8. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
+            button_frame, text="6. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
         self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
 
         self.config_btn = ttk.Button(
@@ -369,11 +361,11 @@ class TranscriptProcessorGUI:
 
         # Row 3
         self.blog_btn = ttk.Button(
-            button_frame, text="9. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
+            button_frame, text="7. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
         self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
         self.webpdf_btn = ttk.Button(
-            button_frame, text="10. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
+            button_frame, text="8. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
         self.emphasis_btn = ttk.Button(
@@ -565,10 +557,6 @@ class TranscriptProcessorGUI:
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),
             ("Bowen References", project_dir /
              f"{base}{config.SUFFIX_BOWEN}"),
-            ("Gen Summary", project_dir /
-             f"{base}{config.SUFFIX_SUMMARY_GEN}"),
-            ("Summary Val", project_dir /
-             f"{base}{config.SUFFIX_SUMMARY_VAL}"),
             ("Gen Abstract", project_dir /
              f"{base}{config.SUFFIX_ABSTRACT_GEN}"),
             ("Abstracts Val", project_dir /
@@ -873,27 +861,11 @@ class TranscriptProcessorGUI:
             task_name="Core Extraction",
         )
 
-    def do_generate_structured_summary(self):
-        """Generate a structured summary from TSIT key items."""
-        if not self.base_name:
-            return
-        self.log("STEP 4: Generating Structured Summary...")
-        self.run_task_in_thread(
-            pipeline.generate_structured_summary, self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for summaries
-
-    def do_validate_summary(self):
-        """Validate the generated summary for coverage and proportions."""
-        if not self.base_name:
-            return
-        self.log("STEP 5: Validating Summary (Coverage & Proportion)...")
-        self.run_task_in_thread(
-            pipeline.validate_summary_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
-
     def do_generate_blog(self):
         """Generate a blog post from validated top-ranked lens (#1)."""
         if not self.base_name:
             return
-        self.log("STEP 9: Generating Blog Post from Lens #1...")
+        self.log("STEP 7: Generating Blog Post from Lens #1...")
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
@@ -962,7 +934,7 @@ class TranscriptProcessorGUI:
         """Generate a structured abstract from the transcript."""
         if not self.base_name:
             return
-        self.log("STEP 6: Generating Structured Abstract...")
+        self.log("STEP 5: Generating Structured Abstract...")
         self.run_task_in_thread(
             pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for abstracts
 
@@ -970,7 +942,7 @@ class TranscriptProcessorGUI:
         """Validate the generated abstract for coverage."""
         if not self.base_name:
             return
-        self.log("STEP 7: Validating Abstracts (Coverage Check)...")
+        self.log("STEP 6: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
         self.run_task_in_thread(
             pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
@@ -979,7 +951,7 @@ class TranscriptProcessorGUI:
         """Generate Webpage and PDF artifacts."""
         if not self.base_name:
             return
-        self.log("STEP 9: Creating Web & PDF...")
+        self.log("STEP 8: Creating Web & PDF...")
         self.run_task_in_thread(self._run_web_pdf_generation)
 
     def _run_web_pdf_generation(self):
@@ -1012,7 +984,7 @@ class TranscriptProcessorGUI:
         """Package all generated artifacts into a ZIP file."""
         if not self.base_name:
             return
-        self.log("STEP 11: Packaging Artifacts...")
+        self.log("STEP 9: Packaging Artifacts...")
         self.run_task_in_thread(
             pipeline.package_transcript, self.base_name, self.logger)
 
@@ -1122,38 +1094,27 @@ class TranscriptProcessorGUI:
                                              False, False, False, logger=self.logger):
             return False
 
-        # Step 4: Generate Summary
-        self.log("\n--- STEP 4: Generate Structured Summary ---")
-        if not pipeline.generate_structured_summary(self.base_name, config.DEFAULT_SUMMARY_WORD_COUNT, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for summaries
-            self.log("⚠️ Summary generation failed or skipped.")
-
-        # Step 5: Validate Summary
-        self.log("\n--- STEP 5: Validate Summary ---")
-        pipeline.validate_summary_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL)  # Haiku is fine for validation
-
-        # Step 6: Generate Abstract
-        self.log("\n--- STEP 6: Generate Structured Abstract ---")
+        # Step 4: Generate Abstract
+        self.log("\n--- STEP 4: Generate Structured Abstract ---")
         if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for abstracts
             self.log("⚠️ Abstract generation failed or skipped.")
 
-        # Step 7: Validate Abstracts
-        self.log("\n--- STEP 7: Validating Abstracts ---")
+        # Step 5: Validate Abstracts
+        self.log("\n--- STEP 5: Validating Abstracts ---")
         pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
-        # Step 8: Blog (Already done in Step 3 if skips=False, but let's be explicit)
-        # Actually Step 3 generated Blog too. We can leave it or regenerate.
-        # Let's assume Step 3 covered it.
+        # Step 6: Blog (already generated in Step 3 when skip_blog=False)
 
-        # Step 9: Web & PDF
-        self.log("\n--- STEP 9: Web & PDF ---")
+        # Step 7: Web & PDF
+        self.log("\n--- STEP 7: Web & PDF ---")
         if not self._run_web_pdf_generation():
             return False
 
-        # Step 10: Package
-        self.log("\n--- STEP 10: Packaging ---")
+        # Step 8: Package
+        self.log("\n--- STEP 8: Packaging ---")
         pipeline.package_transcript(self.base_name, self.logger)
 
-        # Step 11: Token Usage Report
+        # Step 9: Token Usage Report
         self.log("\n--- Token Usage Report ---")
         self.log(analyze_token_usage.generate_usage_report(
             since_timestamp=start_time))
@@ -1168,8 +1129,6 @@ class TranscriptProcessorGUI:
         self.headers_btn.config(state=state)
         self.yaml_btn.config(state=state)
         self.summary_btn.config(state=state)
-        self.gen_summary_btn.config(state=state)
-        self.val_summary_btn.config(state=state)
         self.blog_btn.config(state=state)
         self.gen_abstract_btn.config(state=state)
         self.abstracts_btn.config(state=state)
