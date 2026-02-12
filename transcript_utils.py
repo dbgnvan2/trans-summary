@@ -370,18 +370,24 @@ def cap_max_tokens_for_model(
 
     Currently enforces Anthropic Haiku output cap (8192). Other models pass through.
     """
-    capped_max_tokens = requested_max_tokens
     model_lower = model.lower()
 
-    if "haiku" in model_lower and requested_max_tokens > 8192:
-        capped_max_tokens = 8192
-        if logger:
-            logger.warning(
-                "Capping max_tokens from %d to %d for model %s",
-                requested_max_tokens,
-                capped_max_tokens,
-                model,
-            )
+    # Use explicit model output limits where known; otherwise default to 32000.
+    # Then honor the lower of requested max and allowed max.
+    known_model_output_limits = {
+        "claude-3-5-haiku-20241022": 8192,
+    }
+    model_limit = known_model_output_limits.get(model_lower)
+    allowed_max_tokens = 32000 if model_limit is None else min(model_limit, 32000)
+    capped_max_tokens = min(requested_max_tokens, allowed_max_tokens)
+
+    if capped_max_tokens != requested_max_tokens and logger:
+        logger.warning(
+            "Capping max_tokens from %d to %d for model %s",
+            requested_max_tokens,
+            capped_max_tokens,
+            model,
+        )
 
     return capped_max_tokens
 

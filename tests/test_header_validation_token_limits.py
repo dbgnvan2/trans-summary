@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import config
 import transcript_validate_headers
+from transcript_utils import cap_max_tokens_for_model
 
 
 def _build_validator():
@@ -73,3 +74,12 @@ def test_run_returns_false_when_batches_fail(monkeypatch):
 
     assert result is False
     save_mock.assert_called_once()
+
+
+def test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown():
+    capped = cap_max_tokens_for_model(
+        model="claude-sonnet-4-20250514",
+        requested_max_tokens=50000,
+        logger=None,
+    )
+    assert capped == 32000
