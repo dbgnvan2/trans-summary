@@ -365,7 +365,7 @@ class TranscriptProcessorGUI:
         self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
         self.webpdf_btn = ttk.Button(
-            button_frame, text="8. Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
+            button_frame, text="8. Full Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
         self.emphasis_btn = ttk.Button(
@@ -956,20 +956,19 @@ class TranscriptProcessorGUI:
 
     def _run_web_pdf_generation(self):
         success = True
-        self.log("  - Generating simple webpage...")
-        if not pipeline.generate_simple_webpage(self.base_name):
-            self.log("  - Simple webpage generation failed.")
+        self.log("  - Generating full webpage...")
+        if not pipeline.generate_webpage(self.base_name):
+            self.log("  - Full webpage generation failed.")
             success = False
         self.log("  - Generating PDF...")
         if not pipeline.generate_pdf(self.base_name):
             self.log("  - PDF generation failed.")
             success = False
 
-        self.log("  - Validating simple webpage...")
+        self.log("  - Validating full webpage...")
         f = io.StringIO()
         with redirect_stdout(f):
-            transcript_validate_webpage.validate_webpage(
-                self.base_name, simple_mode=True)
+            transcript_validate_webpage.validate_webpage(self.base_name)
 
         validation_output = f.getvalue()
         self.log(validation_output)
@@ -1064,6 +1063,11 @@ class TranscriptProcessorGUI:
 
     def _run_all_steps(self):
         start_time = datetime.now()
+        # Step 0: Cost Estimate (informational)
+        self.log("\n--- STEP 0: Estimating Cost ---")
+        if not self._run_cost_estimation():
+            self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
+
         # Step 1: Format & Validate
         self.log("\n--- STEP 1: Formatting ---")
         # Use config.settings.FORMATTING_MODEL
@@ -1081,13 +1085,13 @@ class TranscriptProcessorGUI:
         if not pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger):
             return False
 
-        # Step 3: Core Extraction (Abstract + Structural/Interpretive + Topics + Terms + Lenses + Blog)
+        # Step 3: Core Extraction (ST/IT/Topics/Terms/Lenses/Bowen/Emphasis + internal validation)
         self.log("\n--- STEP 3: Core Extraction ---")
-        # Run all parts (skips=False)
+        # Core extraction only; blog runs as separate step from validated Lens #1.
         if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
                                              config.settings.DEFAULT_MODEL, # MODIFIED
                                              "Family Systems", "General public",
-                                             False, False, False, logger=self.logger):
+                                             False, False, True, logger=self.logger):
             return False
 
         # Step 4: Generate Abstract
@@ -1099,18 +1103,26 @@ class TranscriptProcessorGUI:
         self.log("\n--- STEP 5: Validating Abstracts ---")
         pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
 
-        # Step 6: Blog (already generated in Step 3 when skip_blog=False)
+        # Step 6: Reserved (separate validation happens inside extraction + abstract validation above)
 
-        # Step 7: Web & PDF
-        self.log("\n--- STEP 7: Web & PDF ---")
+        # Step 7: Blog from validated lens #1
+        self.log("\n--- STEP 7: Blog (Lens #1) ---")
+        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
+                                             config.settings.DEFAULT_MODEL,
+                                             "Family Systems", "General public",
+                                             True, True, False, logger=self.logger):
+            return False
+
+        # Step 8: Full Webpage & PDF
+        self.log("\n--- STEP 8: Full Web & PDF ---")
         if not self._run_web_pdf_generation():
             return False
 
-        # Step 8: Package
-        self.log("\n--- STEP 8: Packaging ---")
+        # Step 9: Package
+        self.log("\n--- STEP 9: Packaging ---")
         pipeline.package_transcript(self.base_name, self.logger)
 
-        # Step 9: Token Usage Report
+        # Post-run Token Usage Report
         self.log("\n--- Token Usage Report ---")
         self.log(analyze_token_usage.generate_usage_report(
             since_timestamp=start_time))

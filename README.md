@@ -10,8 +10,8 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 
 ### Core Functionality
 - **Automated Formatting**: Cleans raw transcripts, removes timestamps, and applies Markdown formatting
-- **Structured Extraction**: Extracts Topics, Themes, Key Terms, and Emphasized Items
-- **Multi-Format Output**: Generates Summaries, Abstracts, Blog Posts, HTML Webpages, and PDFs
+- **Structured Extraction**: Extracts Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, and Emphasized Items
+- **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), full HTML webpages, and PDFs
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts
 
 ### Reliability & Quality (NEW - 2026-01-10)
@@ -55,6 +55,24 @@ The GUI guides you through the entire process step-by-step.
 python ts_gui.py
 ```
 
+### Intended Workflow Sequence
+
+The current workflow is designed to run in this order:
+
+1. Initial validation / cleaning
+2. Format transcript into sections
+3. Validate section headers
+4. Add YAML front matter to formatted output
+5. Generate core artifacts: Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, Emphasized Items
+6. Validate generated artifacts against transcript (theme/lens back-validation + quote grounding/fidelity checks)
+7. Generate abstract
+8. Validate abstract coverage
+9. Generate blog post from validated top-ranked Lens #1
+10. Generate full webpage and PDF
+11. Package outputs into ZIP
+
+`Run All` in the GUI also prints a cost estimate at the start and token usage report at the end.
+
 ### Command Line Interface
 
 You can run the full interactive wizard:
@@ -68,8 +86,14 @@ Or run individual steps manually:
 1.  **Format**: `python transcript_format.py "filename.txt"`
 2.  **Add Metadata**: `python transcript_add_yaml.py "filename - formatted.md"`
 3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md"`
-4.  **Generate Webpage**: `python transcript_to_webpage.py "filename"`
+4.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
 5.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+
+### Maintenance Utilities
+
+- `python transcript_config_check.py` - validate environment/config/prompt/model setup
+- `python transcript_clean_logs.py` - clean and optionally archive logs
+- `python transcript_cleanup.py "<base_name>"` - clean source/version artifacts after processing
 
 ## Project Structure
 

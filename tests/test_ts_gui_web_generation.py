@@ -3,7 +3,7 @@ from unittest.mock import patch
 import ts_gui
 
 
-def test_web_generation_uses_simple_mode_only():
+def test_web_generation_uses_full_page_and_pdf():
     gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
     gui.base_name = "Sample"
     gui.log = lambda *_args, **_kwargs: None
@@ -15,7 +15,7 @@ def test_web_generation_uses_simple_mode_only():
         success = gui._run_web_pdf_generation()
 
     assert success is True
-    mock_simple.assert_called_once_with("Sample")
+    mock_simple.assert_not_called()
     mock_pdf.assert_called_once_with("Sample")
-    mock_full.assert_not_called()
-    mock_validate.assert_called_once_with("Sample", simple_mode=True)
+    mock_full.assert_called_once_with("Sample")
+    mock_validate.assert_called_once_with("Sample")

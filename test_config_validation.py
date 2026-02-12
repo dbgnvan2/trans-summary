@@ -35,7 +35,7 @@ def test_validation_result_class():
     assert "Test warning" in report, "Report should include warnings"
 
     print("  ✓ ValidationResult class works correctly")
-    return True
+    assert True
 
 
 def test_current_configuration():
@@ -48,7 +48,7 @@ def test_current_configuration():
         print(f"  ✗ Found {len(result.errors)} error(s):")
         for error in result.errors:
             print(f"    - {error.split(chr(10))[0]}")  # First line only
-        return False
+        assert False
 
     if result.warnings:
         print(f"  ⚠  Found {len(result.warnings)} warning(s):")
@@ -56,7 +56,7 @@ def test_current_configuration():
             print(f"    - {warning.split(chr(10))[0]}")  # First line only
 
     print(f"  ✓ Current configuration is valid")
-    return True
+    assert True
 
 
 def test_model_name_validation():
@@ -73,15 +73,15 @@ def test_model_name_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect invalid model name")
-            return False
+            assert False
 
         error_found = any("DEFAULT_MODEL" in err and "invalid-model" in err for err in result.errors)
         if not error_found:
             print("  ✗ Error message doesn't mention DEFAULT_MODEL or invalid model")
-            return False
+            assert False
 
         print("  ✓ Invalid model names are detected")
-        return True
+        assert True
 
     finally:
         # Restore original
@@ -102,12 +102,12 @@ def test_temperature_validation():
 
             if not result.errors:
                 print("  ✗ Failed to detect temperature > 1.0")
-                return False
+                assert False
 
             error_found = any("TEMP_STRICT" in err for err in result.errors)
             if not error_found:
                 print("  ✗ Error message doesn't mention TEMP_STRICT")
-                return False
+                assert False
 
         # Test with invalid temperature (< 0.0)
         with patch.object(config, 'TEMP_STRICT', -0.1):
@@ -115,10 +115,10 @@ def test_temperature_validation():
 
             if not result.errors:
                 print("  ✗ Failed to detect temperature < 0.0")
-                return False
+                assert False
 
         print("  ✓ Temperature validation works correctly")
-        return True
+        assert True
 
     finally:
         # Original is restored by context manager
@@ -135,12 +135,12 @@ def test_token_limit_validation():
 
         if not result.warnings:
             print("  ✗ Failed to warn about token limit > 200K")
-            return False
+            assert False
 
         warning_found = any("MAX_TOKENS_FORMATTING" in warn and "200" in warn for warn in result.warnings)
         if not warning_found:
             print("  ✗ Warning doesn't mention token limit or 200K")
-            return False
+            assert False
 
     # Test with negative token limit
     with patch.object(config, 'MAX_TOKENS_SUMMARY', -100):
@@ -148,10 +148,10 @@ def test_token_limit_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect negative token limit")
-            return False
+            assert False
 
     print("  ✓ Token limit validation works correctly")
-    return True
+    assert True
 
 
 def test_timeout_validation():
@@ -164,7 +164,7 @@ def test_timeout_validation():
 
         if not result.warnings:
             print("  ✗ Failed to warn about very short timeout")
-            return False
+            assert False
 
     # Test with negative timeout (should error)
     with patch.object(config, 'TIMEOUT_DEFAULT', -10):
@@ -172,10 +172,10 @@ def test_timeout_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect negative timeout")
-            return False
+            assert False
 
     print("  ✓ Timeout validation works correctly")
-    return True
+    assert True
 
 
 def test_percentage_validation():
@@ -188,7 +188,7 @@ def test_percentage_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect percentage > 1.0")
-            return False
+            assert False
 
     # Test with negative percentage
     with patch.object(config, 'ABSTRACT_TARGET_PERCENT', -0.1):
@@ -196,10 +196,10 @@ def test_percentage_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect negative percentage")
-            return False
+            assert False
 
     print("  ✓ Percentage validation works correctly")
-    return True
+    assert True
 
 
 def test_word_count_validation():
@@ -212,7 +212,7 @@ def test_word_count_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect negative word count")
-            return False
+            assert False
 
     # Test with zero word count
     with patch.object(config, 'MIN_EXTRACTS_WORDS_FLOOR', 0):
@@ -220,10 +220,10 @@ def test_word_count_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect zero word count")
-            return False
+            assert False
 
     print("  ✓ Word count validation works correctly")
-    return True
+    assert True
 
 
 def test_logical_consistency():
@@ -237,12 +237,12 @@ def test_logical_consistency():
 
         if not result.errors:
             print("  ✗ Failed to detect chunk overlap >= chunk size")
-            return False
+            assert False
 
         error_found = any("CHUNK_OVERLAP" in err and "CHUNK_SIZE" in err for err in result.errors)
         if not error_found:
             print("  ✗ Error doesn't mention chunk overlap/size relationship")
-            return False
+            assert False
 
     # Test min >= max context words
     with patch.object(config, 'VALIDATION_MIN_CONTEXT_WORDS', 50), \
@@ -251,7 +251,7 @@ def test_logical_consistency():
 
         if not result.errors:
             print("  ✗ Failed to detect min >= max context words")
-            return False
+            assert False
 
     # Test fuzzy match threshold ordering
     with patch.object(config, 'VALIDATION_FUZZY_REJECT', 0.95), \
@@ -261,10 +261,10 @@ def test_logical_consistency():
 
         if not result.errors:
             print("  ✗ Failed to detect incorrect fuzzy match threshold ordering")
-            return False
+            assert False
 
     print("  ✓ Logical consistency validation works correctly")
-    return True
+    assert True
 
 
 def test_confidence_set_validation():
@@ -277,15 +277,15 @@ def test_confidence_set_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect non-set confidence variable")
-            return False
+            assert False
 
         error_found = any("AUTO_APPLY_CONFIDENCE" in err and "set" in err for err in result.errors)
         if not error_found:
             print("  ✗ Error doesn't mention confidence set type")
-            return False
+            assert False
 
     print("  ✓ Confidence set validation works correctly")
-    return True
+    assert True
 
 
 def test_error_types_validation():
@@ -298,7 +298,7 @@ def test_error_types_validation():
 
         if not result.errors:
             print("  ✗ Failed to detect non-set error types")
-            return False
+            assert False
 
     # Test with empty set (should warn)
     with patch.object(config, 'VALIDATION_ERROR_TYPES', set()):
@@ -306,10 +306,10 @@ def test_error_types_validation():
 
         if not result.warnings:
             print("  ✗ Failed to warn about empty error types set")
-            return False
+            assert False
 
     print("  ✓ Error types validation works correctly")
-    return True
+    assert True
 
 
 def test_directory_validation_with_temp():
@@ -336,10 +336,10 @@ def test_directory_validation_with_temp():
 
             if result.errors:
                 print(f"  ✗ Unexpected errors with auto_fix: {result.errors[0]}")
-                return False
+                assert False
 
             print("  ✓ Directory validation and auto_fix work correctly")
-            return True
+            assert True
 
         finally:
             # Restore original
@@ -358,15 +358,15 @@ def test_summary_allocation_warning():
 
         if not result.warnings:
             print("  ✗ Failed to warn about high summary allocations")
-            return False
+            assert False
 
         warning_found = any("structure allocations" in warn.lower() for warn in result.warnings)
         if not warning_found:
             print("  ✗ Warning doesn't mention summary structure allocations")
-            return False
+            assert False
 
     print("  ✓ Summary allocation warning works correctly")
-    return True
+    assert True
 
 
 def main():

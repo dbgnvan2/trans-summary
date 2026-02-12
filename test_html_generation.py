@@ -76,10 +76,10 @@ def test_imports():
             _generate_pdf_html
         )
         print("✓ All imports successful")
-        return True
+        assert True
     except ImportError as e:
         print(f"✗ Import failed: {e}")
-        return False
+        assert False
 
 
 def test_template_files_exist():
@@ -107,7 +107,7 @@ def test_template_files_exist():
             print(f"✗ Missing: {file_path.relative_to(Path.cwd())}")
             all_exist = False
 
-    return all_exist
+    assert all_exist
 
 
 def test_webpage_generation():
@@ -152,16 +152,16 @@ def test_webpage_generation():
 
         if failed == 0:
             print(f"✓ Webpage generation successful ({passed}/{passed} checks passed)")
-            return True
+            assert True
         else:
             print(f"✗ Webpage generation incomplete ({passed}/{passed + failed} checks passed)")
-            return False
+            assert False
 
     except Exception as e:
         print(f"✗ Webpage generation failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 
 def test_simple_webpage_generation():
@@ -192,7 +192,7 @@ def test_simple_webpage_generation():
         # Verify sidebar is NOT present
         if "<aside class=\"sidebar\">" in html:
             print("  ✗ Sidebar should not be present in simple webpage")
-            return False
+            assert False
 
         passed = 0
         failed = 0
@@ -206,16 +206,16 @@ def test_simple_webpage_generation():
 
         if failed == 0:
             print(f"✓ Simple webpage generation successful ({passed}/{passed} checks passed)")
-            return True
+            assert True
         else:
             print(f"✗ Simple webpage generation incomplete ({passed}/{passed + failed} checks passed)")
-            return False
+            assert False
 
     except Exception as e:
         print(f"✗ Simple webpage generation failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 
 def test_pdf_generation():
@@ -256,16 +256,16 @@ def test_pdf_generation():
 
         if failed == 0:
             print(f"✓ PDF HTML generation successful ({passed}/{passed} checks passed)")
-            return True
+            assert True
         else:
             print(f"✗ PDF HTML generation incomplete ({passed}/{passed + failed} checks passed)")
-            return False
+            assert False
 
     except Exception as e:
         print(f"✗ PDF HTML generation failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 
 def test_highlighting_logic():
@@ -303,18 +303,18 @@ def test_highlighting_logic():
 
         if failed == 0:
             print(f"✓ Highlighting logic working ({passed}/{passed} checks passed)")
-            return True
+            assert True
         else:
             # Show debug info on failure
             print(f"  Debug: Result contains: {result[:200]}...")
             print(f"✗ Highlighting logic incomplete ({passed}/{passed + failed} checks passed)")
-            return False
+            assert False
 
     except Exception as e:
         print(f"✗ Highlighting logic failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False
 
 
 def main():
