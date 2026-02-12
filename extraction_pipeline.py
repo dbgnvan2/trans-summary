@@ -119,6 +119,33 @@ def _normalize_headers(text: str) -> str:
     return text
 
 
+def _extract_first_section(content: str, section_names: list[str]) -> str:
+    """Extract the first matching section from markdown content."""
+    if not content:
+        return ""
+    for name in section_names:
+        extracted = extract_section(content, name)
+        if extracted:
+            return extracted
+    return ""
+
+
+def _load_section_from_project_file(
+    stem: str,
+    suffix: str,
+    section_names: list[str] | None = None,
+) -> str:
+    """Load a section from a project file, optionally extracting by section header."""
+    path = config.PROJECTS_DIR / stem / f"{stem}{suffix}"
+    if not path.exists():
+        return ""
+    content = strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+    if section_names:
+        extracted = _extract_first_section(content, section_names)
+        return extracted or content.strip()
+    return content.strip()
+
+
 def _extract_json_object(text: str) -> dict:
     """Best-effort extraction of a JSON object from model output."""
     text = text.strip()
@@ -613,22 +640,48 @@ def generate_structured_abstract(
         )
 
         validate_input_file(formatted_file)
-        validate_input_file(all_key_items_file)
 
         transcript = formatted_file.read_text(encoding="utf-8")
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = all_key_items_file.read_text(encoding="utf-8")
-        extracts_content = strip_yaml_frontmatter(extracts_content)
+        extracts_content = ""
+        if all_key_items_file.exists():
+            extracts_content = strip_yaml_frontmatter(
+                all_key_items_file.read_text(encoding="utf-8")
+            )
 
         metadata = parse_filename_metadata(base_name)
 
-        topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Interpretive Themes")
+        topics_section = _extract_first_section(
+            extracts_content, ["Topics", "Key Topics"]
+        )
+        themes_section = _extract_first_section(
+            extracts_content,
+            ["Interpretive Themes", "Themes", "Key Themes"],
+        )
+
+        if not topics_section:
+            topics_section = _load_section_from_project_file(
+                base_name,
+                config.SUFFIX_TOPICS,
+                ["Topics", "Key Topics"],
+            )
+            if topics_section:
+                logger.info("Loaded Topics from dedicated topics file fallback.")
+
+        if not themes_section:
+            themes_section = _load_section_from_project_file(
+                base_name,
+                config.SUFFIX_INTERPRETIVE_THEMES,
+                ["Interpretive Themes", "Themes", "Key Themes"],
+            )
+            if themes_section:
+                logger.info("Loaded Interpretive Themes from dedicated file fallback.")
 
         if not topics_section or not themes_section:
             logger.error(
-                "Could not find Topics or Interpretive Themes in All Key Items file.")
+                "Could not find Topics or Interpretive Themes in available extraction files."
+            )
             return False
 
         # Calculate target word count
@@ -974,12 +1027,67 @@ def summarize_transcript(
                 existing_content = strip_yaml_frontmatter(
                     potential_path.read_text(encoding="utf-8")
                 )
-                structural_output = extract_section(existing_content, "Structural Themes")
-                interpretive_output = extract_section(existing_content, "Interpretive Themes")
-                topics_output = extract_section(existing_content, "Topics")
-                key_terms_output = extract_section(existing_content, "Key Terms")
-                lenses_output = extract_section(existing_content, "Lenses (Ranked)")
-                abstract_output = extract_section(existing_content, "Abstract")
+                structural_output = _extract_first_section(
+                    existing_content, ["Structural Themes"]
+                )
+                interpretive_output = _extract_first_section(
+                    existing_content, ["Interpretive Themes", "Themes", "Key Themes"]
+                )
+                topics_output = _extract_first_section(
+                    existing_content, ["Topics", "Key Topics"]
+                )
+                key_terms_output = _extract_first_section(
+                    existing_content, ["Key Terms"]
+                )
+                lenses_output = _extract_first_section(
+                    existing_content, ["Lenses (Ranked)", "Lenses"]
+                )
+                abstract_output = _extract_first_section(existing_content, ["Abstract"])
+
+                # Hydrate missing sections from dedicated files to handle stale legacy All Key Items.
+                if not structural_output:
+                    structural_output = _load_section_from_project_file(
+                        stem, config.SUFFIX_STRUCTURAL_THEMES, ["Structural Themes"]
+                    )
+                if not interpretive_output:
+                    interpretive_output = _load_section_from_project_file(
+                        stem,
+                        config.SUFFIX_INTERPRETIVE_THEMES,
+                        ["Interpretive Themes", "Themes", "Key Themes"],
+                    )
+                if not topics_output:
+                    topics_output = _load_section_from_project_file(
+                        stem, config.SUFFIX_TOPICS, ["Topics", "Key Topics"]
+                    )
+                if not key_terms_output:
+                    key_terms_output = _load_section_from_project_file(
+                        stem, config.SUFFIX_KEY_TERMS, ["Key Terms"]
+                    )
+                if not lenses_output:
+                    lenses_output = _load_section_from_project_file(
+                        stem, config.SUFFIX_LENSES, ["Lenses (Ranked)", "Lenses"]
+                    )
+
+                # If lenses are missing but key components exist, regenerate lenses and validate top lens.
+                if not lenses_output and structural_output and interpretive_output:
+                    logger.warning(
+                        "No ranked lenses found in existing artifacts; regenerating for blog."
+                    )
+                    lens_count = _extract_lens_count(transcript_word_count)
+                    lenses_output = _generate_with_cached_transcript(
+                        config.PROMPT_LENS_GENERATION_FILENAME,
+                        model,
+                        logger,
+                        transcript_system_message,
+                        min_length=350,
+                        structural_themes=structural_output,
+                        interpretive_themes=interpretive_output,
+                        topics=topics_output,
+                        key_terms=key_terms_output,
+                        lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
+                    )
+                    _save_summary(lenses_output, formatted_filename, "lenses-ranked")
+
                 if structural_output and interpretive_output and lenses_output:
                     validation = _validate_themes_and_lenses(
                         model,
@@ -990,6 +1098,19 @@ def summarize_transcript(
                         lenses_output,
                     )
                     top_lens = validation.get("top_lens", {}) or {}
+
+                # Keep All Key Items in sync with hydrated sections when available.
+                if all([abstract_output, structural_output, interpretive_output, topics_output, key_terms_output, lenses_output]):
+                    refreshed_all_key_items = _compose_all_key_items(
+                        abstract_output,
+                        structural_output,
+                        interpretive_output,
+                        topics_output,
+                        key_terms_output,
+                        lenses_output,
+                    )
+                    all_key_items_path.write_text(refreshed_all_key_items, encoding="utf-8")
+                    _process_key_items_output(all_key_items_path, logger)
 
         if not skip_blog:
             if not top_lens:
