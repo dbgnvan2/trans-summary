@@ -551,7 +551,11 @@ class TranscriptProcessorGUI:
             ("Interpretive Themes", project_dir /
              f"{base}{config.SUFFIX_INTERPRETIVE_THEMES}"),
             ("Topics", project_dir / f"{base}{config.SUFFIX_TOPICS}"),
+            ("Topics Val", project_dir /
+             f"{base}{config.SUFFIX_TOPICS_VAL}"),
             ("Key Terms", project_dir / f"{base}{config.SUFFIX_KEY_TERMS}"),
+            ("Key Terms Val", project_dir /
+             f"{base}{config.SUFFIX_KEY_TERMS_VAL}"),
             ("Lenses (Ranked)", project_dir / f"{base}{config.SUFFIX_LENSES}"),
             ("Scored Emphasis", project_dir /
              f"{base}{config.SUFFIX_EMPHASIS_SCORED}"),

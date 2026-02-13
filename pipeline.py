@@ -27,6 +27,8 @@ from transcript_utils import delete_logs, setup_logging
 from validation_pipeline import (
     validate_abstract_coverage,
     validate_headers,
+    validate_key_terms_fidelity,
+    validate_topics_lightweight,
     validate_summary_coverage,
 )
 from validation_pipeline import (
@@ -40,6 +42,8 @@ __all__ = [
     "validate_format",
     "validate_abstract_coverage",
     "validate_headers",
+    "validate_key_terms_fidelity",
+    "validate_topics_lightweight",
     "validate_summary_coverage",
     "validate_abstract",
     "_load_formatted_transcript",

@@ -92,6 +92,8 @@ Or run individual steps manually:
 ### Maintenance Utilities
 
 - `python transcript_config_check.py` - validate environment/config/prompt/model setup
+- `python transcript_validate_topics.py "<base_name>"` - lightweight deterministic topic grounding validation
+- `python transcript_validate_key_terms.py "<base_name>"` - validate key terms grounding against transcript text
 - `python transcript_clean_logs.py` - clean and optionally archive logs
 - `python transcript_cleanup.py "<base_name>"` - clean source/version artifacts after processing
 

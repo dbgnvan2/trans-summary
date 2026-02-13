@@ -25,7 +25,12 @@ from transcript_utils import (
     validate_emphasis_item,
     validate_input_file,
 )
-from validation_pipeline import validate_emphasis_items, validate_summary_coverage
+from validation_pipeline import (
+    validate_emphasis_items,
+    validate_key_terms_fidelity,
+    validate_topics_lightweight,
+    validate_summary_coverage,
+)
 
 # Helpers
 
@@ -1199,6 +1204,10 @@ def summarize_transcript(
             if formatted_path.exists():
                 validate_emphasis_items(
                     formatted_path, all_key_items_path, logger)
+                logger.info("VALIDATION: Checking Topics (lightweight)...")
+                validate_topics_lightweight(formatted_path, stem, logger)
+                logger.info("VALIDATION: Checking Key Terms...")
+                validate_key_terms_fidelity(formatted_path, stem, logger)
 
         if generate_structured:
             if all_key_items_path:

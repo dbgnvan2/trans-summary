@@ -147,6 +147,286 @@ def _extract_emphasis_quotes_from_file(all_key_items_file):
     return extract_emphasis_items(content)
 
 
+def _parse_key_terms_section(content: str) -> list[tuple[str, str]]:
+    """Parse key terms from markdown content into (term, definition) tuples."""
+    section = extract_section(content, "Key Terms")
+    if not section:
+        return []
+
+    terms: list[tuple[str, str]] = []
+
+    # Format 1: ### Term Name\nDefinition...
+    header_pattern = r'(?:^|\n)###\s+([^\n]+)\s*\n+(.+?)(?=\n###|\n\*\*|\Z)'
+    for name, raw_def in re.findall(header_pattern, section, re.DOTALL):
+        term = name.strip()
+        definition = raw_def.strip()
+        if term and definition:
+            terms.append((term, definition))
+
+    # Format 2: **Term**: Definition
+    bold_pattern = r'\*\*([^\*]+?)\*\*\s*[:\-]\s*(.+?)(?=\n\*\*|\n\n|$)'
+    existing = {t.lower() for t, _ in terms}
+    for name, raw_def in re.findall(bold_pattern, section, re.DOTALL):
+        term = name.strip()
+        if not term or term.lower() in existing:
+            continue
+        definition = re.sub(r'\s+', ' ', raw_def.strip())
+        if definition:
+            terms.append((term, definition))
+
+    return terms
+
+
+def _load_key_terms_for_validation(base_name: str) -> list[tuple[str, str]]:
+    """Load key terms from dedicated file, then fall back to All Key Items."""
+    project_dir = config.PROJECTS_DIR / base_name
+    key_terms_file = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    all_key_items_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+
+    if key_terms_file.exists():
+        content = strip_yaml_frontmatter(key_terms_file.read_text(encoding="utf-8"))
+        parsed = _parse_key_terms_section(content)
+        if parsed:
+            return parsed
+
+    if all_key_items_file.exists():
+        content = strip_yaml_frontmatter(all_key_items_file.read_text(encoding="utf-8"))
+        return _parse_key_terms_section(content)
+
+    return []
+
+
+def validate_key_terms_fidelity(
+    formatted_file_path: Path, base_name: str, logger
+) -> bool:
+    """
+    Validate key terms against transcript text and save a markdown report.
+    Uses deterministic grounding checks (no API call).
+    """
+    transcript = strip_yaml_frontmatter(formatted_file_path.read_text(encoding="utf-8"))
+    terms = _load_key_terms_for_validation(base_name)
+
+    report_path = (
+        config.PROJECTS_DIR
+        / base_name
+        / f"{base_name}{config.SUFFIX_KEY_TERMS_VAL}"
+    )
+
+    if not terms:
+        report_path.write_text(
+            "# Key Terms Validation\n\nNo key terms found to validate.\n",
+            encoding="utf-8",
+        )
+        logger.warning("No key terms found to validate")
+        return False
+
+    exact = 0
+    partial = 0
+    weak = 0
+    failed = 0
+    lines = [
+        "# Key Terms Validation",
+        "",
+        f"Validated terms: {len(terms)}",
+        "",
+        "| Term | Term Match | Definition Match | Result |",
+        "|---|---:|---:|---|",
+    ]
+
+    for term, definition in terms:
+        term_ratio = find_text_in_content(
+            term, transcript, aggressive_normalization=True
+        )[2]
+        def_probe = " ".join(definition.split()[:20])
+        def_ratio = find_text_in_content(
+            def_probe, transcript, aggressive_normalization=True
+        )[2] if def_probe else 0.0
+
+        if term_ratio >= 0.95 and def_ratio >= 0.90:
+            result = "EXACT"
+            exact += 1
+        elif term_ratio >= 0.85 and def_ratio >= 0.75:
+            result = "PARTIAL"
+            partial += 1
+        elif term_ratio >= 0.75 or def_ratio >= 0.65:
+            result = "WEAK"
+            weak += 1
+        else:
+            result = "FAIL"
+            failed += 1
+
+        lines.append(
+            f"| {term} | {term_ratio:.2f} | {def_ratio:.2f} | {result} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Summary",
+            "",
+            f"- Exact: {exact}",
+            f"- Partial: {partial}",
+            f"- Weak: {weak}",
+            f"- Fail: {failed}",
+        ]
+    )
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    logger.info(
+        "Key Terms Validation: exact=%d partial=%d weak=%d fail=%d (report: %s)",
+        exact,
+        partial,
+        weak,
+        failed,
+        report_path.name,
+    )
+    return failed == 0
+
+
+def _load_topics_for_validation(base_name: str, transcript: str) -> list[dict]:
+    """Load topics from dedicated file first, then All Key Items."""
+    project_dir = config.PROJECTS_DIR / base_name
+    topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
+    all_key_items_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
+
+    candidates = []
+    if topics_file.exists():
+        candidates.append(topics_file)
+    if all_key_items_file.exists():
+        candidates.append(all_key_items_file)
+
+    for path in candidates:
+        content = strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+        topics_section = extract_section(content, "Topics") or extract_section(content, "Key Topics")
+        if not topics_section:
+            continue
+        parsed = summary_pipeline.parse_topics_with_details(topics_section, transcript)
+        if parsed:
+            return parsed
+    return []
+
+
+def _extract_transcript_sections(transcript: str) -> dict[int, str]:
+    """Build map of section number -> section text."""
+    sections: dict[int, str] = {}
+    pattern = r"## Section (\d+)[^\n]*\n(.*?)(?=## Section \d+|\Z)"
+    for num_str, body in re.findall(pattern, transcript, re.DOTALL):
+        sections[int(num_str)] = body
+    return sections
+
+
+def validate_topics_lightweight(
+    formatted_file_path: Path, base_name: str, logger
+) -> bool:
+    """
+    Lightweight deterministic topic validation.
+    Checks topic title grounding and optional section-reference consistency.
+    """
+    transcript = strip_yaml_frontmatter(formatted_file_path.read_text(encoding="utf-8"))
+    topics = _load_topics_for_validation(base_name, transcript)
+    sections_map = _extract_transcript_sections(transcript)
+
+    report_path = (
+        config.PROJECTS_DIR
+        / base_name
+        / f"{base_name}{config.SUFFIX_TOPICS_VAL}"
+    )
+
+    if not topics:
+        report_path.write_text(
+            "# Topics Validation\n\nNo topics found to validate.\n",
+            encoding="utf-8",
+        )
+        logger.warning("No topics found to validate")
+        return False
+
+    exact = 0
+    partial = 0
+    weak = 0
+    failed = 0
+    section_mismatch = 0
+    lines = [
+        "# Topics Validation",
+        "",
+        f"Validated topics: {len(topics)}",
+        "",
+        "| Topic | Title Match | Description Match | Section Match | Result |",
+        "|---|---:|---:|---:|---|",
+    ]
+
+    for topic in topics:
+        name = topic.get("name", "").strip()
+        description = topic.get("description", "").strip()
+        sections_str = topic.get("sections", "").strip()
+        if not name:
+            continue
+
+        title_ratio = find_text_in_content(
+            name, transcript, aggressive_normalization=True
+        )[2]
+        desc_probe = " ".join(description.split()[:20])
+        desc_ratio = find_text_in_content(
+            desc_probe, transcript, aggressive_normalization=True
+        )[2] if desc_probe else 0.0
+
+        section_ratio = 0.0
+        if sections_str:
+            nums = summary_pipeline.parse_section_range(sections_str)
+            section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
+            if section_text:
+                section_ratio = find_text_in_content(
+                    name, section_text, aggressive_normalization=True
+                )[2]
+            else:
+                section_ratio = 0.0
+
+        if title_ratio >= 0.95 and desc_ratio >= 0.85:
+            result = "EXACT"
+            exact += 1
+        elif title_ratio >= 0.85 and desc_ratio >= 0.70:
+            result = "PARTIAL"
+            partial += 1
+        elif title_ratio >= 0.75 or desc_ratio >= 0.60:
+            result = "WEAK"
+            weak += 1
+        else:
+            result = "FAIL"
+            failed += 1
+
+        if sections_str and section_ratio < 0.60:
+            section_mismatch += 1
+
+        lines.append(
+            f"| {name} | {title_ratio:.2f} | {desc_ratio:.2f} | {section_ratio:.2f} | {result} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Summary",
+            "",
+            f"- Exact: {exact}",
+            f"- Partial: {partial}",
+            f"- Weak: {weak}",
+            f"- Fail: {failed}",
+            f"- Section mismatches: {section_mismatch}",
+        ]
+    )
+    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    logger.info(
+        "Topics Validation: exact=%d partial=%d weak=%d fail=%d section_mismatch=%d (report: %s)",
+        exact,
+        partial,
+        weak,
+        failed,
+        section_mismatch,
+        report_path.name,
+    )
+    # Allow section mismatches as warnings; hard-fail only for failed topics.
+    return failed == 0
+
+
 def validate_emphasis_items(
     formatted_file_path: Path, extracts_summary_path: Path, logger
 ):
