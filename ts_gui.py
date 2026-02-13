@@ -594,25 +594,37 @@ class TranscriptProcessorGUI:
                 text = f"{message} {args}"
         else:
             text = str(message)
+        if threading.current_thread() is threading.main_thread():
+            self._append_log_text(text)
+        else:
+            self.root.after(0, self._append_log_text, text)
 
+    def _append_log_text(self, text: str):
+        """Append text to the GUI log safely on the Tk main thread."""
         # Truncate log if it gets too long (prevent memory issues)
-        # Check current line count
         num_lines = int(self.log_text.index('end-1c').split('.')[0])
         if num_lines > 5000:
-            # Delete first 500 lines
             self.log_text.delete(1.0, 501.0)
-            self.log_text.insert(tk.END, "\n... [Older logs truncated to save memory] ...\n")
+            self.log_text.insert(
+                tk.END, "\n... [Older logs truncated to save memory] ...\n")
 
         self.log_text.insert(tk.END, text + "\n")
         self.log_text.see(tk.END)
-        self.root.update()
+        self.root.update_idletasks()
 
     def clear_log(self):
         self.log_text.delete(1.0, tk.END)
 
     def set_status(self, message, color="black"):
+        if threading.current_thread() is threading.main_thread():
+            self._apply_status(message, color)
+        else:
+            self.root.after(0, self._apply_status, message, color)
+
+    def _apply_status(self, message, color="black"):
+        """Update status label safely on the Tk main thread."""
         self.status_label.config(text=message, foreground=color)
-        self.root.update()
+        self.root.update_idletasks()
 
     def run_task_in_thread(self, task_function, *args, task_name=None, **kwargs):
         self.processing = True
