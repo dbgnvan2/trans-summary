@@ -267,19 +267,47 @@ def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
         if qa_indicator_count >= 2:  # Likely Q&A section
             qa_sections += 1
 
-            # Extract potential topic words (nouns following "about" or "on")
+            # Extract candidate topic phrases after question prepositions.
             topic_matches = re.findall(
-                r"(?:about|on|regarding)\s+(\w+(?:\s+\w+)?)", section, re.IGNORECASE
+                r"(?:about|on|regarding)\s+([A-Za-z][^.,;:!?\n]{2,80})",
+                section,
+                re.IGNORECASE,
             )
-            qa_topics.extend(topic_matches[:2])
+            qa_topics.extend(topic_matches[:3])
 
     percentage = int((qa_sections / total_sections) *
                      100) if total_sections > 0 else 0
 
-    # Deduplicate and limit topics
-    unique_topics = list(dict.fromkeys(qa_topics))[:5]
+    # Deduplicate, clean, and limit topics
+    unique_topics = _clean_qa_topics(qa_topics)[:5]
 
     return percentage, unique_topics
+
+
+def _clean_qa_topics(topics: list[str]) -> list[str]:
+    """Normalize Q&A topic phrases and drop low-signal entries."""
+    stopwords = {
+        "a", "about", "an", "and", "as", "at", "be", "but", "by", "for", "from", "how",
+        "i", "if", "in", "is", "it", "my", "of", "on", "or", "our", "so", "that",
+        "regarding",
+        "the", "their", "them", "there", "these", "they", "this", "those", "to",
+        "we", "what", "when", "where", "which", "who", "why", "you", "your",
+    }
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in topics:
+        phrase = re.sub(r"\s+", " ", raw).strip(" -_:;,.!?()[]{}\"'").lower()
+        if not phrase:
+            continue
+        words = [w for w in re.findall(r"[a-zA-Z]+", phrase) if w not in stopwords]
+        # Keep only contentful topics with at least two meaningful tokens.
+        if len(words) < 2 or max(len(w) for w in words) < 4:
+            continue
+        normalized = " ".join(words[:4])
+        if normalized not in seen:
+            seen.add(normalized)
+            cleaned.append(normalized)
+    return cleaned
 
 
 def count_sections(transcript: str) -> int:

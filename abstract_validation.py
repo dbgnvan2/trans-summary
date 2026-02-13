@@ -24,6 +24,9 @@ from typing import Optional
 import config
 from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
 
+QA_OPTIONAL_THRESHOLD = 15
+QA_REQUIRED_THRESHOLD = 30
+
 
 @dataclass
 class CoverageItem:
@@ -261,21 +264,24 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
             )
         )
 
-    # Q&A coverage (if significant)
-    if abstract_input.qa_percentage > 20 and abstract_input.qa_topics:
+    # Q&A coverage (if significant and extractable). Q&A is only required when it
+    # is a substantial share of the transcript and topics are high-signal.
+    if abstract_input.qa_percentage >= QA_OPTIONAL_THRESHOLD and abstract_input.qa_topics:
         qa_keywords = []
         for topic in abstract_input.qa_topics:
             qa_keywords.extend(extract_keywords(topic))
+        qa_keywords = list(dict.fromkeys(qa_keywords))[:8]
 
-        items.append(
-            CoverageItem(
-                category="qa",
-                label=f"Q&A content ({abstract_input.qa_percentage}%)",
-                required=True,
-                keywords=qa_keywords[:8],
-                source_text=", ".join(abstract_input.qa_topics),
+        if len(qa_keywords) >= 2:
+            items.append(
+                CoverageItem(
+                    category="qa",
+                    label=f"Q&A content ({abstract_input.qa_percentage}%)",
+                    required=abstract_input.qa_percentage >= QA_REQUIRED_THRESHOLD,
+                    keywords=qa_keywords,
+                    source_text=", ".join(abstract_input.qa_topics),
+                )
             )
-        )
 
     return items
 
@@ -535,7 +541,10 @@ def generate_review_checklist(abstract_input) -> str:
             "- [ ] States central argument/purpose",
             "- [ ] Mentions key topics in presentation order",
             "- [ ] Includes conclusion or implications",
-            f"- [ ] Q&A mentioned (required: {abstract_input.qa_percentage > 20})",
+            (
+                "- [ ] Q&A mentioned (required: "
+                f"{abstract_input.qa_percentage >= QA_REQUIRED_THRESHOLD})"
+            ),
             "",
             "## Constraints",
             "",
