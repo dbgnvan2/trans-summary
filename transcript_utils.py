@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+from copy import deepcopy
 from datetime import datetime
 from difflib import SequenceMatcher
 from html import unescape
@@ -28,6 +29,8 @@ import config
 
 
 import model_specs
+
+LARGE_INPUT_CACHE_THRESHOLD_CHARS = 10000
 
 
 # Configure logging
@@ -328,7 +331,7 @@ def _check_caching_for_large_input(messages: list, system: Any, logger: Optional
     Warns if content exceeding ~2500 tokens (10k chars) is sent without cache_control.
     """
     # Threshold: 10,000 characters (approx 2500 tokens)
-    THRESHOLD_CHARS = 10000
+    THRESHOLD_CHARS = LARGE_INPUT_CACHE_THRESHOLD_CHARS
 
     def check_content(content, source_name):
         if isinstance(content, str):
@@ -358,6 +361,54 @@ def _check_caching_for_large_input(messages: list, system: Any, logger: Optional
     # Check messages
     for i, msg in enumerate(messages):
         check_content(msg.get('content'), f"message {i}")
+
+
+def _content_text_block_with_optional_cache(text: str) -> dict[str, Any]:
+    """Create Anthropic text block, adding ephemeral cache control for large text."""
+    block: dict[str, Any] = {"type": "text", "text": text}
+    if len(text) > LARGE_INPUT_CACHE_THRESHOLD_CHARS:
+        block["cache_control"] = {"type": "ephemeral"}
+    return block
+
+
+def _normalize_content_for_caching(content: Any) -> Any:
+    """
+    Normalize content into Anthropic block format and auto-cache large text blocks.
+    Leaves non-text/tool content untouched.
+    """
+    if isinstance(content, str):
+        return [_content_text_block_with_optional_cache(content)]
+
+    if isinstance(content, list):
+        normalized = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                text = block.get("text", "")
+                updated = dict(block)
+                if len(text) > LARGE_INPUT_CACHE_THRESHOLD_CHARS and "cache_control" not in updated:
+                    updated["cache_control"] = {"type": "ephemeral"}
+                normalized.append(updated)
+            else:
+                normalized.append(deepcopy(block))
+        return normalized
+
+    return content
+
+
+def _normalize_messages_and_system_for_caching(
+    messages: list, system: Any
+) -> tuple[list, Any]:
+    """Apply caching-aware normalization to messages and system payloads."""
+    normalized_messages = []
+    for message in messages:
+        message_copy = dict(message)
+        message_copy["content"] = _normalize_content_for_caching(
+            message.get("content", "")
+        )
+        normalized_messages.append(message_copy)
+
+    normalized_system = _normalize_content_for_caching(system) if system else system
+    return normalized_messages, normalized_system
 
 
 def cap_max_tokens_for_model(
@@ -434,9 +485,15 @@ def call_claude_with_retry(
     # Handle suppression of caching warnings
     suppress_caching_warnings = kwargs.pop('suppress_caching_warnings', False)
 
+    normalized_messages, normalized_system = _normalize_messages_and_system_for_caching(
+        messages, kwargs.get('system')
+    )
+    if normalized_system is not None:
+        kwargs['system'] = normalized_system
+
     # Check for missing cache on large inputs
     if not suppress_caching_warnings:
-        _check_caching_for_large_input(messages, kwargs.get('system'), logger)
+        _check_caching_for_large_input(normalized_messages, kwargs.get('system'), logger)
 
     for attempt in range(max_retries):
         try:
@@ -455,7 +512,7 @@ def call_claude_with_retry(
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    messages=messages,
+                    messages=normalized_messages,
                     extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
                     **call_kwargs
                 ) as stream_manager:
@@ -465,7 +522,7 @@ def call_claude_with_retry(
                     model=model,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    messages=messages,
+                    messages=normalized_messages,
                     extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
                     **call_kwargs
                 )
@@ -521,7 +578,7 @@ def call_claude_with_retry(
                 msg_text = "".join([m.get('content', '') if isinstance(m.get('content'), str) else
                                    "".join([b.get('text', '') for b in m.get(
                                        'content', []) if b.get('type') == 'text'])
-                                    for m in messages])
+                                    for m in normalized_messages])
 
                 est_sys_tokens = len(sys_text) // config.CHARS_PER_TOKEN
                 est_msg_tokens = len(msg_text) // config.CHARS_PER_TOKEN
