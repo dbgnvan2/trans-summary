@@ -152,6 +152,50 @@ def _load_section_from_project_file(
     return content.strip()
 
 
+def _contains_refusal_or_missing_context_text(text: str) -> bool:
+    """Detect common non-answer patterns that should not be treated as valid artifacts."""
+    if not text:
+        return True
+    lowered = text.lower()
+    refusal_markers = [
+        "i need to see the complete lecture document",
+        "could you please provide the full document",
+        "once i have this complete document",
+        "please provide the full document",
+        "i don't see any input items provided",
+        "i need the complete document",
+    ]
+    return any(marker in lowered for marker in refusal_markers)
+
+
+def _is_valid_section_content(section_name: str, text: str) -> bool:
+    """Basic quality gates for extracted sections before downstream use."""
+    if not text or not text.strip():
+        return False
+    if _contains_refusal_or_missing_context_text(text):
+        return False
+
+    normalized = section_name.lower()
+    if normalized in ("topics", "key topics"):
+        return bool(abstract_pipeline.parse_topics_from_extraction(text))
+    if normalized in ("interpretive themes", "themes", "key themes"):
+        parsed = abstract_pipeline.parse_themes_from_extraction(text)
+        if parsed:
+            return True
+        return bool(re.search(r"(?:^|\n)\s*\d+\.\s+\*\*.+?\*\*", text))
+    if normalized == "structural themes":
+        return bool(
+            re.search(r"(?:^|\n)\s*\d+\.\s+\*\*.+?\*\*", text)
+            or re.search(r"(?:^|\n)###\s+", text)
+        )
+    if normalized == "key terms":
+        return bool(
+            re.search(r"(?:^|\n)###\s+", text)
+            or re.search(r"(?:^|\n)\*\*[^*\n]+\*\*\s*[:\-]", text)
+        )
+    return True
+
+
 def _extract_json_object(text: str) -> dict:
     """Best-effort extraction of a JSON object from model output."""
     text = text.strip()
@@ -195,6 +239,20 @@ def _generate_with_cached_transcript(
     """Generate an artifact using a prompt template and cached transcript context."""
     template = _load_summary_prompt(prompt_filename)
     prompt = _fill_prompt_template(template, {}, "", **replacements)
+    # If prompts do not include placeholders, still provide dynamic context explicitly.
+    unresolved = []
+    for key, value in replacements.items():
+        pattern = re.compile(r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
+        if not pattern.search(template):
+            unresolved.append((key, value))
+    if unresolved:
+        context_lines = ["", "", "## Provided Context", ""]
+        for key, value in unresolved:
+            context_lines.append(f"### {key}")
+            context_lines.append(str(value).strip())
+            context_lines.append("")
+        prompt = prompt.rstrip() + "\n" + "\n".join(context_lines).rstrip() + "\n"
+
     return _generate_summary_with_claude(
         prompt,
         model,
@@ -1102,21 +1160,29 @@ def summarize_transcript(
                 abstract_output = _extract_first_section(existing_content, ["Abstract"])
 
                 # Hydrate missing sections from dedicated files to handle stale legacy All Key Items.
-                if not structural_output:
+                if (not structural_output) or (
+                    not _is_valid_section_content("Structural Themes", structural_output)
+                ):
                     structural_output = _load_section_from_project_file(
                         stem, config.SUFFIX_STRUCTURAL_THEMES, ["Structural Themes"]
                     )
-                if not interpretive_output:
+                if (not interpretive_output) or (
+                    not _is_valid_section_content("Interpretive Themes", interpretive_output)
+                ):
                     interpretive_output = _load_section_from_project_file(
                         stem,
                         config.SUFFIX_INTERPRETIVE_THEMES,
                         ["Interpretive Themes", "Themes", "Key Themes"],
                     )
-                if not topics_output:
+                if (not topics_output) or (
+                    not _is_valid_section_content("Topics", topics_output)
+                ):
                     topics_output = _load_section_from_project_file(
                         stem, config.SUFFIX_TOPICS, ["Topics", "Key Topics"]
                     )
-                if not key_terms_output:
+                if (not key_terms_output) or (
+                    not _is_valid_section_content("Key Terms", key_terms_output)
+                ):
                     key_terms_output = _load_section_from_project_file(
                         stem, config.SUFFIX_KEY_TERMS, ["Key Terms"]
                     )

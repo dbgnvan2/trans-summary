@@ -213,3 +213,118 @@ def test_generate_structured_abstract_ignores_contaminated_topics_and_uses_fallb
     out_file = project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
     assert out_file.exists()
     assert "Generated abstract." in out_file.read_text(encoding="utf-8")
+
+
+def test_generate_with_cached_transcript_appends_unresolved_context(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr(
+        extraction_pipeline,
+        "_load_summary_prompt",
+        lambda _name: "Prompt body without placeholders.",
+    )
+
+    def fake_generate(prompt, *_args, **_kwargs):
+        captured["prompt"] = prompt
+        return "ok"
+
+    monkeypatch.setattr(extraction_pipeline, "_generate_summary_with_claude", fake_generate)
+
+    out = extraction_pipeline._generate_with_cached_transcript(
+        prompt_filename="dummy.md",
+        model=config.DEFAULT_MODEL,
+        logger=MagicMock(),
+        transcript_system_message=[{"type": "text", "text": "cached"}],
+        structural_themes="Structure X",
+        interpretive_themes="Interpretive Y",
+    )
+
+    assert out == "ok"
+    assert "## Provided Context" in captured["prompt"]
+    assert "### structural_themes" in captured["prompt"]
+    assert "Structure X" in captured["prompt"]
+    assert "### interpretive_themes" in captured["prompt"]
+
+
+def test_summarize_transcript_replaces_invalid_all_key_items_sections_from_split_files(
+    tmp_path, monkeypatch
+):
+    stem = "Hydrate-Invalid-Sections-Test"
+    projects_dir = tmp_path / "projects"
+    source_dir = tmp_path / "source"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    project_dir = projects_dir / stem
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    refusal_text = (
+        "I need to see the complete lecture document. "
+        "Could you please provide the full document?"
+    )
+    (project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}").write_text(
+        (
+            "## Abstract\nLegacy abstract.\n\n"
+            "## Structural Themes\n\n1. **Structure A**\n\n"
+            "## Interpretive Themes\n\n"
+            f"{refusal_text}\n\n"
+            "## Topics\n\n### Topic A\nDesc.\n*_(~20% of transcript; Sections 1)_*\n\n"
+            "## Key Terms\n\n### Term A\nDefinition.\n\n"
+            "## Lenses (Ranked)\n\n1. **Lens A**\n"
+        ),
+        encoding="utf-8",
+    )
+    (project_dir / f"{stem}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n1. **Interpretive A**: Dynamic tension.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(config, "SOURCE_DIR", source_dir)
+    monkeypatch.setattr(
+        extraction_pipeline,
+        "_load_formatted_transcript",
+        lambda _filename: "## Section 1\nTranscript content.\n",
+    )
+    monkeypatch.setattr(
+        extraction_pipeline,
+        "parse_filename_metadata",
+        lambda _filename: {
+            "stem": stem,
+            "title": stem,
+            "presenter": "Presenter",
+            "author": "Presenter",
+            "date": "1980-00-00",
+            "filename": _filename,
+        },
+    )
+    monkeypatch.setattr(
+        extraction_pipeline,
+        "create_system_message_with_cache",
+        lambda _text: [{"type": "text", "text": "cached"}],
+    )
+    monkeypatch.setattr(
+        extraction_pipeline,
+        "_validate_themes_and_lenses",
+        lambda *_args, **_kwargs: {
+            "structural_themes_valid": True,
+            "interpretive_themes_valid": True,
+            "top_lens": {"title": "Lens A"},
+        },
+    )
+
+    ok = extraction_pipeline.summarize_transcript(
+        formatted_filename=f"{stem}{config.SUFFIX_YAML}",
+        model=config.DEFAULT_MODEL,
+        focus_keyword="Family Systems",
+        target_audience="General public",
+        skip_extracts_summary=True,
+        skip_emphasis=True,
+        skip_blog=True,
+        logger=MagicMock(),
+    )
+
+    assert ok is True
+    all_key_items = (project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}").read_text(
+        encoding="utf-8"
+    )
+    assert refusal_text not in all_key_items
+    assert "Interpretive A" in all_key_items
