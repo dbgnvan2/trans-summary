@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import config
 import ts_gui
@@ -83,3 +83,31 @@ def test_run_all_with_init_val_auto_calls_initial_validation():
 
     assert ok is True
     mock_init_auto.assert_called_once()
+
+
+def test_do_all_steps_does_not_start_when_processing_active():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.selected_file = Path("/tmp/Sample_validated.txt")
+    gui.processing = True
+    gui.include_init_val_do_all = _Flag(False)
+    gui.log = MagicMock()
+    gui.run_task_in_thread = MagicMock()
+
+    gui.do_all_steps()
+
+    gui.run_task_in_thread.assert_not_called()
+    gui.log.assert_called_with("⚠️ Pipeline is already running.")
+
+
+def test_run_task_in_thread_rejects_reentry():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.processing = True
+    gui.log = MagicMock()
+    gui.progress = MagicMock()
+    gui.update_button_states = MagicMock()
+
+    gui.run_task_in_thread(lambda: True)
+
+    gui.progress.start.assert_not_called()
+    gui.update_button_states.assert_not_called()
+    gui.log.assert_called_with("⚠️ A task is already running. Please wait for it to finish.")

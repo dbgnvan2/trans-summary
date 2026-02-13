@@ -627,6 +627,9 @@ class TranscriptProcessorGUI:
         self.root.update_idletasks()
 
     def run_task_in_thread(self, task_function, *args, task_name=None, **kwargs):
+        if self.processing:
+            self.log("⚠️ A task is already running. Please wait for it to finish.")
+            return
         self.processing = True
         self.progress.start()
         self.update_button_states()
@@ -1072,6 +1075,9 @@ class TranscriptProcessorGUI:
     def do_all_steps(self):
         """Run the entire processing pipeline sequentially."""
         if not self.selected_file:
+            return
+        if self.processing:
+            self.log("⚠️ Pipeline is already running.")
             return
 
         run_init_val = self.include_init_val_do_all.get()
