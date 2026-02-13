@@ -694,7 +694,15 @@ def generate_structured_abstract(
             ["Interpretive Themes", "Themes", "Key Themes"],
         )
 
-        if not topics_section:
+        parsed_topics_preview = (
+            abstract_pipeline.parse_topics_from_extraction(topics_section)
+            if topics_section
+            else []
+        )
+
+        # Some stale/contaminated All Key Items files contain incidental phrases like
+        # "key topics" inside other sections. Only accept Topics content if it parses.
+        if not topics_section or not parsed_topics_preview:
             topics_section = _load_section_from_project_file(
                 base_name,
                 config.SUFFIX_TOPICS,
@@ -702,6 +710,9 @@ def generate_structured_abstract(
             )
             if topics_section:
                 logger.info("Loaded Topics from dedicated topics file fallback.")
+                parsed_topics_preview = abstract_pipeline.parse_topics_from_extraction(
+                    topics_section
+                )
 
         if not themes_section:
             themes_section = _load_section_from_project_file(
@@ -733,7 +744,7 @@ def generate_structured_abstract(
             target_word_count=target_word_count,
         )
 
-        if not abstract_input.topics:
+        if not parsed_topics_preview or not abstract_input.topics:
             logger.error(
                 "Failed to parse any Topics from topics-themes. Check regex or input format."
             )

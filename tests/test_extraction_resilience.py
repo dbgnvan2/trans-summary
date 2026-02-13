@@ -163,3 +163,53 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
     blog_path = project_dir / f"{stem}{config.SUFFIX_BLOG}"
     assert blog_path.exists()
     assert "Generated blog post." in blog_path.read_text(encoding="utf-8")
+
+
+def test_generate_structured_abstract_ignores_contaminated_topics_and_uses_fallback(
+    tmp_path, monkeypatch
+):
+    base_name = "Topic Contamination - Author - 2025-01-01"
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / base_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    (project_dir / f"{base_name}{config.SUFFIX_FORMATTED}").write_text(
+        "## Section 1\nTranscript text with topic evidence.\n",
+        encoding="utf-8",
+    )
+
+    # Contaminated All Key Items: contains incidental "Key topics" phrase inside another section.
+    (project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}").write_text(
+        "## Interpretive Themes\n\n"
+        "I need the complete document, including:\n"
+        "1. Abstract\n"
+        "2. Key topics with coverage percentages\n"
+        "3. Full transcript\n",
+        encoding="utf-8",
+    )
+
+    (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDescription.\n*_(~30% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n### Theme A\nDescription.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(
+        extraction_pipeline.abstract_pipeline,
+        "generate_abstract",
+        lambda *_args, **_kwargs: "Generated abstract.",
+    )
+
+    logger = MagicMock()
+    ok = extraction_pipeline.generate_structured_abstract(base_name, logger=logger)
+
+    assert ok is True
+    out_file = project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+    assert out_file.exists()
+    assert "Generated abstract." in out_file.read_text(encoding="utf-8")

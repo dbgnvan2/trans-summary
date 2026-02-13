@@ -55,6 +55,7 @@ class TestExtractionModelPassing(unittest.TestCase):
 
     @patch('extraction_pipeline.abstract_pipeline.generate_abstract')
     @patch('extraction_pipeline.abstract_pipeline.prepare_abstract_input')
+    @patch('extraction_pipeline.abstract_pipeline.parse_topics_from_extraction')
     @patch('extraction_pipeline.extract_section')
     @patch('extraction_pipeline.strip_yaml_frontmatter')
     @patch('extraction_pipeline.validate_input_file')
@@ -65,7 +66,7 @@ class TestExtractionModelPassing(unittest.TestCase):
     def test_generate_structured_abstract_passes_model(
         self, mock_getenv, mock_anthropic, mock_projects_dir,
         mock_parse_metadata, mock_validate, mock_strip_yaml,
-        mock_extract_section, mock_prepare_input, mock_generate_abstract
+        mock_extract_section, mock_parse_topics, mock_prepare_input, mock_generate_abstract
     ):
         # Setup mocks
         mock_getenv.return_value = "fake-key"
@@ -78,6 +79,7 @@ class TestExtractionModelPassing(unittest.TestCase):
         mock_strip_yaml.return_value = "cleaned content"
         # We need extract_section to return something for Topics and Interpretive Themes
         mock_extract_section.return_value = "section content"
+        mock_parse_topics.return_value = [MagicMock()]
 
         # Mock abstract input to have topics (required check in pipeline)
         mock_input = MagicMock()
