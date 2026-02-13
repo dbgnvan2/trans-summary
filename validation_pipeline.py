@@ -124,9 +124,12 @@ def _generate_validation_response(
 def _extract_emphasis_quotes_from_file(all_key_items_file):
     """Extract all quoted text from Emphasized Items section."""
     extracts_path = Path(all_key_items_file)
-    stem = extracts_path.stem.replace(
-        config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
-    )
+    try:
+        stem = parse_filename_metadata(extracts_path.name)["stem"]
+    except Exception:
+        stem = extracts_path.stem.replace(
+            config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
+        )
     scored_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
     emphasis_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS}"
 

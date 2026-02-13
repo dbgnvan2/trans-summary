@@ -410,6 +410,9 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
 
 def _process_key_items_output(all_key_items_path: Path, logger):
     """Split the raw Key Items output into focused extract files."""
+    if not config.WRITE_TSIT_LEGACY:
+        logger.info("Skipping TSIT generation (legacy composite disabled).")
+        return
     logger.info("Processing generated Key Items into separate files...")
     content = all_key_items_path.read_text(encoding="utf-8")
     clean_content = strip_yaml_frontmatter(content)
@@ -648,27 +651,43 @@ def generate_structured_summary(
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
+        validate_input_file(formatted_file)
+
+        transcript = formatted_file.read_text(encoding="utf-8")
+        transcript = strip_yaml_frontmatter(transcript)
+
+        extracts_content = ""
         all_key_items_file = (
             config.PROJECTS_DIR
             / base_name
             / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
         )
-
-        validate_input_file(formatted_file)
-        validate_input_file(all_key_items_file)
-
-        transcript = formatted_file.read_text(encoding="utf-8")
-        transcript = strip_yaml_frontmatter(transcript)
-
-        extracts_content = all_key_items_file.read_text(encoding="utf-8")
-        extracts_content = strip_yaml_frontmatter(extracts_content)
+        if all_key_items_file.exists():
+            extracts_content = strip_yaml_frontmatter(
+                all_key_items_file.read_text(encoding="utf-8")
+            )
 
         metadata = parse_filename_metadata(base_name)
-        topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Interpretive Themes")
+        topics_section = _extract_first_section(
+            extracts_content, ["Topics", "Key Topics"]
+        )
+        themes_section = _extract_first_section(
+            extracts_content, ["Interpretive Themes", "Themes", "Key Themes"]
+        )
 
         if not topics_section:
-            logger.error("Could not find Topics in All Key Items file.")
+            topics_section = _load_section_from_project_file(
+                base_name, config.SUFFIX_TOPICS, ["Topics", "Key Topics"]
+            )
+        if not themes_section:
+            themes_section = _load_section_from_project_file(
+                base_name,
+                config.SUFFIX_INTERPRETIVE_THEMES,
+                ["Interpretive Themes", "Themes", "Key Themes", "Interpretive / Process Themes"],
+            )
+
+        if not topics_section:
+            logger.error("Could not find Topics in canonical topic artifacts.")
             return False
 
         summary_input = summary_pipeline.prepare_summary_input(
@@ -1115,49 +1134,82 @@ def summarize_transcript(
             _save_summary(interpretive_output, formatted_filename, "interpretive-themes")
             _save_summary(lenses_output, formatted_filename, "lenses-ranked")
 
-            all_key_items_content = _compose_all_key_items(
-                abstract_output,
-                structural_output,
-                interpretive_output,
-                topics_output,
-                key_terms_output,
-                lenses_output,
-            )
-            all_key_items_path = _save_summary(
-                all_key_items_content,
-                formatted_filename,
-                "All Key Items",
-            )
-            _process_key_items_output(all_key_items_path, logger)
+            if config.WRITE_ALL_KEY_ITEMS_LEGACY:
+                all_key_items_content = _compose_all_key_items(
+                    abstract_output,
+                    structural_output,
+                    interpretive_output,
+                    topics_output,
+                    key_terms_output,
+                    lenses_output,
+                )
+                all_key_items_path = _save_summary(
+                    all_key_items_content,
+                    formatted_filename,
+                    "All Key Items",
+                )
+                _process_key_items_output(all_key_items_path, logger)
         else:
             stem = metadata["stem"]
+            project_dir = config.PROJECTS_DIR / stem
+            structural_output = _load_section_from_project_file(
+                stem, config.SUFFIX_STRUCTURAL_THEMES, ["Structural Themes"]
+            )
+            interpretive_output = _load_section_from_project_file(
+                stem,
+                config.SUFFIX_INTERPRETIVE_THEMES,
+                ["Interpretive Themes", "Themes", "Key Themes", "Interpretive / Process Themes"],
+            )
+            topics_output = _load_section_from_project_file(
+                stem, config.SUFFIX_TOPICS, ["Topics", "Key Topics"]
+            )
+            key_terms_output = _load_section_from_project_file(
+                stem, config.SUFFIX_KEY_TERMS, ["Key Terms"]
+            )
+            lenses_output = _load_section_from_project_file(
+                stem, config.SUFFIX_LENSES, ["Lenses (Ranked)", "Lenses"]
+            )
+            abstract_generated = project_dir / f"{stem}{config.SUFFIX_ABSTRACT_GEN}"
+            if abstract_generated.exists():
+                abstract_output = strip_yaml_frontmatter(
+                    abstract_generated.read_text(encoding="utf-8")
+                ).strip()
+
             potential_path = (
                 config.PROJECTS_DIR / stem /
                 f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}"
             )
-            if potential_path.exists():
+            if potential_path.exists() and (
+                not structural_output or not interpretive_output or not topics_output or not key_terms_output or not lenses_output
+            ):
                 all_key_items_path = potential_path
-                logger.info("Skipping Key Items generation, using existing file: %s",
+                logger.info("Hydrating missing artifacts from legacy All Key Items: %s",
                             all_key_items_path)
                 existing_content = strip_yaml_frontmatter(
                     potential_path.read_text(encoding="utf-8")
                 )
-                structural_output = _extract_first_section(
-                    existing_content, ["Structural Themes"]
-                )
-                interpretive_output = _extract_first_section(
-                    existing_content, ["Interpretive Themes", "Themes", "Key Themes"]
-                )
-                topics_output = _extract_first_section(
-                    existing_content, ["Topics", "Key Topics"]
-                )
-                key_terms_output = _extract_first_section(
-                    existing_content, ["Key Terms"]
-                )
-                lenses_output = _extract_first_section(
-                    existing_content, ["Lenses (Ranked)", "Lenses"]
-                )
-                abstract_output = _extract_first_section(existing_content, ["Abstract"])
+                if not structural_output:
+                    structural_output = _extract_first_section(
+                        existing_content, ["Structural Themes"]
+                    )
+                if not interpretive_output:
+                    interpretive_output = _extract_first_section(
+                        existing_content, ["Interpretive Themes", "Themes", "Key Themes"]
+                    )
+                if not topics_output:
+                    topics_output = _extract_first_section(
+                        existing_content, ["Topics", "Key Topics"]
+                    )
+                if not key_terms_output:
+                    key_terms_output = _extract_first_section(
+                        existing_content, ["Key Terms"]
+                    )
+                if not lenses_output:
+                    lenses_output = _extract_first_section(
+                        existing_content, ["Lenses (Ranked)", "Lenses"]
+                    )
+                if not abstract_output:
+                    abstract_output = _extract_first_section(existing_content, ["Abstract"])
 
                 # Hydrate missing sections from dedicated files to handle stale legacy All Key Items.
                 if (not structural_output) or (
@@ -1172,7 +1224,7 @@ def summarize_transcript(
                     interpretive_output = _load_section_from_project_file(
                         stem,
                         config.SUFFIX_INTERPRETIVE_THEMES,
-                        ["Interpretive Themes", "Themes", "Key Themes"],
+                        ["Interpretive Themes", "Themes", "Key Themes", "Interpretive / Process Themes"],
                     )
                 if (not topics_output) or (
                     not _is_valid_section_content("Topics", topics_output)
@@ -1222,8 +1274,8 @@ def summarize_transcript(
                     )
                     top_lens = validation.get("top_lens", {}) or {}
 
-                # Keep All Key Items in sync with hydrated sections when available.
-                if all([abstract_output, structural_output, interpretive_output, topics_output, key_terms_output, lenses_output]):
+                # Keep All Key Items in sync only when legacy composite is enabled.
+                if config.WRITE_ALL_KEY_ITEMS_LEGACY and all([abstract_output, structural_output, interpretive_output, topics_output, key_terms_output, lenses_output]):
                     refreshed_all_key_items = _compose_all_key_items(
                         abstract_output,
                         structural_output,
@@ -1272,40 +1324,36 @@ def summarize_transcript(
 
         logger.info("✓ Transcript processing complete!")
 
-        if not skip_extracts_summary and all_key_items_path:
+        if not skip_extracts_summary:
             logger.info("VALIDATION: Checking Emphasis Items...")
             stem = metadata["stem"]
             formatted_path = (
                 config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_FORMATTED}"
             )
             if formatted_path.exists():
+                emphasis_source = all_key_items_path if all_key_items_path else formatted_path
                 validate_emphasis_items(
-                    formatted_path, all_key_items_path, logger)
+                    formatted_path, emphasis_source, logger)
                 logger.info("VALIDATION: Checking Topics (lightweight)...")
                 validate_topics_lightweight(formatted_path, stem, logger)
                 logger.info("VALIDATION: Checking Key Terms...")
                 validate_key_terms_fidelity(formatted_path, stem, logger)
 
         if generate_structured:
-            if all_key_items_path:
-                logger.info("Generating structured summary...")
-                stem = metadata["stem"]
-                structured_success = generate_structured_summary(
-                    base_name=stem,
-                    summary_target_word_count=structured_word_count,
-                    logger=logger,
-                    transcript_system_message=transcript_system_message,
-                )
-                if structured_success:
-                    logger.info("Validating structured summary...")
-                    validate_summary_coverage(base_name=stem, logger=logger)
-                else:
-                    logger.error("Structured summary generation failed.")
-                    return False
+            logger.info("Generating structured summary...")
+            stem = metadata["stem"]
+            structured_success = generate_structured_summary(
+                base_name=stem,
+                summary_target_word_count=structured_word_count,
+                logger=logger,
+                transcript_system_message=transcript_system_message,
+            )
+            if structured_success:
+                logger.info("Validating structured summary...")
+                validate_summary_coverage(base_name=stem, logger=logger)
             else:
-                logger.warning(
-                    "Cannot generate structured summary: Key Items file was skipped or not found."
-                )
+                logger.error("Structured summary generation failed.")
+                return False
 
         return True
 

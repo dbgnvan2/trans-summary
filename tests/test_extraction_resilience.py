@@ -90,6 +90,7 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
 
     monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
     monkeypatch.setattr(config, "SOURCE_DIR", source_dir)
+    monkeypatch.setattr(config, "WRITE_ALL_KEY_ITEMS_LEGACY", True)
     monkeypatch.setattr(
         extraction_pipeline,
         "_load_formatted_transcript",
@@ -279,6 +280,7 @@ def test_summarize_transcript_replaces_invalid_all_key_items_sections_from_split
 
     monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
     monkeypatch.setattr(config, "SOURCE_DIR", source_dir)
+    monkeypatch.setattr(config, "WRITE_ALL_KEY_ITEMS_LEGACY", True)
     monkeypatch.setattr(
         extraction_pipeline,
         "_load_formatted_transcript",

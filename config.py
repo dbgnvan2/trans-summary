@@ -174,6 +174,10 @@ SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
+# Legacy composite artifacts (optional)
+WRITE_ALL_KEY_ITEMS_LEGACY = False
+WRITE_TSIT_LEGACY = False
+
 # Model variables moved into ProjectSettings and exposed as globals
 # Defaults: DEFAULT_MODEL = "claude-sonnet-4-20250514"
 #           AUX_MODEL = "claude-3-5-haiku-20241022"
