@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import config
-from transcript_utils import call_claude_with_retry
+from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
 
 
 @dataclass
@@ -415,15 +415,33 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
         .replace("{{items_text}}", items_text)
     )
 
-    # Use centralized call with retry
-    response = call_claude_with_retry(
-        client=api_client,
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
-        temperature=0.0,  # Strict for validation
-        logger=logger,
+    # Encourage concise verifier output to reduce token usage.
+    prompt += (
+        "\n\nRespond in plain text with exactly one line per item in order, "
+        "using only YES or NO."
     )
+
+    requested_max_tokens = max(512, 80 * len(items) + 64)
+    max_tokens = cap_max_tokens_for_model(model, requested_max_tokens, logger=logger)
+
+    # Use centralized call with retry. If verification fails (e.g., truncation),
+    # degrade gracefully to keyword-only coverage rather than failing the whole step.
+    try:
+        response = call_claude_with_retry(
+            client=api_client,
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.0,  # Strict for validation
+            logger=logger,
+        )
+    except Exception as e:
+        if logger:
+            logger.warning(
+                "LLM verification unavailable (%s). Falling back to keyword-only coverage.",
+                e,
+            )
+        return [False] * len(items)
 
     response_text = response.content[0].text.strip()
     lines = response_text.upper().split("\n")
