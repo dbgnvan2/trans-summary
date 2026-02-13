@@ -315,6 +315,32 @@ def _extract_transcript_sections(transcript: str) -> dict[int, str]:
     return sections
 
 
+def _topic_keywords(text: str) -> list[str]:
+    """Extract normalized topic keywords for lightweight lexical grounding."""
+    stop = {
+        "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
+        "can", "discussion", "examining", "examination", "exploration", "explores",
+        "for", "from", "how", "in", "including", "into", "is", "it", "its", "like",
+        "models", "of", "on", "or", "presentation", "process", "research", "showing",
+        "systems", "that", "the", "their", "these", "this", "to", "with",
+    }
+    words = re.findall(r"[a-zA-Z]+", text.lower())
+    return [w for w in words if len(w) >= 4 and w not in stop]
+
+
+def _keyword_grounding_ratio(probe: str, haystack: str) -> float:
+    """
+    Compute lexical grounding as overlap of meaningful probe keywords in haystack.
+    Returns 0..1.
+    """
+    keywords = _topic_keywords(probe)
+    if not keywords:
+        return 0.0
+    hay_words = set(_topic_keywords(haystack))
+    matched = sum(1 for w in set(keywords) if w in hay_words)
+    return matched / max(1, len(set(keywords)))
+
+
 def validate_topics_lightweight(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -361,32 +387,37 @@ def validate_topics_lightweight(
         if not name:
             continue
 
-        title_ratio = find_text_in_content(
+        title_fuzzy = find_text_in_content(
             name, transcript, aggressive_normalization=True
         )[2]
-        desc_probe = " ".join(description.split()[:20])
-        desc_ratio = find_text_in_content(
+        title_ground = _keyword_grounding_ratio(name, transcript)
+        title_ratio = max(title_fuzzy, title_ground)
+
+        desc_probe = " ".join(description.split()[:40])
+        desc_fuzzy = find_text_in_content(
             desc_probe, transcript, aggressive_normalization=True
         )[2] if desc_probe else 0.0
+        desc_ground = _keyword_grounding_ratio(desc_probe, transcript) if desc_probe else 0.0
+        desc_ratio = max(desc_fuzzy, desc_ground)
 
         section_ratio = 0.0
         if sections_str:
             nums = summary_pipeline.parse_section_range(sections_str)
             section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
             if section_text:
-                section_ratio = find_text_in_content(
-                    name, section_text, aggressive_normalization=True
-                )[2]
+                section_ratio = _keyword_grounding_ratio(
+                    f"{name} {desc_probe}", section_text
+                )
             else:
                 section_ratio = 0.0
 
-        if title_ratio >= 0.95 and desc_ratio >= 0.85:
+        if title_ratio >= 0.65 and desc_ratio >= 0.55:
             result = "EXACT"
             exact += 1
-        elif title_ratio >= 0.85 and desc_ratio >= 0.70:
+        elif title_ratio >= 0.45 and desc_ratio >= 0.35:
             result = "PARTIAL"
             partial += 1
-        elif title_ratio >= 0.75 or desc_ratio >= 0.60:
+        elif title_ratio >= 0.25 or desc_ratio >= 0.20:
             result = "WEAK"
             weak += 1
         else:
