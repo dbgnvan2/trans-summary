@@ -66,25 +66,55 @@ class AbstractInput:
 
 def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     """
-    Parse Topics section using regex pattern matching.
+    Parse Topics section using robust pattern matching.
     """
     topics = []
 
-    # Regex matches: ### Name \n Description \n Metadata line
-    # Matches format: *_(~25% of transcript; Sections 1-5)_*
-    pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
+    # Strategy 1: Strict format with explicit percentage + sections metadata
+    strict_pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
-    matches = re.findall(pattern, topics_markdown, re.DOTALL)
+    matches = re.findall(strict_pattern, topics_markdown, re.DOTALL)
 
     for match in matches:
         name = match[0].strip()
-        # description = match[1].strip() # Description not stored in Topic model
         percentage = int(match[2])
         sections = match[3].strip()
 
         if percentage >= 5:
             topics.append(
                 Topic(name=name, percentage=percentage, sections=sections))
+
+    # Strategy 2: Header-based fallback (### Topic Name) even when metadata line is absent
+    if not topics and "###" in topics_markdown:
+        blocks = [
+            b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
+        ]
+        for idx, block in enumerate(blocks):
+            lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+            if not lines:
+                continue
+            name = lines[0]
+            body = " ".join(lines[1:])
+            pct_match = re.search(r"~?(\d+)%", body)
+            percentage = int(pct_match.group(1)) if pct_match else max(5, 100 - idx * 10)
+            sections_match = re.search(r"Sections?\s*([0-9,\-\s]+)", body, re.IGNORECASE)
+            sections = sections_match.group(1).strip() if sections_match else ""
+            topics.append(Topic(name=name, percentage=percentage, sections=sections))
+
+    # Strategy 3: Numbered/bullet fallback (1. **Topic**: ... or - **Topic**: ...)
+    if not topics:
+        list_pattern = r"(?:^|\n)\s*(?:\d+\.\s+|[-*]\s+)(?:\*\*)?([^:\n*]+)(?:\*\*)?:"
+        names = re.findall(list_pattern, topics_markdown)
+        for idx, name in enumerate(names):
+            clean_name = name.strip()
+            if clean_name:
+                topics.append(
+                    Topic(
+                        name=clean_name,
+                        percentage=max(5, 100 - idx * 10),
+                        sections="",
+                    )
+                )
 
     # Sort by percentage descending, take top 5
     topics.sort(key=lambda t: t.percentage, reverse=True)

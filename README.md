@@ -71,7 +71,8 @@ The current workflow is designed to run in this order:
 10. Generate full webpage and PDF
 11. Package outputs into ZIP
 
-`Run All` in the GUI also prints a cost estimate at the start and token usage report at the end.
+`Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
+If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
 
 ### Command Line Interface
 

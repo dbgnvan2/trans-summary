@@ -187,6 +187,7 @@ class TranscriptProcessorGUI:
 
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
+        self.include_init_val_do_all = tk.BooleanVar(value=False)
 
         # ADDED: StringVars for model selection
         self.model_vars = {
@@ -388,6 +389,13 @@ class TranscriptProcessorGUI:
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
         self.do_all_btn.grid(row=0, column=6, rowspan=3,
                              padx=(10, 5), sticky=(tk.N, tk.S))
+
+        self.do_all_init_val_chk = ttk.Checkbutton(
+            button_frame,
+            text="Init Val in Do All (Auto)",
+            variable=self.include_init_val_do_all
+        )
+        self.do_all_init_val_chk.grid(row=3, column=6, padx=(10, 5), pady=2, sticky=tk.W)
 
         # Row 3 (Maintenance)
         self.cleanup_btn = ttk.Button(
@@ -1054,19 +1062,34 @@ class TranscriptProcessorGUI:
         if not self.selected_file:
             return
 
-        # Enforce validation
-        if "_validated" not in self.selected_file.name:
+        run_init_val = self.include_init_val_do_all.get()
+
+        # Enforce validation unless auto Init Val is requested
+        if not run_init_val and "_validated" not in self.selected_file.name:
             messagebox.showwarning("Validation Required",
                                    "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.")
             return
 
-        if not messagebox.askyesno("Confirm", "This will run the entire pipeline from start to finish. Continue?"):
+        confirm_text = (
+            "This will run the entire pipeline from start to finish.\n\n"
+            "Init Val in Do All: {}\n"
+            "(If enabled, all suggested corrections are auto-applied and finalized.)\n\n"
+            "Continue?"
+        ).format("Enabled" if run_init_val else "Disabled")
+        if not messagebox.askyesno("Confirm", confirm_text):
             return
         self.log("▶ STARTING FULL PIPELINE EXECUTION...")
         self.run_task_in_thread(self._run_all_steps)
 
     def _run_all_steps(self):
         start_time = datetime.now()
+
+        # Optional Step -1: Initial Validation (Auto approve/apply)
+        if self.include_init_val_do_all.get():
+            self.log("\n--- STEP -1: Initial Validation (Auto) ---")
+            if not self._run_initial_validation_auto():
+                return False
+
         # Step 0: Cost Estimate (informational)
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
@@ -1076,6 +1099,10 @@ class TranscriptProcessorGUI:
         self.log("\n--- STEP 1: Formatting ---")
         # Use config.settings.FORMATTING_MODEL
         if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
+            return False
+        self.log("--- STEP 1a: Format Validation ---")
+        if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
+            self.log("❌ Format validation failed.")
             return False
 
         # Step 1b: Header Validation
@@ -1134,6 +1161,58 @@ class TranscriptProcessorGUI:
         self.log("\n✅ FULL PIPELINE COMPLETE!")
         return True
 
+    def _run_initial_validation_auto(self):
+        """Run Init Val without dialogs; auto-apply all findings into a finalized _validated file."""
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            return False
+
+        mode = self.validation_mode_var.get()
+        try:
+            findings = []
+            file_to_validate = self.selected_file
+
+            if mode == "v2":
+                validator_v2 = transcript_initial_validation_v2.TranscriptValidatorV2(api_key, self.logger)
+                validator_v1 = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                file_to_validate = validator_v1.get_latest_version(self.selected_file)
+                findings = validator_v2.validate_chunked(file_to_validate, model=config.settings.DEFAULT_MODEL)
+            else:
+                validator_v1 = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                file_to_validate = validator_v1.get_latest_version(self.selected_file)
+                findings = validator_v1.validate(file_to_validate, model=config.settings.DEFAULT_MODEL)
+
+            stem = file_to_validate.stem
+            base_match = re.match(r'^(.*)(_v\d+|_validated)$', stem)
+            base_name = base_match.group(1) if base_match else stem
+            output_path = file_to_validate.parent / f"{base_name}_validated{file_to_validate.suffix}"
+
+            if findings:
+                self.log("Auto-applying %d validation corrections...", len(findings))
+                if mode == "v2":
+                    validator_v2 = transcript_initial_validation_v2.TranscriptValidatorV2(api_key, self.logger)
+                    _, applied, skipped = validator_v2.apply_corrections_safe(
+                        file_to_validate, findings, output_path
+                    )
+                    self.log("Init Val auto-apply: applied=%d skipped=%d", applied, len(skipped))
+                else:
+                    validator_v1 = transcript_initial_validation.TranscriptValidator(api_key, self.logger)
+                    validator_v1.apply_corrections(file_to_validate, findings, output_path)
+            else:
+                shutil.copy2(file_to_validate, output_path)
+                self.log("No Init Val findings. Created validated copy.")
+
+            self.selected_file = output_path
+            self.base_name = clean_project_name(self.selected_file.stem)
+            self.formatted_file = (
+                config.PROJECTS_DIR / self.base_name / f"{self.base_name}{config.SUFFIX_FORMATTED}"
+            )
+            return True
+        except Exception as e:
+            self.log("❌ Initial validation auto failed: %s", e)
+            return False
+
     def update_button_states(self):
         state = tk.NORMAL if not self.processing and self.selected_file else tk.DISABLED
         self.init_val_btn.config(state=state)
@@ -1152,6 +1231,7 @@ class TranscriptProcessorGUI:
         self.package_btn.config(state=state)
         self.do_all_btn.config(
             state=tk.NORMAL if self.selected_file else tk.DISABLED)
+        self.do_all_init_val_chk.config(state=state)
         
         # ADDED: Update state of model comboboxes
         model_cb_state = "readonly" if not self.processing else tk.DISABLED
