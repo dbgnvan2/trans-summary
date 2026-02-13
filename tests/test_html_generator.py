@@ -85,19 +85,22 @@ class TestHtmlGenerator(unittest.TestCase):
             project_dir = root / base_name
             project_dir.mkdir(parents=True, exist_ok=True)
 
-            # Stale All Key Items with no themes
-            all_key_items = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-            all_key_items.write_text("## Topics\n\n### Topic A\nBody\n", encoding="utf-8")
+            topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
+            topics_file.write_text("## Topics\n\n### Topic A\nBody\n", encoding="utf-8")
 
-            # Dedicated interpretive themes file should be used as fallback
             interpretive_file = project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
             interpretive_file.write_text(
                 "## Interpretive Themes\n\n### Theme A\nInterpretive description.\n",
                 encoding="utf-8",
             )
+            structural_file = project_dir / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
+            structural_file.write_text(
+                "## Structural Themes\n\n### Structure A\nStructural description.\n",
+                encoding="utf-8",
+            )
 
             with patch.object(config, "PROJECTS_DIR", root):
-                metadata = _extract_webpage_metadata(all_key_items)
+                metadata = _extract_webpage_metadata(base_name)
 
             self.assertIn("Interpretive Themes", metadata["themes"])
             self.assertIn("Theme A", metadata["themes"])

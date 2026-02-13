@@ -1069,7 +1069,7 @@ def extract_bowen_references(content: str) -> list:
 
 def load_bowen_references(base_name: str) -> list:
     """
-    Load Bowen reference quotes from dedicated file, with fallback to extracts-summary.
+    Load Bowen reference quotes from canonical dedicated file.
 
     Args:
         base_name: The base name of the transcript
@@ -1095,24 +1095,6 @@ def load_bowen_references(base_name: str) -> list:
         quotes = re.findall(quote_pattern, content, flags=re.MULTILINE)
         return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
-    # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        content = strip_yaml_frontmatter(content)
-        return extract_bowen_references(content)
-
-    # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
-    if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        content = strip_yaml_frontmatter(content)
-        return extract_bowen_references(content)
-
     return []
 
 
@@ -1137,7 +1119,7 @@ def extract_emphasis_items(content: str) -> list:
 
 def load_emphasis_items(base_name: str) -> list:
     """
-    Load emphasis item quotes from dedicated file, with fallback to extracts-summary.
+    Load emphasis item quotes from canonical dedicated files.
 
     Args:
         base_name: The base name of the transcript
@@ -1167,34 +1149,6 @@ def load_emphasis_items(base_name: str) -> list:
         f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
         with open(emphasis_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        content = strip_yaml_frontmatter(content)
-        items = extract_emphasis_items(content)
-        filtered_items = []
-        for label, quote in items:
-            if normalize_text(quote, aggressive=True) not in bowen_quotes:
-                filtered_items.append((label, quote))
-        return filtered_items
-
-    # Fall back to All Key Items
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        content = strip_yaml_frontmatter(content)
-        items = extract_emphasis_items(content)
-        filtered_items = []
-        for label, quote in items:
-            if normalize_text(quote, aggressive=True) not in bowen_quotes:
-                filtered_items.append((label, quote))
-        return filtered_items
-
-    # Fall back to topics-themes for backward compatibility
-    extracts_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
-    if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
             content = f.read()
         content = strip_yaml_frontmatter(content)
         items = extract_emphasis_items(content)

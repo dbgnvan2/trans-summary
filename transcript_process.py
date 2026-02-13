@@ -355,8 +355,12 @@ def main():
     print("=" * 80)
     print(f"\n📁 Source file: {source_file}")
     print(f"📄 Formatted: {formatted_file}")
-    print(f"📊 Summaries: {project_dir / f'{base_name}{config.SUFFIX_KEY_ITEMS_ALL}'}")
-    print(f"           : {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
+    print(f"📊 Structural Themes: {project_dir / f'{base_name}{config.SUFFIX_STRUCTURAL_THEMES}'}")
+    print(f"📊 Interpretive Themes: {project_dir / f'{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}'}")
+    print(f"📊 Topics: {project_dir / f'{base_name}{config.SUFFIX_TOPICS}'}")
+    print(f"📊 Key Terms: {project_dir / f'{base_name}{config.SUFFIX_KEY_TERMS}'}")
+    print(f"📊 Lenses: {project_dir / f'{base_name}{config.SUFFIX_LENSES}'}")
+    print(f"📝 Blog: {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
     print(f"📦 Package:   {project_dir / f'{base_name}.zip'}")
 
     # Display Token Usage Report

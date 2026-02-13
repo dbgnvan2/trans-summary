@@ -57,55 +57,38 @@ PDF_CSS = _load_css("pdf.css")
 # WEBPAGE GENERATION - METADATA EXTRACTION
 # ============================================================================
 
-def _extract_webpage_metadata(topics_themes_file):
-    """Extract topics, themes, key terms, and abstract from topics-themes."""
-    with open(topics_themes_file, "r", encoding="utf-8") as f:
-        content = f.read()
+def _extract_webpage_metadata(base_name: str):
+    """Extract topics, themes, key terms, and abstract from canonical artifact files."""
+    project_dir = config.PROJECTS_DIR / base_name
+    topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
+    structural_file = project_dir / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
+    interpretive_file = project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
 
-    content = strip_yaml_frontmatter(content)
-    content = re.sub(
-        r"---\s*#\s*TERMINOLOGY EXTRACTION OUTPUT.*?---\s*#\s*Key Terms",
-        "# Key Terms",
-        content,
-        flags=re.DOTALL,
+    topics_content = (
+        strip_yaml_frontmatter(topics_file.read_text(encoding="utf-8"))
+        if topics_file.exists()
+        else ""
     )
-
-    base_name = Path(topics_themes_file).stem.replace(
-        config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
+    structural_content = (
+        strip_yaml_frontmatter(structural_file.read_text(encoding="utf-8"))
+        if structural_file.exists()
+        else ""
+    )
+    interpretive_content = (
+        strip_yaml_frontmatter(interpretive_file.read_text(encoding="utf-8"))
+        if interpretive_file.exists()
+        else ""
     )
 
     # Get key terms with definitions
-    key_term_defs = _extract_key_term_definitions(topics_themes_file)
+    key_term_defs = _extract_key_term_definitions(base_name)
 
-    structural = extract_section(content, "Structural Themes")
-    interpretive = extract_section(content, "Interpretive Themes")
-
-    # Fallback to dedicated files when All Key Items is stale/incomplete.
-    if not structural:
-        structural_file = (
-            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
-        )
-        if structural_file.exists():
-            structural_content = strip_yaml_frontmatter(
-                structural_file.read_text(encoding="utf-8")
-            )
-            structural = extract_section(structural_content, "Structural Themes") or structural_content.strip()
-
-    if not interpretive:
-        interpretive_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
-        )
-        if interpretive_file.exists():
-            interpretive_content = strip_yaml_frontmatter(
-                interpretive_file.read_text(encoding="utf-8")
-            )
-            interpretive = (
-                extract_section(interpretive_content, "Interpretive Themes")
-                or extract_section(interpretive_content, "Themes")
-                or interpretive_content.strip()
-            )
+    structural = extract_section(structural_content, "Structural Themes") or structural_content.strip()
+    interpretive = (
+        extract_section(interpretive_content, "Interpretive Themes")
+        or extract_section(interpretive_content, "Themes")
+        or interpretive_content.strip()
+    )
 
     if structural and interpretive:
         themes_block = (
@@ -120,16 +103,16 @@ def _extract_webpage_metadata(topics_themes_file):
         themes_block = ""
 
     metadata = {
-        "topics": extract_section(content, "Topics"),
+        "topics": extract_section(topics_content, "Topics") or extract_section(topics_content, "Key Topics"),
         "themes": themes_block,
-        "abstract": extract_section(content, "Abstract"),
+        "abstract": _load_abstract(base_name),
         "key_terms": key_term_defs,
     }
     return metadata
 
 
 def _load_abstract(base_name):
-    """Load abstract from generated file, falling back to All Key Items."""
+    """Load abstract from generated file."""
     gen_file = (
         config.PROJECTS_DIR / base_name /
         f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
@@ -137,15 +120,6 @@ def _load_abstract(base_name):
     if gen_file.exists():
         return gen_file.read_text(encoding="utf-8")
 
-    # Fallback: Extract from All Key Items
-    topics_themes_file = (
-        config.PROJECTS_DIR / base_name /
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    )
-    if topics_themes_file.exists():
-        content = topics_themes_file.read_text(encoding="utf-8")
-        content = strip_yaml_frontmatter(content)
-        return extract_section(content, "Abstract")
     return ""
 
 
@@ -165,23 +139,15 @@ def _load_summary(base_name):
         content = re.split(r"^##\s+", content, flags=re.MULTILINE)[0].strip()
         return content
 
-    # Fallback: Extract from All Key Items
-    topics_themes_file = (
-        config.PROJECTS_DIR / base_name /
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    )
-    if topics_themes_file.exists():
-        content = topics_themes_file.read_text(encoding="utf-8")
-        content = strip_yaml_frontmatter(content)
-        return extract_section(content, "Summary")
-
     return ""
 
 
-def _extract_key_term_definitions(topics_themes_file):
-    """Extract key term definitions from topics-themes file."""
-    with open(topics_themes_file, "r", encoding="utf-8") as f:
-        content = f.read()
+def _extract_key_term_definitions(base_name: str):
+    """Extract key term definitions from canonical key-terms file."""
+    key_terms_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    if not key_terms_file.exists():
+        return []
+    content = key_terms_file.read_text(encoding="utf-8")
 
     content = strip_yaml_frontmatter(content)
 
@@ -724,27 +690,21 @@ def generate_webpage(base_name: str) -> bool:
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
-        topics_themes_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE}"
         )
 
         validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding="utf-8")
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading topics-themes materials...")
+        logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
         summary = _load_summary(base_name)
-        metadata = _extract_webpage_metadata(topics_themes_file)
+        metadata = _extract_webpage_metadata(base_name)
         # Override abstract with the best available version
         metadata["abstract"] = _load_abstract(base_name)
         logger.info(
@@ -790,26 +750,21 @@ def generate_simple_webpage(base_name: str) -> bool:
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
-        topics_themes_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
         )
 
         validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding="utf-8")
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading topics-themes materials...")
+        logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
         summary = _load_summary(base_name)
-        metadata = _extract_webpage_metadata(topics_themes_file)
+        metadata = _extract_webpage_metadata(base_name)
         # Override abstract with the best available version
         metadata["abstract"] = _load_abstract(base_name)
 
@@ -846,26 +801,21 @@ def generate_pdf(base_name: str) -> bool:
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
-        topics_themes_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_PDF}"
         )
 
         validate_input_file(formatted_file)
-        validate_input_file(topics_themes_file)
 
         formatted_content = formatted_file.read_text(encoding="utf-8")
         formatted_content = strip_yaml_frontmatter(formatted_content)
 
-        logger.info("Loading topics-themes materials...")
+        logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
         emphasis_items = load_emphasis_items(base_name)
         summary = _load_summary(base_name)
-        metadata = _extract_webpage_metadata(topics_themes_file)
+        metadata = _extract_webpage_metadata(base_name)
         # Override abstract with the best available version
         metadata["abstract"] = _load_abstract(base_name)
 

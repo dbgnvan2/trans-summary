@@ -181,20 +181,15 @@ def _parse_key_terms_section(content: str) -> list[tuple[str, str]]:
 
 
 def _load_key_terms_for_validation(base_name: str) -> list[tuple[str, str]]:
-    """Load key terms from dedicated file, then fall back to All Key Items."""
+    """Load key terms from canonical key-terms artifact."""
     project_dir = config.PROJECTS_DIR / base_name
     key_terms_file = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
-    all_key_items_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
     if key_terms_file.exists():
         content = strip_yaml_frontmatter(key_terms_file.read_text(encoding="utf-8"))
         parsed = _parse_key_terms_section(content)
         if parsed:
             return parsed
-
-    if all_key_items_file.exists():
-        content = strip_yaml_frontmatter(all_key_items_file.read_text(encoding="utf-8"))
-        return _parse_key_terms_section(content)
 
     return []
 
@@ -287,25 +282,17 @@ def validate_key_terms_fidelity(
 
 
 def _load_topics_for_validation(base_name: str, transcript: str) -> list[dict]:
-    """Load topics from dedicated file first, then All Key Items."""
+    """Load topics from canonical topics artifact."""
     project_dir = config.PROJECTS_DIR / base_name
     topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
-    all_key_items_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
 
-    candidates = []
     if topics_file.exists():
-        candidates.append(topics_file)
-    if all_key_items_file.exists():
-        candidates.append(all_key_items_file)
-
-    for path in candidates:
-        content = strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+        content = strip_yaml_frontmatter(topics_file.read_text(encoding="utf-8"))
         topics_section = extract_section(content, "Topics") or extract_section(content, "Key Topics")
-        if not topics_section:
-            continue
-        parsed = summary_pipeline.parse_topics_with_details(topics_section, transcript)
-        if parsed:
-            return parsed
+        if topics_section:
+            parsed = summary_pipeline.parse_topics_with_details(topics_section, transcript)
+            if parsed:
+                return parsed
     return []
 
 
@@ -755,12 +742,6 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
-        all_key_items_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
-
         generated_abstract_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
@@ -776,12 +757,19 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         transcript = formatted_file.read_text(encoding="utf-8")
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = all_key_items_file.read_text(encoding="utf-8")
-        extracts_content = strip_yaml_frontmatter(extracts_content)
-
         metadata = parse_filename_metadata(base_name)
-        topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Interpretive Themes")
+        topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
+        themes_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+        topics_section = (
+            strip_yaml_frontmatter(topics_file.read_text(encoding="utf-8"))
+            if topics_file.exists()
+            else ""
+        )
+        themes_section = (
+            strip_yaml_frontmatter(themes_file.read_text(encoding="utf-8"))
+            if themes_file.exists()
+            else ""
+        )
 
         transcript_words = len(transcript.split())
         target_word_count = max(
@@ -834,11 +822,6 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_FORMATTED}"
         )
-        all_key_items_file = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-        )
         generated_summary_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
@@ -853,12 +836,19 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
         transcript = formatted_file.read_text(encoding="utf-8")
         transcript = strip_yaml_frontmatter(transcript)
 
-        extracts_content = all_key_items_file.read_text(encoding="utf-8")
-        extracts_content = strip_yaml_frontmatter(extracts_content)
-
         metadata = parse_filename_metadata(base_name)
-        topics_section = extract_section(extracts_content, "Topics")
-        themes_section = extract_section(extracts_content, "Interpretive Themes")
+        topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
+        themes_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+        topics_section = (
+            strip_yaml_frontmatter(topics_file.read_text(encoding="utf-8"))
+            if topics_file.exists()
+            else ""
+        )
+        themes_section = (
+            strip_yaml_frontmatter(themes_file.read_text(encoding="utf-8"))
+            if themes_file.exists()
+            else ""
+        )
 
         summary_input = summary_pipeline.prepare_summary_input(
             metadata=metadata,

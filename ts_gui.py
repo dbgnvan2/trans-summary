@@ -551,9 +551,6 @@ class TranscriptProcessorGUI:
             ("Header Val", project_dir /
              f"{base}{config.SUFFIX_HEADER_VAL_REPORT}"),
             ("YAML", project_dir / f"{base}{config.SUFFIX_YAML}"),
-            ("All Key Items", project_dir /
-             f"{base}{config.SUFFIX_KEY_ITEMS_ALL}"),
-            ("TSIT (ST/IT/T/KT)", project_dir / f"{base}{config.SUFFIX_KEY_ITEMS_CLEAN}"),
             ("Structural Themes", project_dir /
              f"{base}{config.SUFFIX_STRUCTURAL_THEMES}"),
             ("Interpretive Themes", project_dir /

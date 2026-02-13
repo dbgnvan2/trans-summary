@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Validate generated HTML webpage against source materials.
-Checks that all expected content from topics-themes appears in the webpage.
+Checks that all expected content from canonical artifact files appears in the webpage.
 Supports both sidebar layout and simple single-column layout.
 
 Usage:
@@ -135,16 +135,32 @@ def find_missing_bowen_items(base_name, html_file):
     return missing
 
 
-def extract_topics_themes_metadata(topics_themes_file):
-    """Extract key metadata from topics-themes file."""
-    with open(topics_themes_file, "r", encoding="utf-8") as f:
-        content = f.read()
+def extract_topics_themes_metadata(base_name: str):
+    """Extract key metadata from canonical artifact files."""
+    project_dir = config.PROJECTS_DIR / base_name
+    topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
+    structural_file = project_dir / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
+    interpretive_file = project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+    key_terms_file = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    abstract_file = project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
+    summary_file = project_dir / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
 
-    # Strip YAML front matter
-    if content.startswith("---"):
-        parts = content.split("---\n", 2)
-        if len(parts) >= 3:
-            content = parts[2]
+    def _read(path: Path) -> str:
+        if not path.exists():
+            return ""
+        content = path.read_text(encoding="utf-8")
+        if content.startswith("---"):
+            parts = content.split("---\n", 2)
+            if len(parts) >= 3:
+                content = parts[2]
+        return content
+
+    topics_content = _read(topics_file)
+    structural_content = _read(structural_file)
+    interpretive_content = _read(interpretive_file)
+    key_terms_content = _read(key_terms_file)
+    abstract_content = _read(abstract_file)
+    summary_content = _read(summary_file)
 
     metadata = {
         "has_abstract": False,
@@ -162,33 +178,20 @@ def extract_topics_themes_metadata(topics_themes_file):
         "emphasis_list": [],
     }
 
-    # Check Abstract (with or without bold markers)
-    abstract_match = re.search(
-        r"## (?:\*\*)?Abstract(?:\*\*)?(.*?)(?=^## |^---+|\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if abstract_match:
-        abstract_text = abstract_match.group(1).strip()
-        if abstract_text:
-            metadata["has_abstract"] = True
-            metadata["abstract_text"] = abstract_text
-            metadata["abstract_length"] = len(abstract_text)
+    if abstract_content.strip():
+        abstract_text = abstract_content.strip()
+        metadata["has_abstract"] = True
+        metadata["abstract_text"] = abstract_text
+        metadata["abstract_length"] = len(abstract_text)
 
-    # Check Summary
-    summary_match = re.search(
-        r"## (?:\*\*)?Summary(?:\*\*)?(.*?)(?=^## |^---+|\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if summary_match:
+    if summary_content.strip():
         metadata["has_summary"] = True
-        metadata["summary_length"] = len(summary_match.group(1).strip())
+        metadata["summary_length"] = len(summary_content.strip())
 
-    # Count Topics (with or without bold markers)
+    # Count Topics
     topics_match = re.search(
         r"## (?:\*\*)?(?:Key )?Topics(?:\*\*)?(.*?)(?=^## |\Z)",
-        content,
+        topics_content,
         re.MULTILINE | re.DOTALL,
     )
     if topics_match:
@@ -200,8 +203,8 @@ def extract_topics_themes_metadata(topics_themes_file):
 
     # Count Structural + Interpretive Themes
     theme_sections = re.finditer(
-        r"## (?:\*\*)?(?:Structural Themes|Interpretive Themes|Themes)(?:\*\*)?(.*?)(?=^## |\Z)",
-        content,
+        r"## (?:\*\*)?(?:Structural Themes|Interpretive Themes|Themes|Interpretive / Process Themes)(?:\*\*)?(.*?)(?=^## |\Z)",
+        "\n".join([structural_content, interpretive_content]),
         re.MULTILINE | re.DOTALL,
     )
     collected_themes = []
@@ -219,7 +222,7 @@ def extract_topics_themes_metadata(topics_themes_file):
     # Count Key Terms
     key_terms_match = re.search(
         r"## (?:\*\*)?Key Terms(?:\*\*)?(.*?)(?=^## |^---+|\Z)",
-        content,
+        key_terms_content,
         re.MULTILINE | re.DOTALL,
     )
     if key_terms_match:
@@ -229,33 +232,7 @@ def extract_topics_themes_metadata(topics_themes_file):
         metadata["key_terms_list"] = [t.strip() for t in term_headings]
         metadata["key_terms_count"] = len(term_headings)
 
-    # Count Bowen References (with or without bold markers)
-    bowen_match = re.search(
-        r"## (?:\*\*)?Bowen References(?:\*\*)?(.*?)(?=^## |\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if bowen_match:
-        bowen_text = bowen_match.group(1)
-        bowen_refs = re.findall(r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"', bowen_text)
-        metadata["bowen_refs_list"] = [
-            (label.strip(), quote.strip()) for label, quote in bowen_refs
-        ]
-        metadata["bowen_refs_count"] = len(bowen_refs)
-
-    # Count Emphasized Items (with or without bold markers)
-    emphasis_match = re.search(
-        r"## (?:\*\*)?Emphasized Items(?:\*\*)?(.*?)(?=^## |\Z)",
-        content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if emphasis_match:
-        emphasis_text = emphasis_match.group(1)
-        emphasis_items = re.findall(r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"', emphasis_text)
-        metadata["emphasis_list"] = [
-            (label.strip(), quote.strip()) for label, quote in emphasis_items
-        ]
-        metadata["emphasis_count"] = len(emphasis_items)
+    # Bowen/Emphasis are loaded via centralized loaders in validate_webpage.
 
     return metadata
 
@@ -626,8 +603,6 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     # File paths
     project_dir = config.PROJECTS_DIR / base_name
     formatted_file = project_dir / f"{base_name}{config.SUFFIX_FORMATTED}"
-    topics_themes_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-
     # Use correct HTML filename based on mode
     if simple_mode:
         html_file = project_dir / f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
@@ -638,9 +613,18 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     missing_files = []
     if not formatted_file.exists():
         missing_files.append(f"Formatted: {formatted_file}")
-    if not topics_themes_file.exists():
-        # The primary file is missing, report it.
-        missing_files.append(f"All Key Items file not found: {topics_themes_file.name}")
+    topics_file = project_dir / f"{base_name}{config.SUFFIX_TOPICS}"
+    structural_file = project_dir / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}"
+    interpretive_file = project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}"
+    key_terms_file = project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+    if not topics_file.exists():
+        missing_files.append(f"Topics file not found: {topics_file.name}")
+    if not structural_file.exists():
+        missing_files.append(f"Structural themes file not found: {structural_file.name}")
+    if not interpretive_file.exists():
+        missing_files.append(f"Interpretive themes file not found: {interpretive_file.name}")
+    if not key_terms_file.exists():
+        missing_files.append(f"Key terms file not found: {key_terms_file.name}")
     if not html_file.exists():
         missing_files.append(f"HTML: {html_file}")
 
@@ -676,7 +660,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print("\n📝 Metadata Validation")
     print("-" * 70)
 
-    source_meta = extract_topics_themes_metadata(topics_themes_file)
+    source_meta = extract_topics_themes_metadata(base_name)
 
     # OVERRIDE with specialized files if they exist (matching html_generator logic)
     # This ensures we validate against what was actually put in the HTML
@@ -733,9 +717,7 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
     # Summary
     print("\n   Summary:")
-    # Note: Source summary might be in a different file (summary-generated.md),
-    # so source_meta['has_summary'] might be False if it only checked All Key Items.
-    # We'll just check if HTML has it if we know we generated it.
+    # Source summary may be absent if summary generation was skipped.
     print(
         f"      HTML:   {'Present' if html_meta['has_summary'] else 'Missing'} "
         f"({html_meta['summary_length']} chars)"
