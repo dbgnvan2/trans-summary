@@ -23,10 +23,9 @@ Files move through specific states, denoted by suffixes and directories:
     - _Action_: `add_yaml`
 3.  **Metadata**: `formatted/* - yaml.md` (Formatted + Frontmatter)
     - _Action_: `summarize_transcript`
-4.  **Extraction**: `summaries/* - All Key Items.md` (Raw API output)
-    - _Action_: `_process_key_items_output` (Splits into `bowen-references.md`, `emphasis-items.md`, etc.)
-5.  **Synthesis**: `summaries/* - summary-generated.md`, `abstract-generated.md`
-6.  **Publication**: `webpages/*.html`, `pdfs/*.pdf`
+4.  **Extraction**: `projects/* - structural-themes.md`, `interpretive-themes.md`, `topics.md`, `key-terms.md`, `lenses-ranked.md`, `bowen-references.md`, `emphasis-items.md`
+5.  **Synthesis**: `projects/* - summary-generated.md`, `abstract-generated.md`
+6.  **Publication**: `projects/*.html`, `projects/*.pdf`
 
 ## 3. Key Design Patterns
 

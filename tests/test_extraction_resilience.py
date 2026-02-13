@@ -15,10 +15,6 @@ def test_generate_structured_abstract_falls_back_to_split_files(tmp_path, monkey
     formatted_path = project_dir / f"{base_name}{config.SUFFIX_FORMATTED}"
     formatted_path.write_text("## Section 1\nOpening text.\n", encoding="utf-8")
 
-    # Legacy/incomplete All Key Items without required sections.
-    all_key_items_path = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    all_key_items_path.write_text("## Abstract\nLegacy abstract only.\n", encoding="utf-8")
-
     # Dedicated files with the required content.
     (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
         "## Topics\n\n### Topic A\nDescription.\n*_(~25% of transcript; Sections 1)_*\n",
@@ -66,11 +62,6 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
     project_dir = projects_dir / stem
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    # Existing All Key Items is incomplete/stale (no ranked lenses).
-    (project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}").write_text(
-        "## Abstract\nLegacy abstract.\n\n## Themes\nLegacy theme.\n",
-        encoding="utf-8",
-    )
     (project_dir / f"{stem}{config.SUFFIX_STRUCTURAL_THEMES}").write_text(
         "## Structural Themes\n\n### Structure A\nDescription.\n",
         encoding="utf-8",
@@ -178,16 +169,6 @@ def test_generate_structured_abstract_ignores_contaminated_topics_and_uses_fallb
         encoding="utf-8",
     )
 
-    # Contaminated All Key Items: contains incidental "Key topics" phrase inside another section.
-    (project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}").write_text(
-        "## Interpretive Themes\n\n"
-        "I need the complete document, including:\n"
-        "1. Abstract\n"
-        "2. Key topics with coverage percentages\n"
-        "3. Full transcript\n",
-        encoding="utf-8",
-    )
-
     (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
         "## Topics\n\n### Topic A\nDescription.\n*_(~30% of transcript; Sections 1)_*\n",
         encoding="utf-8",
@@ -246,7 +227,7 @@ def test_generate_with_cached_transcript_appends_unresolved_context(monkeypatch)
     assert "### interpretive_themes" in captured["prompt"]
 
 
-def test_summarize_transcript_replaces_invalid_all_key_items_sections_from_split_files(
+def test_summarize_transcript_uses_split_files_for_validation_and_blog(
     tmp_path, monkeypatch
 ):
     stem = "Hydrate-Invalid-Sections-Test"
@@ -256,24 +237,24 @@ def test_summarize_transcript_replaces_invalid_all_key_items_sections_from_split
     project_dir = projects_dir / stem
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    refusal_text = (
-        "I need to see the complete lecture document. "
-        "Could you please provide the full document?"
-    )
-    (project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}").write_text(
-        (
-            "## Abstract\nLegacy abstract.\n\n"
-            "## Structural Themes\n\n1. **Structure A**\n\n"
-            "## Interpretive Themes\n\n"
-            f"{refusal_text}\n\n"
-            "## Topics\n\n### Topic A\nDesc.\n*_(~20% of transcript; Sections 1)_*\n\n"
-            "## Key Terms\n\n### Term A\nDefinition.\n\n"
-            "## Lenses (Ranked)\n\n1. **Lens A**\n"
-        ),
+    (project_dir / f"{stem}{config.SUFFIX_STRUCTURAL_THEMES}").write_text(
+        "## Structural Themes\n\n1. **Structure A**: System organization.\n",
         encoding="utf-8",
     )
     (project_dir / f"{stem}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
         "## Interpretive Themes\n\n1. **Interpretive A**: Dynamic tension.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{stem}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDesc.\n*_(~20% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{stem}{config.SUFFIX_KEY_TERMS}").write_text(
+        "## Key Terms\n\n### Term A\nDefinition.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{stem}{config.SUFFIX_LENSES}").write_text(
+        "## Lenses (Ranked)\n\n1. **Lens A**\nRationale.\n",
         encoding="utf-8",
     )
 

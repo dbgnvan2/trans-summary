@@ -16,10 +16,13 @@ This guide reflects the current artifact set produced by the transcript processi
 | Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
 | Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
 | YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter | `formatting_pipeline.add_yaml` |
-| All Key Items | `<Base Name> - All Key Items.md` | Abstract + Structural Themes + Interpretive Themes + Topics + Key Terms + Ranked Lenses | `extraction_pipeline.summarize_transcript` |
-| TSIT (clean split) | `<Base Name> - TSIT.md` | Normalized Topics, Structural Themes, Interpretive Themes, Key Terms sections | `extraction_pipeline._process_key_items_output` |
+| Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
+| Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
+| Topics | `<Base Name> - topics.md` | Topic objects with coverage metadata | `extraction_pipeline.summarize_transcript` |
+| Ranked Lenses | `<Base Name> - lenses-ranked.md` | Ranked lenses (top lens used for blog generation) | `extraction_pipeline.summarize_transcript` |
 | Key Terms | `<Base Name> - key-terms.md` | Term-focused extract (if generated in flow) | `extraction_pipeline` |
 | Bowen references | `<Base Name> - bowen-references.md` | Filtered explicit Bowen references | `extraction_pipeline.extract_bowen_references_from_transcript` |
+| Emphasis items | `<Base Name> - emphasis-items.md` | Emphasis quotes and labels | `extraction_pipeline.extract_scored_emphasis` |
 | Emphasis (scored) | `<Base Name> - emphasis-scored.md` | Scored emphasis items | `extraction_pipeline.extract_scored_emphasis` |
 | Blog post | `<Base Name> - blog.md` | Blog-style adaptation | `extraction_pipeline.summarize_transcript` |
 | Structured summary | `<Base Name> - summary-generated.md` | Long-form structured summary | `extraction_pipeline.generate_structured_summary` |
@@ -27,7 +30,6 @@ This guide reflects the current artifact set produced by the transcript processi
 | Structured abstract | `<Base Name> - abstract-generated.md` | Structured abstract | `extraction_pipeline.generate_structured_abstract` |
 | Abstract validation report | `<Base Name> - abstract-validation.txt` | Coverage/structure validation report | `validation_pipeline.validate_abstract_coverage` |
 | Header validation report | `<Base Name> - header-validation.md` | Header quality report | `validation_pipeline.validate_headers` |
-| Legacy abstracts report | `<Base Name> - abstracts.md` | Legacy iterative abstract scoring output | `validation_pipeline.validate_abstract_legacy` |
 | Full webpage | `<Base Name>.html` | Sidebar layout with transcript + extracted content | `html_generator.generate_webpage` |
 | Simple webpage | `<Base Name> - simple.html` | Single-column webpage | `html_generator.generate_simple_webpage` |
 | PDF | `<Base Name>.pdf` | Print-ready PDF | `html_generator.generate_pdf` |
@@ -40,7 +42,7 @@ This guide reflects the current artifact set produced by the transcript processi
 3. Format validation (`validate_format`) checks word-preservation fidelity.
 4. Header validation (`validate_headers`) -> ` - header-validation.md`
 5. YAML front matter (`add_yaml`) -> ` - yaml.md`
-6. Core extraction (`summarize_transcript`) -> ` - All Key Items.md`, ` - TSIT.md`, Bowen/Emphasis/Blog outputs.
+6. Core extraction (`summarize_transcript`) -> structural themes, interpretive themes, topics, key terms, ranked lenses, Bowen, emphasis, blog outputs.
 7. Structured generation (optional flag/GUI flow):
    - `generate_structured_summary` -> ` - summary-generated.md`
    - `generate_structured_abstract` -> ` - abstract-generated.md`
@@ -55,6 +57,6 @@ This guide reflects the current artifact set produced by the transcript processi
 
 ## Notes
 
-- Webpage/PDF generation loads summary and abstract from generated files when available, with fallback extraction from ` - All Key Items.md`.
+- Webpage/PDF generation loads generated artifacts directly from dedicated one-artifact-per-output files.
 - Bowen and emphasis items are both used for transcript highlighting in HTML/PDF.
 - Legacy paths like `~/transcripts/...` are no longer the canonical default; use `config.TRANSCRIPTS_BASE`-derived directories.

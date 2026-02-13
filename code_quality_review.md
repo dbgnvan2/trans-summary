@@ -168,14 +168,11 @@ def load_bowen_references(base_name: str) -> list:
             content = f.read()
         # ... process ...
 
-    # ❌ Fall back to All Key Items (reads file again)
-    extracts_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    if extracts_file.exists():
-        with open(extracts_file, 'r', encoding='utf-8') as f:
-            content = f.read()  # ❌ Same file may be read by both load_bowen_references AND load_emphasis_items
+    # Fallback to parsed in-memory sections if available
+    # (avoid rereading monolithic composite files)
 ```
 
-**Problem:** Same file read multiple times in sequence
+**Problem:** Same logical content can be normalized/read multiple times in sequence
 **Fix:** Pass content as parameter or cache file contents
 
 ---
@@ -191,9 +188,7 @@ def load_bowen_references(base_name: str) -> list:
 ```python
 # 90% identical code in both functions:
 # 1. Try dedicated file
-# 2. Try "All Key Items" file
-# 3. Try legacy file
-# 4. Return empty list
+# 2. Return empty list
 
 # Lines 798-844: load_bowen_references (46 lines)
 # Lines 866-935: load_emphasis_items (69 lines)
@@ -210,11 +205,9 @@ def _load_from_multiple_sources(
     extraction_func: Callable,
     filter_func: Optional[Callable] = None
 ) -> list:
-    """Generic loader with fallback chain"""
+    """Generic loader with dedicated-file lookup."""
     sources = [
         f"{base_name}{primary_suffix}",
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}",
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_RAW_LEGACY}"
     ]
 
     for suffix in sources:

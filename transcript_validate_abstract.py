@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CLI wrapper for validating and revising abstracts.
+CLI wrapper for abstract coverage validation.
 
 Usage:
-    python transcript_validate_abstract.py "Title - Presenter - Date" [--auto]
+    python transcript_validate_abstract.py "Title - Presenter - Date"
 """
 
 import argparse
@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 import config
-from pipeline import setup_logging, validate_abstract
+from pipeline import setup_logging, validate_abstract_coverage
 
 
 def resolve_base_name(input_name: str) -> str:
@@ -41,10 +41,10 @@ def resolve_base_name(input_name: str) -> str:
 
 def main():
     """
-    Main function to handle command-line execution of the abstract validation process.
+    Main function to run abstract coverage validation.
     """
     parser = argparse.ArgumentParser(
-        description="Validate and revise abstracts using the core pipeline."
+        description="Validate abstract coverage against transcript content."
     )
     parser.add_argument(
         "base_name",
@@ -52,25 +52,8 @@ def main():
     )
     parser.add_argument(
         "--model",
-        default=config.DEFAULT_MODEL,
-        help=f"Claude model to use (default: {config.DEFAULT_MODEL})",
-    )
-    parser.add_argument(
-        "--target-score",
-        type=float,
-        default=4.5,
-        help="Target quality score (default: 4.5)",
-    )
-    parser.add_argument(
-        "--max-iterations",
-        type=int,
-        default=3,
-        help="Maximum number of improvement iterations (default: 3)",
-    )
-    parser.add_argument(
-        "--auto",
-        action="store_true",
-        help="Run without interactive prompts (auto-continue until target reached)",
+        default=config.AUX_MODEL,
+        help=f"Claude model to use (default: {config.AUX_MODEL})",
     )
 
     args = parser.parse_args()
@@ -80,12 +63,9 @@ def main():
     logger = setup_logging("validate_abstract_cli")
     logger.info(f"Starting abstract validation for: {base_name}")
 
-    success = validate_abstract(
+    success = validate_abstract_coverage(
         base_name=base_name,
         model=args.model,
-        target_score=args.target_score,
-        max_iterations=args.max_iterations,
-        auto_continue=args.auto,
         logger=logger,
     )
 

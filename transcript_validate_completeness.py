@@ -122,52 +122,33 @@ def validate_formatted_file(base_name: str) -> ValidationResult:
     return result
 
 
-def validate_key_item_extracts(base_name: str) -> ValidationResult:
-    """Validate 'All Key Items' contains all required sections."""
-    result = ValidationResult("Key Item Extracts (All Key Items)")
+def validate_core_outputs(base_name: str) -> ValidationResult:
+    """Validate core one-artifact-per-output files exist and are non-empty."""
+    result = ValidationResult("Core Outputs")
+    project_dir = config.PROJECTS_DIR / base_name
 
-    file_path = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    )
+    required_files = [
+        ("Structural Themes", config.SUFFIX_STRUCTURAL_THEMES),
+        ("Interpretive Themes", config.SUFFIX_INTERPRETIVE_THEMES),
+        ("Topics", config.SUFFIX_TOPICS),
+        ("Key Terms", config.SUFFIX_KEY_TERMS),
+        ("Lenses", config.SUFFIX_LENSES),
+        ("Bowen References", config.SUFFIX_BOWEN),
+        ("Emphasis Items", config.SUFFIX_EMPHASIS),
+        ("Abstract", config.SUFFIX_ABSTRACT_GEN),
+    ]
 
-    if not file_path.exists():
-        result.add_error(f"File not found: {file_path.name}")
-        return result
+    for label, suffix in required_files:
+        file_path = project_dir / f"{base_name}{suffix}"
+        if not file_path.exists():
+            result.add_error(f"Missing file: {file_path.name}")
+            continue
 
-    content = file_path.read_text(encoding="utf-8")
-
-    # Recommended sections (flexible header matching)
-    required_sections = {
-        "Abstract": r"##\s*\*?\*?Abstract\*?\*?",
-        "Topics": r"##\s*\*?\*?Topics\*?\*?",
-        "Interpretive Themes": r"##\s*\*?\*?Interpretive Themes\*?\*?",
-        "Emphasis Items": r"##\s*\*?\*?Emphasis Items\*?\*?",
-    }
-
-    for section_name, pattern in required_sections.items():
-        if not re.search(pattern, content, re.IGNORECASE):
-            result.add_warning(f"Missing recommended section: {section_name}")
+        content = file_path.read_text(encoding="utf-8").strip()
+        if len(content) < 40:
+            result.add_error(f"File appears empty: {file_path.name}")
         else:
-            result.add_info(f"Found section: {section_name}")
-
-    # Check each section has content (not just headers)
-    for section_name, pattern in required_sections.items():
-        match = re.search(
-            pattern + r"\s*\n(.*?)(?=##|\Z)", content, re.IGNORECASE | re.DOTALL
-        )
-        if match:
-            section_content = match.group(1).strip()
-            if len(section_content) < 50:
-                result.add_warning(
-                    f"Section '{section_name}' appears empty or very short"
-                )
-
-    # Check word count
-    word_count = len(content.split())
-    result.add_info(f"Word count: {word_count:,}")
-
-    if word_count < 800:
-        result.add_warning(f"Summary seems short ({word_count} words)")
+            result.add_info(f"Found {label}: {file_path.name}")
 
     return result
 
@@ -233,49 +214,6 @@ def validate_blog(base_name: str) -> ValidationResult:
     return result
 
 
-def validate_abstracts(base_name: str) -> ValidationResult:
-    """Validate abstracts file from quality validation."""
-    result = ValidationResult("Validated Abstracts")
-
-    file_path = (
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
-    )
-
-    if not file_path.exists():
-        result.add_error(f"File not found: {file_path.name}")
-        return result
-
-    content = file_path.read_text(encoding="utf-8")
-
-    # Should have both short and extended versions
-    has_short = bool(
-        re.search(r"Short Abstract|Abstract \(Short\)", content, re.IGNORECASE)
-    )
-    has_extended = bool(
-        re.search(r"Extended Abstract|Abstract \(Extended\)", content, re.IGNORECASE)
-    )
-
-    if not has_short:
-        result.add_warning("No short abstract found")
-    if not has_extended:
-        result.add_warning("No extended abstract found")
-
-    # Check for quality scores
-    has_scores = bool(re.search(r"Overall.*\d\.\d", content, re.IGNORECASE))
-    if has_scores:
-        # Extract final score
-        score_match = re.search(r"Overall.*?(\d\.\d)", content, re.IGNORECASE)
-        if score_match:
-            score = float(score_match.group(1))
-            result.add_info(f"Quality score: {score}/5.0")
-            if score < 4.0:
-                result.add_warning(f"Quality score below target ({score} < 4.5)")
-    else:
-        result.add_warning("No quality scores found")
-
-    return result
-
-
 def validate_all(base_name: str) -> Dict[str, ValidationResult]:
     """Run all validation checks."""
     results = {}
@@ -286,10 +224,9 @@ def validate_all(base_name: str) -> Dict[str, ValidationResult]:
 
     # Run all validators
     results["formatted"] = validate_formatted_file(base_name)
-    results["key_item_extracts"] = validate_key_item_extracts(base_name)
+    results["core_outputs"] = validate_core_outputs(base_name)
     results["terms"] = validate_key_terms(base_name)
     results["blog"] = validate_blog(base_name)
-    results["abstracts"] = validate_abstracts(base_name)
 
     # Print results
     for result in results.values():

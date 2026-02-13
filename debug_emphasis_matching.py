@@ -99,13 +99,11 @@ def main():
     base_name = sys.argv[1]
 
     project_dir = config.PROJECTS_DIR / base_name
-    # Point to the main raw extracts file
-    all_key_items_file = project_dir / f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
     emphasis_file = project_dir / f"{base_name}{config.SUFFIX_EMPHASIS}"
     formatted_file = project_dir / f"{base_name}{config.SUFFIX_FORMATTED}"
 
-    if not all_key_items_file.exists() and not emphasis_file.exists():
-        print(f"Error: {all_key_items_file} and {emphasis_file} not found")
+    if not emphasis_file.exists():
+        print(f"Error: {emphasis_file} not found")
         sys.exit(1)
 
     if not formatted_file.exists():
@@ -113,7 +111,7 @@ def main():
         sys.exit(1)
 
     print("Using files:")
-    source_file = emphasis_file if emphasis_file.exists() else all_key_items_file
+    source_file = emphasis_file
     print(f"  Source for Emphasis Items: {source_file.name}")
 
     # Load emphasis items from topics-themes

@@ -31,9 +31,6 @@ from validation_pipeline import (
     validate_topics_lightweight,
     validate_summary_coverage,
 )
-from validation_pipeline import (
-    validate_abstract_legacy as validate_abstract,  # Legacy
-)
 
 # Explicitly export symbols to prevent linters from removing them
 __all__ = [
@@ -45,7 +42,6 @@ __all__ = [
     "validate_key_terms_fidelity",
     "validate_topics_lightweight",
     "validate_summary_coverage",
-    "validate_abstract",
     "_load_formatted_transcript",
     "extract_bowen_references_from_transcript",
     "extract_scored_emphasis",

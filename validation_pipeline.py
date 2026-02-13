@@ -127,9 +127,17 @@ def _extract_emphasis_quotes_from_file(all_key_items_file):
     try:
         stem = parse_filename_metadata(extracts_path.name)["stem"]
     except Exception:
-        stem = extracts_path.stem.replace(
-            config.SUFFIX_KEY_ITEMS_ALL.replace(".md", ""), ""
-        )
+        stem = extracts_path.stem
+        for suffix in (
+            config.SUFFIX_FORMATTED,
+            config.SUFFIX_YAML,
+            config.SUFFIX_EMPHASIS,
+            config.SUFFIX_EMPHASIS_SCORED,
+        ):
+            clean_suffix = suffix.replace(".md", "")
+            if stem.endswith(clean_suffix):
+                stem = stem[: -len(clean_suffix)]
+                break
     scored_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
     emphasis_file = extracts_path.parent / f"{stem}{config.SUFFIX_EMPHASIS}"
 
@@ -557,173 +565,6 @@ def validate_headers(
     except Exception as e:
         logger.error(
             "An error occurred during header validation: %s", e, exc_info=True)
-        return False
-
-
-# ============================================================================
-# ABSTRACT VALIDATION (LEGACY)
-# ============================================================================
-
-
-def _extract_scores_from_output(output: str) -> dict:
-    """Extract assessment scores from the Claude output."""
-    scores = {}
-    table_pattern = r"|\s*(?:\*\*)?([^\*\|]+?)(?:\*\*)?\s*|\s*(?:\*\*)?(\d+(?:\.\d+)?)(?:\*\*)?(?:\s*/\s*5)?\s*|"
-    matches = re.findall(table_pattern, output)
-    for dimension, score in matches:
-        dimension = dimension.strip()
-        if dimension and dimension != "Dimension" and "---" not in dimension:
-            scores[dimension] = float(score)
-
-    if not scores:
-        list_pattern = (
-            r"[-*]\s*(?:\*\*)?([A-Za-z ]+?)(?:\*\*)?:?\s+(\d+(?:\.\d+)?)(?:/5)?"
-        )
-        matches = re.findall(list_pattern, output)
-        for dimension, score in matches:
-            scores[dimension.strip()] = float(score)
-
-    overall_match = re.search(
-        r"|\s*(?:\*\*)?Overall(?: Score)?(?:\*\*)?\s*|\s*(?:\*\*)?(\d+(?:\.\d+)?)(?:\*\*)?(?:\s*/\s*5)?\s*|",
-        output,
-        re.IGNORECASE,
-    )
-    if overall_match:
-        scores["Overall"] = float(overall_match.group(1))
-    else:
-        overall_text_match = re.search(
-            r"(?:Overall|Total)\s*(?:Score)?\s*[:|-]?\s*(?:\*\*)?\s*(\d+(?:\.\d+)?)",
-            output,
-            re.IGNORECASE,
-        )
-        if overall_text_match:
-            scores["Overall"] = float(overall_text_match.group(1))
-
-    return scores
-
-
-def _extract_extended_abstract(output: str) -> str:
-    """Extract the extended abstract from the validation output."""
-    match = re.search(
-        r"(?:^|\n)#+\s*(?:\*\*)?(?:EXTENDED|REVISED|IMPROVED)?\s*ABSTRACT(?:\*\*)?\s*\n+(.*?)(?=\n#|\Z)",
-        output,
-        flags=re.DOTALL | re.IGNORECASE,
-    )
-
-    if not match:
-        match = re.search(
-            r"(?:\*\*)?(?:EXTENDED|REVISED|IMPROVED)\s*ABSTRACT(?:\*\*)?:?\s*\n+(.*?)(?=\n#|\Z)",
-            output,
-            flags=re.DOTALL | re.IGNORECASE,
-        )
-
-    return match.group(1).strip() if match else ""
-
-
-def _save_abstracts(content: str, base_name: str) -> Path:
-    """Save the abstracts validation output."""
-    project_dir = config.PROJECTS_DIR / base_name
-    project_dir.mkdir(parents=True, exist_ok=True)
-    output_path = project_dir / f"{base_name}{config.SUFFIX_ABSTRACTS_LEGACY}"
-    output_path.write_text(content, encoding="utf-8")
-    return output_path
-
-
-def _load_extracts_summary_for_abstract(base_name: str) -> tuple[str, str]:
-    """Load All Key Items and extract the abstract."""
-    summary_path = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_KEY_ITEMS_ALL}"
-    validate_input_file(summary_path)
-    content = summary_path.read_text(encoding="utf-8")
-    abstract_match = re.search(
-        r"## (?:\[\*\])?Abstract(?:\*\])?\s*\n\n(.*?)(?=\n---|\n## |\Z)",
-        content,
-        flags=re.DOTALL,
-    )
-    if not abstract_match:
-        raise ValueError(
-            f"Could not find ## Abstract section in {summary_path}")
-    return content, abstract_match.group(1).strip()
-
-
-def validate_abstract_legacy(
-    base_name: str,
-    model: str,
-    target_score: float,
-    max_iterations: int,
-    auto_continue: bool,
-    logger,
-) -> bool:
-    """Orchestrates the abstract validation and revision process (Legacy)."""
-    if logger is None:
-        logger = setup_logging("validate_abstract")
-
-    try:
-        logger.info("Loading files for: %s", base_name)
-        transcript = _load_formatted_transcript(
-            f"{base_name}{config.SUFFIX_FORMATTED}")
-
-        # Create cached system message
-        system_message = create_system_message_with_cache(transcript)
-
-        _, initial_abstract = _load_extracts_summary_for_abstract(base_name)
-        prompt_template = _load_validation_prompt(
-            config.PROMPT_ABSTRACT_VALIDATION_FILENAME
-        )
-
-        current_abstract = initial_abstract
-        best_score = 0
-        best_output = ""
-
-        for i in range(max_iterations + 1):
-            logger.info("--- Iteration %d ---", i)
-
-            replacements = {
-                "source_document": "(See transcript in system message)",
-                "transcript": "(See transcript in system message)",
-                "text": "(See transcript in system message)",
-                "abstract": current_abstract,
-                "current_abstract": current_abstract,
-            }
-            # Use transcript length as proxy for empty check if needed, but not passing full text
-            prompt = _fill_prompt_template(prompt_template, replacements, "")
-
-            if "(See transcript in system message)" not in prompt:
-                prompt += f"\n\n--- ABSTRACT TO EVALUATE ---\n{current_abstract}"
-
-            validation_output = _generate_validation_response(
-                prompt,
-                model,
-                config.TEMP_BALANCED,
-                logger,
-                min_length=config.MIN_ABSTRACT_VALIDATION_CHARS,
-                system=system_message,
-            )
-            scores = _extract_scores_from_output(validation_output)
-
-            overall_score = scores.get("Overall", 0)
-            logger.info("Iteration %d score: %s", i, overall_score)
-
-            if overall_score > best_score:
-                best_score = overall_score
-                best_output = validation_output
-
-            if best_score >= target_score:
-                break
-
-            current_abstract = _extract_extended_abstract(validation_output)
-            if not current_abstract:
-                break
-
-        if best_score == 0:
-            return False
-
-        _save_abstracts(best_output, base_name)
-        return True
-
-    except Exception as e:
-        logger.error("An error occurred during abstract validation: %s",
-                     e, exc_info=True)
         return False
 
 

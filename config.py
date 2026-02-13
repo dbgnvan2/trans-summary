@@ -147,9 +147,6 @@ def set_transcripts_base(path: Union[str, Path]):
 # File Suffixes
 SUFFIX_FORMATTED = " - formatted.md"
 SUFFIX_YAML = " - yaml.md"
-SUFFIX_KEY_ITEMS_ALL = " - All Key Items.md"
-SUFFIX_KEY_ITEMS_RAW_LEGACY = " - topics-themes.md"
-SUFFIX_KEY_ITEMS_CLEAN = " - TSIT.md"
 SUFFIX_STRUCTURAL_THEMES = " - structural-themes.md"
 SUFFIX_INTERPRETIVE_THEMES = " - interpretive-themes.md"
 SUFFIX_TOPICS = " - topics.md"
@@ -171,7 +168,6 @@ SUFFIX_WEBPAGE = ".html"
 SUFFIX_WEBPAGE_SIMPLE = " - simple.html"
 SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
-SUFFIX_ABSTRACTS_LEGACY = " - abstracts.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Model variables moved into ProjectSettings and exposed as globals

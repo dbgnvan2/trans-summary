@@ -33,8 +33,14 @@ Current artifact naming is config-driven and centered on:
 
 - ` - formatted.md`
 - ` - yaml.md`
-- ` - All Key Items.md`
-- ` - topics-themes-terms.md`
+- ` - structural-themes.md`
+- ` - interpretive-themes.md`
+- ` - topics.md`
+- ` - key-terms.md`
+- ` - lenses-ranked.md`
+- ` - bowen-references.md`
+- ` - emphasis-items.md`
+- ` - emphasis-scored.md`
 - ` - summary-generated.md` + ` - summary-validation.txt`
 - ` - abstract-generated.md` + ` - abstract-validation.txt`
 - `.html`, ` - simple.html`, `.pdf`, `.zip`

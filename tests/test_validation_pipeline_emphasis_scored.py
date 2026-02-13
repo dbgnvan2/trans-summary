@@ -9,8 +9,8 @@ def test_extract_emphasis_quotes_prefers_scored_file(tmp_path):
     project_dir = tmp_path / stem
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    all_key_items = project_dir / f"{stem}{config.SUFFIX_KEY_ITEMS_ALL}"
-    all_key_items.write_text("## Abstract\nx\n", encoding="utf-8")
+    formatted_file = project_dir / f"{stem}{config.SUFFIX_FORMATTED}"
+    formatted_file.write_text("## Section 1\nx\n", encoding="utf-8")
 
     scored_file = project_dir / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
     scored_file.write_text(
@@ -19,7 +19,7 @@ def test_extract_emphasis_quotes_prefers_scored_file(tmp_path):
         encoding="utf-8",
     )
 
-    quotes = _extract_emphasis_quotes_from_file(all_key_items)
+    quotes = _extract_emphasis_quotes_from_file(formatted_file)
 
     assert len(quotes) == 1
     assert "Core theoretical foundation" in quotes[0][0]
