@@ -48,10 +48,10 @@ def mock_transcript_file(mock_project_dirs):
     file_path.write_text(
         "This is a mock transcript content with some text.\n"
         "## Section 1\n"
-        "We live our lives in networks of emotional forces. Follow triangle patterns.\n"
-        "Triangles are the molecules of an emotional system.\n"
+        "Murray Bowen said we live our lives in networks of emotional forces. Follow triangle patterns.\n"
+        "To quote Bowen, triangles are the molecules of an emotional system.\n"
         "## Section 2\n"
-        "A two person system is inherently unstable.\n",
+        "I remember Murray saying a two person system is inherently unstable.\n",
         encoding="utf-8",
     )
     return formatted_filename, base_name, project_dir
@@ -78,11 +78,13 @@ TRANSCRIPT:
 MOCK_LLM_BOWEN_RESPONSE = """
 # Bowen References Extracted from Transcript
 
-> **On Triangles and Emotional Forces:** "We live our lives in networks of emotional forces. Follow triangle patterns."
+> **On Triangles and Emotional Forces:** "Murray Bowen said we live our lives in networks of emotional forces. Follow triangle patterns."
 
-> **On Triangles as Molecules:** "Triangles are the molecules of an emotional system."
+> **On Triangles as Molecules:** "To quote Bowen, triangles are the molecules of an emotional system."
 
-> **On Two-Person Systems:** "A two person system is inherently unstable."
+> **On Two-Person Systems:** "I remember Murray saying a two person system is inherently unstable."
+
+> **Theory-only mention:** "In Bowen theory terms and not parts and wholes."
 """
 
 
@@ -127,9 +129,9 @@ def test_bowen_references_generation_and_extraction(
     extracted_references = extract_bowen_references(generated_content)
 
     expected_references = [
-        ("Bowen Reference - On Triangles and Emotional Forces", "We live our lives in networks of emotional forces. Follow triangle patterns."),
-        ("Bowen Reference - On Triangles as Molecules", "Triangles are the molecules of an emotional system."),
-        ("Bowen Reference - On Two-Person Systems", "A two person system is inherently unstable."),
+        ("Bowen Reference - On Triangles and Emotional Forces", "Murray Bowen said we live our lives in networks of emotional forces. Follow triangle patterns."),
+        ("Bowen Reference - On Triangles as Molecules", "To quote Bowen, triangles are the molecules of an emotional system."),
+        ("Bowen Reference - On Two-Person Systems", "I remember Murray saying a two person system is inherently unstable."),
     ]
     
     assert len(extracted_references) == len(expected_references), \

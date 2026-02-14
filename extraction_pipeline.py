@@ -305,6 +305,7 @@ def _format_bowen_refs(refs: list[tuple[str, str]]) -> str:
     lines = []
     for concept, quote in refs:
         concept = " ".join(str(concept).split()).strip()
+        # Keep fuller attributed passage; do not over-compress output text.
         quote = " ".join(str(quote).split()).strip()
         if not concept or not quote:
             continue
@@ -312,6 +313,103 @@ def _format_bowen_refs(refs: list[tuple[str, str]]) -> str:
         quote = quote.replace('"', "'")
         lines.append(f'> **Bowen Reference - {concept}:** "{quote}"')
     return "\n".join(lines)
+
+
+def _compact_bowen_quote(quote: str, max_words: int = 140) -> str:
+    """
+    Keep quotes reasonably bounded while preserving attribution language.
+    Prefer the sentence containing attribution plus adjacent context.
+    """
+    quote = " ".join(str(quote).split()).strip()
+    if not quote:
+        return quote
+
+    words = quote.split()
+    if len(words) <= max_words:
+        return quote
+
+    sentences = [
+        s.strip()
+        for s in re.split(r'(?<=[.!?])\s+', quote)
+        if s and s.strip()
+    ]
+    if not sentences:
+        return " ".join(words[:max_words]).rstrip(" ,;:") + "..."
+
+    attr_pat = re.compile(
+        r"\b(?:murray|dr\.?\s*bowen|bowen(?:'s)?|to\s+quote\s+bowen|he\s+said)\b",
+        re.IGNORECASE,
+    )
+    idx = next((i for i, s in enumerate(sentences) if attr_pat.search(s)), 0)
+
+    picked = [sentences[idx]]
+    # Include one adjacent sentence if it fits.
+    for j in (idx + 1, idx - 1):
+        if 0 <= j < len(sentences):
+            candidate = " ".join(picked + [sentences[j]])
+            if len(candidate.split()) <= max_words:
+                picked.append(sentences[j])
+                break
+
+    compact = " ".join(picked).strip()
+    compact_words = compact.split()
+    if len(compact_words) > max_words:
+        compact = " ".join(compact_words[:max_words]).rstrip(" ,;:") + "..."
+
+    return compact
+
+
+def _has_bowen_source_attribution(quote: str) -> bool:
+    """
+    Return True only when quote text itself contains attribution language that
+    clearly ties the statement to Murray/Dr. Bowen as the source.
+    """
+    if not quote:
+        return False
+
+    quote_l = " ".join(str(quote).split()).strip().lower()
+    if not quote_l:
+        return False
+
+    # Explicitly reject non-source actor patterns.
+    if re.search(r"\bbowen\s+theorists?\b", quote_l):
+        return False
+    if re.search(r"\bbowen\s+theory\b", quote_l) and not re.search(
+        r"\b(?:murray|dr\.?\s*bowen|bowen(?:'s)?)\b[^.!?\n]{0,80}\b"
+        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
+        r"referred|called|commented|noted|observed|argued|stated|told|"
+        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk)\b",
+        quote_l,
+    ):
+        return False
+
+    attribution_patterns = [
+        r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?:'s)?)\b[^.!?\n]{0,80}\b"
+        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
+        r"referred|called|commented|noted|observed|argued|stated|told|"
+        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk)\b",
+        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen|bowen'?s\s+quote|"
+        r"bowen'?s\s+comment)\b",
+        r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
+    ]
+    return any(re.search(p, quote_l) for p in attribution_patterns)
+
+
+def _rule_filter_bowen_references(
+    refs: list[tuple[str, str]],
+    logger,
+) -> list[tuple[str, str]]:
+    """Drop refs that do not include explicit Bowen-source attribution language."""
+    filtered: list[tuple[str, str]] = []
+    for concept, quote in refs:
+        if not _has_bowen_source_attribution(quote):
+            logger.warning(
+                "Dropping Bowen reference without Bowen-source attribution text: %s",
+                concept,
+            )
+            continue
+        filtered.append((concept, quote))
+    return filtered
 
 
 def _filter_bowen_references_semantically(
@@ -534,14 +632,21 @@ def extract_bowen_references_from_transcript(
         filtered_refs = _filter_bowen_references_semantically(
             parsed_refs, model, logger
         )
+        filtered_refs = _rule_filter_bowen_references(filtered_refs, logger)
 
         def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
             grounded = []
             for concept, quote in refs:
-                _, _, ratio = find_text_in_content(
+                compact_quote = _compact_bowen_quote(quote, max_words=140)
+                _, _, ratio_compact = find_text_in_content(
+                    compact_quote, transcript_text, aggressive_normalization=True
+                )
+                _, _, ratio_full = find_text_in_content(
                     quote, transcript_text, aggressive_normalization=True
                 )
+                ratio = max(ratio_compact, ratio_full)
                 if ratio >= 0.90:
+                    # Keep full extracted quote in output to preserve complete attributed text.
                     grounded.append((concept, quote))
                 else:
                     logger.warning(
@@ -556,7 +661,9 @@ def extract_bowen_references_from_transcript(
             logger.warning(
                 "Semantic filter produced no grounded Bowen references; falling back to grounded primary extraction output."
             )
-            grounded_semantic = _ground_refs(parsed_refs)
+            grounded_semantic = _ground_refs(
+                _rule_filter_bowen_references(parsed_refs, logger)
+            )
 
         filtered_refs = grounded_semantic
         final_content = _format_bowen_refs(filtered_refs)
