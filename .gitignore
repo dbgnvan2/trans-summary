@@ -16,6 +16,11 @@ __pycache__/
 
 #log files
 *.log
+logs/archives/
+logs/token_usage.csv
 
 # Archived prompt templates (not part of active runtime prompt set)
 prompts/old\ prompts/
+
+# Local helper scripts
+run_review
