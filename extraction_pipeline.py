@@ -375,19 +375,19 @@ def _has_bowen_source_attribution(quote: str) -> bool:
     if re.search(r"\bbowen\s+theorists?\b", quote_l):
         return False
     if re.search(r"\bbowen\s+theory\b", quote_l) and not re.search(
-        r"\b(?:murray|dr\.?\s*bowen|bowen(?:'s)?)\b[^.!?\n]{0,80}\b"
+        r"\b(?:murray|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
         r"(?:said|says|saying|wrote|writes|thought|believed|described|"
         r"referred|called|commented|noted|observed|argued|stated|told|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk)\b",
+        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
         quote_l,
     ):
         return False
 
     attribution_patterns = [
-        r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?:'s)?)\b[^.!?\n]{0,80}\b"
+        r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
         r"(?:said|says|saying|wrote|writes|thought|believed|described|"
         r"referred|called|commented|noted|observed|argued|stated|told|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk)\b",
+        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
         r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen|bowen'?s\s+quote|"
         r"bowen'?s\s+comment)\b",
         r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
