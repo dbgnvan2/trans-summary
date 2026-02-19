@@ -71,7 +71,7 @@ def _fill_prompt_template(
     placeholders = {**metadata, **kwargs}
     for key, value in placeholders.items():
         pattern = re.compile(
-            r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
+            r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
         template = pattern.sub(lambda m: str(value), template)
     template = template.replace("{{insert_transcript_text_here}}", transcript)
     return template
