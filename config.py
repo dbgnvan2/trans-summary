@@ -37,10 +37,10 @@ class ProjectSettings:
         self._update_derived_paths()
 
         # Initialize model variables
-        self.DEFAULT_MODEL = "claude-sonnet-4-20250514"  # Successor default to Claude 3.7 Sonnet
-        self.AUX_MODEL = "claude-3-5-haiku-20241022"      # Updated for Caching Support
-        self.FORMATTING_MODEL = "claude-3-7-sonnet-20250219" # Extended Output Support with Caching
-        self.VALIDATION_MODEL = "claude-3-5-haiku-20241022" # Cheaper model for validation
+        self.DEFAULT_MODEL = "claude-sonnet-4-6"  # Primary generation model
+        self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
+        self.FORMATTING_MODEL = "claude-sonnet-4-6"  # Use Sonnet 4.6 for formatting quality/consistency
+        self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
 
         self._initialized = True
 
@@ -171,9 +171,9 @@ SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Model variables moved into ProjectSettings and exposed as globals
-# Defaults: DEFAULT_MODEL = "claude-sonnet-4-20250514"
-#           AUX_MODEL = "claude-3-5-haiku-20241022"
-#           FORMATTING_MODEL = "claude-3-7-sonnet-20250219"
+# Defaults: DEFAULT_MODEL = "claude-sonnet-4-6"
+#           AUX_MODEL = "claude-haiku-4-5-20251001"
+#           FORMATTING_MODEL = "claude-sonnet-4-6"
 
 # Default Summary Word Count
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more

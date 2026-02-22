@@ -1,0 +1,4 @@
+interface:
+  display_name: "RG Skill"
+  short_description: "Shortcut trigger for Python regression test workflow."
+  default_prompt: "Run Python regression guard workflow for a repo: reproduce bug with failing pytest, add targeted regression tests, run focused checks, and summarize risks."

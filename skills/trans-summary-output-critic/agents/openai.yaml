@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trans Summary Output Critic"
+  short_description: "Prompt-vs-output reviewer for transcript artifact folders."
+  default_prompt: "Audit a trans-summary project output folder against its configured prompt files and produce confirm/deny findings with evidence and next checks."
