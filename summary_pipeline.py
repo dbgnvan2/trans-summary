@@ -733,7 +733,7 @@ def generate_summary(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=4000,  # Allow for 750-word summaries (~3000 tokens)
+        max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
         min_length=2400,  # Ensure substantial summary (~600 words minimum)
         min_words=600,    # Enforce strict minimum of 600 words

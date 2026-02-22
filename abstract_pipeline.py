@@ -397,7 +397,7 @@ def generate_abstract(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=600,  # Adequate for abstract
+        max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
         min_length=150,  # Ensure substantial abstract
         **kwargs,

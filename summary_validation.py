@@ -547,7 +547,7 @@ def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: 
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
+        max_tokens=config.MAX_TOKENS_VALIDATION_VERIFY,
         temperature=0.0,  # Strict for validation
         logger=logger,
     )

@@ -205,7 +205,7 @@ class TranscriptValidatorV2:
                 model=model,
                 messages=messages,
                 system=system_message,
-                max_tokens=8000, # Adjusted for Haiku limit
+                max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
                 logger=self.logger,
                 stream=True,
                 timeout=config.TIMEOUT_FORMATTING,

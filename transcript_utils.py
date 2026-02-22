@@ -423,13 +423,15 @@ def cap_max_tokens_for_model(
     """
     model_lower = model.lower()
 
-    # Use explicit model output limits where known; otherwise default to 32000.
+    # Use explicit model output limits where known; otherwise default to configured limit.
     # Then honor the lower of requested max and allowed max.
-    known_model_output_limits = {
-        "claude-3-5-haiku-20241022": 8192,
-    }
+    known_model_output_limits = config.MODEL_OUTPUT_TOKEN_LIMITS
     model_limit = known_model_output_limits.get(model_lower)
-    allowed_max_tokens = 32000 if model_limit is None else min(model_limit, 32000)
+    allowed_max_tokens = (
+        config.MAX_TOKENS_SUMMARY
+        if model_limit is None
+        else min(model_limit, config.MAX_TOKENS_SUMMARY)
+    )
     capped_max_tokens = min(requested_max_tokens, allowed_max_tokens)
 
     if capped_max_tokens != requested_max_tokens and logger:

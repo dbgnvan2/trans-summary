@@ -9,6 +9,7 @@ import pytest  # Added pytest import
 
 import anthropic
 from dotenv import load_dotenv
+import config
 
 # Load environment variables
 load_dotenv()
@@ -44,7 +45,9 @@ def test_anthropic_model_generation(anthropic_client_fixture, model_id):
     print(f"Testing generation: {model_id:<35} ... ", end="", flush=True)
     try:
         response = anthropic_client_fixture.messages.create(
-            model=model_id, max_tokens=10, messages=[{"role": "user", "content": "Hi"}]
+            model=model_id,
+            max_tokens=config.MAX_TOKENS_MODEL_PROBE,
+            messages=[{"role": "user", "content": "Hi"}],
         )
         # Basic assertion to ensure a response was received
         assert response.content is not None and len(response.content) > 0
