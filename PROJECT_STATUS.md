@@ -1,6 +1,6 @@
 # Project Status Report
 
-**Last Updated:** 2026-02-10  
+**Last Updated:** 2026-03-10  
 **Status:** Active maintenance / production workflow available
 
 ## Current Snapshot
@@ -46,6 +46,11 @@ Current artifact naming is config-driven and centered on:
 - `.html`, ` - simple.html`, `.pdf`, `.zip`
 
 See `DOCUMENT_REFERENCE.md` for the full matrix and stage mapping.
+
+Structured summary/abstract generation now accepts either of the persisted transcript artifacts in a project folder:
+
+- preferred: ` - formatted.md`
+- fallback: ` - yaml.md`
 
 ## Testing Status (2026-02-10)
 

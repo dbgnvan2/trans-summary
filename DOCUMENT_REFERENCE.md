@@ -15,7 +15,7 @@ This guide reflects the current artifact set produced by the transcript processi
 | --- | --- | --- | --- |
 | Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
 | Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
-| YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter | `formatting_pipeline.add_yaml` |
+| YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter; fallback structured-transcript source for summary/abstract generation | `formatting_pipeline.add_yaml` |
 | Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
 | Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
 | Topics | `<Base Name> - topics.md` | Topic objects with coverage metadata | `extraction_pipeline.summarize_transcript` |
@@ -46,6 +46,7 @@ This guide reflects the current artifact set produced by the transcript processi
 7. Structured generation (optional flag/GUI flow):
    - `generate_structured_summary` -> ` - summary-generated.md`
    - `generate_structured_abstract` -> ` - abstract-generated.md`
+   - These stages prefer ` - formatted.md` and fall back to ` - yaml.md` when the formatted transcript artifact is missing.
 8. Structured validation:
    - `validate_summary_coverage` -> ` - summary-validation.txt`
    - `validate_abstract_coverage` -> ` - abstract-validation.txt`

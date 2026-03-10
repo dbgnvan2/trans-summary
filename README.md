@@ -20,6 +20,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Robust Error Handling**: Categorized exceptions with stack traces, no silent failures
 - **Template-Based HTML**: Clean separation of logic and presentation using Jinja2
 - **API Reliability**: Model-agnostic API validation with automatic retry logic, long-request streaming for structured summary/abstract generation, truncation detection, and token usage tracking
+- **Artifact Recovery**: Structured summary/abstract generation can fall back to the project ` - yaml.md` transcript if ` - formatted.md` is missing
 - **Quality Assurance**: Validation steps for word-for-word fidelity, header accuracy, and summary coverage
 
 ## Installation
@@ -89,6 +90,8 @@ Or run individual steps manually:
 3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md"`
 4.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
 5.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+
+For structured summary/abstract generation, the project normally reads `<Base Name> - formatted.md` and will fall back to `<Base Name> - yaml.md` if the formatted transcript is missing.
 
 ### Maintenance Utilities
 

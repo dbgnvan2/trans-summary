@@ -7,10 +7,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Structured long-request streaming**: Enabled `stream=True` in both `summary_pipeline.generate_summary()` and `abstract_pipeline.generate_abstract()` so the structured generation paths comply with Anthropic SDK long-request requirements instead of relying on callers to opt in manually.
+- **Structured transcript fallback**: Updated structured summary/abstract generation to load ` - yaml.md` when ` - formatted.md` is missing, preventing failures in projects where the YAML transcript remains but the formatted artifact does not.
 
 ### Added
 
 - **Streaming regression tests**: Added coverage to verify `call_claude_with_retry()` uses `client.messages.stream(...)` when requested, and that structured summary/abstract generation explicitly enables streaming.
+- **Fallback regression test**: Added coverage for structured abstract generation when only the YAML transcript artifact is present.
 
 ## [Unreleased] - 2026-01-11
 
