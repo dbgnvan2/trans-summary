@@ -15,14 +15,15 @@ import config
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
-    cap_max_tokens_for_model,
     call_claude_with_retry,
+    cap_max_tokens_for_model,
     create_system_message_with_cache,
     extract_emphasis_items,
     extract_section,
     find_text_in_content,
-    parse_scored_emphasis_output,
+    load_project_transcript,
     parse_filename_metadata,
+    parse_scored_emphasis_output,
     setup_logging,
     strip_yaml_frontmatter,
     validate_input_file,
@@ -579,10 +580,6 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         logger = setup_logging("validate_abstract_coverage")
 
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         generated_abstract_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
@@ -595,8 +592,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
                 "No generated abstract found to validate. (Step 6 likely failed)")
             return False
 
-        transcript = formatted_file.read_text(encoding="utf-8")
-        transcript = strip_yaml_frontmatter(transcript)
+        transcript = load_project_transcript(base_name, logger=logger)
 
         metadata = parse_filename_metadata(base_name)
         topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
@@ -659,10 +655,6 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
         logger = setup_logging("validate_summary_coverage")
 
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         generated_summary_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
@@ -674,8 +666,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             logger.error("No generated summary found to validate.")
             return False
 
-        transcript = formatted_file.read_text(encoding="utf-8")
-        transcript = strip_yaml_frontmatter(transcript)
+        transcript = load_project_transcript(base_name, logger=logger)
 
         metadata = parse_filename_metadata(base_name)
         topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"

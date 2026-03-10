@@ -16,6 +16,7 @@ from transcript_utils import (
     extract_bowen_references,
     extract_section,
     find_text_in_content,
+    load_project_transcript,
     parse_filename_metadata,
     parse_scored_emphasis_output,
     setup_logging,
@@ -148,31 +149,6 @@ def _load_section_from_project_file(
         extracted = _extract_first_section(content, section_names)
         return extracted or content.strip()
     return content.strip()
-
-
-def _load_structured_transcript_from_project(base_name: str, logger=None) -> str:
-    """Load transcript text from the project folder, preferring formatted and falling back to YAML."""
-    candidate_paths = [
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}",
-        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_YAML}",
-    ]
-
-    last_error = None
-    for path in candidate_paths:
-        try:
-            validate_input_file(path)
-            if logger and path.name.endswith(config.SUFFIX_YAML):
-                logger.info(
-                    "Formatted transcript missing; falling back to YAML transcript: %s",
-                    path,
-                )
-            return strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
-        except (FileNotFoundError, ValueError) as exc:
-            last_error = exc
-
-    if last_error is not None:
-        raise last_error
-    raise FileNotFoundError(f"No structured transcript found for project: {base_name}")
 
 
 def _contains_refusal_or_missing_context_text(text: str) -> bool:
@@ -736,7 +712,7 @@ def generate_structured_summary(
                          summary_target_word_count)
             return False
 
-        transcript = _load_structured_transcript_from_project(
+        transcript = load_project_transcript(
             base_name, logger=logger
         )
 
@@ -815,7 +791,7 @@ def generate_structured_abstract(
         logger = setup_logging("generate_structured_abstract")
 
     try:
-        transcript = _load_structured_transcript_from_project(
+        transcript = load_project_transcript(
             base_name, logger=logger
         )
 

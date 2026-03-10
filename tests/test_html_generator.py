@@ -1,9 +1,10 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import config
+import html_generator
 from html_generator import (
     _extract_webpage_metadata,
     _generate_pdf_html,
@@ -131,6 +132,14 @@ class TestHtmlGenerator(unittest.TestCase):
         self.assertIn("Theme A", html)
         self.assertIn("Bowen References", html)
         self.assertIn("Bowen Reference - Differentiation", html)
+
+    def test_generate_pdf_logs_missing_weasyprint_dependency(self):
+        with patch.dict("sys.modules", {"weasyprint": None}):
+            with patch.object(html_generator, "setup_logging", return_value=MagicMock()) as mock_setup:
+                ok = html_generator.generate_pdf("Test Title - Test Author - 2025-01-01")
+
+        assert ok is False
+        mock_setup.return_value.error.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

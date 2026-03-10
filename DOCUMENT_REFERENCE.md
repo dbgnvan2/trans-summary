@@ -50,10 +50,12 @@ This guide reflects the current artifact set produced by the transcript processi
 8. Structured validation:
    - `validate_summary_coverage` -> ` - summary-validation.txt`
    - `validate_abstract_coverage` -> ` - abstract-validation.txt`
+   - These stages use the same transcript fallback behavior as structured generation.
 9. Rendering:
    - `generate_webpage` -> `.html`
    - `generate_simple_webpage` -> ` - simple.html`
    - `generate_pdf` -> `.pdf`
+   - Rendering also prefers ` - formatted.md` and falls back to ` - yaml.md` if needed.
 10. Packaging (`package_transcript`) -> `.zip`
 
 ## Notes

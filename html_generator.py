@@ -17,12 +17,12 @@ from transcript_utils import (
     extract_section,
     load_bowen_references,
     load_emphasis_items,
+    load_project_transcript,
     markdown_to_html,
     normalize_text,
     parse_filename_metadata,
     setup_logging,
     strip_yaml_frontmatter,
-    validate_input_file,
 )
 
 # ============================================================================
@@ -686,19 +686,12 @@ def generate_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the main webpage with a sidebar."""
     logger = setup_logging("generate_webpage")
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
@@ -746,19 +739,12 @@ def generate_simple_webpage(base_name: str) -> bool:
     """Generates a simple standalone webpage (no sidebar)."""
     logger = setup_logging("generate_simple_webpage")
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
@@ -795,21 +781,21 @@ def generate_pdf(base_name: str) -> bool:
     """Generates a PDF from the formatted transcript."""
     logger = setup_logging("generate_pdf")
     try:
-        from weasyprint import HTML
+        try:
+            from weasyprint import HTML
+        except ModuleNotFoundError:
+            logger.error(
+                "WeasyPrint is not installed. Install it with `pip install weasyprint` "
+                "and ensure the required system libraries are available."
+            )
+            return False
 
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_PDF}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)

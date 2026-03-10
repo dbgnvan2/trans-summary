@@ -96,6 +96,31 @@ def validate_input_file(file_path: Path) -> None:
         raise ValueError(f"Input file is empty: {file_path}")
 
 
+def load_project_transcript(base_name: str, logger: Optional[logging.Logger] = None) -> str:
+    """Load a project transcript, preferring formatted markdown and falling back to YAML."""
+    candidate_paths = [
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}",
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_YAML}",
+    ]
+
+    last_error: Optional[Exception] = None
+    for path in candidate_paths:
+        try:
+            validate_input_file(path)
+            if logger and path.name.endswith(config.SUFFIX_YAML):
+                logger.info(
+                    "Formatted transcript missing; falling back to YAML transcript: %s",
+                    path,
+                )
+            return strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise FileNotFoundError(f"No structured transcript found for project: {base_name}")
+
+
 def validate_api_response(
     message,
     expected_model: str,
