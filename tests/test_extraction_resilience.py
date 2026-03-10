@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -52,6 +51,57 @@ def test_generate_structured_abstract_falls_back_to_split_files(tmp_path, monkey
     output_path = project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
     assert output_path.exists()
     assert "Generated abstract" in output_path.read_text(encoding="utf-8")
+
+
+def test_generate_structured_abstract_uses_yaml_when_formatted_missing(tmp_path, monkeypatch):
+    base_name = "Yaml-Fallback-Abstract-Test"
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / base_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    yaml_path = project_dir / f"{base_name}{config.SUFFIX_YAML}"
+    yaml_path.write_text(
+        "---\ntitle: Test\n---\n## Section 1\nTranscript from yaml.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDescription.\n*_(~25% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n### Theme A\nA concise interpretation.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(
+        extraction_pipeline, "parse_filename_metadata", lambda _name: {"stem": base_name}
+    )
+    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+
+    captured = {}
+
+    def fake_prepare_abstract_input(**kwargs):
+        captured["transcript"] = kwargs["transcript"]
+        return SimpleNamespace(topics=["Topic A"], themes=["Theme A"])
+
+    monkeypatch.setattr(
+        extraction_pipeline.abstract_pipeline,
+        "prepare_abstract_input",
+        fake_prepare_abstract_input,
+    )
+    monkeypatch.setattr(
+        extraction_pipeline.abstract_pipeline,
+        "generate_abstract",
+        lambda *_args, **_kwargs: "Generated abstract from yaml fallback.",
+    )
+
+    logger = MagicMock()
+    ok = extraction_pipeline.generate_structured_abstract(base_name, logger=logger)
+
+    assert ok is True
+    assert "Transcript from yaml." in captured["transcript"]
 
 
 def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypatch):

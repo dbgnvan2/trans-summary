@@ -9,8 +9,6 @@ import anthropic
 
 import abstract_pipeline
 import config
-
-# We need imports for structured summary generation if summarize_transcript calls it
 import summary_pipeline
 from transcript_utils import (
     call_claude_with_retry,
@@ -28,8 +26,8 @@ from transcript_utils import (
 from validation_pipeline import (
     validate_emphasis_items,
     validate_key_terms_fidelity,
-    validate_topics_lightweight,
     validate_summary_coverage,
+    validate_topics_lightweight,
 )
 
 # Helpers
@@ -150,6 +148,31 @@ def _load_section_from_project_file(
         extracted = _extract_first_section(content, section_names)
         return extracted or content.strip()
     return content.strip()
+
+
+def _load_structured_transcript_from_project(base_name: str, logger=None) -> str:
+    """Load transcript text from the project folder, preferring formatted and falling back to YAML."""
+    candidate_paths = [
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}",
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_YAML}",
+    ]
+
+    last_error = None
+    for path in candidate_paths:
+        try:
+            validate_input_file(path)
+            if logger and path.name.endswith(config.SUFFIX_YAML):
+                logger.info(
+                    "Formatted transcript missing; falling back to YAML transcript: %s",
+                    path,
+                )
+            return strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise FileNotFoundError(f"No structured transcript found for project: {base_name}")
 
 
 def _contains_refusal_or_missing_context_text(text: str) -> bool:
@@ -713,14 +736,9 @@ def generate_structured_summary(
                          summary_target_word_count)
             return False
 
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
+        transcript = _load_structured_transcript_from_project(
+            base_name, logger=logger
         )
-        validate_input_file(formatted_file)
-
-        transcript = formatted_file.read_text(encoding="utf-8")
-        transcript = strip_yaml_frontmatter(transcript)
 
         extracts_content = ""
 
@@ -797,14 +815,9 @@ def generate_structured_abstract(
         logger = setup_logging("generate_structured_abstract")
 
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
+        transcript = _load_structured_transcript_from_project(
+            base_name, logger=logger
         )
-        validate_input_file(formatted_file)
-
-        transcript = formatted_file.read_text(encoding="utf-8")
-        transcript = strip_yaml_frontmatter(transcript)
 
         metadata = parse_filename_metadata(base_name)
 
