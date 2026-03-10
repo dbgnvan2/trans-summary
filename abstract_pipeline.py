@@ -127,21 +127,70 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     """
     themes = []
 
+    def _is_real_theme_name(name: str) -> bool:
+        normalized = name.strip().lower()
+        if not normalized:
+            return False
+        if normalized.startswith("#"):
+            return False
+        if normalized in {
+            "summary paragraph",
+            "summary",
+            "conclusion",
+        }:
+            return False
+        return True
+
     # Strategy 1: Header format (### Theme Name)
     if "###" in themes_markdown:
-        blocks = [
-            b.strip() for b in re.split(r"(?:^|\n)###\s+", themes_markdown) if b.strip()
-        ]
-        for block in blocks:
-            lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
-            if not lines:
-                continue
-            name = lines[0]
-            description = " ".join(lines[1:]).strip()
-            if name and description:
+        header_blocks = re.finditer(
+            r"(?:^|\n)###\s+([^\n]+)\n(.*?)(?=(?:\n###\s+)|\Z)",
+            themes_markdown,
+            re.DOTALL,
+        )
+        for match in header_blocks:
+            name = match.group(1).strip()
+            description = " ".join(
+                ln.strip() for ln in match.group(2).split("\n") if ln.strip()
+            ).strip()
+            if _is_real_theme_name(name) and description:
                 themes.append(Theme(name=name, description=description))
 
-    # Strategy 2: Numbered format
+    # Strategy 2: Bold-numbered heading blocks:
+    # **1. Theme Name**
+    if not themes:
+        numbered_blocks = re.finditer(
+            r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n###\s+)|\Z)",
+            themes_markdown,
+            re.DOTALL,
+        )
+        for match in numbered_blocks:
+            name = match.group(2).strip()
+            block = match.group(3).strip()
+            if not _is_real_theme_name(name) or not block:
+                continue
+
+            desc_match = re.search(
+                r"\*\*Description:\*\*\s*(.+?)(?=(?:\n\*\*[A-Z][^:\n]+:\*\*)|\Z)",
+                block,
+                re.DOTALL,
+            )
+            if desc_match:
+                description = " ".join(
+                    ln.strip() for ln in desc_match.group(1).split("\n") if ln.strip()
+                ).strip()
+            else:
+                description = re.sub(r"\*\*[^*\n]+:\*\*\s*", "", block)
+                description = " ".join(
+                    ln.strip()
+                    for ln in description.split("\n")
+                    if ln.strip() and ln.strip() != "---"
+                ).strip()
+
+            if description:
+                themes.append(Theme(name=name, description=description))
+
+    # Strategy 3: Numbered format
     if not themes:
         blocks = re.finditer(
             r"(?:^|\n)\s*\d+\.\s+(.*?)(?=(?:\n\s*\d+\.\s+)|\Z)",
@@ -158,6 +207,8 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             if not line_match:
                 continue
             name = line_match.group(1).strip()
+            if not _is_real_theme_name(name):
+                continue
             description = f"{line_match.group(2).strip()} {rest.strip()}".strip()
             description = re.sub(
                 r"[\*_ \-]*Source Sections?:?\s*[^*_\n]+[\*_ \-]*",
