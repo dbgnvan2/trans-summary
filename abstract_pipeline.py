@@ -399,6 +399,7 @@ def generate_abstract(
         messages=[{"role": "user", "content": prompt}],
         max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
+        stream=True,
         min_length=150,  # Ensure substantial abstract
         **kwargs,
     )

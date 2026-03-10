@@ -735,6 +735,7 @@ def generate_summary(
         messages=[{"role": "user", "content": prompt}],
         max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
+        stream=True,
         min_length=2400,  # Ensure substantial summary (~600 words minimum)
         min_words=600,    # Enforce strict minimum of 600 words
         **kwargs,

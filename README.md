@@ -19,7 +19,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Secure by Design**: Path traversal protection, input sanitization, XSS prevention
 - **Robust Error Handling**: Categorized exceptions with stack traces, no silent failures
 - **Template-Based HTML**: Clean separation of logic and presentation using Jinja2
-- **API Reliability**: Model-agnostic API validation with automatic retry logic, truncation detection, and token usage tracking
+- **API Reliability**: Model-agnostic API validation with automatic retry logic, long-request streaming for structured summary/abstract generation, truncation detection, and token usage tracking
 - **Quality Assurance**: Validation steps for word-for-word fidelity, header accuracy, and summary coverage
 
 ## Installation

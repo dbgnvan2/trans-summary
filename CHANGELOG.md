@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-03-10
+
+### Fixed
+
+- **Structured long-request streaming**: Enabled `stream=True` in both `summary_pipeline.generate_summary()` and `abstract_pipeline.generate_abstract()` so the structured generation paths comply with Anthropic SDK long-request requirements instead of relying on callers to opt in manually.
+
+### Added
+
+- **Streaming regression tests**: Added coverage to verify `call_claude_with_retry()` uses `client.messages.stream(...)` when requested, and that structured summary/abstract generation explicitly enables streaming.
+
 ## [Unreleased] - 2026-01-11
 
 ### Documentation
