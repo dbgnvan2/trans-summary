@@ -67,6 +67,7 @@ def test_filter_validation_findings_respects_approved_terms_and_memory(tmp_path,
 
     assert filtered.suppressed_by_approved_terms == 1
     assert filtered.suppressed_by_memory == 1
+    assert filtered.suppressed_by_error_type == 0
     assert filtered.findings == [findings[2]]
 
 
@@ -84,6 +85,7 @@ def test_filter_validation_findings_injects_aliases(tmp_path, monkeypatch):
     )
 
     assert filtered.injected_aliases == 1
+    assert filtered.suppressed_by_error_type == 0
     assert filtered.findings == [
         {
             "error_type": "alias",
@@ -142,6 +144,35 @@ def test_replace_alias_occurrences_replaces_all_token_matches():
 
     assert count == 2
     assert updated == "Bowenian taught Bowenian theory. Bowenionic stays untouched."
+
+
+def test_filter_validation_findings_drops_disallowed_error_types():
+    filtered = validation_learning.filter_validation_findings(
+        [
+            {
+                "error_type": "grammar",
+                "original_text": "He lead the group yesterday",
+                "suggested_correction": "He led the group yesterday",
+                "reasoning": "Tense correction",
+            },
+            {
+                "error_type": "spelling",
+                "original_text": "Differenciation of self",
+                "suggested_correction": "Differentiation of self",
+                "reasoning": "Known domain spelling",
+            },
+        ]
+    )
+
+    assert filtered.suppressed_by_error_type == 1
+    assert filtered.findings == [
+        {
+            "error_type": "spelling",
+            "original_text": "Differenciation of self",
+            "suggested_correction": "Differentiation of self",
+            "reasoning": "Known domain spelling",
+        }
+    ]
 
 
 def test_collect_validation_review_actions_splits_apply_reject_and_approve():

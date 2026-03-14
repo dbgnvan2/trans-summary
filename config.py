@@ -11,7 +11,8 @@ to maintain backward compatibility while enabling safer state management.
 import os
 import sys
 from pathlib import Path
-from typing import Union, Dict, List, Tuple
+from typing import List, Union
+
 import model_specs  # ADDED: Import model_specs
 
 
@@ -304,8 +305,7 @@ VALIDATION_MAX_STALLED_ITERATIONS = 2
 
 # Error Types
 VALIDATION_ERROR_TYPES = {
-    'spelling', 'homophone', 'proper_noun', 'word_boundary',
-    'capitalization', 'repetition', 'punctuation', 'incomplete', 'grammar', 'alias'
+    'spelling', 'homophone', 'proper_noun', 'word_boundary', 'alias'
 }
 
 # Logging
@@ -763,7 +763,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
     elif not VALIDATION_ERROR_TYPES:
         result.add_warning(
             "VALIDATION_ERROR_TYPES is empty\n"
-            f"  Consider: Add error types like {{'homophone', 'proper_noun', 'grammar'}}"
+            "  Consider: Add error types like {'homophone', 'proper_noun', 'spelling'}"
         )
 
     # ========================================================================

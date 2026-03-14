@@ -147,6 +147,7 @@ class FilteredFindings:
     suppressed_by_memory: int
     suppressed_by_approved_terms: int
     injected_aliases: int
+    suppressed_by_error_type: int
 
 
 class ValidationLearningMemory:
@@ -301,10 +302,15 @@ def filter_validation_findings(
     filtered: list[dict[str, Any]] = []
     suppressed_by_memory = 0
     suppressed_by_approved_terms = 0
+    suppressed_by_error_type = 0
 
     for finding in combined_findings:
+        error_type = finding.get("error_type", "")
         original = finding.get("original_text", "")
         suggestion = finding.get("suggested_correction", "")
+        if error_type and error_type not in config.VALIDATION_ERROR_TYPES:
+            suppressed_by_error_type += 1
+            continue
         if _normalize_text(original) in approved_terms:
             suppressed_by_approved_terms += 1
             continue
@@ -313,12 +319,18 @@ def filter_validation_findings(
             continue
         filtered.append(finding)
 
-    if logger and (suppressed_by_memory or suppressed_by_approved_terms or injected_aliases):
+    if logger and (
+        suppressed_by_memory
+        or suppressed_by_approved_terms
+        or injected_aliases
+        or suppressed_by_error_type
+    ):
         logger.info(
-            "Validation learning: %d alias finding(s) injected, %d finding(s) suppressed via memory, %d via approved terms.",
+            "Validation learning: %d alias finding(s) injected, %d finding(s) suppressed via memory, %d via approved terms, %d via disallowed error type.",
             injected_aliases,
             suppressed_by_memory,
             suppressed_by_approved_terms,
+            suppressed_by_error_type,
         )
 
     return FilteredFindings(
@@ -326,6 +338,7 @@ def filter_validation_findings(
         suppressed_by_memory=suppressed_by_memory,
         suppressed_by_approved_terms=suppressed_by_approved_terms,
         injected_aliases=injected_aliases,
+        suppressed_by_error_type=suppressed_by_error_type,
     )
 
 

@@ -38,6 +38,7 @@ This guide reflects the current artifact set produced by the transcript processi
 ## Current Pipeline Stages
 
 1. Initial transcript validation (optional/manual stage in GUI/CLI workflows).
+   - Scope is intentionally narrow: proper nouns, homophones, spelling/non-words, and word-boundary issues.
    - GUI review actions can now update:
      - `logs/validation_memory.json` for repeatedly rejected suggestion pairs
      - `approve_terms.txt` under `TRANSCRIPTS_BASE` for approved terms/phrases

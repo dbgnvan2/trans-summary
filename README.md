@@ -84,6 +84,7 @@ If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and a
 - After the same rejection is seen enough times, that pair is blocked and suppressed on future runs.
 - Terms or phrases you explicitly approve in the review dialog are appended to `approve_terms.txt` at the `TRANSCRIPTS_BASE` root and filtered from future findings.
 - `approve_terms.txt` also supports deterministic alias rules in the form `wrong = Correct`. When a saved alias appears in a transcript, `Init Val` injects a high-confidence local finding without relying on the LLM.
+- `Init Val` is intentionally transcription-only. It now focuses on proper nouns, homophones, obvious misspellings/non-words, and word-boundary errors for this Bowen-domain corpus. It does not do grammar or punctuation cleanup.
 
 This is intentionally narrower than the `trx` validator: `trans-summary` remains LLM-finding driven, but now has persistent memory for rejected suggestions and approved domain terms.
 

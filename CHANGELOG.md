@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - **Fallback regression tests**: Added coverage for YAML-only structured abstract generation, abstract validation, and webpage generation.
 - **Initial validation learning**: Added persistent review memory for rejected `original_text -> suggested_correction` pairs in `logs/validation_memory.json`, plus approved-term persistence in `approve_terms.txt` so `Init Val` reruns can converge instead of repeating the same rejected suggestions.
 - **Deterministic validation aliases**: `approve_terms.txt` now supports `wrong = Correct` rules. `Init Val` injects alias-based findings locally and can persist selected corrections back as aliases from the review dialog.
+- **Transcription-only validation scope**: Narrowed `Init Val` to proper nouns, homophones, spelling/non-word cleanup, and word-boundary issues. Grammar, punctuation, capitalization-only, and style cleanup are now explicitly excluded in prompts and code-level filtering.
 
 ## [Unreleased] - 2026-01-11
 

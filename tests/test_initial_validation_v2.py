@@ -1,17 +1,16 @@
-import unittest
-from unittest.mock import MagicMock, patch
-import json
-from pathlib import Path
-import tempfile
-import shutil
 import os
+import shutil
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-import config
 from transcript_initial_validation_v2 import TranscriptValidatorV2
+
 
 class TestTranscriptValidatorV2(unittest.TestCase):
     def setUp(self):
@@ -62,6 +61,17 @@ class TestTranscriptValidatorV2(unittest.TestCase):
         is_valid, msg = self.validator.validate_correction(identical)
         self.assertFalse(is_valid)
         self.assertIn("identical", msg)
+
+    def test_validate_correction_rejects_disallowed_error_type(self):
+        correction = {
+            'error_type': 'grammar',
+            'original_text': 'He lead the group yesterday',
+            'suggested_correction': 'He led the group yesterday',
+            'confidence': 'high'
+        }
+        is_valid, msg = self.validator.validate_correction(correction)
+        self.assertFalse(is_valid)
+        self.assertIn("Invalid error type", msg)
 
     def test_apply_corrections_safe_overlap(self):
         """Test that overlapping replacements are handled safely."""
