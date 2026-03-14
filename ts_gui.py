@@ -13,6 +13,7 @@ import threading
 import tkinter as tk
 from contextlib import redirect_stdout
 from datetime import datetime
+from difflib import SequenceMatcher
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 import analyze_token_usage
@@ -33,6 +34,60 @@ from validation_learning import (
 )
 
 
+def _extract_compact_terms(original_text, suggested_text):
+    """Reduce a context-heavy finding to the changed lexical span."""
+    original_tokens = original_text.split()
+    suggested_tokens = suggested_text.split()
+
+    if not original_tokens or not suggested_tokens:
+        return original_text.strip(), suggested_text.strip()
+
+    matcher = SequenceMatcher(a=original_tokens, b=suggested_tokens)
+    original_changed = []
+    suggested_changed = []
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        original_changed.extend(original_tokens[i1:i2])
+        suggested_changed.extend(suggested_tokens[j1:j2])
+
+    compact_original = " ".join(original_changed).strip()
+    compact_suggested = " ".join(suggested_changed).strip()
+
+    if compact_original and compact_suggested:
+        return compact_original, compact_suggested
+
+    return original_text.strip(), suggested_text.strip()
+
+
+def _build_full_correction_text(original_text, compact_original, compact_suggested):
+    """Rebuild the full replacement string from a compact lexical edit."""
+    if not compact_original or compact_original == original_text:
+        return compact_suggested
+
+    if compact_original in original_text:
+        return original_text.replace(compact_original, compact_suggested, 1)
+
+    return compact_suggested
+
+
+def _prepare_review_finding(finding):
+    """Attach compact display terms used by the simplified review dialog."""
+    original_text = finding.get("original_text", "")
+    suggested_text = finding.get("suggested_correction", "")
+
+    compact_original, compact_suggested = _extract_compact_terms(
+        original_text,
+        suggested_text,
+    )
+
+    prepared = finding.copy()
+    prepared["display_original"] = compact_original
+    prepared["display_suggested"] = compact_suggested
+    return prepared
+
+
 def _collect_validation_review_actions(item_vars):
     """Split reviewed items into corrections, rejections, approved terms, and aliases."""
     final_corrections = []
@@ -42,25 +97,28 @@ def _collect_validation_review_actions(item_vars):
 
     for item in item_vars:
         apply_selected = bool(item["apply"].get())
-        approve_term = bool(item["approve_term"].get())
-        save_alias = bool(item["save_alias"].get())
-        correction_text = item["correction"].get()
+        compact_original = item["display_original"]
+        correction_text = item["correction"].get().strip()
         original_finding = item["original_finding"]
+        full_suggestion = _build_full_correction_text(
+            original_finding.get("original_text", ""),
+            compact_original,
+            correction_text,
+        )
 
         if apply_selected:
             correction = original_finding.copy()
-            correction["suggested_correction"] = correction_text
+            correction["suggested_correction"] = full_suggestion
             final_corrections.append(correction)
-            if save_alias:
-                aliases.append((original_finding.get("original_text", ""), correction_text))
+
+            if compact_original and correction_text and compact_original != correction_text:
+                aliases.append((compact_original, correction_text))
+                approved_terms.append(correction_text)
             continue
 
         rejection = original_finding.copy()
-        rejection["suggested_correction"] = correction_text
+        rejection["suggested_correction"] = full_suggestion
         rejected_findings.append(rejection)
-
-        if approve_term:
-            approved_terms.append(original_finding.get("original_text", ""))
 
     return final_corrections, rejected_findings, approved_terms, aliases
 
@@ -108,7 +166,7 @@ class ValidationReviewDialog(tk.Toplevel):
         header_frame.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(header_frame, text=f"Found {len(findings)} potential errors.", font=(
             "", 12, "bold")).pack(anchor="w")
-        ttk.Label(header_frame, text="Review items below. Uncheck to reject. Edit the 'Correction' field to modify.").pack(
+        ttk.Label(header_frame, text="Checked items will be applied and added to the dictionary automatically. Uncheck only the few you want to reject.").pack(
             anchor="w")
 
         # Scrollable Canvas for items
@@ -158,62 +216,38 @@ class ValidationReviewDialog(tk.Toplevel):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
     def _create_item_row(self, index, finding):
-        frame = ttk.LabelFrame(
-            self.scrollable_frame, text=f"Issue #{index+1}: {finding.get('error_type', 'Unknown')}")
-        frame.pack(fill=tk.X, expand=True, padx=5, pady=5)
+        prepared = _prepare_review_finding(finding)
 
-        # Grid layout for the row
-        frame.columnconfigure(1, weight=1)
+        frame = ttk.Frame(self.scrollable_frame)
+        frame.pack(fill=tk.X, expand=True, padx=5, pady=2)
+        frame.columnconfigure(3, weight=1)
 
-        # Original
-        ttk.Label(frame, text="Original:", font=("", 10, "bold")).grid(
-            row=0, column=0, sticky="nw", padx=5, pady=2)
-        ttk.Label(frame, text=f"\"{finding.get('original_text', '')}\"", wraplength=800).grid(
-            row=0, column=1, sticky="w", padx=5, pady=2)
-
-        # Reasoning
-        ttk.Label(frame, text="Reasoning:", font=("", 10, "bold")).grid(
-            row=1, column=0, sticky="nw", padx=5, pady=2)
-        ttk.Label(frame, text=finding.get('reasoning', ''), wraplength=800).grid(
-            row=1, column=1, sticky="w", padx=5, pady=2)
-
-        # Correction (Editable)
-        ttk.Label(frame, text="Correction:", font=("", 10, "bold")).grid(
-            row=2, column=0, sticky="nw", padx=5, pady=2)
-
-        correction_var = tk.StringVar(
-            value=finding.get('suggested_correction', ''))
-        entry = ttk.Entry(frame, textvariable=correction_var, width=80)
-        entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-
-        # Checkbox
         apply_var = tk.BooleanVar(value=True)
-        chk = ttk.Checkbutton(
-            frame, text="Apply this correction", variable=apply_var)
-        chk.grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=5)
-
-        approve_term_var = tk.BooleanVar(value=False)
-        approve_chk = ttk.Checkbutton(
-            frame,
-            text="Approve original text as valid term/phrase for future runs",
-            variable=approve_term_var,
+        ttk.Checkbutton(frame, variable=apply_var).grid(
+            row=0, column=0, sticky="w", padx=(0, 8)
         )
-        approve_chk.grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
-
-        save_alias_var = tk.BooleanVar(value=False)
-        alias_chk = ttk.Checkbutton(
+        ttk.Label(
             frame,
-            text="Save this correction as deterministic alias for future runs (wrong = Correct)",
-            variable=save_alias_var,
+            text=f"{index + 1}. {prepared.get('error_type', 'unknown')}",
+            width=18,
+        ).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ttk.Label(
+            frame,
+            text=prepared.get("display_original", ""),
+            width=28,
+        ).grid(row=0, column=2, sticky="w", padx=(0, 8))
+        ttk.Label(frame, text=">").grid(row=0, column=3, sticky="w", padx=(0, 8))
+
+        correction_var = tk.StringVar(value=prepared.get("display_suggested", ""))
+        ttk.Entry(frame, textvariable=correction_var, width=42).grid(
+            row=0, column=4, sticky="ew"
         )
-        alias_chk.grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
         self.item_vars.append({
             'apply': apply_var,
-            'approve_term': approve_term_var,
-            'save_alias': save_alias_var,
             'correction': correction_var,
-            'original_finding': finding
+            'display_original': prepared.get("display_original", ""),
+            'original_finding': prepared,
         })
 
     def on_apply(self, finalize=False):

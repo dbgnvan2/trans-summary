@@ -1,5 +1,9 @@
 import validation_learning
-from ts_gui import _collect_validation_review_actions
+from ts_gui import (
+    _build_full_correction_text,
+    _collect_validation_review_actions,
+    _extract_compact_terms,
+)
 
 
 class DummyVar:
@@ -175,39 +179,66 @@ def test_filter_validation_findings_drops_disallowed_error_types():
     ]
 
 
-def test_collect_validation_review_actions_splits_apply_reject_and_approve():
+def test_extract_compact_terms_reduces_context_to_changed_span():
+    compact_original, compact_suggested = _extract_compact_terms(
+        "thus alienated both the Popee and the Jesuits",
+        "thus alienated both the Pope and the Jesuits",
+    )
+
+    assert compact_original == "Popee"
+    assert compact_suggested == "Pope"
+
+
+def test_build_full_correction_text_reconstructs_context():
+    rebuilt = _build_full_correction_text(
+        "thus alienated both the Popee and the Jesuits",
+        "Popee",
+        "Pope",
+    )
+
+    assert rebuilt == "thus alienated both the Pope and the Jesuits"
+
+
+def test_collect_validation_review_actions_auto_saves_dictionary_entries():
     finding_apply = {
-        "original_text": "teh family",
-        "suggested_correction": "the family",
+        "original_text": "thus alienated both the Popee and the Jesuits",
+        "suggested_correction": "thus alienated both the Pope and the Jesuits",
         "reasoning": "Spelling",
+        "display_original": "Popee",
+        "display_suggested": "Pope",
     }
     finding_reject = {
         "original_text": "Bowenion",
         "suggested_correction": "Bowenian",
         "reasoning": "Name spelling",
+        "display_original": "Bowenion",
+        "display_suggested": "Bowenian",
     }
 
     actions = _collect_validation_review_actions(
         [
             {
                 "apply": DummyVar(True),
-                "approve_term": DummyVar(False),
-                "save_alias": DummyVar(True),
-                "correction": DummyVar("the family"),
+                "correction": DummyVar("Pope"),
+                "display_original": "Popee",
                 "original_finding": finding_apply,
             },
             {
                 "apply": DummyVar(False),
-                "approve_term": DummyVar(True),
-                "save_alias": DummyVar(False),
                 "correction": DummyVar("Bowenian"),
+                "display_original": "Bowenion",
                 "original_finding": finding_reject,
             },
         ]
     )
 
     corrections, rejected_findings, approved_terms, aliases = actions
-    assert corrections == [{**finding_apply, "suggested_correction": "the family"}]
+    assert corrections == [
+        {
+            **finding_apply,
+            "suggested_correction": "thus alienated both the Pope and the Jesuits",
+        }
+    ]
     assert rejected_findings == [{**finding_reject, "suggested_correction": "Bowenian"}]
-    assert approved_terms == ["Bowenion"]
-    assert aliases == [("teh family", "the family")]
+    assert approved_terms == ["Pope"]
+    assert aliases == [("Popee", "Pope")]
