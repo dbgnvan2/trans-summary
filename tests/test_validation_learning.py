@@ -32,7 +32,7 @@ def test_validation_memory_promotes_rejected_pairs(tmp_path):
 
 def test_filter_validation_findings_respects_approved_terms_and_memory(tmp_path, monkeypatch):
     approved_terms_path = tmp_path / "approve_terms.txt"
-    approved_terms_path.write_text("Bowenion\n", encoding="utf-8")
+    approved_terms_path.write_text("Bowenian\n", encoding="utf-8")
 
     memory_path = tmp_path / "validation_memory.json"
     memory = validation_learning.ValidationLearningMemory(
@@ -47,8 +47,8 @@ def test_filter_validation_findings_respects_approved_terms_and_memory(tmp_path,
 
     findings = [
         {
-            "original_text": "Bowenion",
-            "suggested_correction": "Bowenian",
+            "original_text": "Bowenian",
+            "suggested_correction": "Bowenion",
             "reasoning": "Name spelling",
         },
         {
@@ -70,6 +70,34 @@ def test_filter_validation_findings_respects_approved_terms_and_memory(tmp_path,
     assert filtered.findings == [findings[2]]
 
 
+def test_filter_validation_findings_injects_aliases(tmp_path, monkeypatch):
+    approved_terms_path = tmp_path / "approve_terms.txt"
+    approved_terms_path.write_text("Bowenion = Bowenian\n", encoding="utf-8")
+    memory_path = tmp_path / "validation_memory.json"
+
+    monkeypatch.setattr(validation_learning, "_approved_terms_path", lambda: approved_terms_path)
+    monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
+
+    filtered = validation_learning.filter_validation_findings(
+        [],
+        transcript_text="Bowenion described emotional cutoff in this talk.",
+    )
+
+    assert filtered.injected_aliases == 1
+    assert filtered.findings == [
+        {
+            "error_type": "alias",
+            "original_text": "Bowenion",
+            "suggested_correction": "Bowenian",
+            "confidence": "high",
+            "reasoning": (
+                "Deterministic alias from approve_terms.txt: "
+                "Bowenion = Bowenian"
+            ),
+        }
+    ]
+
+
 def test_append_approved_terms_deduplicates_normalized_values(tmp_path):
     approved_terms_path = tmp_path / "approve_terms.txt"
     approved_terms_path.write_text("Bowen theory\n", encoding="utf-8")
@@ -84,6 +112,36 @@ def test_append_approved_terms_deduplicates_normalized_values(tmp_path):
         "Bowen theory",
         "Family projection process",
     ]
+
+
+def test_append_validation_aliases_deduplicates_existing_pairs(tmp_path):
+    approved_terms_path = tmp_path / "approve_terms.txt"
+    approved_terms_path.write_text("Bowenion = Bowenian\n", encoding="utf-8")
+
+    added = validation_learning.append_validation_aliases(
+        [
+            ("Bowenion", "Bowenian"),
+            ("triangeling", "triangling"),
+        ],
+        path=approved_terms_path,
+    )
+
+    assert added == 1
+    assert approved_terms_path.read_text(encoding="utf-8").splitlines() == [
+        "Bowenion = Bowenian",
+        "triangeling = triangling",
+    ]
+
+
+def test_replace_alias_occurrences_replaces_all_token_matches():
+    updated, count = validation_learning.replace_alias_occurrences(
+        "Bowenion taught Bowenion theory. Bowenionic stays untouched.",
+        "Bowenion",
+        "Bowenian",
+    )
+
+    assert count == 2
+    assert updated == "Bowenian taught Bowenian theory. Bowenionic stays untouched."
 
 
 def test_collect_validation_review_actions_splits_apply_reject_and_approve():
@@ -103,19 +161,22 @@ def test_collect_validation_review_actions_splits_apply_reject_and_approve():
             {
                 "apply": DummyVar(True),
                 "approve_term": DummyVar(False),
+                "save_alias": DummyVar(True),
                 "correction": DummyVar("the family"),
                 "original_finding": finding_apply,
             },
             {
                 "apply": DummyVar(False),
                 "approve_term": DummyVar(True),
+                "save_alias": DummyVar(False),
                 "correction": DummyVar("Bowenian"),
                 "original_finding": finding_reject,
             },
         ]
     )
 
-    corrections, rejected_findings, approved_terms = actions
+    corrections, rejected_findings, approved_terms, aliases = actions
     assert corrections == [{**finding_apply, "suggested_correction": "the family"}]
     assert rejected_findings == [{**finding_reject, "suggested_correction": "Bowenian"}]
     assert approved_terms == ["Bowenion"]
+    assert aliases == [("teh family", "the family")]

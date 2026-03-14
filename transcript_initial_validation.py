@@ -16,7 +16,7 @@ from anthropic import Anthropic
 
 import config
 import transcript_utils
-from validation_learning import filter_validation_findings
+from validation_learning import filter_validation_findings, replace_alias_occurrences
 
 
 class TranscriptValidator:
@@ -149,7 +149,11 @@ class TranscriptValidator:
                 else:
                     findings = []
 
-                filtered = filter_validation_findings(findings, logger=self.logger)
+                filtered = filter_validation_findings(
+                    findings,
+                    transcript_text=transcript_text,
+                    logger=self.logger,
+                )
                 self.logger.info("Parsed %d findings (%d after suppression).",
                                  len(findings), len(filtered.findings))
                 return filtered.findings
@@ -197,6 +201,14 @@ class TranscriptValidator:
             replacement = item.get('suggested_correction')
 
             if not original or replacement is None:
+                continue
+
+            if item.get('error_type') == 'alias':
+                content, alias_count = replace_alias_occurrences(content, original, replacement)
+                if alias_count:
+                    applied_count += alias_count
+                else:
+                    self.logger.warning("Alias replacement not found: '%s'", original)
                 continue
 
             # Check occurrence count

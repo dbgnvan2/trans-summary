@@ -26,18 +26,24 @@ import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
 from transcript_utils import clean_project_name
-from validation_learning import append_approved_terms, record_validation_rejections
+from validation_learning import (
+    append_approved_terms,
+    append_validation_aliases,
+    record_validation_rejections,
+)
 
 
 def _collect_validation_review_actions(item_vars):
-    """Split reviewed items into corrections, rejections, and approved terms."""
+    """Split reviewed items into corrections, rejections, approved terms, and aliases."""
     final_corrections = []
     rejected_findings = []
     approved_terms = []
+    aliases = []
 
     for item in item_vars:
         apply_selected = bool(item["apply"].get())
         approve_term = bool(item["approve_term"].get())
+        save_alias = bool(item["save_alias"].get())
         correction_text = item["correction"].get()
         original_finding = item["original_finding"]
 
@@ -45,6 +51,8 @@ def _collect_validation_review_actions(item_vars):
             correction = original_finding.copy()
             correction["suggested_correction"] = correction_text
             final_corrections.append(correction)
+            if save_alias:
+                aliases.append((original_finding.get("original_text", ""), correction_text))
             continue
 
         rejection = original_finding.copy()
@@ -54,7 +62,7 @@ def _collect_validation_review_actions(item_vars):
         if approve_term:
             approved_terms.append(original_finding.get("original_text", ""))
 
-    return final_corrections, rejected_findings, approved_terms
+    return final_corrections, rejected_findings, approved_terms, aliases
 
 
 class GuiLoggerAdapter:
@@ -192,9 +200,18 @@ class ValidationReviewDialog(tk.Toplevel):
         )
         approve_chk.grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
 
+        save_alias_var = tk.BooleanVar(value=False)
+        alias_chk = ttk.Checkbutton(
+            frame,
+            text="Save this correction as deterministic alias for future runs (wrong = Correct)",
+            variable=save_alias_var,
+        )
+        alias_chk.grid(row=5, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+
         self.item_vars.append({
             'apply': apply_var,
             'approve_term': approve_term_var,
+            'save_alias': save_alias_var,
             'correction': correction_var,
             'original_finding': finding
         })
@@ -757,14 +774,14 @@ class TranscriptProcessorGUI:
     def _prompt_finalize_no_issues(self, source_file):
         if messagebox.askyesno("Validation Complete", "No issues found. Create final validated copy?"):
             self.run_task_in_thread(
-                self._apply_validation_corrections, [], [], [], source_file, True)
+                self._apply_validation_corrections, [], [], [], [], source_file, True)
 
     def show_validation_dialog(self, findings, source_file):
         ValidationReviewDialog(self.root, findings,
-                               lambda corrections, rejected, approved_terms, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, source_file, finalize))
+                               lambda corrections, rejected, approved_terms, aliases, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, aliases, source_file, finalize))
 
-    def _handle_validation_apply(self, corrections, rejected_findings, approved_terms, source_file, finalize):
-        if not corrections and not rejected_findings and not approved_terms and not finalize:
+    def _handle_validation_apply(self, corrections, rejected_findings, approved_terms, aliases, source_file, finalize):
+        if not corrections and not rejected_findings and not approved_terms and not aliases and not finalize:
             self.log("No corrections selected.")
             return
 
@@ -776,9 +793,9 @@ class TranscriptProcessorGUI:
         self.log(msg)
 
         self.run_task_in_thread(
-            self._apply_validation_corrections, corrections, rejected_findings, approved_terms, source_file, finalize)
+            self._apply_validation_corrections, corrections, rejected_findings, approved_terms, aliases, source_file, finalize)
 
-    def _apply_validation_corrections(self, corrections, rejected_findings, approved_terms, source_file, finalize):
+    def _apply_validation_corrections(self, corrections, rejected_findings, approved_terms, aliases, source_file, finalize):
         # Determine output filename logic (v1, v2...)
         stem = source_file.stem
 
@@ -818,6 +835,14 @@ class TranscriptProcessorGUI:
             self.log(
                 "Added %d approved term(s)/phrase(s) to %s.",
                 added,
+                config.VALIDATION_APPROVED_TERMS_FILENAME,
+            )
+
+        if aliases:
+            added_aliases = append_validation_aliases(aliases)
+            self.log(
+                "Added %d deterministic alias(es) to %s.",
+                added_aliases,
                 config.VALIDATION_APPROVED_TERMS_FILENAME,
             )
 

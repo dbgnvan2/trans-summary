@@ -305,7 +305,7 @@ VALIDATION_MAX_STALLED_ITERATIONS = 2
 # Error Types
 VALIDATION_ERROR_TYPES = {
     'spelling', 'homophone', 'proper_noun', 'word_boundary',
-    'capitalization', 'repetition', 'punctuation', 'incomplete', 'grammar'
+    'capitalization', 'repetition', 'punctuation', 'incomplete', 'grammar', 'alias'
 }
 
 # Logging

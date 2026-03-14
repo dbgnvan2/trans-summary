@@ -56,6 +56,7 @@ Initial transcript validation also now has persistent review memory:
 
 - rejected suggestion pairs can be promoted into `logs/validation_memory.json` and suppressed on future reruns
 - approved terms/phrases are stored in `approve_terms.txt` under `TRANSCRIPTS_BASE`
+- `approve_terms.txt` also supports `wrong = Correct` alias entries for deterministic validation findings and replacements
 
 ## Testing Status (2026-02-10)
 

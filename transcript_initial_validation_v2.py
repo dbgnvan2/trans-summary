@@ -17,7 +17,7 @@ from anthropic import Anthropic
 import config
 import model_specs
 import transcript_utils
-from validation_learning import filter_validation_findings
+from validation_learning import filter_validation_findings, replace_alias_occurrences
 
 
 class ValidationMetrics:
@@ -169,7 +169,11 @@ class TranscriptValidatorV2:
         if hallucinations:
              self.logger.warning(f"Detected {len(hallucinations)} hallucinations (removed).")
 
-        filtered = filter_validation_findings(valid_findings, logger=self.logger)
+        filtered = filter_validation_findings(
+            valid_findings,
+            transcript_text=full_text,
+            logger=self.logger,
+        )
         self.logger.info(
             "Validation findings after suppression: %d/%d",
             len(filtered.findings),
@@ -346,11 +350,22 @@ class TranscriptValidatorV2:
             
         replacements = [] # List of (start, end, replacement_text, source_correction)
         skipped_reasons = []
+        alias_applied_count = 0
         
         # 1. Locate all matches
         for corr in corrections:
             original = corr['original_text']
             replacement = corr['suggested_correction']
+
+            if corr.get('error_type') == 'alias':
+                content, alias_count = replace_alias_occurrences(content, original, replacement)
+                if alias_count:
+                    alias_applied_count += alias_count
+                else:
+                    msg = f"Alias replacement not found: '{original[:20]}...'"
+                    skipped_reasons.append(msg)
+                    self.logger.warning(msg)
+                continue
             
             # Find all occurrences
             # Note: This finds ALL, but we need to be careful if multiple exist.
@@ -387,7 +402,7 @@ class TranscriptValidatorV2:
         replacements.sort(key=lambda x: x[0], reverse=True)
         
         # 3. Apply
-        applied_count = 0
+        applied_count = alias_applied_count
         final_content = content
         
         # Track intervals to prevent overlap

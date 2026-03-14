@@ -17,6 +17,10 @@ def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", (value or "").strip().lower())
 
 
+def _clean_term(value: str) -> str:
+    return " ".join((value or "").split()).strip()
+
+
 def _memory_path() -> Path:
     return config.LOGS_DIR / config.VALIDATION_MEMORY_FILENAME
 
@@ -36,8 +40,32 @@ def load_approved_terms(path: Path | None = None) -> set[str]:
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        approved.add(_normalize_text(stripped.split("=", 1)[0]))
+        if "=" in stripped:
+            _, correct = stripped.split("=", 1)
+            approved.add(_normalize_text(correct))
+        else:
+            approved.add(_normalize_text(stripped))
     return approved
+
+
+def load_validation_aliases(path: Path | None = None) -> dict[str, str]:
+    """Load deterministic alias corrections from the approved terms file."""
+    target = path or _approved_terms_path()
+    if not target.exists():
+        return {}
+
+    aliases: dict[str, str] = {}
+    for line in target.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        wrong, correct = stripped.split("=", 1)
+        wrong = _clean_term(wrong)
+        correct = _clean_term(correct)
+        if not wrong or not correct:
+            continue
+        aliases[wrong] = correct
+    return aliases
 
 
 def append_approved_terms(terms: list[str], path: Path | None = None) -> int:
@@ -45,7 +73,7 @@ def append_approved_terms(terms: list[str], path: Path | None = None) -> int:
     cleaned_terms = []
     existing = load_approved_terms(path)
     for term in terms:
-        stripped = " ".join((term or "").split()).strip()
+        stripped = _clean_term(term)
         normalized = _normalize_text(stripped)
         if not stripped or not normalized or normalized in existing:
             continue
@@ -63,11 +91,62 @@ def append_approved_terms(terms: list[str], path: Path | None = None) -> int:
     return len(cleaned_terms)
 
 
+def append_validation_aliases(
+    aliases: list[tuple[str, str]],
+    path: Path | None = None,
+) -> int:
+    """Append new wrong=correct alias pairs to the approved terms file."""
+    target = path or _approved_terms_path()
+    existing_aliases = {
+        _normalize_text(wrong): _normalize_text(correct)
+        for wrong, correct in load_validation_aliases(target).items()
+    }
+
+    cleaned_aliases: list[tuple[str, str]] = []
+    for wrong, correct in aliases:
+        wrong_clean = _clean_term(wrong)
+        correct_clean = _clean_term(correct)
+        wrong_norm = _normalize_text(wrong_clean)
+        correct_norm = _normalize_text(correct_clean)
+        if (
+            not wrong_clean
+            or not correct_clean
+            or not wrong_norm
+            or not correct_norm
+            or wrong_norm == correct_norm
+        ):
+            continue
+        if existing_aliases.get(wrong_norm) == correct_norm:
+            continue
+        existing_aliases[wrong_norm] = correct_norm
+        cleaned_aliases.append((wrong_clean, correct_clean))
+
+    if not cleaned_aliases:
+        return 0
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        for wrong, correct in cleaned_aliases:
+            handle.write(f"{wrong} = {correct}\n")
+    return len(cleaned_aliases)
+
+
+def replace_alias_occurrences(content: str, wrong: str, correct: str) -> tuple[str, int]:
+    """Apply a deterministic alias replacement across the transcript."""
+    wrong_clean = _clean_term(wrong)
+    if not wrong_clean:
+        return content, 0
+
+    pattern = re.compile(rf"(?<!\w){re.escape(wrong_clean)}(?!\w)", flags=re.IGNORECASE)
+    return pattern.subn(correct, content)
+
+
 @dataclass
 class FilteredFindings:
     findings: list[dict[str, Any]]
     suppressed_by_memory: int
     suppressed_by_approved_terms: int
+    injected_aliases: int
 
 
 class ValidationLearningMemory:
@@ -177,17 +256,53 @@ class ValidationLearningMemory:
 
 def filter_validation_findings(
     findings: list[dict[str, Any]],
+    transcript_text: str = "",
     logger: logging.Logger | None = None,
 ) -> FilteredFindings:
-    """Suppress findings that are blocked by memory or approved terms."""
+    """Inject deterministic aliases, then suppress findings by memory or approved terms."""
     approved_terms = load_approved_terms()
+    aliases = load_validation_aliases()
     memory = ValidationLearningMemory(logger=logger)
+
+    combined_findings = list(findings)
+    injected_aliases = 0
+    seen_pairs = {
+        (
+            _normalize_text(item.get("original_text", "")),
+            _normalize_text(item.get("suggested_correction", "")),
+        )
+        for item in combined_findings
+    }
+
+    for wrong, correct in aliases.items():
+        if not transcript_text:
+            break
+        pattern = re.compile(rf"(?<!\w){re.escape(wrong)}(?!\w)", flags=re.IGNORECASE)
+        if not pattern.search(transcript_text):
+            continue
+        pair = (_normalize_text(wrong), _normalize_text(correct))
+        if pair in seen_pairs:
+            continue
+        combined_findings.append(
+            {
+                "error_type": "alias",
+                "original_text": wrong,
+                "suggested_correction": correct,
+                "confidence": "high",
+                "reasoning": (
+                    f"Deterministic alias from {config.VALIDATION_APPROVED_TERMS_FILENAME}: "
+                    f"{wrong} = {correct}"
+                ),
+            }
+        )
+        seen_pairs.add(pair)
+        injected_aliases += 1
 
     filtered: list[dict[str, Any]] = []
     suppressed_by_memory = 0
     suppressed_by_approved_terms = 0
 
-    for finding in findings:
+    for finding in combined_findings:
         original = finding.get("original_text", "")
         suggestion = finding.get("suggested_correction", "")
         if _normalize_text(original) in approved_terms:
@@ -198,9 +313,10 @@ def filter_validation_findings(
             continue
         filtered.append(finding)
 
-    if logger and (suppressed_by_memory or suppressed_by_approved_terms):
+    if logger and (suppressed_by_memory or suppressed_by_approved_terms or injected_aliases):
         logger.info(
-            "Suppressed %d finding(s) via validation memory and %d via approved terms.",
+            "Validation learning: %d alias finding(s) injected, %d finding(s) suppressed via memory, %d via approved terms.",
+            injected_aliases,
             suppressed_by_memory,
             suppressed_by_approved_terms,
         )
@@ -209,6 +325,7 @@ def filter_validation_findings(
         findings=filtered,
         suppressed_by_memory=suppressed_by_memory,
         suppressed_by_approved_terms=suppressed_by_approved_terms,
+        injected_aliases=injected_aliases,
     )
 
 
