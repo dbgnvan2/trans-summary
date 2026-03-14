@@ -4,6 +4,8 @@ from ts_gui import (
     _build_full_correction_text,
     _collect_validation_review_actions,
     _extract_compact_terms,
+    _is_simple_dictionary_candidate,
+    _prepare_review_finding,
 )
 
 
@@ -207,6 +209,47 @@ def test_build_context_phrase_returns_local_snippet():
     )
 
     assert snippet == "thus alienated both the Popee and the Jesuits in"
+
+
+def test_is_simple_dictionary_candidate_rejects_phrase_rewrites():
+    finding = {
+        "error_type": "proper_noun",
+        "original_text": "Galileo, Denier is",
+        "suggested_correction": "Galileo and the Deniers",
+    }
+
+    compact_original, compact_suggested = _extract_compact_terms(
+        finding["original_text"],
+        finding["suggested_correction"],
+    )
+
+    assert compact_original == "Galileo, Denier is"
+    assert compact_suggested == "Galileo and the Deniers"
+    assert not _is_simple_dictionary_candidate(
+        finding,
+        compact_original,
+        compact_suggested,
+    )
+    assert _prepare_review_finding(finding) is None
+
+
+def test_is_simple_dictionary_candidate_accepts_single_word_proper_noun():
+    finding = {
+        "error_type": "proper_noun",
+        "original_text": "Taiko",
+        "suggested_correction": "Tycho",
+    }
+
+    compact_original, compact_suggested = _extract_compact_terms(
+        finding["original_text"],
+        finding["suggested_correction"],
+    )
+
+    assert _is_simple_dictionary_candidate(
+        finding,
+        compact_original,
+        compact_suggested,
+    )
 
 
 def test_collect_validation_review_actions_auto_saves_dictionary_entries():

@@ -88,6 +88,27 @@ def _build_context_phrase(original_text, compact_original, window_words=4):
     return original_text.strip()
 
 
+def _is_simple_dictionary_candidate(finding, compact_original, compact_suggested):
+    """Keep only compact lexical replacements suitable for the dictionary."""
+    original_text = finding.get("original_text", "").strip()
+    suggested_text = finding.get("suggested_correction", "").strip()
+    error_type = finding.get("error_type", "")
+
+    if not original_text or not suggested_text or not compact_original or not compact_suggested:
+        return False
+
+    if _build_full_correction_text(original_text, compact_original, compact_suggested) != suggested_text:
+        return False
+
+    original_count = len(compact_original.split())
+    suggested_count = len(compact_suggested.split())
+
+    if error_type == "word_boundary":
+        return original_count <= 2 and suggested_count <= 2
+
+    return original_count == 1 and suggested_count == 1
+
+
 def _prepare_review_finding(finding):
     """Attach compact display terms used by the simplified review dialog."""
     original_text = finding.get("original_text", "")
@@ -97,6 +118,9 @@ def _prepare_review_finding(finding):
         original_text,
         suggested_text,
     )
+
+    if not _is_simple_dictionary_candidate(finding, compact_original, compact_suggested):
+        return None
 
     prepared = finding.copy()
     prepared["display_original"] = compact_original
@@ -172,7 +196,8 @@ class ValidationReviewDialog(tk.Toplevel):
         self.title("Review Transcript Corrections")
         self.geometry("1000x700")
         self.apply_callback = apply_callback
-        self.findings = findings
+        self.findings = [prepared for finding in findings if (prepared := _prepare_review_finding(finding))]
+        self.skipped_findings = len(findings) - len(self.findings)
 
         # Main container
         main_frame = ttk.Frame(self)
@@ -181,18 +206,23 @@ class ValidationReviewDialog(tk.Toplevel):
         # Instructions
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(header_frame, text=f"Found {len(findings)} potential errors.", font=(
+        ttk.Label(header_frame, text=f"Found {len(self.findings)} dictionary candidates.", font=(
             "", 12, "bold")).pack(anchor="w")
         ttk.Label(header_frame, text="Checked items create dictionary entries in the form Wrong >>> Correct. Uncheck only the few you want to reject.").pack(
             anchor="w")
+        if self.skipped_findings:
+            ttk.Label(
+                header_frame,
+                text=f"Omitted {self.skipped_findings} broad or non-lexical suggestions.",
+            ).pack(anchor="w")
 
         columns_frame = ttk.Frame(main_frame)
         columns_frame.pack(fill=tk.X, pady=(0, 4))
         ttk.Label(columns_frame, text="", width=4).grid(row=0, column=0, sticky="w")
-        ttk.Label(columns_frame, text="Type", width=16).grid(row=0, column=1, sticky="w")
-        ttk.Label(columns_frame, text="Wrong", width=22).grid(row=0, column=2, sticky="w")
+        ttk.Label(columns_frame, text="Type", width=14).grid(row=0, column=1, sticky="w")
+        ttk.Label(columns_frame, text="Wrong", width=16).grid(row=0, column=2, sticky="w")
         ttk.Label(columns_frame, text="", width=4).grid(row=0, column=3, sticky="w")
-        ttk.Label(columns_frame, text="Correct", width=22).grid(row=0, column=4, sticky="w")
+        ttk.Label(columns_frame, text="Correct", width=16).grid(row=0, column=4, sticky="w")
         ttk.Label(columns_frame, text="Context phrase").grid(row=0, column=5, sticky="w", padx=(8, 0))
 
         # Scrollable Canvas for items
@@ -223,7 +253,7 @@ class ValidationReviewDialog(tk.Toplevel):
         # Populate items
         self.item_vars = []
 
-        for i, finding in enumerate(findings):
+        for i, finding in enumerate(self.findings):
             self._create_item_row(i, finding)
 
         # Buttons
@@ -241,9 +271,7 @@ class ValidationReviewDialog(tk.Toplevel):
         """Handle mouse wheel scrolling for the canvas."""
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
-    def _create_item_row(self, index, finding):
-        prepared = _prepare_review_finding(finding)
-
+    def _create_item_row(self, index, prepared):
         frame = ttk.Frame(self.scrollable_frame)
         frame.pack(fill=tk.X, expand=True, padx=5, pady=2)
         frame.columnconfigure(5, weight=1)
@@ -255,17 +283,17 @@ class ValidationReviewDialog(tk.Toplevel):
         ttk.Label(
             frame,
             text=f"{index + 1}. {prepared.get('error_type', 'unknown')}",
-            width=16,
+            width=14,
         ).grid(row=0, column=1, sticky="w", padx=(0, 8))
         ttk.Label(
             frame,
             text=prepared.get("display_original", ""),
-            width=22,
+            width=16,
         ).grid(row=0, column=2, sticky="w", padx=(0, 8))
         ttk.Label(frame, text=">>>").grid(row=0, column=3, sticky="w", padx=(0, 8))
 
         correction_var = tk.StringVar(value=prepared.get("display_suggested", ""))
-        ttk.Entry(frame, textvariable=correction_var, width=42).grid(
+        ttk.Entry(frame, textvariable=correction_var, width=24).grid(
             row=0, column=4, sticky="w"
         )
         ttk.Label(
