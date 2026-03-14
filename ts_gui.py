@@ -72,6 +72,22 @@ def _build_full_correction_text(original_text, compact_original, compact_suggest
     return compact_suggested
 
 
+def _build_context_phrase(original_text, compact_original, window_words=4):
+    """Build a short context snippet around the changed term."""
+    words = original_text.split()
+    target_words = compact_original.split()
+    if not words or not target_words:
+        return original_text.strip()
+
+    for start in range(0, len(words) - len(target_words) + 1):
+        if words[start:start + len(target_words)] == target_words:
+            snippet_start = max(0, start - window_words)
+            snippet_end = min(len(words), start + len(target_words) + window_words)
+            return " ".join(words[snippet_start:snippet_end])
+
+    return original_text.strip()
+
+
 def _prepare_review_finding(finding):
     """Attach compact display terms used by the simplified review dialog."""
     original_text = finding.get("original_text", "")
@@ -85,6 +101,7 @@ def _prepare_review_finding(finding):
     prepared = finding.copy()
     prepared["display_original"] = compact_original
     prepared["display_suggested"] = compact_suggested
+    prepared["context_phrase"] = _build_context_phrase(original_text, compact_original)
     return prepared
 
 
@@ -166,8 +183,17 @@ class ValidationReviewDialog(tk.Toplevel):
         header_frame.pack(fill=tk.X, pady=(0, 10))
         ttk.Label(header_frame, text=f"Found {len(findings)} potential errors.", font=(
             "", 12, "bold")).pack(anchor="w")
-        ttk.Label(header_frame, text="Checked items will be applied and added to the dictionary automatically. Uncheck only the few you want to reject.").pack(
+        ttk.Label(header_frame, text="Checked items create dictionary entries in the form Wrong >>> Correct. Uncheck only the few you want to reject.").pack(
             anchor="w")
+
+        columns_frame = ttk.Frame(main_frame)
+        columns_frame.pack(fill=tk.X, pady=(0, 4))
+        ttk.Label(columns_frame, text="", width=4).grid(row=0, column=0, sticky="w")
+        ttk.Label(columns_frame, text="Type", width=16).grid(row=0, column=1, sticky="w")
+        ttk.Label(columns_frame, text="Wrong", width=22).grid(row=0, column=2, sticky="w")
+        ttk.Label(columns_frame, text="", width=4).grid(row=0, column=3, sticky="w")
+        ttk.Label(columns_frame, text="Correct", width=22).grid(row=0, column=4, sticky="w")
+        ttk.Label(columns_frame, text="Context phrase").grid(row=0, column=5, sticky="w", padx=(8, 0))
 
         # Scrollable Canvas for items
         canvas_frame = ttk.Frame(main_frame)
@@ -220,7 +246,7 @@ class ValidationReviewDialog(tk.Toplevel):
 
         frame = ttk.Frame(self.scrollable_frame)
         frame.pack(fill=tk.X, expand=True, padx=5, pady=2)
-        frame.columnconfigure(3, weight=1)
+        frame.columnconfigure(5, weight=1)
 
         apply_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(frame, variable=apply_var).grid(
@@ -229,18 +255,28 @@ class ValidationReviewDialog(tk.Toplevel):
         ttk.Label(
             frame,
             text=f"{index + 1}. {prepared.get('error_type', 'unknown')}",
-            width=18,
+            width=16,
         ).grid(row=0, column=1, sticky="w", padx=(0, 8))
         ttk.Label(
             frame,
             text=prepared.get("display_original", ""),
-            width=28,
+            width=22,
         ).grid(row=0, column=2, sticky="w", padx=(0, 8))
-        ttk.Label(frame, text=">").grid(row=0, column=3, sticky="w", padx=(0, 8))
+        ttk.Label(frame, text=">>>").grid(row=0, column=3, sticky="w", padx=(0, 8))
 
         correction_var = tk.StringVar(value=prepared.get("display_suggested", ""))
         ttk.Entry(frame, textvariable=correction_var, width=42).grid(
-            row=0, column=4, sticky="ew"
+            row=0, column=4, sticky="w"
+        )
+        ttk.Label(
+            frame,
+            text=prepared.get("context_phrase", ""),
+            wraplength=380,
+        ).grid(
+            row=0,
+            column=5,
+            sticky="w",
+            padx=(8, 0),
         )
 
         self.item_vars.append({

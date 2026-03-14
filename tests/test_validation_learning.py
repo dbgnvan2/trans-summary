@@ -1,5 +1,6 @@
 import validation_learning
 from ts_gui import (
+    _build_context_phrase,
     _build_full_correction_text,
     _collect_validation_review_actions,
     _extract_compact_terms,
@@ -197,6 +198,15 @@ def test_build_full_correction_text_reconstructs_context():
     )
 
     assert rebuilt == "thus alienated both the Pope and the Jesuits"
+
+
+def test_build_context_phrase_returns_local_snippet():
+    snippet = _build_context_phrase(
+        "thus alienated both the Popee and the Jesuits in the dispute",
+        "Popee",
+    )
+
+    assert snippet == "thus alienated both the Popee and the Jesuits in"
 
 
 def test_collect_validation_review_actions_auto_saves_dictionary_entries():
