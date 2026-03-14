@@ -8,18 +8,16 @@ import json
 import logging
 import os
 import re
-import sys
-import time
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Tuple
 
 from anthropic import Anthropic
 
 import config
 import model_specs
 import transcript_utils
+from validation_learning import filter_validation_findings
 
 
 class ValidationMetrics:
@@ -171,7 +169,13 @@ class TranscriptValidatorV2:
         if hallucinations:
              self.logger.warning(f"Detected {len(hallucinations)} hallucinations (removed).")
 
-        return valid_findings
+        filtered = filter_validation_findings(valid_findings, logger=self.logger)
+        self.logger.info(
+            "Validation findings after suppression: %d/%d",
+            len(filtered.findings),
+            len(valid_findings),
+        )
+        return filtered.findings
 
     def _process_single_chunk(self, chunk: Dict, model: str) -> List[Dict]:
         """Call API for a single chunk."""
@@ -283,9 +287,6 @@ class TranscriptValidatorV2:
         """
         valid = []
         hallucinations = []
-        
-        # Normalize full text once for fuzzy matching speed
-        full_text_norm = transcript_utils.normalize_text(full_text)
         
         for f in findings:
             original = f.get('original_text', '')
@@ -431,9 +432,9 @@ class TranscriptValidatorV2:
         self.metrics.start_time = datetime.now()
         
         for i in range(1, max_iterations + 1):
-            self.logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            self.logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             self.logger.info(f"🔄 Iteration {i}/{max_iterations}: Validating...")
-            self.logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            self.logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             
             # 1. Validate
             # Pass the model explicitly from run_iterative arguments

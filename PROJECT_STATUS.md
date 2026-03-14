@@ -52,6 +52,11 @@ Structured summary/abstract generation now accepts either of the persisted trans
 - preferred: ` - formatted.md`
 - fallback: ` - yaml.md`
 
+Initial transcript validation also now has persistent review memory:
+
+- rejected suggestion pairs can be promoted into `logs/validation_memory.json` and suppressed on future reruns
+- approved terms/phrases are stored in `approve_terms.txt` under `TRANSCRIPTS_BASE`
+
 ## Testing Status (2026-02-10)
 
 - `pytest --collect-only -q` discovered 164 tests but ended with 3 collection errors caused by duplicate module names between root-level tests and `tests/` package files.

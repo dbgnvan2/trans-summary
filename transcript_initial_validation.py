@@ -16,6 +16,7 @@ from anthropic import Anthropic
 
 import config
 import transcript_utils
+from validation_learning import filter_validation_findings
 
 
 class TranscriptValidator:
@@ -148,8 +149,10 @@ class TranscriptValidator:
                 else:
                     findings = []
 
-                self.logger.info("Parsed %d findings.", len(findings))
-                return findings
+                filtered = filter_validation_findings(findings, logger=self.logger)
+                self.logger.info("Parsed %d findings (%d after suppression).",
+                                 len(findings), len(filtered.findings))
+                return filtered.findings
             except json.JSONDecodeError as e:
                 self.logger.error("Failed to parse JSON response: %s", e)
                 self.logger.warning(

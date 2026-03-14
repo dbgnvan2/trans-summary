@@ -170,6 +170,11 @@ SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
+# Validation learning artifacts
+VALIDATION_MEMORY_FILENAME = "validation_memory.json"
+VALIDATION_APPROVED_TERMS_FILENAME = "approve_terms.txt"
+VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
+
 # Model variables moved into ProjectSettings and exposed as globals
 # Defaults: DEFAULT_MODEL = "claude-sonnet-4-6"
 #           AUX_MODEL = "claude-haiku-4-5-20251001"

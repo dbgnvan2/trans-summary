@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 - **Streaming regression tests**: Added coverage to verify `call_claude_with_retry()` uses `client.messages.stream(...)` when requested, and that structured summary/abstract generation explicitly enables streaming.
 - **Fallback regression tests**: Added coverage for YAML-only structured abstract generation, abstract validation, and webpage generation.
+- **Initial validation learning**: Added persistent review memory for rejected `original_text -> suggested_correction` pairs in `logs/validation_memory.json`, plus approved-term persistence in `approve_terms.txt` so `Init Val` reruns can converge instead of repeating the same rejected suggestions.
 
 ## [Unreleased] - 2026-01-11
 

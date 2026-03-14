@@ -38,6 +38,9 @@ This guide reflects the current artifact set produced by the transcript processi
 ## Current Pipeline Stages
 
 1. Initial transcript validation (optional/manual stage in GUI/CLI workflows).
+   - GUI review actions can now update:
+     - `logs/validation_memory.json` for repeatedly rejected suggestion pairs
+     - `approve_terms.txt` under `TRANSCRIPTS_BASE` for approved terms/phrases
 2. Formatting (`format_transcript`) -> ` - formatted.md`
 3. Format validation (`validate_format`) checks word-preservation fidelity.
 4. Header validation (`validate_headers`) -> ` - header-validation.md`

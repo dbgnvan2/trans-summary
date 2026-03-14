@@ -16,9 +16,9 @@ from datetime import datetime
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 import analyze_token_usage
+import cleanup_pipeline
 import config
 import pipeline
-import cleanup_pipeline
 import transcript_config_check
 import transcript_cost_estimator
 import transcript_initial_validation
@@ -26,6 +26,35 @@ import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
 from transcript_utils import clean_project_name
+from validation_learning import append_approved_terms, record_validation_rejections
+
+
+def _collect_validation_review_actions(item_vars):
+    """Split reviewed items into corrections, rejections, and approved terms."""
+    final_corrections = []
+    rejected_findings = []
+    approved_terms = []
+
+    for item in item_vars:
+        apply_selected = bool(item["apply"].get())
+        approve_term = bool(item["approve_term"].get())
+        correction_text = item["correction"].get()
+        original_finding = item["original_finding"]
+
+        if apply_selected:
+            correction = original_finding.copy()
+            correction["suggested_correction"] = correction_text
+            final_corrections.append(correction)
+            continue
+
+        rejection = original_finding.copy()
+        rejection["suggested_correction"] = correction_text
+        rejected_findings.append(rejection)
+
+        if approve_term:
+            approved_terms.append(original_finding.get("original_text", ""))
+
+    return final_corrections, rejected_findings, approved_terms
 
 
 class GuiLoggerAdapter:
@@ -155,22 +184,24 @@ class ValidationReviewDialog(tk.Toplevel):
             frame, text="Apply this correction", variable=apply_var)
         chk.grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=5)
 
+        approve_term_var = tk.BooleanVar(value=False)
+        approve_chk = ttk.Checkbutton(
+            frame,
+            text="Approve original text as valid term/phrase for future runs",
+            variable=approve_term_var,
+        )
+        approve_chk.grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=(0, 5))
+
         self.item_vars.append({
             'apply': apply_var,
+            'approve_term': approve_term_var,
             'correction': correction_var,
             'original_finding': finding
         })
 
     def on_apply(self, finalize=False):
-        final_corrections = []
-        for item in self.item_vars:
-            if item['apply'].get():
-                # Create a correction object based on the edited text
-                correction = item['original_finding'].copy()
-                correction['suggested_correction'] = item['correction'].get()
-                final_corrections.append(correction)
-
-        self.apply_callback(final_corrections, finalize)
+        actions = _collect_validation_review_actions(self.item_vars)
+        self.apply_callback(*actions, finalize)
         self.destroy()
 
 
@@ -726,24 +757,28 @@ class TranscriptProcessorGUI:
     def _prompt_finalize_no_issues(self, source_file):
         if messagebox.askyesno("Validation Complete", "No issues found. Create final validated copy?"):
             self.run_task_in_thread(
-                self._apply_validation_corrections, [], source_file, True)
+                self._apply_validation_corrections, [], [], [], source_file, True)
 
     def show_validation_dialog(self, findings, source_file):
         ValidationReviewDialog(self.root, findings,
-                               lambda corrections, finalize: self._handle_validation_apply(corrections, source_file, finalize))
+                               lambda corrections, rejected, approved_terms, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, source_file, finalize))
 
-    def _handle_validation_apply(self, corrections, source_file, finalize):
-        if not corrections and not finalize:
+    def _handle_validation_apply(self, corrections, rejected_findings, approved_terms, source_file, finalize):
+        if not corrections and not rejected_findings and not approved_terms and not finalize:
             self.log("No corrections selected.")
             return
 
-        msg = f"Applying {len(corrections)} corrections..." if corrections else "Finalizing file..."
+        msg = (
+            f"Applying {len(corrections)} corrections..."
+            if corrections
+            else "Finalizing file..."
+        )
         self.log(msg)
 
         self.run_task_in_thread(
-            self._apply_validation_corrections, corrections, source_file, finalize)
+            self._apply_validation_corrections, corrections, rejected_findings, approved_terms, source_file, finalize)
 
-    def _apply_validation_corrections(self, corrections, source_file, finalize):
+    def _apply_validation_corrections(self, corrections, rejected_findings, approved_terms, source_file, finalize):
         # Determine output filename logic (v1, v2...)
         stem = source_file.stem
 
@@ -767,7 +802,25 @@ class TranscriptProcessorGUI:
         output_path = source_file.parent / new_filename
         api_key = os.getenv("ANTHROPIC_API_KEY")
         mode = self.validation_mode_var.get()
-        
+
+        if rejected_findings:
+            promoted = record_validation_rejections(
+                rejected_findings, logger=self.logger
+            )
+            self.log(
+                "Recorded %d rejected finding(s) to validation memory%s.",
+                len(rejected_findings),
+                f"; promoted {promoted} blocked pair(s)" if promoted else "",
+            )
+
+        if approved_terms:
+            added = append_approved_terms(approved_terms)
+            self.log(
+                "Added %d approved term(s)/phrase(s) to %s.",
+                added,
+                config.VALIDATION_APPROVED_TERMS_FILENAME,
+            )
+
         self.log("🛠️ Writing to -> %s", new_filename)
 
         if not corrections and finalize:

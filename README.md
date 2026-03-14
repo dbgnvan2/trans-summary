@@ -75,6 +75,17 @@ The current workflow is designed to run in this order:
 `Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
 If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
 
+### Initial Validation Learning
+
+`Init Val` now keeps lightweight review memory so repeated reruns converge instead of re-surfacing the same rejected suggestions forever.
+
+- Accepted corrections still write a new `_vN.txt` draft or `_validated.txt` file.
+- Rejected `original_text -> suggested_correction` pairs are stored in `logs/validation_memory.json`.
+- After the same rejection is seen enough times, that pair is blocked and suppressed on future runs.
+- Terms or phrases you explicitly approve in the review dialog are appended to `approve_terms.txt` at the `TRANSCRIPTS_BASE` root and filtered from future findings.
+
+This is intentionally narrower than the `trx` validator: `trans-summary` remains LLM-finding driven, but now has persistent memory for rejected suggestions and approved domain terms.
+
 ### Command Line Interface
 
 You can run the full interactive wizard:
