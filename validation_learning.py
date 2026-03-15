@@ -27,7 +27,9 @@ WEAK_DICTIONARY_PAIRS = {
     ("brown", "known"),
     ("m", "e"),
     ("niels", "nixon"),
-    ("stateholder", "state-holder"),
+    ("stateholder", "stakeholder"),
+    ("stakeholder", "state holder"),
+    ("stakeholder", "state-holder"),
     ("rooms.", "roomes."),
     ("planned", "placed"),
     ("motion", "emotion"),
@@ -168,9 +170,10 @@ class FilteredFindings:
     suppressed_by_alias_dictionary: int
     suppressed_by_duplicate_pair: int
     suppressed_by_weak_pair: int
+    suppressed_by_unknown_proper_noun: int
 
 
-def _is_weak_dictionary_pair(original: str, suggestion: str) -> bool:
+def is_weak_dictionary_pair(original: str, suggestion: str) -> bool:
     original_norm = _normalize_text(original)
     suggestion_norm = _normalize_text(suggestion)
     if (original_norm, suggestion_norm) in WEAK_DICTIONARY_PAIRS:
@@ -309,6 +312,7 @@ def filter_validation_findings(
     suppressed_by_alias_dictionary = 0
     suppressed_by_duplicate_pair = 0
     suppressed_by_weak_pair = 0
+    suppressed_by_unknown_proper_noun = 0
     seen_review_pairs: set[tuple[str, str]] = set()
 
     for finding in combined_findings:
@@ -319,11 +323,14 @@ def filter_validation_findings(
         if error_type and error_type not in config.VALIDATION_ERROR_TYPES:
             suppressed_by_error_type += 1
             continue
-        if _is_weak_dictionary_pair(original, suggestion):
+        if is_weak_dictionary_pair(original, suggestion):
             suppressed_by_weak_pair += 1
             continue
         if _normalize_text(original) in approved_terms:
             suppressed_by_approved_terms += 1
+            continue
+        if error_type == "proper_noun" and _normalize_text(suggestion) not in approved_terms:
+            suppressed_by_unknown_proper_noun += 1
             continue
         if normalized_pair in alias_pairs:
             suppressed_by_alias_dictionary += 1
@@ -344,15 +351,17 @@ def filter_validation_findings(
         or suppressed_by_alias_dictionary
         or suppressed_by_duplicate_pair
         or suppressed_by_weak_pair
+        or suppressed_by_unknown_proper_noun
     ):
         logger.info(
-            "Validation learning: %d suppressed via memory, %d via approved terms, %d via alias dictionary, %d via disallowed error type, %d duplicate pair(s), %d weak pair(s).",
+            "Validation learning: %d suppressed via memory, %d via approved terms, %d via alias dictionary, %d via disallowed error type, %d duplicate pair(s), %d weak pair(s), %d unknown proper noun suggestion(s).",
             suppressed_by_memory,
             suppressed_by_approved_terms,
             suppressed_by_alias_dictionary,
             suppressed_by_error_type,
             suppressed_by_duplicate_pair,
             suppressed_by_weak_pair,
+            suppressed_by_unknown_proper_noun,
         )
 
     return FilteredFindings(
@@ -364,6 +373,7 @@ def filter_validation_findings(
         suppressed_by_alias_dictionary=suppressed_by_alias_dictionary,
         suppressed_by_duplicate_pair=suppressed_by_duplicate_pair,
         suppressed_by_weak_pair=suppressed_by_weak_pair,
+        suppressed_by_unknown_proper_noun=suppressed_by_unknown_proper_noun,
     )
 
 

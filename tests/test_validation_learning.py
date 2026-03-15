@@ -10,6 +10,7 @@ from ts_gui import (
     _extract_compact_terms,
     _is_simple_dictionary_candidate,
     _prepare_review_finding,
+    _prepare_review_findings,
 )
 
 
@@ -246,7 +247,7 @@ def test_filter_validation_findings_deduplicates_identical_pairs(tempfile_terms_
 
 def test_filter_validation_findings_suppresses_weak_pairs(tempfile_terms_env):
     monkeypatch, approved_terms_path, memory_path = tempfile_terms_env
-    approved_terms_path.write_text("", encoding="utf-8")
+    approved_terms_path.write_text("Tycho\n", encoding="utf-8")
     monkeypatch.setattr(validation_learning, "_approved_terms_path", lambda: approved_terms_path)
     monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
 
@@ -275,6 +276,33 @@ def test_filter_validation_findings_suppresses_weak_pairs(tempfile_terms_env):
 
     assert filtered.suppressed_by_weak_pair == 2
     assert filtered.findings == [findings[2]]
+
+
+def test_filter_validation_findings_suppresses_unknown_proper_nouns(tempfile_terms_env):
+    monkeypatch, approved_terms_path, memory_path = tempfile_terms_env
+    approved_terms_path.write_text("Tycho\nBrahe\n", encoding="utf-8")
+    monkeypatch.setattr(validation_learning, "_approved_terms_path", lambda: approved_terms_path)
+    monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
+
+    findings = [
+        {
+            "error_type": "proper_noun",
+            "original_text": "Taiko",
+            "suggested_correction": "Tycho",
+            "reasoning": "Legitimate proper noun",
+        },
+        {
+            "error_type": "proper_noun",
+            "original_text": "Milodnov",
+            "suggested_correction": "Milner",
+            "reasoning": "Unknown name guess",
+        },
+    ]
+
+    filtered = validation_learning.filter_validation_findings(findings)
+
+    assert filtered.suppressed_by_unknown_proper_noun == 1
+    assert filtered.findings == [findings[0]]
 
 
 def test_extract_compact_terms_reduces_context_to_changed_span():
@@ -345,6 +373,44 @@ def test_is_simple_dictionary_candidate_accepts_single_word_proper_noun():
         compact_original,
         compact_suggested,
     )
+
+
+def test_prepare_review_finding_suppresses_compact_weak_pairs():
+    finding = {
+        "error_type": "homophone",
+        "original_text": "differentiation of cells,",
+        "suggested_correction": "differentiation of self,",
+    }
+
+    assert _prepare_review_finding(finding) is None
+
+
+def test_prepare_review_findings_deduplicates_compact_pairs():
+    findings = [
+        {
+            "error_type": "homophone",
+            "original_text": "I thought progression can motivate a call",
+            "suggested_correction": "I thought regression can motivate a call",
+        },
+        {
+            "error_type": "homophone",
+            "original_text": "progression is often confused here",
+            "suggested_correction": "regression is often confused here",
+        },
+        {
+            "error_type": "proper_noun",
+            "original_text": "of Taiko Brahe, he",
+            "suggested_correction": "of Tycho Brahe, he",
+        },
+    ]
+
+    prepared, omitted = _prepare_review_findings(findings)
+
+    assert omitted == 1
+    assert [(item["display_original"], item["display_suggested"]) for item in prepared] == [
+        ("progression", "regression"),
+        ("Taiko", "Tycho"),
+    ]
 
 
 def test_collect_validation_review_actions_auto_saves_dictionary_entries():

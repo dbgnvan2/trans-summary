@@ -31,6 +31,7 @@ from transcript_utils import clean_project_name
 from validation_learning import (
     append_approved_terms,
     append_validation_aliases,
+    is_weak_dictionary_pair,
     record_validation_rejections,
 )
 
@@ -122,12 +123,40 @@ def _prepare_review_finding(finding):
 
     if not _is_simple_dictionary_candidate(finding, compact_original, compact_suggested):
         return None
+    if is_weak_dictionary_pair(compact_original, compact_suggested):
+        return None
 
     prepared = finding.copy()
     prepared["display_original"] = compact_original
     prepared["display_suggested"] = compact_suggested
     prepared["context_phrase"] = _build_context_phrase(original_text, compact_original)
     return prepared
+
+
+def _prepare_review_findings(findings):
+    """Build the compact review list while suppressing weak and duplicate pairs."""
+    prepared_findings = []
+    seen_pairs = set()
+    omitted_count = 0
+
+    for finding in findings:
+        prepared = _prepare_review_finding(finding)
+        if not prepared:
+            omitted_count += 1
+            continue
+
+        pair_key = (
+            prepared["display_original"].strip().lower(),
+            prepared["display_suggested"].strip().lower(),
+        )
+        if pair_key in seen_pairs:
+            omitted_count += 1
+            continue
+
+        seen_pairs.add(pair_key)
+        prepared_findings.append(prepared)
+
+    return prepared_findings, omitted_count
 
 
 def _collect_validation_review_actions(item_vars):
@@ -218,8 +247,7 @@ class ValidationReviewDialog(tk.Toplevel):
         self.title("Review Transcript Corrections")
         self.geometry("1000x700")
         self.apply_callback = apply_callback
-        self.findings = [prepared for finding in findings if (prepared := _prepare_review_finding(finding))]
-        self.skipped_findings = len(findings) - len(self.findings)
+        self.findings, self.skipped_findings = _prepare_review_findings(findings)
 
         # Main container
         main_frame = ttk.Frame(self)
