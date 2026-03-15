@@ -40,6 +40,7 @@ This guide reflects the current artifact set produced by the transcript processi
 1. Initial transcript validation (optional/manual stage in GUI/CLI workflows).
    - Scope is intentionally narrow: proper nouns, homophones, spelling/non-words, and word-boundary issues.
    - Review UI is compact and dictionary-first: one line per item, checked by default, with approvals automatically feeding `approve_terms.txt`.
+   - Active terms file is selectable in the GUI at runtime; it defaults to `approve_terms.txt` under `TRANSCRIPTS_BASE`.
    - GUI review actions can now update:
       - `logs/validation_memory.json` for repeatedly rejected suggestion pairs
       - `approve_terms.txt` under `TRANSCRIPTS_BASE` for approved terms/phrases

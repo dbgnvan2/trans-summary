@@ -1,3 +1,4 @@
+import config
 import validation_learning
 from ts_gui import (
     _build_context_phrase,
@@ -105,6 +106,26 @@ def test_filter_validation_findings_injects_aliases(tmp_path, monkeypatch):
             ),
         }
     ]
+
+
+def test_runtime_terms_file_path_is_used(tmp_path):
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    custom_terms_path = tmp_path / "custom_terms.txt"
+    custom_terms_path.write_text("Bowenion = Bowenian\n", encoding="utf-8")
+
+    try:
+        config.set_validation_approved_terms_path(custom_terms_path)
+        filtered = validation_learning.filter_validation_findings(
+            [],
+            transcript_text="Bowenion appears in this transcript.",
+        )
+    finally:
+        config.set_validation_approved_terms_path(original_path)
+
+    assert filtered.injected_aliases == 1
+    assert filtered.findings[0]["reasoning"] == (
+        "Deterministic alias from custom_terms.txt: Bowenion = Bowenian"
+    )
 
 
 def test_append_approved_terms_deduplicates_normalized_values(tmp_path):

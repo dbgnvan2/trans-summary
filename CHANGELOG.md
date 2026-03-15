@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - **Deterministic validation aliases**: `approve_terms.txt` now supports `wrong = Correct` rules. `Init Val` injects alias-based findings locally and can persist selected corrections back as aliases from the review dialog.
 - **Transcription-only validation scope**: Narrowed `Init Val` to proper nouns, homophones, spelling/non-word cleanup, and word-boundary issues. Grammar, punctuation, capitalization-only, and style cleanup are now explicitly excluded in prompts and code-level filtering.
 - **Compact review UX**: Simplified the `Init Val` dialog to one-line `Found > Suggested` rows, checked by default, with approved items automatically feeding the domain dictionary instead of requiring multiple per-item checkboxes.
+- **Selectable terms file**: Added a GUI selector for the active `Init Val` terms file so baseline dictionaries can be swapped at runtime without replacing `approve_terms.txt` manually.
 
 ## [Unreleased] - 2026-01-11
 

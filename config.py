@@ -15,6 +15,8 @@ from typing import List, Union
 
 import model_specs  # ADDED: Import model_specs
 
+DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME = "approve_terms.txt"
+
 
 class ProjectSettings:
     """
@@ -52,11 +54,25 @@ class ProjectSettings:
         self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
         self.PROMPTS_DIR = Path(__file__).parent / "prompts"
         self.LOGS_DIR = Path(__file__).parent / "logs"
+        current_terms_path = getattr(self, "VALIDATION_APPROVED_TERMS_PATH", None)
+        if current_terms_path is None:
+            self.VALIDATION_APPROVED_TERMS_PATH = (
+                self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+            )
 
     def set_transcripts_base(self, path: Union[str, Path]):
         """Update the base directory for transcripts and all related paths."""
         self.TRANSCRIPTS_BASE = Path(path)
         self._update_derived_paths()
+
+    def set_validation_approved_terms_path(self, path: Union[str, Path, None]):
+        """Set the active validation approved-terms file."""
+        if path is None:
+            self.VALIDATION_APPROVED_TERMS_PATH = (
+                self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+            )
+        else:
+            self.VALIDATION_APPROVED_TERMS_PATH = Path(path)
 
     # ADDED: Methods to dynamically get and set model names
     def get_all_model_names(self) -> list[str]:
@@ -114,6 +130,7 @@ PROCESSED_DIR = settings.PROCESSED_DIR
 PROJECTS_DIR = settings.PROJECTS_DIR
 PROMPTS_DIR = settings.PROMPTS_DIR
 LOGS_DIR = settings.LOGS_DIR
+VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
 
 # ADDED: Expose model variables as globals for backward compatibility and direct access
 DEFAULT_MODEL = settings.DEFAULT_MODEL
@@ -128,17 +145,25 @@ def set_transcripts_base(path: Union[str, Path]):
     # Update module-level globals to reflect the change for code that imported them directly
     # (Note: Code that did `from config import SOURCE_DIR` will still have the OLD value.
     # This is why `import config; config.SOURCE_DIR` is preferred.)
-    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR
+    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
     # ADDED: Make model variables global
     global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR
     PROJECTS_DIR = settings.PROJECTS_DIR
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
     # Update global model variables from settings object
     DEFAULT_MODEL = settings.DEFAULT_MODEL
     AUX_MODEL = settings.AUX_MODEL
     FORMATTING_MODEL = settings.FORMATTING_MODEL
+
+
+def set_validation_approved_terms_path(path: Union[str, Path, None]):
+    """Global function to update the active validation approved-terms file."""
+    settings.set_validation_approved_terms_path(path)
+    global VALIDATION_APPROVED_TERMS_PATH
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
 
 
 # ============================================================================
@@ -173,7 +198,7 @@ SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
 # Validation learning artifacts
 VALIDATION_MEMORY_FILENAME = "validation_memory.json"
-VALIDATION_APPROVED_TERMS_FILENAME = "approve_terms.txt"
+VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
 VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 
 # Model variables moved into ProjectSettings and exposed as globals

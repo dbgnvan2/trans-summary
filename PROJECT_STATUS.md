@@ -59,6 +59,7 @@ Initial transcript validation also now has persistent review memory:
 - `approve_terms.txt` also supports `wrong = Correct` alias entries for deterministic validation findings and replacements
 - validation scope is now transcription-only for this domain corpus: proper nouns, homophones, misspellings/non-words, and word-boundary issues
 - the review UI is compact and approval-biased: approved items are checked by default and automatically enrich the dictionary
+- the active validation terms file can be switched in the GUI for comparison testing across dictionary baselines
 
 ## Testing Status (2026-02-10)
 

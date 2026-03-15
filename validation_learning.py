@@ -26,7 +26,7 @@ def _memory_path() -> Path:
 
 
 def _approved_terms_path() -> Path:
-    return config.TRANSCRIPTS_BASE / config.VALIDATION_APPROVED_TERMS_FILENAME
+    return config.VALIDATION_APPROVED_TERMS_PATH
 
 
 def load_approved_terms(path: Path | None = None) -> set[str]:
@@ -291,7 +291,7 @@ def filter_validation_findings(
                 "suggested_correction": correct,
                 "confidence": "high",
                 "reasoning": (
-                    f"Deterministic alias from {config.VALIDATION_APPROVED_TERMS_FILENAME}: "
+                    f"Deterministic alias from {Path(_approved_terms_path()).name}: "
                     f"{wrong} = {correct}"
                 ),
             }

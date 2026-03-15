@@ -147,3 +147,35 @@ def test_run_initial_validation_auto_blocks_when_existing_versions_found():
 
         assert ok is False
         gui.log.assert_called()
+
+
+def test_select_validation_terms_file_updates_active_path():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.terms_file_var = MagicMock()
+    gui.log = MagicMock()
+
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    try:
+        with patch("ts_gui.filedialog.askopenfilename", return_value="/tmp/custom_terms.txt"):
+            gui.select_validation_terms_file()
+        assert str(config.VALIDATION_APPROVED_TERMS_PATH) == "/tmp/custom_terms.txt"
+        gui.log.assert_called()
+    finally:
+        config.set_validation_approved_terms_path(original_path)
+
+
+def test_reset_validation_terms_file_restores_default():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.terms_file_var = MagicMock()
+    gui.log = MagicMock()
+
+    original_base = config.TRANSCRIPTS_BASE
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    try:
+        config.set_transcripts_base("/tmp")
+        config.set_validation_approved_terms_path("/tmp/custom_terms.txt")
+        gui.reset_validation_terms_file()
+        assert config.VALIDATION_APPROVED_TERMS_PATH == Path("/tmp/approve_terms.txt")
+    finally:
+        config.set_transcripts_base(original_base)
+        config.set_validation_approved_terms_path(original_path)

@@ -14,6 +14,7 @@ import tkinter as tk
 from contextlib import redirect_stdout
 from datetime import datetime
 from difflib import SequenceMatcher
+from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
 import analyze_token_usage
@@ -362,9 +363,11 @@ class TranscriptProcessorGUI:
             "AUX_MODEL": tk.StringVar(value=config.settings.AUX_MODEL),
             "FORMATTING_MODEL": tk.StringVar(value=config.settings.FORMATTING_MODEL),
         }
+        self.terms_file_var = tk.StringVar()
 
         self.setup_ui()
         self.update_dir_label()
+        self.update_terms_file_label()
         self.refresh_file_list()
 
     def setup_ui(self):
@@ -460,6 +463,18 @@ class TranscriptProcessorGUI:
         ttk.Label(val_frame, text="Validation Mode:").pack(side=tk.LEFT)
         ttk.Radiobutton(val_frame, text="V2 (Chunked/Safe)", variable=self.validation_mode_var, value="v2").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(val_frame, text="V1 (Legacy)", variable=self.validation_mode_var, value="v1").pack(side=tk.LEFT, padx=5)
+
+        terms_frame = ttk.Frame(model_selection_frame)
+        terms_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
+        terms_frame.columnconfigure(1, weight=1)
+        ttk.Label(terms_frame, text="Terms File:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(terms_frame, textvariable=self.terms_file_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
+        ttk.Button(terms_frame, text="Choose...", command=self.select_validation_terms_file).grid(
+            row=0, column=2, sticky=tk.E, padx=(8, 4)
+        )
+        ttk.Button(terms_frame, text="Default", command=self.reset_validation_terms_file).grid(
+            row=0, column=3, sticky=tk.E
+        )
 
 
         # Status and Log
@@ -660,11 +675,36 @@ class TranscriptProcessorGUI:
         if dir_path:
             config.set_transcripts_base(dir_path)
             self.update_dir_label()
+            self.update_terms_file_label()
             self.refresh_file_list()
 
     def update_dir_label(self):
         self.dir_label.config(
             text=f"Transcripts Directory: {config.TRANSCRIPTS_BASE}")
+
+    def update_terms_file_label(self):
+        active_path = Path(config.VALIDATION_APPROVED_TERMS_PATH)
+        if active_path == config.TRANSCRIPTS_BASE / config.VALIDATION_APPROVED_TERMS_FILENAME:
+            display = f"{active_path.name} (default)"
+        else:
+            display = active_path.name
+        self.terms_file_var.set(display)
+
+    def select_validation_terms_file(self):
+        file_path = filedialog.askopenfilename(
+            title="Select Validation Terms File",
+            initialdir=config.TRANSCRIPTS_BASE,
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+        )
+        if file_path:
+            config.set_validation_approved_terms_path(file_path)
+            self.update_terms_file_label()
+            self.log("Using validation terms file: %s", config.VALIDATION_APPROVED_TERMS_PATH)
+
+    def reset_validation_terms_file(self):
+        config.set_validation_approved_terms_path(None)
+        self.update_terms_file_label()
+        self.log("Reset validation terms file to default: %s", config.VALIDATION_APPROVED_TERMS_PATH)
 
     def refresh_file_list(self):
         self.file_listbox.delete(0, tk.END)
