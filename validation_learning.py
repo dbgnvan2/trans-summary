@@ -148,6 +148,7 @@ class FilteredFindings:
     suppressed_by_approved_terms: int
     injected_aliases: int
     suppressed_by_error_type: int
+    suppressed_by_alias_dictionary: int
 
 
 class ValidationLearningMemory:
@@ -260,49 +261,23 @@ def filter_validation_findings(
     transcript_text: str = "",
     logger: logging.Logger | None = None,
 ) -> FilteredFindings:
-    """Inject deterministic aliases, then suppress findings by memory or approved terms."""
+    """Suppress findings already covered by memory, approved terms, or alias dictionary."""
     approved_terms = load_approved_terms()
     aliases = load_validation_aliases()
     memory = ValidationLearningMemory(logger=logger)
 
     combined_findings = list(findings)
     injected_aliases = 0
-    seen_pairs = {
-        (
-            _normalize_text(item.get("original_text", "")),
-            _normalize_text(item.get("suggested_correction", "")),
-        )
-        for item in combined_findings
+    alias_pairs = {
+        (_normalize_text(wrong), _normalize_text(correct))
+        for wrong, correct in aliases.items()
     }
-
-    for wrong, correct in aliases.items():
-        if not transcript_text:
-            break
-        pattern = re.compile(rf"(?<!\w){re.escape(wrong)}(?!\w)", flags=re.IGNORECASE)
-        if not pattern.search(transcript_text):
-            continue
-        pair = (_normalize_text(wrong), _normalize_text(correct))
-        if pair in seen_pairs:
-            continue
-        combined_findings.append(
-            {
-                "error_type": "alias",
-                "original_text": wrong,
-                "suggested_correction": correct,
-                "confidence": "high",
-                "reasoning": (
-                    f"Deterministic alias from {Path(_approved_terms_path()).name}: "
-                    f"{wrong} = {correct}"
-                ),
-            }
-        )
-        seen_pairs.add(pair)
-        injected_aliases += 1
 
     filtered: list[dict[str, Any]] = []
     suppressed_by_memory = 0
     suppressed_by_approved_terms = 0
     suppressed_by_error_type = 0
+    suppressed_by_alias_dictionary = 0
 
     for finding in combined_findings:
         error_type = finding.get("error_type", "")
@@ -314,6 +289,9 @@ def filter_validation_findings(
         if _normalize_text(original) in approved_terms:
             suppressed_by_approved_terms += 1
             continue
+        if (_normalize_text(original), _normalize_text(suggestion)) in alias_pairs:
+            suppressed_by_alias_dictionary += 1
+            continue
         if memory.is_blocked(original, suggestion):
             suppressed_by_memory += 1
             continue
@@ -322,14 +300,14 @@ def filter_validation_findings(
     if logger and (
         suppressed_by_memory
         or suppressed_by_approved_terms
-        or injected_aliases
         or suppressed_by_error_type
+        or suppressed_by_alias_dictionary
     ):
         logger.info(
-            "Validation learning: %d alias finding(s) injected, %d finding(s) suppressed via memory, %d via approved terms, %d via disallowed error type.",
-            injected_aliases,
+            "Validation learning: %d finding(s) suppressed via memory, %d via approved terms, %d via alias dictionary, %d via disallowed error type.",
             suppressed_by_memory,
             suppressed_by_approved_terms,
+            suppressed_by_alias_dictionary,
             suppressed_by_error_type,
         )
 
@@ -339,6 +317,7 @@ def filter_validation_findings(
         suppressed_by_approved_terms=suppressed_by_approved_terms,
         injected_aliases=injected_aliases,
         suppressed_by_error_type=suppressed_by_error_type,
+        suppressed_by_alias_dictionary=suppressed_by_alias_dictionary,
     )
 
 

@@ -88,24 +88,21 @@ def test_filter_validation_findings_injects_aliases(tmp_path, monkeypatch):
     monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
 
     filtered = validation_learning.filter_validation_findings(
-        [],
+        [
+            {
+                "error_type": "proper_noun",
+                "original_text": "Bowenion",
+                "suggested_correction": "Bowenian",
+                "reasoning": "Known alias pair",
+            }
+        ],
         transcript_text="Bowenion described emotional cutoff in this talk.",
     )
 
-    assert filtered.injected_aliases == 1
+    assert filtered.injected_aliases == 0
     assert filtered.suppressed_by_error_type == 0
-    assert filtered.findings == [
-        {
-            "error_type": "alias",
-            "original_text": "Bowenion",
-            "suggested_correction": "Bowenian",
-            "confidence": "high",
-            "reasoning": (
-                "Deterministic alias from approve_terms.txt: "
-                "Bowenion = Bowenian"
-            ),
-        }
-    ]
+    assert filtered.suppressed_by_alias_dictionary == 1
+    assert filtered.findings == []
 
 
 def test_runtime_terms_file_path_is_used(tmp_path):
@@ -116,16 +113,21 @@ def test_runtime_terms_file_path_is_used(tmp_path):
     try:
         config.set_validation_approved_terms_path(custom_terms_path)
         filtered = validation_learning.filter_validation_findings(
-            [],
+            [
+                {
+                    "error_type": "proper_noun",
+                    "original_text": "Bowenion",
+                    "suggested_correction": "Bowenian",
+                    "reasoning": "Known alias pair",
+                }
+            ],
             transcript_text="Bowenion appears in this transcript.",
         )
     finally:
         config.set_validation_approved_terms_path(original_path)
 
-    assert filtered.injected_aliases == 1
-    assert filtered.findings[0]["reasoning"] == (
-        "Deterministic alias from custom_terms.txt: Bowenion = Bowenian"
-    )
+    assert filtered.suppressed_by_alias_dictionary == 1
+    assert filtered.findings == []
 
 
 def test_append_approved_terms_deduplicates_normalized_values(tmp_path):
