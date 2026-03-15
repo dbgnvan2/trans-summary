@@ -9,6 +9,7 @@ import os
 import re
 import resource
 import shutil
+import subprocess
 import threading
 import tkinter as tk
 from contextlib import redirect_stdout
@@ -34,6 +35,27 @@ from validation_learning import (
     is_weak_dictionary_pair,
     record_validation_rejections,
 )
+
+INIT_VAL_FILTER_VERSION = "compact-v3"
+_GIT_REVISION_CACHE = None
+
+
+def _current_git_revision():
+    """Return the short git revision for the current repo, if available."""
+    global _GIT_REVISION_CACHE
+    if _GIT_REVISION_CACHE is not None:
+        return _GIT_REVISION_CACHE
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        revision = "unknown"
+    _GIT_REVISION_CACHE = revision
+    return revision
 
 
 def _extract_compact_terms(original_text, suggested_text):
@@ -260,6 +282,11 @@ class ValidationReviewDialog(tk.Toplevel):
             "", 12, "bold")).pack(anchor="w")
         ttk.Label(header_frame, text="Checked items create dictionary entries in the form Wrong >>> Correct. Uncheck only the few you want to reject.").pack(
             anchor="w")
+        ttk.Label(
+            header_frame,
+            text=f"Filter build: {INIT_VAL_FILTER_VERSION} | Terms file: {config.VALIDATION_APPROVED_TERMS_PATH}",
+            wraplength=940,
+        ).pack(anchor="w")
         if self.skipped_findings:
             ttk.Label(
                 header_frame,
@@ -913,6 +940,13 @@ class TranscriptProcessorGUI:
             )
             return
         self.log("STEP 0: Initial Transcript Validation...")
+        self.log(
+            "Init Val runtime: commit=%s filter=%s terms=%s source=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+            self.selected_file,
+        )
         self.run_task_in_thread(self._run_initial_validation)
 
     def _run_initial_validation(self):
@@ -1476,6 +1510,14 @@ class TranscriptProcessorGUI:
             return False
 
         mode = self.validation_mode_var.get()
+        self.log(
+            "Init Val runtime: commit=%s filter=%s terms=%s source=%s mode=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+            self.selected_file,
+            mode,
+        )
         try:
             findings = []
             file_to_validate = self.selected_file
