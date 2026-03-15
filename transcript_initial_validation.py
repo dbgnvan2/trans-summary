@@ -270,12 +270,20 @@ class TranscriptValidator:
         parent = file_path.parent
         suffix = file_path.suffix
 
+        # Preserve the raw trx handoff file as the anchor for comparison runs.
+        if stem.endswith("_v-valid") or stem.endswith("_v-valid_validated"):
+            return file_path
+
         # Check if input is already versioned to find base stem
-        match = re.search(r'^(.*)_v(\d+)$', stem)
-        if match:
-            base_stem = match.group(1)
+        trx_match = re.search(r'^(.*_v-valid)_v(\d+)$', stem)
+        if trx_match:
+            base_stem = trx_match.group(1)
         else:
-            base_stem = stem
+            match = re.search(r'^(.*)_v(\d+)$', stem)
+            if match:
+                base_stem = match.group(1)
+            else:
+                base_stem = stem
 
         # Find all matching files
         candidates = []
