@@ -1,5 +1,6 @@
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import config
 import ts_gui
@@ -111,3 +112,38 @@ def test_run_task_in_thread_rejects_reentry():
     gui.progress.start.assert_not_called()
     gui.update_button_states.assert_not_called()
     gui.log.assert_called_with("⚠️ A task is already running. Please wait for it to finish.")
+
+
+def test_do_initial_validation_blocks_when_existing_versions_found():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir) / "Sample_v-valid.txt"
+        base.write_text("base", encoding="utf-8")
+        (Path(tmpdir) / "Sample_v-valid_v1.txt").write_text("v1", encoding="utf-8")
+
+        gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+        gui.selected_file = base
+        gui.log = MagicMock()
+        gui.run_task_in_thread = MagicMock()
+
+        with patch("ts_gui.messagebox.showwarning") as mock_warning:
+            gui.do_initial_validation()
+
+        gui.run_task_in_thread.assert_not_called()
+        mock_warning.assert_called_once()
+        assert "Move or delete the existing Init Val versions" in mock_warning.call_args.args[1]
+
+
+def test_run_initial_validation_auto_blocks_when_existing_versions_found():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir) / "Sample_v-valid.txt"
+        base.write_text("base", encoding="utf-8")
+        (Path(tmpdir) / "Sample_v-valid_v1.txt").write_text("v1", encoding="utf-8")
+
+        gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+        gui.selected_file = base
+        gui.log = MagicMock()
+
+        ok = gui._run_initial_validation_auto()
+
+        assert ok is False
+        gui.log.assert_called()

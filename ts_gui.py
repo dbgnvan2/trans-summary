@@ -164,6 +164,27 @@ def _collect_validation_review_actions(item_vars):
     return final_corrections, rejected_findings, approved_terms, aliases
 
 
+def _find_existing_validation_versions(file_path):
+    """Return existing vN files for a selected base transcript."""
+    if not file_path:
+        return []
+
+    stem = file_path.stem
+    if re.search(r"_v\d+$", stem) or stem.endswith("_validated"):
+        return []
+
+    parent = file_path.parent
+    suffix = file_path.suffix
+    versions = []
+    for candidate in parent.glob(f"{stem}_v*{suffix}"):
+        match = re.search(rf"^{re.escape(stem)}_v(\d+)$", candidate.stem)
+        if match:
+            versions.append((int(match.group(1)), candidate))
+
+    versions.sort(key=lambda item: item[0])
+    return [path for _, path in versions]
+
+
 class GuiLoggerAdapter:
     """Adapts pipeline logging calls to the GUI log window."""
 
@@ -808,6 +829,21 @@ class TranscriptProcessorGUI:
         """Run the initial validation step on the selected transcript."""
         if not self.selected_file:
             return
+        existing_versions = _find_existing_validation_versions(self.selected_file)
+        if existing_versions:
+            version_names = ", ".join(path.name for path in existing_versions[:5])
+            if len(existing_versions) > 5:
+                version_names += ", ..."
+            messagebox.showwarning(
+                "Existing Validation Versions",
+                "Move or delete the existing Init Val versions and restart from the base file.\n\n"
+                f"Found: {version_names}",
+            )
+            self.log(
+                "⚠️ Existing Init Val versions found for %s. Move or delete them and restart.",
+                self.selected_file.name,
+            )
+            return
         self.log("STEP 0: Initial Transcript Validation...")
         self.run_task_in_thread(self._run_initial_validation)
 
@@ -1357,6 +1393,18 @@ class TranscriptProcessorGUI:
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            return False
+
+        existing_versions = _find_existing_validation_versions(self.selected_file)
+        if existing_versions:
+            version_names = ", ".join(path.name for path in existing_versions[:5])
+            if len(existing_versions) > 5:
+                version_names += ", ..."
+            self.log(
+                "❌ Existing Init Val versions found for %s. Move or delete them and restart from the base file. Found: %s",
+                self.selected_file.name,
+                version_names,
+            )
             return False
 
         mode = self.validation_mode_var.get()
