@@ -21,6 +21,23 @@ def _clean_term(value: str) -> str:
     return " ".join((value or "").split()).strip()
 
 
+WEAK_DICTIONARY_PAIRS = {
+    ("cells", "self"),
+    ("cells,", "self,"),
+    ("brown", "known"),
+    ("m", "e"),
+    ("niels", "nixon"),
+    ("stateholder", "state-holder"),
+    ("rooms.", "roomes."),
+    ("planned", "placed"),
+    ("motion", "emotion"),
+    ("motion.", "emotion."),
+    ("triangle", "triune"),
+    ("train", "triune"),
+    ("circle,", "medicine,"),
+}
+
+
 def _memory_path() -> Path:
     return config.LOGS_DIR / config.VALIDATION_MEMORY_FILENAME
 
@@ -149,6 +166,18 @@ class FilteredFindings:
     injected_aliases: int
     suppressed_by_error_type: int
     suppressed_by_alias_dictionary: int
+    suppressed_by_duplicate_pair: int
+    suppressed_by_weak_pair: int
+
+
+def _is_weak_dictionary_pair(original: str, suggestion: str) -> bool:
+    original_norm = _normalize_text(original)
+    suggestion_norm = _normalize_text(suggestion)
+    if (original_norm, suggestion_norm) in WEAK_DICTIONARY_PAIRS:
+        return True
+    if len(original_norm) <= 1 or len(suggestion_norm) <= 1:
+        return True
+    return False
 
 
 class ValidationLearningMemory:
@@ -278,23 +307,34 @@ def filter_validation_findings(
     suppressed_by_approved_terms = 0
     suppressed_by_error_type = 0
     suppressed_by_alias_dictionary = 0
+    suppressed_by_duplicate_pair = 0
+    suppressed_by_weak_pair = 0
+    seen_review_pairs: set[tuple[str, str]] = set()
 
     for finding in combined_findings:
         error_type = finding.get("error_type", "")
         original = finding.get("original_text", "")
         suggestion = finding.get("suggested_correction", "")
+        normalized_pair = (_normalize_text(original), _normalize_text(suggestion))
         if error_type and error_type not in config.VALIDATION_ERROR_TYPES:
             suppressed_by_error_type += 1
+            continue
+        if _is_weak_dictionary_pair(original, suggestion):
+            suppressed_by_weak_pair += 1
             continue
         if _normalize_text(original) in approved_terms:
             suppressed_by_approved_terms += 1
             continue
-        if (_normalize_text(original), _normalize_text(suggestion)) in alias_pairs:
+        if normalized_pair in alias_pairs:
             suppressed_by_alias_dictionary += 1
             continue
         if memory.is_blocked(original, suggestion):
             suppressed_by_memory += 1
             continue
+        if normalized_pair in seen_review_pairs:
+            suppressed_by_duplicate_pair += 1
+            continue
+        seen_review_pairs.add(normalized_pair)
         filtered.append(finding)
 
     if logger and (
@@ -302,13 +342,17 @@ def filter_validation_findings(
         or suppressed_by_approved_terms
         or suppressed_by_error_type
         or suppressed_by_alias_dictionary
+        or suppressed_by_duplicate_pair
+        or suppressed_by_weak_pair
     ):
         logger.info(
-            "Validation learning: %d finding(s) suppressed via memory, %d via approved terms, %d via alias dictionary, %d via disallowed error type.",
+            "Validation learning: %d suppressed via memory, %d via approved terms, %d via alias dictionary, %d via disallowed error type, %d duplicate pair(s), %d weak pair(s).",
             suppressed_by_memory,
             suppressed_by_approved_terms,
             suppressed_by_alias_dictionary,
             suppressed_by_error_type,
+            suppressed_by_duplicate_pair,
+            suppressed_by_weak_pair,
         )
 
     return FilteredFindings(
@@ -318,6 +362,8 @@ def filter_validation_findings(
         injected_aliases=injected_aliases,
         suppressed_by_error_type=suppressed_by_error_type,
         suppressed_by_alias_dictionary=suppressed_by_alias_dictionary,
+        suppressed_by_duplicate_pair=suppressed_by_duplicate_pair,
+        suppressed_by_weak_pair=suppressed_by_weak_pair,
     )
 
 

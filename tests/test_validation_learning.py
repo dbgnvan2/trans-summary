@@ -1,4 +1,7 @@
+# ruff: noqa: I001
+
 import config
+import pytest
 import validation_learning
 from ts_gui import (
     _build_context_phrase,
@@ -16,6 +19,13 @@ class DummyVar:
 
     def get(self):
         return self.value
+
+
+@pytest.fixture
+def tempfile_terms_env(tmp_path, monkeypatch):
+    approved_terms_path = tmp_path / "approve_terms.txt"
+    memory_path = tmp_path / "validation_memory.json"
+    yield monkeypatch, approved_terms_path, memory_path
 
 
 def test_validation_memory_promotes_rejected_pairs(tmp_path):
@@ -76,6 +86,8 @@ def test_filter_validation_findings_respects_approved_terms_and_memory(tmp_path,
     assert filtered.suppressed_by_approved_terms == 1
     assert filtered.suppressed_by_memory == 1
     assert filtered.suppressed_by_error_type == 0
+    assert filtered.suppressed_by_duplicate_pair == 0
+    assert filtered.suppressed_by_weak_pair == 0
     assert filtered.findings == [findings[2]]
 
 
@@ -203,6 +215,66 @@ def test_filter_validation_findings_drops_disallowed_error_types():
             "reasoning": "Known domain spelling",
         }
     ]
+
+
+def test_filter_validation_findings_deduplicates_identical_pairs(tempfile_terms_env):
+    monkeypatch, approved_terms_path, memory_path = tempfile_terms_env
+    approved_terms_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(validation_learning, "_approved_terms_path", lambda: approved_terms_path)
+    monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
+
+    findings = [
+        {
+            "error_type": "homophone",
+            "original_text": "progression",
+            "suggested_correction": "regression",
+            "reasoning": "First mention",
+        },
+        {
+            "error_type": "homophone",
+            "original_text": "progression",
+            "suggested_correction": "regression",
+            "reasoning": "Second mention",
+        },
+    ]
+
+    filtered = validation_learning.filter_validation_findings(findings)
+
+    assert filtered.suppressed_by_duplicate_pair == 1
+    assert filtered.findings == [findings[0]]
+
+
+def test_filter_validation_findings_suppresses_weak_pairs(tempfile_terms_env):
+    monkeypatch, approved_terms_path, memory_path = tempfile_terms_env
+    approved_terms_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(validation_learning, "_approved_terms_path", lambda: approved_terms_path)
+    monkeypatch.setattr(validation_learning, "_memory_path", lambda: memory_path)
+
+    findings = [
+        {
+            "error_type": "homophone",
+            "original_text": "cells",
+            "suggested_correction": "self",
+            "reasoning": "Weak concept jump",
+        },
+        {
+            "error_type": "proper_noun",
+            "original_text": "triangle",
+            "suggested_correction": "triune",
+            "reasoning": "Weak concept jump",
+        },
+        {
+            "error_type": "proper_noun",
+            "original_text": "Taiko",
+            "suggested_correction": "Tycho",
+            "reasoning": "Legitimate proper noun",
+        },
+    ]
+
+    filtered = validation_learning.filter_validation_findings(findings)
+
+    assert filtered.suppressed_by_weak_pair == 2
+    assert filtered.findings == [findings[2]]
 
 
 def test_extract_compact_terms_reduces_context_to_changed_span():
