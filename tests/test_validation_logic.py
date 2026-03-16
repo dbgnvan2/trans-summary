@@ -7,6 +7,7 @@ import unittest
 
 from formatting_pipeline import (
     _compare_transcripts,
+    detect_transcript_source_format,
     strip_raw_speaker_prefixes,
     strip_transcript_metadata_header,
     strip_transcript_validation_footer,
@@ -14,6 +15,25 @@ from formatting_pipeline import (
 
 
 class TestValidationLogic(unittest.TestCase):
+
+    def test_detect_transcript_source_format_trx_wrapper(self):
+        raw = """TRANSCRIPT
+==========
+Source file:  Example.mp4
+Date:         2026-03-12
+Duration:     01:28:00
+Speakers:     6
+Warnings:     Cloud transcription used chunked upload.
+"""
+
+        self.assertEqual(
+            detect_transcript_source_format(raw),
+            "trx_whisper_wrapped",
+        )
+
+    def test_detect_transcript_source_format_plain_transcript(self):
+        raw = "[00:00:03] A: Okay.\n[00:00:05] A: Welcome.\n"
+        self.assertEqual(detect_transcript_source_format(raw), "plain_transcript")
 
     def test_fuzzy_matching_typos(self):
         """Test that minor typos are accepted as matches."""

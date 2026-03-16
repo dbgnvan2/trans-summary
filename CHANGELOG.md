@@ -6,12 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Whisper/TRX format validation compatibility**: Formatting validation now strips supported TRX/Whisper transcript wrappers before word comparison, including `TRANSCRIPT` metadata headers, timestamped speaker prefixes, and appended `VALIDATION REPORT` / `FLAGGED ITEMS` footer blocks. This prevents false mismatch explosions when using `*_v-valid*.txt` inputs from the `trx` workflow.
 - **Structured long-request streaming**: Enabled `stream=True` in both `summary_pipeline.generate_summary()` and `abstract_pipeline.generate_abstract()` so the structured generation paths comply with Anthropic SDK long-request requirements instead of relying on callers to opt in manually.
 - **Structured transcript fallback**: Updated structured summary/abstract generation, structured validation, and webpage/PDF generation to load ` - yaml.md` when ` - formatted.md` is missing, preventing failures in projects where the YAML transcript remains but the formatted artifact does not.
 - **PDF dependency messaging**: PDF generation now logs an explicit WeasyPrint dependency error instead of surfacing only a generic failure.
 
 ### Added
 
+- **Transcript source format detection**: Added explicit source-format detection/logging in `formatting_pipeline` so formatting and validation report whether an input is `plain_transcript` or `trx_whisper_wrapped`.
 - **Streaming regression tests**: Added coverage to verify `call_claude_with_retry()` uses `client.messages.stream(...)` when requested, and that structured summary/abstract generation explicitly enables streaming.
 - **Fallback regression tests**: Added coverage for YAML-only structured abstract generation, abstract validation, and webpage generation.
 - **Initial validation learning**: Added persistent review memory for rejected `original_text -> suggested_correction` pairs in `logs/validation_memory.json`, plus approved-term persistence in `approve_terms.txt` so `Init Val` reruns can converge instead of repeating the same rejected suggestions.

@@ -31,13 +31,10 @@ def strip_sic_annotations(text: str) -> tuple[str, int]:
     return cleaned_text, count
 
 
-def strip_transcript_metadata_header(text: str) -> str:
-    """Remove TRX-style transcript metadata header before content comparison."""
-    lines = text.splitlines()
-    if not lines:
-        return text
-
-    header_markers = (
+def detect_transcript_source_format(text: str) -> str:
+    """Classify supported transcript wrapper formats for logging."""
+    sample = "\n".join(text.splitlines()[:12])
+    trx_markers = (
         "TRANSCRIPT",
         "Source file:",
         "Date:",
@@ -45,10 +42,16 @@ def strip_transcript_metadata_header(text: str) -> str:
         "Speakers:",
         "Warnings:",
     )
+    if all(marker in sample for marker in trx_markers):
+        return "trx_whisper_wrapped"
+    return "plain_transcript"
 
-    sample = "\n".join(lines[:12])
-    if not all(marker in sample for marker in header_markers):
+
+def strip_transcript_metadata_header(text: str) -> str:
+    """Remove TRX-style transcript metadata header before content comparison."""
+    if detect_transcript_source_format(text) != "trx_whisper_wrapped":
         return text
+    lines = text.splitlines()
 
     separator_index = None
     for index, line in enumerate(lines[:20]):
@@ -196,6 +199,10 @@ def format_transcript(
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
+        logger.info(
+            "Detected transcript source format: %s",
+            detect_transcript_source_format(raw_transcript),
+        )
 
         # Construct full prompt to check token budget before API call
         full_prompt_for_budget_check = (
@@ -495,6 +502,10 @@ def validate_format(
 
         raw_text = raw_file_path.read_text(encoding="utf-8-sig")
         formatted_text = formatted_file_path.read_text(encoding="utf-8-sig")
+        logger.info(
+            "Detected transcript source format: %s",
+            detect_transcript_source_format(raw_text),
+        )
 
         formatted_text = strip_yaml_frontmatter(formatted_text)
 

@@ -22,6 +22,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **API Reliability**: Model-agnostic API validation with automatic retry logic, long-request streaming for structured summary/abstract generation, truncation detection, and token usage tracking
 - **Artifact Recovery**: Structured generation, validation, and webpage/PDF rendering can fall back to the project ` - yaml.md` transcript if ` - formatted.md` is missing
 - **Quality Assurance**: Validation steps for word-for-word fidelity, header accuracy, and summary coverage
+- **Source Format Detection**: Formatting/validation now detects plain transcript text versus TRX/Whisper-wrapped transcript files and strips supported metadata wrappers before comparison
 
 ## Installation
 
@@ -107,6 +108,18 @@ Or run individual steps manually:
 5.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
 
 For structured summary/abstract generation, the project normally reads `<Base Name> - formatted.md` and will fall back to `<Base Name> - yaml.md` if the formatted transcript is missing.
+
+### Supported Transcript Inputs
+
+The pipeline now supports two common source-text shapes for formatting and fidelity validation:
+
+- `plain_transcript`: raw transcript text such as Otter-style exports or lightly cleaned timestamped transcripts
+- `trx_whisper_wrapped`: Whisper/TRX validated transcript files that include:
+  - a `TRANSCRIPT` metadata header (`Source file`, `Date`, `Duration`, `Speakers`, `Warnings`)
+  - timestamped speaker prefixes like `[00:00:03] A:`
+  - optional appended `VALIDATION REPORT` / `FLAGGED ITEMS` footer blocks
+
+When a TRX/Whisper wrapper is detected, the pipeline strips the wrapper metadata before formatting validation so the word-fidelity check compares transcript content rather than audit/report text.
 
 ### Maintenance Utilities
 

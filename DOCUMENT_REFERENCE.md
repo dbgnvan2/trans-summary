@@ -70,3 +70,15 @@ This guide reflects the current artifact set produced by the transcript processi
 - Webpage/PDF generation loads generated artifacts directly from dedicated one-artifact-per-output files.
 - Bowen and emphasis items are both used for transcript highlighting in HTML/PDF.
 - Legacy paths like `~/transcripts/...` are no longer the canonical default; use `config.TRANSCRIPTS_BASE`-derived directories.
+## Transcript Input Formats
+
+Formatting and word-fidelity validation now recognize two supported source transcript families:
+
+- `plain_transcript`: plain text transcript input, including Otter-style exports and lightly cleaned timestamped text
+- `trx_whisper_wrapped`: TRX/Whisper validated transcript files with:
+  - `TRANSCRIPT` metadata header
+  - `Source file` / `Date` / `Duration` / `Speakers` / `Warnings` lines
+  - timestamped speaker prefixes such as `[00:00:03] A:`
+  - optional appended `VALIDATION REPORT` and `FLAGGED ITEMS` footer blocks
+
+`formatting_pipeline` strips the supported TRX/Whisper wrapper sections before format validation so content comparison is performed against transcript text only.

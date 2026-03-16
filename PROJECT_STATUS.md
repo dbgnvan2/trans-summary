@@ -47,6 +47,15 @@ Current artifact naming is config-driven and centered on:
 
 See `DOCUMENT_REFERENCE.md` for the full matrix and stage mapping.
 
+## Current Transcript Input Support
+
+The formatting and fidelity-validation stages now explicitly support both:
+
+- plain transcript text inputs
+- TRX/Whisper wrapped validated transcript files with metadata headers and validation footers
+
+The current code detects the wrapper style and strips supported `TRANSCRIPT` header / `VALIDATION REPORT` footer content before word-level validation. This was added to prevent false format-validation failures when using Whisper/TRX outputs as the source transcript.
+
 Structured summary/abstract generation now accepts either of the persisted transcript artifacts in a project folder:
 
 - preferred: ` - formatted.md`
