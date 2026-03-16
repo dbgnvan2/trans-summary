@@ -31,6 +31,55 @@ def strip_sic_annotations(text: str) -> tuple[str, int]:
     return cleaned_text, count
 
 
+def strip_transcript_metadata_header(text: str) -> str:
+    """Remove TRX-style transcript metadata header before content comparison."""
+    lines = text.splitlines()
+    if not lines:
+        return text
+
+    header_markers = (
+        "TRANSCRIPT",
+        "Source file:",
+        "Date:",
+        "Duration:",
+        "Speakers:",
+        "Warnings:",
+    )
+
+    sample = "\n".join(lines[:12])
+    if not all(marker in sample for marker in header_markers):
+        return text
+
+    separator_index = None
+    for index, line in enumerate(lines[:20]):
+        if re.match(r"^-{10,}\s*$", line):
+            separator_index = index
+            break
+
+    if separator_index is None:
+        return text
+
+    return "\n".join(lines[separator_index + 1 :]).lstrip()
+
+
+def strip_raw_speaker_prefixes(text: str) -> str:
+    """Remove timestamped/raw speaker prefixes before validation comparison."""
+    prefix_pattern = (
+        r"^\s*(?:\[[\d:.]+\]\s*)?"
+        r"(?:Unknown Speaker|Speaker \d+|[A-Za-z][\w .'-]{0,40}):\s*"
+    )
+    return re.sub(prefix_pattern, "", text, flags=re.MULTILINE)
+
+
+def strip_transcript_validation_footer(text: str) -> str:
+    """Remove appended TRX validation report blocks from transcript text."""
+    for marker in ("\nVALIDATION REPORT\n", "\r\nVALIDATION REPORT\r\n", "\nFLAGGED ITEMS\n"):
+        index = text.find(marker)
+        if index != -1:
+            return text[:index].rstrip() + "\n"
+    return text
+
+
 def load_prompt() -> str:
     """Load the formatting prompt template."""
     prompt_path = config.PROMPTS_DIR / config.PROMPT_FORMATTING_FILENAME
@@ -47,7 +96,8 @@ def load_raw_transcript(filename: str) -> str:
     """Load the raw transcript from source directory."""
     transcript_path = config.SOURCE_DIR / filename
     validate_input_file(transcript_path)
-    return transcript_path.read_text(encoding="utf-8")
+    raw_text = transcript_path.read_text(encoding="utf-8")
+    return strip_transcript_validation_footer(raw_text)
 
 
 def format_transcript_with_claude(
@@ -141,9 +191,7 @@ def format_transcript(
             raise FileNotFoundError(
                 f"Source directory not found: {config.SOURCE_DIR}")
 
-        logger.info(
-            f"Loading prompt template from: {config.TRANSCRIPTS_BASE / 'prompts'}"
-        )
+        logger.info("Loading prompt template from: %s", config.PROMPTS_DIR)
         prompt_template = load_prompt()
 
         logger.info(f"Loading raw transcript: {raw_filename}")
@@ -450,12 +498,10 @@ def validate_format(
 
         formatted_text = strip_yaml_frontmatter(formatted_text)
 
-        raw_clean = re.sub(
-            r"^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+(?::\d+)?",
-            "",
-            raw_text,
-            flags=re.MULTILINE,
-        )
+        raw_clean = strip_transcript_validation_footer(raw_text)
+        raw_clean = strip_transcript_metadata_header(raw_clean)
+
+        raw_clean = strip_raw_speaker_prefixes(raw_clean)
         raw_clean = re.sub(r"^\s*Transcribed by\b.*", "",
                            raw_clean, flags=re.MULTILINE)
 

@@ -5,7 +5,12 @@ Unit tests for validation logic, including fuzzy matching and procedural ignores
 import re
 import unittest
 
-from formatting_pipeline import _compare_transcripts
+from formatting_pipeline import (
+    _compare_transcripts,
+    strip_raw_speaker_prefixes,
+    strip_transcript_metadata_header,
+    strip_transcript_validation_footer,
+)
 
 
 class TestValidationLogic(unittest.TestCase):
@@ -90,6 +95,63 @@ class TestValidationLogic(unittest.TestCase):
         # Should find 1 mismatch (the deletion of 'two')
         self.assertEqual(result['mismatch_count'], 1)
         self.assertEqual(result['mismatches'][0]['a_word'], 'two')
+
+    def test_strip_transcript_metadata_header_removes_trx_preamble(self):
+        raw = """TRANSCRIPT
+==========
+Source file:  Example.mp4
+Date:         2026-03-12
+Duration:     01:28:00
+Speakers:     6
+Warnings:     Cloud transcription used chunked upload.
+
+--------------------------------------------------
+
+[00:00:03] A: Okay.
+[00:00:05] A: Welcome.
+"""
+
+        cleaned = strip_transcript_metadata_header(raw)
+
+        self.assertTrue(cleaned.startswith("[00:00:03] A: Okay."))
+        self.assertNotIn("Source file:", cleaned)
+        self.assertNotIn("Warnings:", cleaned)
+
+    def test_strip_raw_speaker_prefixes_removes_trx_labels(self):
+        raw = """[00:00:03] A: Okay.
+[00:00:55] B: Here it comes.
+Speaker 3: This is another line.
+Unknown Speaker: Final line.
+"""
+
+        cleaned = strip_raw_speaker_prefixes(raw)
+
+        self.assertIn("Okay.", cleaned)
+        self.assertIn("Here it comes.", cleaned)
+        self.assertIn("This is another line.", cleaned)
+        self.assertIn("Final line.", cleaned)
+        self.assertNotIn("[00:00:03] A:", cleaned)
+        self.assertNotIn("Speaker 3:", cleaned)
+        self.assertNotIn("Unknown Speaker:", cleaned)
+
+    def test_strip_transcript_validation_footer_removes_appended_report(self):
+        raw = """[00:00:03] A: Okay.
+[00:00:05] A: Welcome.
+
+VALIDATION REPORT
+-----------------
+  - [00:00:05] foo -> bar (alias_mapping_exact)
+
+FLAGGED ITEMS
+-------------
+  - None
+"""
+
+        cleaned = strip_transcript_validation_footer(raw)
+
+        self.assertEqual(cleaned, "[00:00:03] A: Okay.\n[00:00:05] A: Welcome.\n")
+        self.assertNotIn("VALIDATION REPORT", cleaned)
+        self.assertNotIn("FLAGGED ITEMS", cleaned)
 
 if __name__ == '__main__':
     unittest.main()
