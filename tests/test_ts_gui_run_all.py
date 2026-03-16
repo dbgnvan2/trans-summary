@@ -179,3 +179,16 @@ def test_reset_validation_terms_file_restores_default():
     finally:
         config.set_transcripts_base(original_base)
         config.set_validation_approved_terms_path(original_path)
+
+
+def test_validation_terms_file_selection_persists(tmp_path, monkeypatch):
+    settings_path = tmp_path / "runtime_settings.json"
+    monkeypatch.setattr(config.settings, "_runtime_settings_path", lambda: settings_path)
+
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    try:
+        config.set_validation_approved_terms_path("/tmp/persisted_terms.txt")
+        payload = settings_path.read_text(encoding="utf-8")
+        assert "/tmp/persisted_terms.txt" in payload
+    finally:
+        config.set_validation_approved_terms_path(original_path)

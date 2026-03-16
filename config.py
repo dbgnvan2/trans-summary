@@ -8,6 +8,7 @@ Direct access to variables (e.g. config.SOURCE_DIR) is proxied to the singleton 
 to maintain backward compatibility while enabling safer state management.
 """
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -44,8 +45,35 @@ class ProjectSettings:
         self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
         self.FORMATTING_MODEL = "claude-sonnet-4-6"  # Use Sonnet 4.6 for formatting quality/consistency
         self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
+        self._load_runtime_settings()
 
         self._initialized = True
+
+    def _runtime_settings_path(self) -> Path:
+        return self.LOGS_DIR / "runtime_settings.json"
+
+    def _load_runtime_settings(self):
+        """Load persisted runtime UI settings."""
+        path = self._runtime_settings_path()
+        if not path.exists():
+            return
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+
+        terms_path = payload.get("validation_approved_terms_path")
+        if terms_path:
+            self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
+
+    def _save_runtime_settings(self):
+        """Persist runtime UI settings that should survive restarts."""
+        path = self._runtime_settings_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "validation_approved_terms_path": str(self.VALIDATION_APPROVED_TERMS_PATH),
+        }
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
     def _update_derived_paths(self):
         """Update paths derived from TRANSCRIPTS_BASE."""
@@ -73,6 +101,7 @@ class ProjectSettings:
             )
         else:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(path)
+        self._save_runtime_settings()
 
     # ADDED: Methods to dynamically get and set model names
     def get_all_model_names(self) -> list[str]:

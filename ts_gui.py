@@ -400,7 +400,7 @@ class ValidationReviewDialog(tk.Toplevel):
 class TranscriptProcessorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Transcript Processor")
+        self.root.title(f"Transcript Processor [{_current_git_revision()} {INIT_VAL_FILTER_VERSION}]")
         self.root.geometry("900x950")
 
         self.selected_file = None
