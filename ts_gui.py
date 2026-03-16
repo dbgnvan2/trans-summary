@@ -266,7 +266,7 @@ class ValidationReviewDialog(tk.Toplevel):
 
     def __init__(self, parent, findings, apply_callback):
         super().__init__(parent)
-        self.title("Review Transcript Corrections")
+        self.title(f"Review Transcript Corrections [{INIT_VAL_FILTER_VERSION}]")
         self.geometry("1000x700")
         self.apply_callback = apply_callback
         self.findings, self.skipped_findings = _prepare_review_findings(findings)
@@ -424,6 +424,12 @@ class TranscriptProcessorGUI:
         self.update_dir_label()
         self.update_terms_file_label()
         self.refresh_file_list()
+        self.log(
+            "GUI started: commit=%s filter=%s default_terms=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+        )
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding="10")
