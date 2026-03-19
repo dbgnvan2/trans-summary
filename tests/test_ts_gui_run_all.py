@@ -57,6 +57,50 @@ def test_run_all_includes_cost_estimation_and_separate_blog_step():
     assert second_call[4:7] == (True, True, False)
 
 
+def test_run_all_halts_on_header_validation_failure():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = "Sample Title - Author - 2025-01-01"
+    gui.selected_file = Path("/tmp/Sample Title - Author - 2025-01-01_validated.txt")
+    gui.formatted_file = Path(f"/tmp/{gui.base_name}{config.SUFFIX_FORMATTED}")
+    gui.logger = object()
+    gui.log = lambda *_args, **_kwargs: None
+    gui.include_init_val_do_all = _Flag(False)
+
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch.object(gui, "_run_header_validation", return_value=False), \
+         patch("ts_gui.pipeline.format_transcript", return_value=True), \
+         patch("ts_gui.pipeline.validate_format", return_value=True), \
+         patch("ts_gui.pipeline.add_yaml") as mock_yaml:
+        ok = gui._run_all_steps()
+
+    assert ok is False
+    mock_yaml.assert_not_called()
+
+
+def test_run_all_halts_on_abstract_validation_failure():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = "Sample Title - Author - 2025-01-01"
+    gui.selected_file = Path("/tmp/Sample Title - Author - 2025-01-01_validated.txt")
+    gui.formatted_file = Path(f"/tmp/{gui.base_name}{config.SUFFIX_FORMATTED}")
+    gui.logger = object()
+    gui.log = lambda *_args, **_kwargs: None
+    gui.include_init_val_do_all = _Flag(False)
+
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch.object(gui, "_run_header_validation", return_value=True), \
+         patch("ts_gui.pipeline.format_transcript", return_value=True), \
+         patch("ts_gui.pipeline.validate_format", return_value=True), \
+         patch("ts_gui.pipeline.add_yaml", return_value=True), \
+         patch("ts_gui.pipeline.summarize_transcript", return_value=True), \
+         patch("ts_gui.pipeline.generate_structured_abstract", return_value=True), \
+         patch("ts_gui.pipeline.validate_abstract_coverage", return_value=False), \
+         patch("ts_gui.pipeline.package_transcript") as mock_package:
+        ok = gui._run_all_steps()
+
+    assert ok is False
+    mock_package.assert_not_called()
+
+
 def test_run_all_with_init_val_auto_calls_initial_validation():
     gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
     gui.base_name = "Sample Title - Author - 2025-01-01"
@@ -176,6 +220,27 @@ def test_reset_validation_terms_file_restores_default():
         config.set_validation_approved_terms_path("/tmp/custom_terms.txt")
         gui.reset_validation_terms_file()
         assert config.VALIDATION_APPROVED_TERMS_PATH == Path("/tmp/approve_terms.txt")
+    finally:
+        config.set_transcripts_base(original_base)
+        config.set_validation_approved_terms_path(original_path)
+
+
+def test_select_transcripts_directory_resets_terms_file_to_new_default():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.update_dir_label = MagicMock()
+    gui.update_terms_file_label = MagicMock()
+    gui.refresh_file_list = MagicMock()
+    gui.log = MagicMock()
+
+    original_base = config.TRANSCRIPTS_BASE
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    try:
+        config.set_validation_approved_terms_path("/tmp/custom_terms.txt")
+        with patch("ts_gui.filedialog.askdirectory", return_value="/tmp/new_transcripts"):
+            gui.select_transcripts_directory()
+
+        assert config.TRANSCRIPTS_BASE == Path("/tmp/new_transcripts")
+        assert config.VALIDATION_APPROVED_TERMS_PATH == Path("/tmp/new_transcripts/approve_terms.txt")
     finally:
         config.set_transcripts_base(original_base)
         config.set_validation_approved_terms_path(original_path)

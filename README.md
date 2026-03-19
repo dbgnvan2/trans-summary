@@ -76,6 +76,8 @@ The current workflow is designed to run in this order:
 `Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
 If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
 
+`Run All` is now fail-closed for validation gates. If format validation, header validation, abstract generation, or abstract coverage validation fails, the workflow stops instead of continuing into later artifact generation.
+
 ### Initial Validation Learning
 
 `Init Val` now keeps lightweight review memory so repeated reruns converge instead of re-surfacing the same rejected suggestions forever.

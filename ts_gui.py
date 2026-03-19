@@ -735,9 +735,14 @@ class TranscriptProcessorGUI:
             title="Select Transcripts Directory")
         if dir_path:
             config.set_transcripts_base(dir_path)
+            config.set_validation_approved_terms_path(None)
             self.update_dir_label()
             self.update_terms_file_label()
             self.refresh_file_list()
+            self.log(
+                "Switched transcripts directory; reset validation terms file to default: %s",
+                config.VALIDATION_APPROVED_TERMS_PATH,
+            )
 
     def update_dir_label(self):
         self.dir_label.config(
@@ -1442,9 +1447,9 @@ class TranscriptProcessorGUI:
 
         # Step 1b: Header Validation
         self.log("\n--- STEP 1b: Header Validation ---")
-        # Use config.settings.AUX_MODEL
-        if not self._run_header_validation(): # Calls _run_header_validation, which uses AUX_MODEL
-            self.log("⚠️ Header validation failed or found issues.")
+        if not self._run_header_validation():
+            self.log("❌ Header validation failed.")
+            return False
 
         # Step 2: Add YAML
         self.log("\n--- STEP 2: Adding YAML ---")
@@ -1462,12 +1467,15 @@ class TranscriptProcessorGUI:
 
         # Step 4: Generate Abstract
         self.log("\n--- STEP 4: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for abstracts
-            self.log("⚠️ Abstract generation failed or skipped.")
+        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):
+            self.log("❌ Abstract generation failed.")
+            return False
 
         # Step 5: Validate Abstracts
         self.log("\n--- STEP 5: Validating Abstracts ---")
-        pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+        if not pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL):
+            self.log("❌ Abstract validation failed.")
+            return False
 
         # Step 6: Reserved (separate validation happens inside extraction + abstract validation above)
 

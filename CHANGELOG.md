@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Fail-closed validation gating in `Run All`**: The GUI workflow now stops when header validation, abstract generation, or abstract coverage validation fails, instead of continuing into blog/web/package generation with invalid upstream artifacts.
+- **Terms-file reset on transcript directory change**: Switching `TRANSCRIPTS_BASE` in the GUI now resets the active `Init Val` dictionary back to that directory's default `approve_terms.txt`, preventing accidental cross-corpus dictionary reuse.
+- **Logger reinitialization**: `transcript_utils.setup_logging()` now replaces handlers on the named logger directly instead of relying on repeated `logging.basicConfig(...)` calls, ensuring each step writes to its intended log file.
 - **Whisper/TRX format validation compatibility**: Formatting validation now strips supported TRX/Whisper transcript wrappers before word comparison, including `TRANSCRIPT` metadata headers, timestamped speaker prefixes, and appended `VALIDATION REPORT` / `FLAGGED ITEMS` footer blocks. This prevents false mismatch explosions when using `*_v-valid*.txt` inputs from the `trx` workflow.
 - **Structured long-request streaming**: Enabled `stream=True` in both `summary_pipeline.generate_summary()` and `abstract_pipeline.generate_abstract()` so the structured generation paths comply with Anthropic SDK long-request requirements instead of relying on callers to opt in manually.
 - **Structured transcript fallback**: Updated structured summary/abstract generation, structured validation, and webpage/PDF generation to load ` - yaml.md` when ` - formatted.md` is missing, preventing failures in projects where the YAML transcript remains but the formatted artifact does not.

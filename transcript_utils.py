@@ -37,19 +37,28 @@ def setup_logging(script_name: str) -> logging.Logger:
     logs_dir = config.LOGS_DIR
     logs_dir.mkdir(exist_ok=True)
 
-    from datetime import datetime
     log_file = logs_dir / f"{script_name}_{datetime.now():%Y%m%d_%H%M%S}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
-
     logger = logging.getLogger(script_name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
     logger.info("Logging initialized: %s", log_file)
     return logger
 
