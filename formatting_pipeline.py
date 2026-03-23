@@ -266,6 +266,72 @@ DOI: ""
 '''
 
 
+def _resolve_structured_stem(filename: str) -> str:
+    """Strip transcript artifact suffixes to recover the project stem."""
+    stem = Path(filename).stem
+    for suffix in (
+        config.SUFFIX_FORMATTED.replace(".md", ""),
+        config.SUFFIX_YAML.replace(".md", ""),
+    ):
+        if stem.endswith(suffix):
+            return stem[: -len(suffix)]
+    return clean_project_name(stem)
+
+
+def _parse_metadata_fallback(stem: str, transcript_text: str | None = None) -> dict:
+    """Best-effort metadata extraction for non-canonical transcript filenames."""
+    source_filename = None
+    if transcript_text:
+        match = re.search(r"^Source file:\s*(.+)$", transcript_text, re.MULTILINE)
+        if match:
+            source_filename = Path(match.group(1).strip()).name
+
+    candidate = Path(source_filename).stem if source_filename else stem
+    candidate = clean_project_name(candidate)
+
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2}|\d{8})", candidate)
+    raw_date = date_match.group(1) if date_match else ""
+    if raw_date and re.fullmatch(r"\d{8}", raw_date):
+        date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+    else:
+        date = raw_date or "Unknown"
+
+    year_match = re.search(r"(\d{4})", date)
+    year = year_match.group(1) if year_match else "Unknown"
+
+    title_source = candidate
+    if "GMT" in title_source:
+        title_source = title_source.split("GMT", 1)[0].strip()
+    if raw_date:
+        title_source = re.sub(re.escape(raw_date), "", title_source).strip(" -_")
+
+    title = title_source or candidate or stem
+    presenter = "Unknown"
+
+    return {
+        "title": title,
+        "presenter": presenter,
+        "author": presenter,
+        "date": date,
+        "year": year,
+        "filename": stem,
+        "source_filename": source_filename,
+        "stem": stem,
+    }
+
+
+def _resolve_yaml_metadata(transcript_filename: str, transcript_text: str | None = None) -> dict:
+    """Resolve transcript metadata for YAML, tolerating non-canonical filenames."""
+    stem = _resolve_structured_stem(transcript_filename)
+    try:
+        meta = parse_filename_metadata(transcript_filename)
+        meta["stem"] = stem
+        meta["source_filename"] = None
+        return meta
+    except ValueError:
+        return _parse_metadata_fallback(stem, transcript_text)
+
+
 def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> bool:
     """
     Orchestrates the process of adding YAML front matter to a transcript.
@@ -276,15 +342,14 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
     try:
         logger.info("Adding YAML to %s", transcript_filename)
 
-        meta = parse_filename_metadata(transcript_filename)
-        stem = meta["stem"]
+        stem = _resolve_structured_stem(transcript_filename)
 
         transcript_path = config.PROJECTS_DIR / stem / transcript_filename
         validate_input_file(transcript_path)
 
-        source_filename = f"{meta['stem']}.{source_ext.lstrip('.')}"
-
         formatted_content = transcript_path.read_text(encoding="utf-8")
+        meta = _resolve_yaml_metadata(transcript_filename, formatted_content)
+        source_filename = meta.get("source_filename") or f"{meta['stem']}.{source_ext.lstrip('.')}"
 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
