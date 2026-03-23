@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 
 import transcript_config_check
@@ -50,3 +49,33 @@ def test_check_model_availability_checks_all_active_models(monkeypatch):
 
     assert ok is True
     assert called_models == ["m-default", "m-aux", "m-format", "m-validate"]
+
+
+def test_cost_estimator_separates_processing_and_validation(tmp_path):
+    transcript_path = tmp_path / "sample.txt"
+    transcript_path.write_text("hello world " * 500, encoding="utf-8")
+
+    class Logger:
+        def __init__(self):
+            self.messages = []
+
+        def info(self, msg):
+            self.messages.append(msg)
+
+    logger = Logger()
+    estimator = CostEstimator(transcript_path, logger=logger)
+    estimator.run_full_estimation()
+
+    categories = {item["category"] for item in estimator.costs}
+    steps = {item["step"] for item in estimator.costs}
+
+    assert categories == {"processing", "validation"}
+    assert "0. Init Val" in steps
+    assert "4. Header Validation" in steps
+    assert "6. Abstract Coverage Validation" in steps
+
+    joined = "\n".join(logger.messages)
+    assert "Cost by Category" in joined
+    assert "Processing: in=" in joined
+    assert "Validation: in=" in joined
+    assert "Total Estimated Tokens: in=" in joined
