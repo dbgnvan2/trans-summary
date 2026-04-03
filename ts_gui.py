@@ -411,6 +411,9 @@ class TranscriptProcessorGUI:
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
         self.include_init_val_do_all = tk.BooleanVar(value=False)
+        self.omit_summary_do_all = tk.BooleanVar(value=True)  # Default: skip structured summary
+        self.include_emphasis_core = tk.BooleanVar(value=True)
+        self.include_bowen_core = tk.BooleanVar(value=True)
 
         # ADDED: StringVars for model selection
         self.model_vars = {
@@ -583,7 +586,7 @@ class TranscriptProcessorGUI:
         self.yaml_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
 
         self.summary_btn = ttk.Button(
-            button_frame, text="4. Core (ST/IT/T/KT/L/BR/EM)", command=self.do_summaries, state=tk.DISABLED)
+            button_frame, text="4. Core (ST/IT/T/KT/L)", command=self.do_summaries, state=tk.DISABLED)
         self.summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
 
         self.cost_btn = ttk.Button(
@@ -591,6 +594,20 @@ class TranscriptProcessorGUI:
         self.cost_btn.grid(row=0, column=5, padx=(0, 5), pady=2)
 
         # Row 2
+        self.core_emphasis_chk = ttk.Checkbutton(
+            button_frame,
+            text="Include Emphasis in Core/Do All",
+            variable=self.include_emphasis_core,
+        )
+        self.core_emphasis_chk.grid(row=1, column=0, padx=(0, 5), pady=2, sticky=tk.W)
+
+        self.core_bowen_chk = ttk.Checkbutton(
+            button_frame,
+            text="Include Bowen in Core/Do All",
+            variable=self.include_bowen_core,
+        )
+        self.core_bowen_chk.grid(row=1, column=1, padx=(0, 5), pady=2, sticky=tk.W)
+
         self.gen_abstract_btn = ttk.Button(
             button_frame, text="5. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
         self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
@@ -612,9 +629,13 @@ class TranscriptProcessorGUI:
             button_frame, text="8. Full Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
         self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
 
-        self.emphasis_btn = ttk.Button(
-            button_frame, text="Emphasis", command=self.do_extract_emphasis, state=tk.DISABLED)
-        self.emphasis_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
+        self.extract_quotes_btn = ttk.Button(
+            button_frame,
+            text="Bowen + Emphasis",
+            command=self.do_extract_bowen_emphasis,
+            state=tk.DISABLED,
+        )
+        self.extract_quotes_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
 
         self.package_btn = ttk.Button(
             button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
@@ -630,7 +651,7 @@ class TranscriptProcessorGUI:
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=6, rowspan=3,
+        self.do_all_btn.grid(row=0, column=7, rowspan=3,
                              padx=(10, 5), sticky=(tk.N, tk.S))
 
         self.do_all_init_val_chk = ttk.Checkbutton(
@@ -638,7 +659,14 @@ class TranscriptProcessorGUI:
             text="Init Val in Do All (Auto)",
             variable=self.include_init_val_do_all
         )
-        self.do_all_init_val_chk.grid(row=3, column=6, padx=(10, 5), pady=2, sticky=tk.W)
+        self.do_all_init_val_chk.grid(row=3, column=7, padx=(10, 5), pady=2, sticky=tk.W)
+
+        self.do_all_omit_summary_chk = ttk.Checkbutton(
+            button_frame,
+            text="Omit Summary in Do All",
+            variable=self.omit_summary_do_all
+        )
+        self.do_all_omit_summary_chk.grid(row=4, column=7, padx=(10, 5), pady=2, sticky=tk.W)
 
         # Row 3 (Maintenance)
         self.cleanup_btn = ttk.Button(
@@ -734,13 +762,20 @@ class TranscriptProcessorGUI:
         dir_path = filedialog.askdirectory(
             title="Select Transcripts Directory")
         if dir_path:
-            config.set_transcripts_base(dir_path)
+            selected_path = Path(dir_path)
+            base_path = (
+                selected_path.parent
+                if selected_path.name.lower() == "source"
+                else selected_path
+            )
+            config.set_transcripts_base(base_path)
             config.set_validation_approved_terms_path(None)
             self.update_dir_label()
             self.update_terms_file_label()
             self.refresh_file_list()
             self.log(
-                "Switched transcripts directory; reset validation terms file to default: %s",
+                "Switched transcripts directory to %s; reset validation terms file to default: %s",
+                config.SOURCE_DIR,
                 config.VALIDATION_APPROVED_TERMS_PATH,
             )
 
@@ -1180,6 +1215,56 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(
             pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger) # No model parameter here
 
+    def _resolve_individual_extraction_input(self):
+        """Resolve the best available input for standalone quote extraction."""
+        if not self.selected_file or not self.base_name:
+            return None, None
+
+        yaml_file = config.PROJECTS_DIR / self.base_name / f"{self.base_name}{config.SUFFIX_YAML}"
+        if yaml_file.exists():
+            return yaml_file.name, "YAML transcript"
+
+        formatted_file = config.PROJECTS_DIR / self.base_name / f"{self.base_name}{config.SUFFIX_FORMATTED}"
+        if formatted_file.exists():
+            return formatted_file.name, "formatted transcript"
+
+        if self.selected_file.exists():
+            return str(self.selected_file), "selected source text file"
+
+        return None, None
+
+    def _get_bool_var(self, attr_name, default=False):
+        """Safely read a Tk boolean variable, tolerating headless test instances."""
+        value = getattr(self, attr_name, None)
+        if value is None:
+            return default
+        if hasattr(value, "get"):
+            return bool(value.get())
+        return bool(value)
+
+    def do_extract_bowen_emphasis(self):
+        """Extract Bowen references and scored emphasis together."""
+        if not self.base_name:
+            return
+
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
+
+        self.log(
+            "STEP: Extracting Bowen References + Scored Emphasis from %s...",
+            source_label,
+        )
+        self.run_task_in_thread(
+            pipeline.extract_bowen_and_emphasis,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Bowen + Emphasis Extraction",
+        )
+
     def do_summaries(self):
         """Run core extraction: abstract, structural/interpretive themes, topics, terms, lenses."""
         yaml_file = (config.PROJECTS_DIR / self.base_name /
@@ -1196,7 +1281,18 @@ class TranscriptProcessorGUI:
                 messagebox.showwarning(
                     "Not Ready", "Please format and add YAML first.")
                 return
-        self.log("STEP 4: Core extraction (Abstract + ST/IT/Topics/Terms/Lenses)...")
+        extras = []
+        include_bowen = self._get_bool_var("include_bowen_core", default=True)
+        include_emphasis = self._get_bool_var("include_emphasis_core", default=True)
+        if include_bowen:
+            extras.append("Bowen")
+        if include_emphasis:
+            extras.append("Emphasis")
+        extras_text = f" + {'/'.join(extras)}" if extras else ""
+        self.log(
+            "STEP 4: Core extraction (Abstract + ST/IT/Topics/Terms/Lenses%s)...",
+            extras_text,
+        )
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
@@ -1204,7 +1300,8 @@ class TranscriptProcessorGUI:
             "Family Systems",
             "General public",
             False,  # skip_extracts_summary
-            False,  # skip_emphasis
+            not include_emphasis,
+            not include_bowen,
             True,   # skip_blog
             logger=self.logger,
             task_name="Core Extraction",
@@ -1223,6 +1320,7 @@ class TranscriptProcessorGUI:
             "General public",
             True,   # skip_extracts_summary
             True,   # skip_emphasis
+            True,   # skip_bowen
             False,  # skip_blog
             logger=self.logger,
             task_name="Blog Post (Top Lens)",
@@ -1266,18 +1364,40 @@ class TranscriptProcessorGUI:
         if not self.base_name:
             return
 
-        # Determine input file (prefer YAML version)
-        input_file = f"{self.base_name}{config.SUFFIX_YAML}"
-        if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
-            input_file = f"{self.base_name}{config.SUFFIX_FORMATTED}"
-            if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
-                messagebox.showwarning(
-                    "Not Ready", "Please format the transcript first.")
-                return
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
 
-        self.log("STEP: Extracting Scored Emphasis...")
+        self.log("STEP: Extracting Scored Emphasis from %s...", source_label)
         self.run_task_in_thread(
-            pipeline.extract_scored_emphasis, input_file, config.settings.DEFAULT_MODEL, self.logger) # MODIFIED
+            pipeline.extract_scored_emphasis,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Emphasis Extraction",
+        )
+
+    def do_extract_bowen(self):
+        """Extract Bowen references from the transcript."""
+        if not self.base_name:
+            return
+
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
+
+        self.log("STEP: Extracting Bowen References from %s...", source_label)
+        self.run_task_in_thread(
+            pipeline.extract_bowen_references_from_transcript,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Bowen Extraction",
+        )
 
     def do_generate_structured_abstract(self):
         """Generate a structured abstract from the transcript."""
@@ -1285,7 +1405,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 5: Generating Structured Abstract...")
         self.run_task_in_thread(
-            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for abstracts
+            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.AUX_MODEL)
 
     def do_validate_abstracts(self):
         """Validate the generated abstract for coverage."""
@@ -1402,7 +1522,7 @@ class TranscriptProcessorGUI:
             self.log("⚠️ Pipeline is already running.")
             return
 
-        run_init_val = self.include_init_val_do_all.get()
+        run_init_val = self._get_bool_var("include_init_val_do_all")
 
         # Enforce validation unless auto Init Val is requested
         if not run_init_val and "_validated" not in self.selected_file.name:
@@ -1414,8 +1534,12 @@ class TranscriptProcessorGUI:
             "This will run the entire pipeline from start to finish.\n\n"
             "Init Val in Do All: {}\n"
             "(If enabled, all suggested corrections are auto-applied and finalized.)\n\n"
+            "Structured Summary: {}\n\n"
             "Continue?"
-        ).format("Enabled" if run_init_val else "Disabled")
+        ).format(
+            "Enabled" if run_init_val else "Disabled",
+            "Omitted" if self._get_bool_var("omit_summary_do_all", default=True) else "Included",
+        )
         if not messagebox.askyesno("Confirm", confirm_text):
             return
         self.log("▶ STARTING FULL PIPELINE EXECUTION...")
@@ -1425,7 +1549,7 @@ class TranscriptProcessorGUI:
         start_time = datetime.now()
 
         # Optional Step -1: Initial Validation (Auto approve/apply)
-        if self.include_init_val_do_all.get():
+        if self._get_bool_var("include_init_val_do_all"):
             self.log("\n--- STEP -1: Initial Validation (Auto) ---")
             if not self._run_initial_validation_auto():
                 return False
@@ -1457,17 +1581,36 @@ class TranscriptProcessorGUI:
             return False
 
         # Step 3: Core Extraction (ST/IT/Topics/Terms/Lenses/Bowen/Emphasis + internal validation)
-        self.log("\n--- STEP 3: Core Extraction ---")
+        include_bowen = self._get_bool_var("include_bowen_core", default=True)
+        include_emphasis = self._get_bool_var("include_emphasis_core", default=True)
+        extras = []
+        if include_bowen:
+            extras.append("Bowen")
+        if include_emphasis:
+            extras.append("Emphasis")
+        extras_text = f" + {'/'.join(extras)}" if extras else ""
+        self.log("\n--- STEP 3: Core Extraction%s ---", extras_text)
         # Core extraction only; blog runs as separate step from validated Lens #1.
         if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
                                              config.settings.DEFAULT_MODEL, # MODIFIED
                                              "Family Systems", "General public",
-                                             False, False, True, logger=self.logger):
+                                             False,
+                                             not include_emphasis,
+                                             not include_bowen,
+                                             True,
+                                             logger=self.logger):
             return False
+
+        # Step 3b: Structured Summary (optional)
+        if not self._get_bool_var("omit_summary_do_all", default=True):
+            self.log("\n--- STEP 3b: Structured Summary ---")
+            if not pipeline.generate_structured_summary(self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
+                self.log("❌ Structured summary generation failed.")
+                return False
 
         # Step 4: Generate Abstract
         self.log("\n--- STEP 4: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):
+        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.AUX_MODEL):
             self.log("❌ Abstract generation failed.")
             return False
 
@@ -1484,7 +1627,11 @@ class TranscriptProcessorGUI:
         if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
                                              config.settings.DEFAULT_MODEL,
                                              "Family Systems", "General public",
-                                             True, True, False, logger=self.logger):
+                                             True,
+                                             True,
+                                             True,
+                                             False,
+                                             logger=self.logger):
             return False
 
         # Step 8: Full Webpage & PDF
@@ -1587,7 +1734,7 @@ class TranscriptProcessorGUI:
         self.gen_abstract_btn.config(state=state)
         self.abstracts_btn.config(state=state)
         self.webpdf_btn.config(state=state)
-        self.emphasis_btn.config(state=state)
+        self.extract_quotes_btn.config(state=state)
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
         # Config check button is always enabled
@@ -1595,7 +1742,10 @@ class TranscriptProcessorGUI:
         self.do_all_btn.config(
             state=tk.NORMAL if self.selected_file else tk.DISABLED)
         self.do_all_init_val_chk.config(state=state)
-        
+        self.do_all_omit_summary_chk.config(state=state)
+        self.core_emphasis_chk.config(state=state)
+        self.core_bowen_chk.config(state=state)
+
         # ADDED: Update state of model comboboxes
         model_cb_state = "readonly" if not self.processing else tk.DISABLED
         self.default_model_cb.config(state=model_cb_state)

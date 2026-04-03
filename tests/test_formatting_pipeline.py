@@ -1,5 +1,9 @@
 import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import config
+import formatting_pipeline
 from formatting_pipeline import (
     _generate_yaml_front_matter,
     _normalize_word_for_validation,
@@ -94,6 +98,29 @@ class TestFormattingPipeline(unittest.TestCase):
 
         self.assertFalse(stem.endswith(" - formatted"))
         self.assertIn("Emotional Regression and Cancer", stem)
+
+    def test_format_transcript_checks_context_budget_not_output_budget(self):
+        logger = MagicMock()
+
+        with patch.object(config, "SOURCE_DIR", Path("/tmp")), \
+             patch.object(formatting_pipeline, "load_prompt", return_value="Prompt"), \
+             patch.object(formatting_pipeline, "load_raw_transcript", return_value="Raw transcript text"), \
+             patch.object(formatting_pipeline, "check_token_budget", return_value=True) as mock_budget, \
+             patch.object(formatting_pipeline, "format_transcript_with_claude", return_value="Formatted output"), \
+             patch.object(formatting_pipeline, "save_formatted_transcript", return_value=Path("/tmp/out.md")):
+            ok = formatting_pipeline.format_transcript(
+                "Sample_validated.txt",
+                logger=logger,
+            )
+
+        self.assertTrue(ok)
+        checked_text, checked_limit, checked_logger = mock_budget.call_args.args
+        self.assertIn("RAW TRANSCRIPT", checked_text)
+        self.assertEqual(
+            checked_limit,
+            config.MAX_CONTEXT_TOKENS - config.MAX_TOKENS_FORMATTING,
+        )
+        self.assertIs(checked_logger, logger)
 
 if __name__ == '__main__':
     unittest.main()

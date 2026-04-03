@@ -43,7 +43,7 @@ class ProjectSettings:
         # Initialize model variables
         self.DEFAULT_MODEL = "claude-sonnet-4-6"  # Primary generation model
         self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
-        self.FORMATTING_MODEL = "claude-sonnet-4-6"  # Use Sonnet 4.6 for formatting quality/consistency
+        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Haiku sufficient for structural formatting
         self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
         self._load_runtime_settings()
 
@@ -241,14 +241,20 @@ VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 DEFAULT_SUMMARY_WORD_COUNT = 650
 
 # Token Limits
-MAX_TOKENS_FORMATTING = 32000
-MAX_TOKENS_SUMMARY = 32000
-MAX_TOKENS_EXTRACTION = 32000
-MAX_TOKENS_AUDIT = 32000
-MAX_TOKENS_HEADER_VALIDATION = 32000
-MAX_TOKENS_VALIDATION_VERIFY = 32000
-MAX_TOKENS_REVIEW_SEMANTIC = 32000
+# Sized from observed peak output tokens on 10K+ word transcripts:
+#   Formatting:  ~14,400 observed → 20,000 (safe headroom for very long transcripts)
+#   Extraction:  ~5,200 observed  →  8,192
+#   Summary/Abstract: ~3,300 observed → 4,096 (650-word target ≈ 900 tokens)
+#   Validation/Audit: ~2,300 observed → 4,096
+MAX_TOKENS_FORMATTING = 20000
+MAX_TOKENS_SUMMARY = 4096
+MAX_TOKENS_EXTRACTION = 8192
+MAX_TOKENS_AUDIT = 4096
+MAX_TOKENS_HEADER_VALIDATION = 4096
+MAX_TOKENS_VALIDATION_VERIFY = 4096
+MAX_TOKENS_REVIEW_SEMANTIC = 8192
 MAX_TOKENS_MODEL_PROBE = 32
+MAX_CONTEXT_TOKENS = 200000
 
 # Model output caps for known low-limit models.
 MODEL_OUTPUT_TOKEN_LIMITS = {

@@ -25,6 +25,8 @@ The architecture is primarily a **pipeline-driven system** orchestrated by a cen
     - Orchestrates calls to the `pipeline.py` functions in a sequential workflow.
     - Utilizes `GuiLoggerAdapter` for integrated logging.
     - Features a **Model Selection** panel to dynamically configure models for Default, Auxiliary, and Formatting tasks.
+    - Includes a dedicated standalone `Bowen + Emphasis` action in addition to the main `Core` workflow.
+    - Allows Bowen and Emphasis to be included or excluded independently from `Core` and `Do All`.
 
 - **Pipeline Core (`pipeline.py`)**:
     - The central module that defines and orchestrates the main workflow stages.
@@ -77,11 +79,18 @@ The system operates as a sequential pipeline, where the output of one stage ofte
 3.  **Formatting**: `transcript_format.py` (via `pipeline.py`) uses an LLM to format the raw transcript into a structured Markdown file.
 4.  **Validation (Format)**: `transcript_validate_format.py` ensures no word loss during formatting.
 5.  **Metadata Addition**: `transcript_add_yaml.py` adds YAML front matter to the formatted transcript.
-6.  **Summarization & Extraction**: `summary_pipeline.py` extracts abstract, topics, themes, and key terms using LLMs. `abstract_pipeline.py` handles abstract generation.
+6.  **Summarization & Extraction**: `summary_pipeline.py` extracts abstract, topics, themes, and key terms using LLMs. `abstract_pipeline.py` handles abstract generation. Bowen reference extraction and emphasis extraction can run either inside the main core flow or together as a standalone GUI step.
 7.  **Validation (Summaries/Abstracts)**: `summary_validation.py` and `abstract_validation.py` ensure quality. Structural deviations (length, style) are reported as **warnings** but do not block progress.
 8.  **Output Generation**: `transcript_to_webpage.py`, `transcript_to_simple_webpage.py`, `transcript_to_pdf.py` convert the processed Markdown into HTML and PDF documents.
 9.  **Output Validation (Webpages)**: `transcript_validate_webpage.py` verifies the integrity of generated web content.
 10. **Archiving**: The original source file is moved to `TRANSCRIPTS_BASE/processed/`.
+
+### 3.1. Standalone Bowen / Emphasis Paths
+
+- The GUI can run `Bowen + Emphasis` together without requiring the full core extraction step.
+- The backend shares one cached transcript system message across both extraction calls in that standalone path.
+- Standalone extraction resolves input in this order: project ` - yaml.md`, project ` - formatted.md`, then the selected source `.txt` file.
+- The CLI wrappers `transcript_extract_bowen.py` and `transcript_extract_emphasis.py` support the same direct-file workflow.
 
 ## 4. AI Integration Strategy (Model-Agnostic)
 

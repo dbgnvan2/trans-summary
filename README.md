@@ -11,6 +11,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 ### Core Functionality
 - **Automated Formatting**: Cleans raw transcripts, removes timestamps, and applies Markdown formatting
 - **Structured Extraction**: Extracts Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, and Emphasized Items
+- **Standalone Bowen + Emphasis Run**: Run Bowen reference extraction and emphasis extraction together from the GUI with one cached transcript context, or run either one separately via the CLI
 - **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), full HTML webpages, and PDFs
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts
 
@@ -65,16 +66,31 @@ The current workflow is designed to run in this order:
 2. Format transcript into sections
 3. Validate section headers
 4. Add YAML front matter to formatted output
-5. Generate core artifacts: Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, Emphasized Items
-6. Validate generated artifacts against transcript (theme/lens back-validation + quote grounding/fidelity checks)
-7. Generate abstract
-8. Validate abstract coverage
-9. Generate blog post from validated top-ranked Lens #1
-10. Generate full webpage and PDF
-11. Package outputs into ZIP
+5. Generate core artifacts: Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses
+6. Optionally run Bowen References and Emphasis as part of `Core` / `Do All`, or run them together from the dedicated GUI extraction button
+7. Validate generated artifacts against transcript (theme/lens back-validation + quote grounding/fidelity checks)
+8. Generate abstract
+9. Validate abstract coverage
+10. Generate blog post from validated top-ranked Lens #1
+11. Generate full webpage and PDF
+12. Package outputs into ZIP
 
 `Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
 If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
+
+The GUI now also includes:
+
+- a dedicated `Bowen + Emphasis` button
+- `Include Bowen in Core/Do All`
+- `Include Emphasis in Core/Do All`
+
+The standalone `Bowen + Emphasis` GUI run prefers the project ` - yaml.md` transcript, then ` - formatted.md`, and finally falls back to the currently selected source `.txt` file. The CLI entry points still support separate Bowen-only and Emphasis-only runs.
+
+`Set Directory` accepts either the transcript base folder or the `source` folder directly. If you select `.../source`, the GUI now normalizes that back to the parent base directory instead of incorrectly using `.../source/source`.
+
+Formatting preflight warnings now refer to the transcript `context budget` rather than a generic token limit. The formatter checks available input context capacity, not just the requested output-token cap.
+
+Scored emphasis parsing now supports both the older bracketed format and the newer plain-text format, for example `Explicit - A14 - Rank: 96% | Concept: ...`, so saved emphasis files continue to validate and highlight correctly.
 
 `Run All` is now fail-closed for validation gates. If format validation, header validation, abstract generation, or abstract coverage validation fails, the workflow stops instead of continuing into later artifact generation.
 
@@ -105,9 +121,18 @@ Or run individual steps manually:
 
 1.  **Format**: `python transcript_format.py "filename.txt"`
 2.  **Add Metadata**: `python transcript_add_yaml.py "filename - formatted.md"`
-3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md"`
-4.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
-5.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md" [--skip-emphasis] [--skip-bowen]`
+4.  **Extract Bowen Only**: `python transcript_extract_bowen.py "filename - yaml.md"`
+5.  **Extract Emphasis Only**: `python transcript_extract_emphasis.py "filename - yaml.md"`
+6.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
+7.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+
+The standalone Bowen and Emphasis commands also accept a direct source text file path, for example:
+
+```bash
+python transcript_extract_bowen.py "source/My Transcript_validated.txt"
+python transcript_extract_emphasis.py "source/My Transcript_validated.txt"
+```
 
 For structured summary/abstract generation, the project normally reads `<Base Name> - formatted.md` and will fall back to `<Base Name> - yaml.md` if the formatted transcript is missing.
 

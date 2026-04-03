@@ -993,9 +993,9 @@ def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logg
 
     if estimated > safe_limit:
         warning = (
-            f"⚠️  Input may exceed token limit:\n"
+            f"⚠️  Input may exceed context budget:\n"
             f"   Estimated tokens: {estimated:,}\n"
-            f"   Safe limit: {int(safe_limit):,} ({config.TOKEN_BUDGET_SAFETY_MARGIN:.0%} of {max_tokens:,})\n"
+            f"   Safe input budget: {int(safe_limit):,} ({config.TOKEN_BUDGET_SAFETY_MARGIN:.0%} of {max_tokens:,})\n"
             f"   Consider processing in smaller chunks."
         )
         if logger:
@@ -1221,29 +1221,59 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     "Quote"
     (Location)
     """
+    def _parse_score(score_str: str) -> int:
+        nums = [int(n) for n in re.findall(r'\d+', score_str or '')]
+        return int(sum(nums) / len(nums)) if nums else 0
+
+    def _clean_field(value: str) -> str:
+        return re.sub(r'\s+', ' ', (value or '').replace('*', '').strip())
+
     items = []
-    # Regex to capture the structured block
-    # Matches: [Type - Category - Rank: 99%] Concept: ... \n "Quote"
-    # Updated to handle optional bolding **...** and score ranges
-    # Updated to be case-insensitive for labels and flexible with separators
-    pattern = re.compile(
-        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“](?P<quote>[\s\S]+?)["”]',  # noqa
-        re.MULTILINE
-    )
+    seen = set()
 
-    for match in pattern.finditer(text):
-        score_str = match.group('score').strip()
-        # Handle ranges like "87-96" or single numbers "95"
-        nums = [int(n) for n in re.findall(r'\d+', score_str)]
-        score = int(sum(nums) / len(nums)) if nums else 0
+    header_patterns = [
+        re.compile(
+            r'^\s*(?:[-*>]+\s+)?(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\](?:\*\*)?\s*(?:\|\s*)?'
+            r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
+            re.MULTILINE,
+        ),
+        re.compile(
+            r'^\s*(?:[-*>]+\s+)?(?:\*\*)?(?P<type>Explicit|Implicit|Clinical)\s*-\s*(?P<category>.+?)\s*-\s*'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^|\n%]+)%?\s*(?:\|\s*)?'
+            r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
+            re.MULTILINE,
+        ),
+    ]
 
-        items.append({
-            'type': match.group('type').strip().replace('*', ''),
-            'category': match.group('category').strip().replace('*', ''),
-            'score': score,
-            'concept': match.group('concept').strip().replace('*', ''),
-            'quote': match.group('quote').strip()
-        })
+    for block in re.split(r'\n\s*\n+', text):
+        block = block.strip()
+        if not block or 'concept' not in block.lower():
+            continue
+        header_match = None
+        for pattern in header_patterns:
+            header_match = pattern.search(block)
+            if header_match:
+                break
+        if not header_match:
+            continue
+
+        quote_match = re.search(r'["“](?P<quote>[\s\S]+?)["”]', block)
+        if not quote_match:
+            continue
+
+        item = {
+            'type': _clean_field(header_match.group('type')),
+            'category': _clean_field(header_match.group('category')),
+            'score': _parse_score(header_match.group('score')),
+            'concept': _clean_field(header_match.group('concept')),
+            'quote': re.sub(r'\s+', ' ', quote_match.group('quote').strip()),
+        }
+        item_key = (item['concept'].lower(), item['quote'].lower())
+        if item_key in seen:
+            continue
+        seen.add(item_key)
+        items.append(item)
 
     return items
 

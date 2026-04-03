@@ -24,6 +24,9 @@ def test_run_all_includes_cost_estimation_and_separate_blog_step():
     gui.logger = object()
     gui.log = lambda *_args, **_kwargs: None
     gui.include_init_val_do_all = _Flag(False)
+    gui.include_bowen_core = _Flag(True)
+    gui.include_emphasis_core = _Flag(True)
+    gui.omit_summary_do_all = _Flag(True)
 
     with patch.object(gui, "_run_cost_estimation", return_value=True) as mock_cost, \
          patch.object(gui, "_run_header_validation", return_value=True) as mock_headers, \
@@ -53,8 +56,36 @@ def test_run_all_includes_cost_estimation_and_separate_blog_step():
     assert mock_summarize.call_count == 2
     first_call = mock_summarize.call_args_list[0].args
     second_call = mock_summarize.call_args_list[1].args
-    assert first_call[4:7] == (False, False, True)
-    assert second_call[4:7] == (True, True, False)
+    assert first_call[4:7] == (False, False, False)
+    assert second_call[4:7] == (True, True, True)
+
+
+def test_do_extract_bowen_emphasis_uses_combined_pipeline():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = "Sample Title - Author - 2025-01-01"
+    gui.logger = object()
+    gui.log = MagicMock()
+    gui.run_task_in_thread = MagicMock()
+    gui._resolve_individual_extraction_input = MagicMock(
+        return_value=(
+            "Sample Title - Author - 2025-01-01 - yaml.md",
+            "YAML transcript",
+        )
+    )
+
+    gui.do_extract_bowen_emphasis()
+
+    gui.log.assert_called_with(
+        "STEP: Extracting Bowen References + Scored Emphasis from %s...",
+        "YAML transcript",
+    )
+    gui.run_task_in_thread.assert_called_once_with(
+        ts_gui.pipeline.extract_bowen_and_emphasis,
+        "Sample Title - Author - 2025-01-01 - yaml.md",
+        config.settings.DEFAULT_MODEL,
+        gui.logger,
+        task_name="Bowen + Emphasis Extraction",
+    )
 
 
 def test_run_all_halts_on_header_validation_failure():
@@ -65,6 +96,9 @@ def test_run_all_halts_on_header_validation_failure():
     gui.logger = object()
     gui.log = lambda *_args, **_kwargs: None
     gui.include_init_val_do_all = _Flag(False)
+    gui.include_bowen_core = _Flag(True)
+    gui.include_emphasis_core = _Flag(True)
+    gui.omit_summary_do_all = _Flag(True)
 
     with patch.object(gui, "_run_cost_estimation", return_value=True), \
          patch.object(gui, "_run_header_validation", return_value=False), \
@@ -111,6 +145,9 @@ def test_run_all_with_init_val_auto_calls_initial_validation():
     gui.logger = object()
     gui.log = lambda *_args, **_kwargs: None
     gui.include_init_val_do_all = _Flag(True)
+    gui.include_bowen_core = _Flag(True)
+    gui.include_emphasis_core = _Flag(True)
+    gui.omit_summary_do_all = _Flag(True)
 
     with patch.object(gui, "_run_initial_validation_auto", return_value=True) as mock_init_auto, \
          patch.object(gui, "_run_cost_estimation", return_value=True), \
@@ -240,6 +277,27 @@ def test_select_transcripts_directory_resets_terms_file_to_new_default():
             gui.select_transcripts_directory()
 
         assert config.TRANSCRIPTS_BASE == Path("/tmp/new_transcripts")
+        assert config.VALIDATION_APPROVED_TERMS_PATH == Path("/tmp/new_transcripts/approve_terms.txt")
+    finally:
+        config.set_transcripts_base(original_base)
+        config.set_validation_approved_terms_path(original_path)
+
+
+def test_select_transcripts_directory_accepts_source_folder_without_double_source():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.update_dir_label = MagicMock()
+    gui.update_terms_file_label = MagicMock()
+    gui.refresh_file_list = MagicMock()
+    gui.log = MagicMock()
+
+    original_base = config.TRANSCRIPTS_BASE
+    original_path = config.VALIDATION_APPROVED_TERMS_PATH
+    try:
+        with patch("ts_gui.filedialog.askdirectory", return_value="/tmp/new_transcripts/source"):
+            gui.select_transcripts_directory()
+
+        assert config.TRANSCRIPTS_BASE == Path("/tmp/new_transcripts")
+        assert config.SOURCE_DIR == Path("/tmp/new_transcripts/source")
         assert config.VALIDATION_APPROVED_TERMS_PATH == Path("/tmp/new_transcripts/approve_terms.txt")
     finally:
         config.set_transcripts_base(original_base)

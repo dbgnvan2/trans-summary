@@ -6,6 +6,7 @@ to specialized pipeline modules.
 
 from extraction_pipeline import (
     _load_formatted_transcript,  # Helper used by CLI scripts
+    extract_bowen_and_emphasis,
     extract_bowen_references_from_transcript,
     extract_scored_emphasis,
     generate_structured_abstract,
@@ -43,6 +44,7 @@ __all__ = [
     "validate_topics_lightweight",
     "validate_summary_coverage",
     "_load_formatted_transcript",
+    "extract_bowen_and_emphasis",
     "extract_bowen_references_from_transcript",
     "extract_scored_emphasis",
     "generate_structured_abstract",

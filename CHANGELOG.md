@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Formatting context-budget guard**: Fixed the formatting preflight check to compare transcript input size against available model context capacity instead of the formatting output-token cap, preventing false aborts on long transcripts that still fit the model context window.
+- **Context-budget warning text**: Updated preflight logging to say `context budget` / `safe input budget` so formatting failures are clearer in the GUI and logs.
+- **Scored emphasis parsing compatibility**: Updated emphasis parsing and downstream loading to accept both bracketed and plain-text scored output formats, preventing false failure reports when the `.md` artifact already contains valid emphasis items.
+- **`Set Directory` source-folder normalization**: Selecting a `source` folder in the GUI now resolves to its parent transcript base directory instead of producing an incorrect `source/source` path.
 - **Fail-closed validation gating in `Run All`**: The GUI workflow now stops when header validation, abstract generation, or abstract coverage validation fails, instead of continuing into blog/web/package generation with invalid upstream artifacts.
 - **Terms-file reset on transcript directory change**: Switching `TRANSCRIPTS_BASE` in the GUI now resets the active `Init Val` dictionary back to that directory's default `approve_terms.txt`, preventing accidental cross-corpus dictionary reuse.
 - **Logger reinitialization**: `transcript_utils.setup_logging()` now replaces handlers on the named logger directly instead of relying on repeated `logging.basicConfig(...)` calls, ensuring each step writes to its intended log file.
@@ -19,6 +23,9 @@ All notable changes to this project will be documented in this file.
 - **Transcript source format detection**: Added explicit source-format detection/logging in `formatting_pipeline` so formatting and validation report whether an input is `plain_transcript` or `trx_whisper_wrapped`.
 - **Streaming regression tests**: Added coverage to verify `call_claude_with_retry()` uses `client.messages.stream(...)` when requested, and that structured summary/abstract generation explicitly enables streaming.
 - **Fallback regression tests**: Added coverage for YAML-only structured abstract generation, abstract validation, and webpage generation.
+- **Standalone Bowen/Emphasis extraction controls**: Added a dedicated `Bowen` button and independent `Core` / `Do All` include toggles in the GUI so Bowen references and emphasis items can be run together or separately.
+- **Direct-file extraction support**: Added support for running standalone Bowen and emphasis extraction directly from a selected source `.txt` file in the GUI and via `transcript_extract_bowen.py` / `transcript_extract_emphasis.py`.
+- **Independent Bowen skip control**: Added `--skip-bowen` to `transcript_summarize.py` and a matching backend `skip_bowen` path so Bowen reference extraction is no longer coupled to the rest of core extraction.
 - **Initial validation learning**: Added persistent review memory for rejected `original_text -> suggested_correction` pairs in `logs/validation_memory.json`, plus approved-term persistence in `approve_terms.txt` so `Init Val` reruns can converge instead of repeating the same rejected suggestions.
 - **Deterministic validation aliases**: `approve_terms.txt` now supports `wrong = Correct` rules. `Init Val` injects alias-based findings locally and can persist selected corrections back as aliases from the review dialog.
 - **Transcription-only validation scope**: Narrowed `Init Val` to proper nouns, homophones, spelling/non-word cleanup, and word-boundary issues. Grammar, punctuation, capitalization-only, and style cleanup are now explicitly excluded in prompts and code-level filtering.
@@ -26,6 +33,10 @@ All notable changes to this project will be documented in this file.
 - **Selectable terms file**: Added a GUI selector for the active `Init Val` terms file so baseline dictionaries can be swapped at runtime without replacing `approve_terms.txt` manually.
 
 ## [Unreleased] - 2026-01-11
+
+### Changed
+
+- **Combined GUI quote extraction**: Replaced separate `Bowen` and `Emphasis` GUI buttons with a single `Bowen + Emphasis` action that reuses one cached transcript context for both extraction calls.
 
 ### Documentation
 

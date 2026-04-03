@@ -204,18 +204,22 @@ def format_transcript(
             detect_transcript_source_format(raw_transcript),
         )
 
-        # Construct full prompt to check token budget before API call
+        # Construct full prompt to check context budget before API call.
+        # This guard must compare against model context capacity, not the
+        # requested output token count.
         full_prompt_for_budget_check = (
             f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
         )
-        # This should match max_tokens in format_transcript_with_claude
-        MAX_TOKENS_FOR_FORMATTING = config.MAX_TOKENS_FORMATTING
+        max_context_input_budget = max(
+            config.MAX_CONTEXT_TOKENS - config.MAX_TOKENS_FORMATTING,
+            config.MAX_TOKENS_FORMATTING,
+        )
 
         if not check_token_budget(
-            full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger
+            full_prompt_for_budget_check, max_context_input_budget, logger
         ):
             logger.error(
-                "Token budget exceeded for formatting. Aborting API call.")
+                "Context budget exceeded for formatting. Aborting API call.")
             return False
 
         formatted_content = format_transcript_with_claude(

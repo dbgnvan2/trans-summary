@@ -12,6 +12,7 @@ import config
 import summary_pipeline
 from transcript_utils import (
     call_claude_with_retry,
+    clean_project_name,
     create_system_message_with_cache,
     extract_bowen_references,
     extract_section,
@@ -383,31 +384,63 @@ def _has_bowen_source_attribution(quote: str) -> bool:
         return False
 
     attribution_patterns = [
+        # "Bowen said / wrote / believed / described / did / predicted ..." etc.
         r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
         r"(?:said|says|saying|wrote|writes|thought|believed|described|"
-        r"referred|called|commented|noted|observed|argued|stated|told|"
+        r"referred|called|commented|noted|observed|argued|stated|told|did|does|do|"
+        r"predicted|switched|shifted|suggested|concluded|found|identified|saw|"
         r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen|bowen'?s\s+quote|"
-        r"bowen'?s\s+comment)\b",
+        # "to quote Bowen", "Bowen's quote / comment / prediction / observation / idea / insight"
+        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen|bowen'?s\s+"
+        r"(?:quote|comment|prediction|observation|insight|idea|ideas|"
+        r"key\s+observation|very\s+insightful|approach|conclusion|thinking|"
+        r"switch|view|framework|concept))\b",
+        # "all Bowen's ideas", "these are Bowen's ideas"
+        r"\b(?:all\s+)?bowen'?s\s+(?:key\s+)?(?:ideas?|concepts?|points?)\b",
+        # "I remember (talking to) Murray ... he said"
         r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
+        # "a tape / video / recording Murray Bowen made / did"
+        r"\b(?:tape|video|recording|session)\s+(?:\w+\s+){0,4}murray\s+bowen\b",
+        # "What did Bowen do / say"
+        r"\bwhat\s+did\s+bowen\b",
+        # "favorite Bowen quotes"
+        r"\bbowen\s+quotes?\b",
     ]
     return any(re.search(p, quote_l) for p in attribution_patterns)
+
+
+def _concept_has_bowen_attribution(concept: str) -> bool:
+    """Return True when the concept name itself names Bowen as the source.
+
+    Handles cases like "Bowen's Timeline Prediction" or "Bowen's War on Cancer
+    Comment" where the attribution is in the label, not the quote body.
+    """
+    if not concept:
+        return False
+    c = concept.lower().strip()
+    # Possessive "Bowen's X" (exclude "Bowen theory" / "Bowen theorist")
+    if re.search(r"\bbowen'?s\b", c) and not re.search(r"\bbowen\s+theor", c):
+        return True
+    # "Murray Bowen" or "Dr. Bowen" in the concept name
+    if re.search(r"\b(?:murray\s+bowen|dr\.?\s*bowen)\b", c):
+        return True
+    return False
 
 
 def _rule_filter_bowen_references(
     refs: list[tuple[str, str]],
     logger,
 ) -> list[tuple[str, str]]:
-    """Drop refs that do not include explicit Bowen-source attribution language."""
+    """Drop refs that lack Bowen-source attribution in either the quote or the concept name."""
     filtered: list[tuple[str, str]] = []
     for concept, quote in refs:
-        if not _has_bowen_source_attribution(quote):
+        if _has_bowen_source_attribution(quote) or _concept_has_bowen_attribution(concept):
+            filtered.append((concept, quote))
+        else:
             logger.warning(
                 "Dropping Bowen reference without Bowen-source attribution text: %s",
                 concept,
             )
-            continue
-        filtered.append((concept, quote))
     return filtered
 
 
@@ -462,7 +495,7 @@ def _filter_bowen_references_semantically(
 
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
     """Save summary output."""
-    stem = Path(original_filename).stem
+    stem = clean_project_name(Path(original_filename).stem)
     if stem.endswith(config.SUFFIX_FORMATTED.replace(".md", "")):
         stem = stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
     if stem.endswith("_yaml"):
@@ -539,9 +572,13 @@ def extract_scored_emphasis(
         )
 
         items = parse_scored_emphasis_output(response)
+        logger.info("Parsed %d scored emphasis item(s) from model response.", len(items))
         if not items and len(response) > 500:
-            logger.warning("No items extracted despite substantial response.")
-            _save_summary(response, formatted_filename, "emphasis-scored")
+            output_path = _save_summary(response, formatted_filename, "emphasis-scored")
+            logger.warning(
+                "Parsed 0 scored emphasis items despite substantial response; saved raw response to: %s",
+                output_path,
+            )
             return False
 
         logger.info("Extracted %d scored emphasis items.", len(items))
@@ -583,6 +620,7 @@ def extract_bowen_references_from_transcript(
     model: str = config.DEFAULT_MODEL,
     logger=None,
     transcript_system_message=None,
+    transcript_text: str | None = None,
 ) -> bool:
     """Extracts Bowen references from the transcript."""
     if logger is None:
@@ -591,9 +629,9 @@ def extract_bowen_references_from_transcript(
     try:
         logger.info("Starting Bowen Reference Extraction for: %s",
                     formatted_filename)
-        transcript_text = strip_yaml_frontmatter(
-            _load_formatted_transcript(formatted_filename)
-        )
+        if transcript_text is None:
+            transcript_text = _load_formatted_transcript(formatted_filename)
+        transcript_text = strip_yaml_frontmatter(transcript_text)
         prompt_template = _load_summary_prompt(
             config.PROMPT_BOWEN_EXTRACTION_FILENAME)
 
@@ -670,12 +708,11 @@ def extract_bowen_references_from_transcript(
         # Ensure header is present for standard parsing
         final_content = f"## Bowen References\n\n{final_content}".rstrip()
 
-        stem = (
-            Path(formatted_filename)
-            .stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
-            .replace(config.SUFFIX_YAML.replace(".md", ""), "")
-        )
+        stem = clean_project_name(Path(formatted_filename).stem)
+        stem = stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
+        stem = stem.replace(config.SUFFIX_YAML.replace(".md", ""), "")
         project_dir = config.PROJECTS_DIR / stem
+        project_dir.mkdir(parents=True, exist_ok=True)
         bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
         bowen_path.write_text(final_content, encoding="utf-8")
 
@@ -690,12 +727,53 @@ def extract_bowen_references_from_transcript(
         return False
 
 
+def extract_bowen_and_emphasis(
+    formatted_filename: str,
+    model: str = config.DEFAULT_MODEL,
+    logger=None,
+) -> bool:
+    """Run Bowen and emphasis extraction together using one cached transcript context."""
+    if logger is None:
+        logger = setup_logging("extract_bowen_and_emphasis")
+
+    try:
+        logger.info(
+            "Starting combined Bowen + Emphasis extraction for: %s",
+            formatted_filename,
+        )
+        transcript = _load_formatted_transcript(formatted_filename)
+        transcript_system_message = create_system_message_with_cache(transcript)
+
+        emphasis_ok = extract_scored_emphasis(
+            formatted_filename,
+            model,
+            logger,
+            transcript_system_message,
+        )
+        bowen_ok = extract_bowen_references_from_transcript(
+            formatted_filename,
+            model,
+            logger,
+            transcript_system_message,
+            transcript_text=transcript,
+        )
+
+        return emphasis_ok and bowen_ok
+    except Exception as e:
+        logger.error(
+            "Error in combined Bowen + Emphasis extraction: %s",
+            e,
+            exc_info=True,
+        )
+        return False
+
+
 def generate_structured_summary(
     base_name: str,
     summary_target_word_count: int = None,
     logger=None,
     transcript_system_message=None,
-    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed summaries (was AUX_MODEL/Haiku)
+    model: str = config.AUX_MODEL,
 ) -> bool:
     """Generate a structured summary using the pipeline."""
     if logger is None:
@@ -781,7 +859,7 @@ def generate_structured_summary(
 
 
 def generate_structured_abstract(
-    base_name: str, logger=None, transcript_system_message=None, model: str = config.DEFAULT_MODEL
+    base_name: str, logger=None, transcript_system_message=None, model: str = config.AUX_MODEL
 ) -> bool:
     """
     Generate an abstract using the structured pipeline.
@@ -913,6 +991,7 @@ def summarize_transcript(
     target_audience: str,
     skip_extracts_summary: bool,
     skip_emphasis: bool,
+    skip_bowen: bool,
     skip_blog: bool,
     generate_structured: bool = False,
     structured_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT,
@@ -1029,11 +1108,16 @@ def summarize_transcript(
                 extract_scored_emphasis(
                     formatted_filename, model, logger, transcript_system_message
                 )
+            else:
+                logger.info("\n--- PART 6: Emphasis Extraction Skipped ---")
 
-            logger.info("\n--- PART 7: Extracting Bowen References ---")
-            extract_bowen_references_from_transcript(
-                formatted_filename, model, logger, transcript_system_message
-            )
+            if not skip_bowen:
+                logger.info("\n--- PART 7: Extracting Bowen References ---")
+                extract_bowen_references_from_transcript(
+                    formatted_filename, model, logger, transcript_system_message
+                )
+            else:
+                logger.info("\n--- PART 7: Bowen Reference Extraction Skipped ---")
 
             logger.info("\n--- PART 8a: Generating Ranked Lenses (Adaptive Count) ---")
             lens_count = _extract_lens_count(transcript_word_count)
