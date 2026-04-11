@@ -94,3 +94,13 @@ The project emphasizes correctness. Every generation step has a corresponding va
 - **Request Logging**:
   - Automatically track user requests and task completion status in `REQUEST_LOG.md`.
   - Update this log at the start and end of significant tasks.
+
+## 8. Testing Philosophy and Guidelines
+
+To ensure robustness and prevent regressions, all changes should be accompanied by thorough tests. Adhere to the following principles when writing or updating tests:
+
+-   **Test the Entire Change**: When modifying a function, ensure your tests cover not only the new logic but also the surrounding code paths within that function. A test should validate the function's ability to execute from start to finish.
+-   **Don't Over-Mock**: Mocks are powerful but can hide bugs. Prefer testing the real implementation where possible. When mocking, be precise. For instance, if testing file *parsing*, it's better to provide a mock file content string rather than mocking the parsing function itself. Be aware of what code your mocks are bypassing.
+-   **Test for Failure Cases**: Actively test for expected failures, not just the "happy path". This includes providing invalid inputs, simulating missing files, and checking for correct error handling (`try...except` blocks).
+-   **Validate Integration Points**: If you change a function that writes a file (`function_A`) and another that reads it (`function_B`), ensure a test verifies that `function_B` can correctly parse the output from `function_A`. Do not assume the format is correct.
+-   **Review Before Committing**: Before committing, mentally trace the execution of the changed code and review your tests. Ask yourself: "Does my test *actually* execute the lines I changed? Could this function fail before my new logic is even reached?"

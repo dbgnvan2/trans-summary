@@ -163,5 +163,24 @@ Some other content.
         self.assertEqual(refs[0], ('Concept Name', 'The quote text.', '00:12:34'))
         self.assertEqual(refs[1], ('Another Concept', 'Another quote.', None))
 
+    @patch('transcript_utils.config')
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.read_text')
+    def test_load_bowen_references_path_construction(self, mock_read_text, mock_exists, mock_config):
+        """Test that the function constructs the file path correctly before trying to access it."""
+        # This test is designed to catch a NameError if the `bowen_file` variable is not defined.
+        # By mocking the config and the Path methods, we can assert that the
+        # path construction logic is called correctly.
+        
+        # Setup mock behavior
+        mock_exists.return_value = False
+        
+        # Call the function
+        load_bowen_references("test-base-name")
+
+        # The core assertion: was the config variable used to build the path?
+        # This confirms the line that was previously missing is now present and executed.
+        self.assertTrue(mock_config.PROJECTS_DIR.__truediv__.called)
+
 if __name__ == '__main__':
     unittest.main()
