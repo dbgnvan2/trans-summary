@@ -1112,22 +1112,33 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
-    bowen_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
-        with open(bowen_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        content = bowen_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
 
-        refs = extract_bowen_references(content)
+        # Try multiple patterns from strictest to most lenient
+        patterns = [
+            # Matches ### Concept [HH:MM:SS] \n > "Quote"
+            re.compile(r'###\s+(.+?)\s+\[(\d{2}:\d{2}:\d{2})\]\s*\n>\s+"([^"]+)"', re.DOTALL),
+            # Matches ### Concept \n > "Quote" (no timestamp)
+            re.compile(r'###\s+(.+?)\s*\n>\s+"([^"]+)"', re.DOTALL),
+        ]
+        
+        all_matches = []
+        for pattern in patterns:
+            matches = pattern.findall(content)
+            for match in matches:
+                if len(match) == 3:
+                    all_matches.append(match) # (concept, timestamp, quote)
+                else:
+                    all_matches.append((match[0], None, match[1])) # (concept, None, quote)
+            if all_matches:
+                break
+        
+        refs = [(concept.strip(), quote.strip(), timestamp) for concept, timestamp, quote in all_matches]
+        
         if refs:
             return refs
-
-        # Fallback: If file exists but extraction failed (likely missing header),
-        # try to parse the whole content directly as a list of quotes.
-        quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
-        quotes = re.findall(quote_pattern, content, flags=re.MULTILINE)
-        return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
     return []
 
@@ -1166,30 +1177,44 @@ def load_emphasis_items(base_name: str) -> list:
     bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
 
     # Try new scored emphasis file first
-    scored_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    scored_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
     if scored_file.exists():
         content = scored_file.read_text(encoding='utf-8')
         items = parse_scored_emphasis_output(content)
-        filtered_items = []
-        for item in items:
-            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes:
-                filtered_items.append(
-                    (f"{item['concept']} ({item['score']}%)", item['quote']))
-        return filtered_items
+        filtered_items = [
+            (f"{item['concept']} ({item['score']}%)", item['quote'], item.get('timestamp'))
+            for item in items
+            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes
+        ]
+        if filtered_items:
+            return filtered_items
 
-    # Try dedicated file first
-    emphasis_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS}"
+    # Fallback to older, unscored emphasis file with flexible parsing
+    emphasis_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
-        with open(emphasis_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        content = emphasis_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
-        items = extract_emphasis_items(content)
-        filtered_items = []
-        for label, quote in items:
-            if normalize_text(quote, aggressive=True) not in bowen_quotes:
-                filtered_items.append((label, quote))
+        
+        patterns = [
+            re.compile(r'>\s+\*\*(.+?)\*\*\s*\n>\s+"([^"]+)"', re.DOTALL),  # Original: > **Label** \n > "Quote"
+            re.compile(r'>\s+\*\*(.+?)\*\*\s*\n>\s*([^\n]+)', re.DOTALL),   # > **Label** \n > Quote
+            re.compile(r'\*\*(.+?)\*\*:\s*"([^"]+)"', re.DOTALL),        # **Label**: "Quote"
+            re.compile(r'^\s*[-*]\s+\*\*(.+?)\*\*:\s*(.+)', re.MULTILINE), # - **Label**: Quote
+        ]
+        
+        all_matches = []
+        for pattern in patterns:
+            all_matches = pattern.findall(content)
+            if all_matches:
+                break
+        
+        items = [(label.strip(), quote.strip(), None) for label, quote in all_matches] # Add None for timestamp
+        
+        filtered_items = [
+            (label, quote, timestamp)
+            for label, quote, timestamp in items
+            if normalize_text(quote, aggressive=True) not in bowen_quotes
+        ]
         return filtered_items
 
     return []
@@ -1234,13 +1259,13 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     header_patterns = [
         re.compile(
             r'^\s*(?:[-*>]+\s+)?(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*'
-            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\](?:\*\*)?\s*(?:\|\s*)?'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
             r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
             re.MULTILINE,
         ),
         re.compile(
             r'^\s*(?:[-*>]+\s+)?(?:\*\*)?(?P<type>Explicit|Implicit|Clinical)\s*-\s*(?P<category>.+?)\s*-\s*'
-            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^|\n%]+)%?\s*(?:\|\s*)?'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^|\n%]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\s*(?:\|\s*)?'
             r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
             re.MULTILINE,
         ),
@@ -1268,6 +1293,7 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
             'score': _parse_score(header_match.group('score')),
             'concept': _clean_field(header_match.group('concept')),
             'quote': re.sub(r'\s+', ' ', quote_match.group('quote').strip()),
+            'timestamp': header_match.group('timestamp') or None,
         }
         item_key = (item['concept'].lower(), item['quote'].lower())
         if item_key in seen:

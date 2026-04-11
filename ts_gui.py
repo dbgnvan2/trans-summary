@@ -28,7 +28,7 @@ import transcript_initial_validation
 import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
-from transcript_utils import clean_project_name
+from transcript_utils import clean_project_name, parse_filename_metadata
 from validation_learning import (
     append_approved_terms,
     append_validation_aliases,
@@ -763,11 +763,7 @@ class TranscriptProcessorGUI:
             title="Select Transcripts Directory")
         if dir_path:
             selected_path = Path(dir_path)
-            base_path = (
-                selected_path.parent
-                if selected_path.name.lower() == "source"
-                else selected_path
-            )
+            base_path = selected_path
             config.set_transcripts_base(base_path)
             config.set_validation_approved_terms_path(None)
             self.update_dir_label()
@@ -827,6 +823,19 @@ class TranscriptProcessorGUI:
         if not selection:
             return
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
+
+        try:
+            parse_filename_metadata(filename)
+            self.log(f"✅ Filename format is valid for '{filename}'")
+        except ValueError as e:
+            self.log(f"❌ Invalid filename format: {e}")
+            messagebox.showerror("Invalid Filename", f"The selected file has an invalid name:\n\n{filename}\n\nIt must follow the pattern 'Title - Presenter - Date.ext'.\n\nPlease rename the file and refresh the list.")
+            self.selected_file = None
+            self.base_name = None
+            self.update_button_states()
+            self.status_text.delete(1.0, tk.END)
+            return
+
         self.selected_file = config.SOURCE_DIR / filename
 
         # Get base name using centralized cleaning logic
@@ -1414,7 +1423,7 @@ class TranscriptProcessorGUI:
         self.log("STEP 6: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
         self.run_task_in_thread(
-            pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+            pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL) # MODIFIED
 
     def do_generate_web_pdf(self):
         """Generate Webpage and PDF artifacts."""
@@ -1616,7 +1625,7 @@ class TranscriptProcessorGUI:
 
         # Step 5: Validate Abstracts
         self.log("\n--- STEP 5: Validating Abstracts ---")
-        if not pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL):
+        if not pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):
             self.log("❌ Abstract validation failed.")
             return False
 

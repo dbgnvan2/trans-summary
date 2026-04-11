@@ -300,19 +300,26 @@ def _clean_bowen_output(text: str) -> str:
     return "\n".join(cleaned_lines)
 
 
-def _format_bowen_refs(refs: list[tuple[str, str]]) -> str:
-    """Format Bowen references as blockquote lines."""
+def _format_bowen_refs(refs: list[tuple]) -> str:
+    """Format Bowen references with optional timestamps."""
     lines = []
-    for concept, quote in refs:
+    for ref in refs:
+        if len(ref) == 3:
+            concept, quote, timestamp = ref
+        else:
+            concept, quote = ref
+            timestamp = None
+        
         concept = " ".join(str(concept).split()).strip()
-        # Keep fuller attributed passage; do not over-compress output text.
-        quote = " ".join(str(quote).split()).strip()
+        quote = " ".join(str(quote).split()).strip().replace('"', "'")
+        
         if not concept or not quote:
             continue
-        # Avoid breaking the quote wrapper
-        quote = quote.replace('"', "'")
-        lines.append(f'> **Bowen Reference - {concept}:** "{quote}"')
-    return "\n".join(lines)
+            
+        ts_str = f" [{timestamp}]" if timestamp else ""
+        lines.append(f"### {concept}{ts_str}\n> \"{quote}\"")
+    return "\n\n".join(lines)
+
 
 
 def _compact_bowen_quote(quote: str, max_words: int = 140) -> str:
@@ -541,6 +548,7 @@ def extract_scored_emphasis(
     model: str = config.DEFAULT_MODEL,
     logger=None,
     transcript_system_message=None,
+    transcript_text: str | None = None,
 ) -> bool:
     """Run the scored emphasis extraction pipeline."""
     if logger is None:
@@ -549,6 +557,9 @@ def extract_scored_emphasis(
     try:
         logger.info("Starting Scored Emphasis Extraction for: %s",
                     formatted_filename)
+        if transcript_text is None:
+            transcript_text = _load_formatted_transcript(formatted_filename)
+        
         prompt_template = _load_summary_prompt(
             config.PROMPT_EMPHASIS_SCORING_FILENAME)
 
@@ -557,8 +568,7 @@ def extract_scored_emphasis(
             full_prompt = prompt_template
             call_kwargs["system"] = transcript_system_message
         else:
-            transcript = _load_formatted_transcript(formatted_filename)
-            full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT:\n\n{transcript}"
+            full_prompt = f"{prompt_template}\n\n---\n\nTRANSCRIPT:\n\n{transcript_text}"
 
         logger.info("Sending request to Claude...")
         response = _generate_summary_with_claude(
@@ -580,6 +590,16 @@ def extract_scored_emphasis(
                 output_path,
             )
             return False
+            
+        # Find timestamps for each item
+        for item in items:
+            item['timestamp'] = None
+            start_pos, _, ratio = find_text_in_content(item['quote'], transcript_text, aggressive_normalization=True)
+            if start_pos is not None and ratio > 0.8:
+                preceding_text = transcript_text[:start_pos]
+                ts_matches = re.findall(r'\[(\d{2}:\d{2}:\d{2})\]', preceding_text)
+                if ts_matches:
+                    item['timestamp'] = ts_matches[-1]
 
         logger.info("Extracted %d scored emphasis items.", len(items))
 
@@ -589,8 +609,9 @@ def extract_scored_emphasis(
             is_valid, issues = validate_emphasis_item(item)
             if is_valid:
                 validated_items.append(item)
+                ts_str = f" | {item['timestamp']}" if item.get('timestamp') else ""
                 final_content_lines.append(
-                    f"[{item['type']} - {item['category']} - Rank: {item['score']}%] Concept: {item['concept']}"
+                    f"[{item['type']} - {item['category']} - Rank: {item['score']}%{ts_str}] Concept: {item['concept']}"
                 )
                 final_content_lines.append(f'"{item["quote"]}"')
             else:
@@ -702,7 +723,20 @@ def extract_bowen_references_from_transcript(
                 _rule_filter_bowen_references(parsed_refs, logger)
             )
 
-        filtered_refs = grounded_semantic
+        # Find timestamps for each grounded reference
+        refs_with_timestamps = []
+        for concept, quote in grounded_semantic:
+            timestamp = None
+            start_pos, _, ratio = find_text_in_content(quote, transcript_text, aggressive_normalization=True)
+            if start_pos is not None and ratio > 0.8:
+                # Search backwards from the start of the quote for the last timestamp
+                preceding_text = transcript_text[:start_pos]
+                ts_matches = re.findall(r'\[(\d{2}:\d{2}:\d{2})\]', preceding_text)
+                if ts_matches:
+                    timestamp = ts_matches[-1]
+            refs_with_timestamps.append((concept, quote, timestamp))
+
+        filtered_refs = refs_with_timestamps
         final_content = _format_bowen_refs(filtered_refs)
 
         # Ensure header is present for standard parsing

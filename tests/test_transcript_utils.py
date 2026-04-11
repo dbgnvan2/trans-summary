@@ -1,10 +1,13 @@
 import unittest
+from unittest.mock import patch
 
 from transcript_utils import (
     extract_section,
+    load_bowen_references,
     markdown_to_html,
     normalize_text,
     parse_filename_metadata,
+    parse_scored_emphasis_output,
     strip_yaml_frontmatter,
 )
 
@@ -122,6 +125,43 @@ Some other content.
     def test_parse_filename_metadata_invalid(self):
         with self.assertRaises(ValueError):
             parse_filename_metadata("invalid-filename.txt")
+    
+    def test_parse_scored_emphasis_output_with_timestamp(self):
+        emphasis_text = """
+[Implicit - A3 - Rank: 88% | 00:12:34] Concept: The concept description
+"The quote text."
+"""
+        items = parse_scored_emphasis_output(emphasis_text)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['timestamp'], '00:12:34')
+        self.assertEqual(items[0]['concept'], 'The concept description')
+
+    def test_parse_scored_emphasis_output_no_timestamp(self):
+        emphasis_text = """
+[Explicit - B1 - Rank: 95%] Concept: Another concept
+"Another quote."
+"""
+        items = parse_scored_emphasis_output(emphasis_text)
+        self.assertEqual(len(items), 1)
+        self.assertIsNone(items[0]['timestamp'])
+
+    @patch('pathlib.Path.read_text')
+    @patch('pathlib.Path.exists')
+    def test_load_bowen_references_with_timestamp(self, mock_exists, mock_read_text):
+        mock_exists.return_value = True
+        bowen_text = """
+### Concept Name [00:12:34]
+> "The quote text."
+
+### Another Concept
+> "Another quote."
+"""
+        mock_read_text.return_value = bowen_text
+        
+        refs = load_bowen_references("any-base-name")
+        self.assertEqual(len(refs), 2)
+        self.assertEqual(refs[0], ('Concept Name', 'The quote text.', '00:12:34'))
+        self.assertEqual(refs[1], ('Another Concept', 'Another quote.', None))
 
 if __name__ == '__main__':
     unittest.main()

@@ -717,16 +717,21 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
     # Summary
     print("\n   Summary:")
-    # Source summary may be absent if summary generation was skipped.
+    print(
+        f"      Source: {'Present' if source_meta.get('has_summary') else 'Not Generated'}"
+    )
     print(
         f"      HTML:   {'Present' if html_meta['has_summary'] else 'Missing'} "
         f"({html_meta['summary_length']} chars)"
     )
 
-    if not html_meta["has_summary"]:
-        warnings.append("Summary section missing in HTML")
+    if source_meta.get('has_summary') and not html_meta['has_summary']:
+        issues.append("Generated summary is missing from the final webpage.")
+    elif not source_meta.get('has_summary') and not html_meta['has_summary']:
+        print("      ✅ Summary correctly omitted from webpage.")
     else:
-        print("      ✅ Summary present in HTML")
+        # This covers cases where it's present in both, or present in HTML but not source.
+        print("      ✅ Summary correctly included in webpage.")
 
     # Topics (skip in simple mode - not included in that layout)
     print("\n   Key Topics:")

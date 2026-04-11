@@ -17,12 +17,16 @@ Usage:
 """
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import anthropic
+
 import config
 from transcript_utils import call_claude_with_retry
+
 
 
 @dataclass
@@ -225,31 +229,59 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
 
 def extract_opening_purpose(transcript: str, section_count: int) -> str:
     """
-    Extract speaker's stated purpose from opening sections.
-    Looks for purpose indicators in first 10% of sections.
+    Extract speaker's stated purpose from opening sections using an LLM.
     """
-    opening_sections = section_count // 10 or 1
+    # 1. Isolate the opening 15% of the transcript's text, max 5 sections
+    opening_section_count = min(max(1, section_count // 7), 5)
+    
+    section_pattern = r"## Section (\d+)"
+    sections = re.split(section_pattern, transcript)
+    
+    opening_text = ""
+    # The split results in ['pre-section1-text', '1', 'section1-text', '2', 'section2-text', ...]
+    for i in range(1, opening_section_count * 2, 2):
+        if i + 1 < len(sections):
+            opening_text += f"## Section {sections[i]}\n{sections[i+1]}"
 
-    # Common purpose indicators
-    purpose_patterns = [
-        r"my intent[^.]+is[^.]+\.",
-        r"I'm going to[^.]+\.",
-        r"today[^.]+explore[^.]+\.",
-        r"purpose[^.]+is[^.]+\.",
-        r"goal[^.]+is[^.]+\.",
-        r"I want to[^.]+\.",
-    ]
+    if not opening_text.strip():
+        return "Speakers purpose missing - manually insert"
 
-    # Search in first N sections
-    section_pattern = r"## Section [1-" + str(opening_sections) + r"][^#]+"
-    opening_text = " ".join(re.findall(section_pattern, transcript, re.DOTALL))
+    # 2. Load the prompt
+    try:
+        prompt_path = config.PROMPTS_DIR / "purpose_extraction_prompt.md"
+        template = prompt_path.read_text(encoding="utf-8")
+        prompt = template.replace("{{opening_text}}", opening_text)
+    except FileNotFoundError:
+        return "Speakers purpose missing - manually insert"
 
-    for pattern in purpose_patterns:
-        match = re.search(pattern, opening_text, re.IGNORECASE)
-        if match:
-            return match.group(0).strip()
+    # 3. Call the LLM
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            return "Speakers purpose missing - manually insert"
+        
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        message = call_claude_with_retry(
+            client=client,
+            model=config.settings.AUX_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,  # A single sentence should be short
+            temperature=0.0,
+            min_length=10, # Expect at least a short sentence
+        )
+        
+        purpose = message.content[0].text.strip()
 
-    return "Not explicitly stated"
+        # 4. Process the response
+        if "Not explicitly stated" in purpose:
+            return "Speakers purpose missing - manually insert"
+        
+        return purpose
+
+    except Exception:
+        # If API call fails for any reason, fall back gracefully
+        return "Speakers purpose missing - manually insert"
 
 
 def extract_closing_conclusion(transcript: str, section_count: int) -> str:
@@ -419,7 +451,7 @@ def load_prompt() -> str:
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
-    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed content (was AUX_MODEL/Haiku)
+    model: str = config.AUX_MODEL,  # Haiku: cost-effective for abstract generation
     system: Optional[list] = None,
 ) -> str:
     """

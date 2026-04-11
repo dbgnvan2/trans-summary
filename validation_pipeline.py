@@ -574,7 +574,7 @@ def validate_headers(
 # ============================================================================
 
 
-def validate_abstract_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
+def validate_abstract_coverage(base_name: str, logger=None, model: str = config.DEFAULT_MODEL) -> bool:
     """Validate the abstract using the coverage validation module."""
     if logger is None:
         logger = setup_logging("validate_abstract_coverage")

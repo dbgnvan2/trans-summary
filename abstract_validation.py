@@ -236,11 +236,14 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
     ):
         purpose_keywords = extract_keywords(abstract_input.opening_purpose)
 
+        # If purpose extraction failed, this is a warning, not a required item.
+        is_required = "manually insert" not in abstract_input.opening_purpose
+
         items.append(
             CoverageItem(
                 category="purpose",
                 label="Speaker's stated purpose",
-                required=True,
+                required=is_required,
                 keywords=purpose_keywords[:6],
                 source_text=abstract_input.opening_purpose,
             )
@@ -421,12 +424,6 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
         .replace("{{items_text}}", items_text)
     )
 
-    # Encourage concise verifier output to reduce token usage.
-    prompt += (
-        "\n\nRespond in plain text with exactly one line per item in order, "
-        "using only YES or NO."
-    )
-
     requested_max_tokens = max(512, 80 * len(items) + 64)
     max_tokens = cap_max_tokens_for_model(model, requested_max_tokens, logger=logger)
 
@@ -440,6 +437,7 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
             max_tokens=max_tokens,
             temperature=0.0,  # Strict for validation
             logger=logger,
+            min_length=2,
         )
     except Exception as e:
         if logger:

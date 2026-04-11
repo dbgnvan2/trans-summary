@@ -151,10 +151,8 @@ def _extract_key_term_definitions(base_name: str):
 
     content = strip_yaml_frontmatter(content)
 
-    # Extract Key Terms section
-    terms_section = extract_section(content, "Key Terms")
-    if not terms_section:
-        return []
+    # Extract Key Terms section, or use the whole content as a fallback
+    terms_section = extract_section(content, "Key Terms") or content
 
     terms = []
 
@@ -205,14 +203,16 @@ def _extract_key_term_definitions(base_name: str):
 
 
 def _format_ref_list(items):
-    """Format a list of (label, quote) tuples as HTML."""
+    """Format a list of (label, quote, optional_timestamp) tuples as HTML."""
     if not items:
         return "<p>None found.</p>"
 
     html_parts = ["<ul class='ref-list'>"]
-    for label, quote in items:
+    for item in items:
+        label, quote, timestamp = item if len(item) == 3 else (item[0], item[1], None)
+        ts_str = f" <span class='timestamp'>({timestamp})</span>" if timestamp else ""
         html_parts.append(
-            f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
+            f"<li><strong>{escape(label)}</strong>:{ts_str} {escape(quote)}</li>"
         )
     html_parts.append("</ul>")
     return "".join(html_parts)
@@ -528,31 +528,32 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
     highlights = []
     emphasis_entries = {}
 
-    for label, quote in emphasis_items:
+    for label, quote, timestamp in emphasis_items:
         quote_snippet = " ".join(quote.split()[:75])
         start, end = find_word_span(quote_snippet, search_text)
         span = map_search_span_to_tokens(char_map, start, end)
         if span:
-            entry = [span, "emphasis", label, None]
+            entry = [span, "emphasis", label, None, timestamp] # span, type, label, extra_label, timestamp
             highlights.append(entry)
             emphasis_entries[label] = entry
 
-    for concept, quote in bowen_refs:
+    for concept, quote, timestamp in bowen_refs:
         quote_snippet = " ".join(quote.split()[:75])
         start, end = find_word_span(quote_snippet, search_text)
         if start is None:
             start, end = find_word_span(quote, search_text)
         span = map_search_span_to_tokens(char_map, start, end)
         if span:
-            highlights.append([span, "bowen", concept, None])
+            highlights.append([span, "bowen", concept, None, timestamp])
             continue
         bowen_norm = normalize_text(quote, aggressive=True)
-        for emphasis_label, emphasis_quote in emphasis_items:
+        for emphasis_label, emphasis_quote, _ in emphasis_items:
             if bowen_norm in normalize_text(emphasis_quote, aggressive=True):
                 entry = emphasis_entries.get(emphasis_label)
                 if entry:
                     add_bowen_label(entry, concept)
                 break
+
 
     highlights.sort(key=lambda x: (x[0][0], x[0][1]), reverse=True)
 
@@ -591,12 +592,13 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             filtered_highlights.pop(i)
         filtered_highlights.append(h)
 
-    for span, htype, label, extra_label in filtered_highlights:
+    for span, htype, label, extra_label, timestamp in filtered_highlights:
+        timestamp_title = f" | Timestamp: {timestamp}" if timestamp else ""
         if htype == "bowen":
             insert_mark(
                 tokens,
                 span,
-                f'<mark class="bowen-ref" title="Bowen Reference: {escape(label)}">',
+                f'<mark class="bowen-ref" title="Bowen Reference: {escape(label)}{timestamp_title}">',
                 "</mark>",
             )
         elif htype == "emphasis":
@@ -617,7 +619,7 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             insert_mark(
                 tokens,
                 span,
-                f'<mark class="emphasis{score_class}{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}">',
+                f'<mark class="emphasis{score_class}{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}{timestamp_title}">',
                 "</mark>",
             )
 

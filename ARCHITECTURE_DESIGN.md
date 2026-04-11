@@ -92,6 +92,25 @@ The system operates as a sequential pipeline, where the output of one stage ofte
 - Standalone extraction resolves input in this order: project ` - yaml.md`, project ` - formatted.md`, then the selected source `.txt` file.
 - The CLI wrappers `transcript_extract_bowen.py` and `transcript_extract_emphasis.py` support the same direct-file workflow.
 
+### 3.2. Timestamp Association for References
+
+To enhance usability and traceability, the pipeline now automatically associates a timestamp with each extracted **Bowen Reference** and **Emphasized Item**.
+
+-   **Extraction Process**: During extraction, after an item's quote is identified by the LLM, a fuzzy search is performed against the full transcript text to locate the quote. The script then scans backwards from the quote's position to find the last preceding timestamp (e.g., `[00:12:34]`).
+-   **Storage Format**: The found timestamp is stored directly in the intermediate artifact files:
+    -   **Bowen References (`...-bowen-references.md`)**: The timestamp is appended to the concept header.
+        ```markdown
+        ### Concept Name [00:12:34]
+        > "The quote text."
+        ```
+    -   **Scored Emphasis (`...-emphasis-scored.md`)**: The timestamp is added to the metadata block.
+        ```markdown
+        [Implicit - A3 - Rank: 88% | 00:12:34] Concept: The concept description
+        "The quote text."
+        ```
+-   **Display**: The final PDF and HTML documents display this timestamp next to the item in the appendix sections and in the hover-over tooltip for highlighted text in the transcript body, allowing for quick reference.
+-   **Robustness**: This process uses fuzzy matching to locate quotes, making it resilient to minor wording changes from the LLM. If a timestamp cannot be confidently determined, it is omitted for that item.
+
 ## 4. AI Integration Strategy (Model-Agnostic)
 
 The system is designed with a model-agnostic approach for interacting with Large Language Models (LLMs), currently using Anthropic's Claude API.
