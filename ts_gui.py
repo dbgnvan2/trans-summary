@@ -253,6 +253,12 @@ class GuiLoggerAdapter:
     def error(self, msg, *args, **kwargs):
         text = str(msg) % args if args else str(msg)
         prefix = "" if text.strip().startswith("❌") else "❌ "
+        
+        if kwargs.get("exc_info"):
+            import traceback
+            exc_text = traceback.format_exc()
+            text += f"\n{exc_text}"
+
         self.gui.log(f"{prefix}{text}")
 
     def debug(self, msg, *args, **kwargs):
@@ -410,6 +416,7 @@ class TranscriptProcessorGUI:
 
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
+        self.make_dir_default_var = tk.BooleanVar(value=False)
         self.include_init_val_do_all = tk.BooleanVar(value=False)
         self.omit_summary_do_all = tk.BooleanVar(value=True)  # Default: skip structured summary
         self.include_emphasis_core = tk.BooleanVar(value=True)
@@ -451,11 +458,15 @@ class TranscriptProcessorGUI:
         # Directory selection
         dir_frame = ttk.Frame(main_frame)
         dir_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        self.dir_label = ttk.Label(dir_frame, text="Transcripts Directory: ")
+        self.dir_label = ttk.Label(dir_frame, text="Source Directory: ")
         self.dir_label.pack(side=tk.LEFT, padx=(0, 10))
         dir_btn = ttk.Button(dir_frame, text="Set Directory",
                              command=self.select_transcripts_directory)
         dir_btn.pack(side=tk.LEFT)
+        self.make_default_chk = ttk.Checkbutton(
+            dir_frame, text="Make Default", variable=self.make_dir_default_var
+        )
+        self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
 
         # File selection
         file_frame = ttk.LabelFrame(
@@ -547,9 +558,23 @@ class TranscriptProcessorGUI:
             main_frame, text="File Status", padding="10")
         status_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 2 to 3
         status_frame.columnconfigure(0, weight=1)
+        
+        status_top_frame = ttk.Frame(status_frame)
+        status_top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        status_top_frame.columnconfigure(0, weight=1)
+
         self.status_text = tk.Text(
             status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
-        self.status_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self.status_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Add a refresh button to the status frame
+        status_refresh_btn = ttk.Button(
+            status_top_frame, text="Refresh", command=self.check_file_status)
+        status_refresh_btn.grid(row=0, column=1, sticky=tk.E)
+        
+        # Make the Text widget expand, not the top frame
+        status_frame.rowconfigure(1, weight=1)
+
 
         log_frame = ttk.LabelFrame(
             main_frame, text="Processing Log", padding="10")
@@ -760,24 +785,33 @@ class TranscriptProcessorGUI:
 
     def select_transcripts_directory(self):
         dir_path = filedialog.askdirectory(
-            title="Select Transcripts Directory")
+            title="Select Directory Containing Source Files")
         if dir_path:
-            selected_path = Path(dir_path)
-            base_path = selected_path
-            config.set_transcripts_base(base_path)
-            config.set_validation_approved_terms_path(None)
+            # Set the directory for the current session
+            config.set_source_dir_and_infer_base(dir_path)
+
+            # Save or clear the default based on the checkbox
+            if self.make_dir_default_var.get():
+                config.set_default_source_dir(dir_path)
+                self.log(f"✅ Saved {dir_path} as new default source directory.")
+            else:
+                # If the user is intentionally changing directories without making it default,
+                # clear any old default that might be hanging around.
+                config.set_default_source_dir(None)
+
+            # Update UI
             self.update_dir_label()
             self.update_terms_file_label()
             self.refresh_file_list()
             self.log(
-                "Switched transcripts directory to %s; reset validation terms file to default: %s",
+                "Switched source directory to %s; Base path inferred as %s. Reset validation terms file.",
                 config.SOURCE_DIR,
-                config.VALIDATION_APPROVED_TERMS_PATH,
+                config.TRANSCRIPTS_BASE,
             )
 
     def update_dir_label(self):
         self.dir_label.config(
-            text=f"Transcripts Directory: {config.TRANSCRIPTS_BASE}")
+            text=f"Source Directory: {config.SOURCE_DIR}")
 
     def update_terms_file_label(self):
         active_path = Path(config.VALIDATION_APPROVED_TERMS_PATH)
@@ -817,6 +851,7 @@ class TranscriptProcessorGUI:
             self.file_listbox.insert(
                 tk.END, f"{file.name} ({file.stat().st_size/1024:.1f} KB)")
         self.log("Found %d source file(s)\n", len(files))
+        self.check_file_status()
 
     def on_file_select(self, event):
         selection = self.file_listbox.curselection()
@@ -960,6 +995,14 @@ class TranscriptProcessorGUI:
         name = task_name if task_name else task_function.__name__
         try:
             success = task_function(*args, **kwargs)
+            
+            # If the task is waiting for a user dialog, don't log completion.
+            if success == "WAITING_FOR_USER":
+                self.processing = False
+                self.progress.stop()
+                self.root.after(0, self.update_button_states)
+                return
+
             if success:
                 self.set_status("Task completed successfully.", "green")
                 self.log("✅ %s completed successfully.", name)
@@ -1046,7 +1089,7 @@ class TranscriptProcessorGUI:
                 self.log("✅ No issues found.")
                 self.root.after(
                     0, lambda: self._prompt_finalize_no_issues(file_to_validate))
-                return True
+                return "WAITING_FOR_USER"
 
             self.log("⚠️ Found %d issues.", len(findings))
 
@@ -1054,7 +1097,7 @@ class TranscriptProcessorGUI:
             self.log("Waiting for user review in popup dialog...")
             self.root.after(0, lambda: self.show_validation_dialog(
                 findings, file_to_validate))
-            return True
+            return "WAITING_FOR_USER"
 
         except Exception as e:
             self.log("❌ Validation failed: %s", e)
@@ -1068,8 +1111,23 @@ class TranscriptProcessorGUI:
                 self._apply_validation_corrections, [], [], [], [], source_file, True)
 
     def show_validation_dialog(self, findings, source_file):
-        ValidationReviewDialog(self.root, findings,
-                               lambda corrections, rejected, approved_terms, aliases, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, aliases, source_file, finalize))
+        prepared_findings, omitted_count = _prepare_review_findings(findings)
+
+        if findings and not prepared_findings:
+            self.log(
+                "Found %d issues, but all were filtered as non-lexical suggestions.", len(
+                    findings)
+            )
+            messagebox.showinfo(
+                "Validation Notice",
+                f"Initial Validation found {len(findings)} potential issues, but all were broad, "
+                "sentence-level suggestions not suitable for simple dictionary correction.\n\n"
+                "No manual review is needed for these items."
+            )
+            self._prompt_finalize_no_issues(source_file)
+        else:
+            ValidationReviewDialog(self.root, findings,
+                                   lambda corrections, rejected, approved_terms, aliases, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, aliases, source_file, finalize))
 
     def _handle_validation_apply(self, corrections, rejected_findings, approved_terms, aliases, source_file, finalize):
         if not corrections and not rejected_findings and not approved_terms and not aliases and not finalize:

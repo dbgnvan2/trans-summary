@@ -3,7 +3,7 @@
 CLI wrapper for generating summaries from a formatted transcript.
 
 Usage:
-    python transcript_summarize.py "Title - Presenter - Date - yaml.md" [--skip-extracts-summary] [--skip-emphasis] [--skip-blog]
+    python transcript_summarize.py "Title - Presenter - Date - yaml.md" [--skip-extracts-summary] [--skip-emphasis] [--skip-bowen] [--skip-blog]
 """
 
 import argparse
@@ -79,6 +79,11 @@ def main():
         help="Skip scored emphasis extraction (Part 2)",
     )
     parser.add_argument(
+        "--skip-bowen",
+        action="store_true",
+        help="Skip Bowen reference extraction",
+    )
+    parser.add_argument(
         "--skip-blog",
         action="store_true",
         help="Skip blog post generation (Part 3)"
@@ -120,6 +125,7 @@ def main():
         target_audience=args.target_audience,
         skip_extracts_summary=args.skip_extracts_summary,
         skip_emphasis=args.skip_emphasis,
+        skip_bowen=args.skip_bowen,
         skip_blog=args.skip_blog,
         generate_structured=args.generate_structured
     )

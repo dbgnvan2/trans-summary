@@ -76,3 +76,16 @@ skip-magic-trailing-comma = false
 
 # Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
+
+[tool.setuptools.packages.find]
+exclude = [
+    "logs*",
+    "test1*",
+    "source*",
+    "skills*",
+    "prompts*",
+    "oldfiles*",
+    "projects*",
+    "templates*",
+    "tests*"
+]

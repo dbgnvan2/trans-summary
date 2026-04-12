@@ -45,6 +45,8 @@ class ProjectSettings:
         self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
         self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Haiku sufficient for structural formatting
         self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
+        
+        self.runtime_settings = {}
         self._load_runtime_settings()
 
         self._initialized = True
@@ -53,27 +55,31 @@ class ProjectSettings:
         return self.LOGS_DIR / "runtime_settings.json"
 
     def _load_runtime_settings(self):
-        """Load persisted runtime UI settings."""
+        """Load persisted runtime UI settings into the settings object."""
         path = self._runtime_settings_path()
         if not path.exists():
+            self.runtime_settings = {}
             return
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+            self.runtime_settings = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.runtime_settings = {}
             return
 
-        terms_path = payload.get("validation_approved_terms_path")
+        default_source_dir = self.runtime_settings.get("default_source_dir")
+        if default_source_dir and Path(default_source_dir).exists():
+            self.set_source_dir_and_infer_base(default_source_dir)
+            
+        terms_path = self.runtime_settings.get("validation_approved_terms_path")
         if terms_path:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
 
     def _save_runtime_settings(self):
-        """Persist runtime UI settings that should survive restarts."""
+        """Persist the current runtime settings dictionary to a file."""
         path = self._runtime_settings_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "validation_approved_terms_path": str(self.VALIDATION_APPROVED_TERMS_PATH),
-        }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        path.write_text(json.dumps(self.runtime_settings, indent=2, sort_keys=True), encoding="utf-8")
+
 
     def _update_derived_paths(self):
         """Update paths derived from TRANSCRIPTS_BASE."""
@@ -93,14 +99,36 @@ class ProjectSettings:
         self.TRANSCRIPTS_BASE = Path(path)
         self._update_derived_paths()
 
+    def set_source_dir_and_infer_base(self, path: Union[str, Path]):
+        """Set the source directory directly and infer the base from its parent."""
+        self.SOURCE_DIR = Path(path)
+        self.TRANSCRIPTS_BASE = self.SOURCE_DIR.parent
+        # Re-run derived path logic, but SOURCE_DIR is already set
+        self.PROCESSED_DIR = self.TRANSCRIPTS_BASE / "processed"
+        self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
+        self.PROMPTS_DIR = Path(__file__).parent / "prompts"
+        self.LOGS_DIR = Path(__file__).parent / "logs"
+        self.VALIDATION_APPROVED_TERMS_PATH = (
+            self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+        )
+
     def set_validation_approved_terms_path(self, path: Union[str, Path, None]):
         """Set the active validation approved-terms file."""
         if path is None:
-            self.VALIDATION_APPROVED_TERMS_PATH = (
-                self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
-            )
+            new_path = self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+            self.VALIDATION_APPROVED_TERMS_PATH = new_path
+            self.runtime_settings.pop("validation_approved_terms_path", None)
         else:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(path)
+            self.runtime_settings["validation_approved_terms_path"] = str(path)
+        self._save_runtime_settings()
+
+    def set_default_source_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default source directory."""
+        if path:
+            self.runtime_settings["default_source_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_source_dir", None)
         self._save_runtime_settings()
 
     # ADDED: Methods to dynamically get and set model names
@@ -188,11 +216,27 @@ def set_transcripts_base(path: Union[str, Path]):
     FORMATTING_MODEL = settings.FORMATTING_MODEL
 
 
+def set_source_dir_and_infer_base(path: Union[str, Path]):
+    """Global function to update the source directory directly."""
+    settings.set_source_dir_and_infer_base(path)
+    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
+    TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
+    SOURCE_DIR = settings.SOURCE_DIR
+    PROCESSED_DIR = settings.PROCESSED_DIR
+    PROJECTS_DIR = settings.PROJECTS_DIR
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
+
+
 def set_validation_approved_terms_path(path: Union[str, Path, None]):
     """Global function to update the active validation approved-terms file."""
     settings.set_validation_approved_terms_path(path)
     global VALIDATION_APPROVED_TERMS_PATH
     VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
+
+
+def set_default_source_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default source directory."""
+    settings.set_default_source_dir(path)
 
 
 # ============================================================================

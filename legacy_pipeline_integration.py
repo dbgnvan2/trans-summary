@@ -124,6 +124,7 @@ Description.
             target_audience="testers",
             skip_extracts_summary=False,
             skip_emphasis=False,
+            skip_bowen=False,
             skip_blog=False,
             generate_structured=False,
             logger=self.mock_logger

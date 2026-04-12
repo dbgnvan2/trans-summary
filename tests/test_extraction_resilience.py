@@ -302,6 +302,7 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
         target_audience="General public",
         skip_extracts_summary=True,
         skip_emphasis=True,
+        skip_bowen=True,
         skip_blog=False,
         logger=logger,
     )
@@ -455,6 +456,7 @@ def test_summarize_transcript_uses_split_files_for_validation_and_blog(
         target_audience="General public",
         skip_extracts_summary=True,
         skip_emphasis=True,
+        skip_bowen=True,
         skip_blog=True,
         logger=MagicMock(),
     )

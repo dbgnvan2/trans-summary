@@ -58,6 +58,17 @@ The GUI guides you through the entire process step-by-step.
 python ts_gui.py
 ```
 
+#### Key GUI Features
+- **Easy Directory Selection**: A "Set Directory" button to choose your source transcript folder.
+- **"Make Default" Directory**: A checkbox to save the selected source directory as the default for future sessions.
+- **File Status Panel**: A comprehensive view showing the status (present, missing, etc.) of all generated files for the selected transcript.
+- **Status Panel Refresh**: A dedicated "Refresh" button on the File Status panel to manually re-check the status of all generated files.
+- **Interactive Correction**: A pop-up dialog for reviewing and applying dictionary-based corrections found during Initial Validation.
+- **Model Selection**: Dropdown menus to select different AI models for formatting and core processing tasks.
+- **Process Control**: Individual buttons for each step of the pipeline, plus a "Do All Steps" button for full automation.
+- **Live Logging**: A "Processing Log" window that shows detailed, real-time output from the backend scripts.
+- **Task Management**: A visual progress bar and status indicator for running tasks.
+
 ### Intended Workflow Sequence
 
 The current workflow is designed to run in this order:

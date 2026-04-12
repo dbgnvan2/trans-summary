@@ -689,7 +689,7 @@ def load_prompt() -> str:
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
-    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed summaries (was AUX_MODEL/Haiku)
+    model: str = config.AUX_MODEL,  # Haiku: cost-effective for summary generation
     system: Optional[list] = None,
 ) -> str:
     """
