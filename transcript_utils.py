@@ -1112,6 +1112,7 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
+    bowen_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
         content = bowen_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
@@ -1174,7 +1175,7 @@ def load_emphasis_items(base_name: str) -> list:
     """
     # Load Bowen references first to check for duplicates
     bowen_refs = load_bowen_references(base_name)
-    bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
+    bowen_quotes = {normalize_text(item[1], aggressive=True) for item in bowen_refs}
 
     # Try new scored emphasis file first
     scored_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
