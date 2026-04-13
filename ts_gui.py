@@ -421,6 +421,7 @@ class TranscriptProcessorGUI:
         self.omit_summary_do_all = tk.BooleanVar(value=True)  # Default: skip structured summary
         self.include_emphasis_core = tk.BooleanVar(value=True)
         self.include_bowen_core = tk.BooleanVar(value=True)
+        self.selected_file_label_var = tk.StringVar(value="No file selected.")
 
         # ADDED: StringVars for model selection
         self.model_vars = {
@@ -469,15 +470,24 @@ class TranscriptProcessorGUI:
         self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
 
         # File selection
-        file_frame = ttk.LabelFrame(
+        file_outer_frame = ttk.LabelFrame(
             main_frame, text="Select Source File", padding="10")
-        file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        file_frame.columnconfigure(0, weight=1)
+        file_outer_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        file_outer_frame.rowconfigure(1, weight=1)
+        file_outer_frame.columnconfigure(0, weight=1)
 
-        list_frame = ttk.Frame(file_frame)
-        list_frame.grid(row=0, column=0, columnspan=2,
-                        sticky=(tk.W, tk.E, tk.N, tk.S))
+        file_header = ttk.Frame(file_outer_frame)
+        file_header.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        file_header.columnconfigure(0, weight=1) # Make label expand
+        
+        refresh_btn = ttk.Button(file_header, text="Refresh List", command=self.refresh_file_list)
+        refresh_btn.pack(side=tk.RIGHT, anchor=tk.NE)
+
+        list_frame = ttk.Frame(file_outer_frame)
+        list_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.rowconfigure(0, weight=1)
         list_frame.columnconfigure(0, weight=1)
+
         scrollbar = ttk.Scrollbar(list_frame)
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.file_listbox = tk.Listbox(
@@ -486,10 +496,6 @@ class TranscriptProcessorGUI:
             row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         scrollbar.config(command=self.file_listbox.yview)
         self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
-
-        refresh_btn = ttk.Button(
-            file_frame, text="Refresh List", command=self.refresh_file_list)
-        refresh_btn.grid(row=1, column=0, pady=(5, 0), sticky=tk.W)
 
         # Model Selection Frame - ADDED
         model_selection_frame = ttk.LabelFrame(main_frame, text="Model Selection", padding="10")
@@ -563,6 +569,9 @@ class TranscriptProcessorGUI:
         status_top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
         status_top_frame.columnconfigure(0, weight=1)
 
+        self.selected_file_status_label = ttk.Label(status_top_frame, textvariable=self.selected_file_label_var, font=('sans', 10, 'bold'))
+        self.selected_file_status_label.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+
         self.status_text = tk.Text(
             status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
         self.status_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -570,7 +579,7 @@ class TranscriptProcessorGUI:
         # Add a refresh button to the status frame
         status_refresh_btn = ttk.Button(
             status_top_frame, text="Refresh", command=self.check_file_status)
-        status_refresh_btn.grid(row=0, column=1, sticky=tk.E)
+        status_refresh_btn.grid(row=0, column=1, sticky=tk.NE)
         
         # Make the Text widget expand, not the top frame
         status_frame.rowconfigure(1, weight=1)
@@ -839,6 +848,7 @@ class TranscriptProcessorGUI:
 
     def refresh_file_list(self):
         self.file_listbox.delete(0, tk.END)
+        self.selected_file_label_var.set("No file selected.")
         if not config.SOURCE_DIR.exists():
             self.log("⚠️  Source directory not found: %s\n", config.SOURCE_DIR)
             return
@@ -856,8 +866,10 @@ class TranscriptProcessorGUI:
     def on_file_select(self, event):
         selection = self.file_listbox.curselection()
         if not selection:
+            self.selected_file_label_var.set("No file selected.")
             return
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
+        self.selected_file_label_var.set(f"Status for: {filename}")
 
         try:
             parse_filename_metadata(filename)
