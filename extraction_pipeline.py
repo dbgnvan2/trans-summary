@@ -532,6 +532,8 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         suffix = config.SUFFIX_KEY_TERMS
     elif summary_type == "blog":
         suffix = config.SUFFIX_BLOG
+    elif summary_type == "overview":
+        suffix = config.SUFFIX_OVERVIEW
     output_filename = f"{stem}{suffix}"
     project_dir = config.PROJECTS_DIR / stem
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -1027,11 +1029,17 @@ def summarize_transcript(
     skip_emphasis: bool,
     skip_bowen: bool,
     skip_blog: bool,
+    skip_overview: bool = True,
     generate_structured: bool = False,
     structured_word_count: int = config.DEFAULT_SUMMARY_WORD_COUNT,
     logger=None,
 ) -> bool:
-    """Orchestrates the transcript summarization process."""
+    """Orchestrates the transcript summarization process.
+
+    Purpose: Run the configurable suite of summary/blog/overview generations.
+    Spec:    docs/implementation_plan_2026-05-13.md#OV.3
+    Tests:   tests/test_overview_post.py
+    """
     if logger is None:
         logger = setup_logging("summarize_transcript")
 
@@ -1263,9 +1271,14 @@ def summarize_transcript(
                 stem, config.SUFFIX_LENSES, ["Lenses (Ranked)", "Lenses"]
             )
             abstract_generated = project_dir / f"{stem}{config.SUFFIX_ABSTRACT_GEN}"
+            abstract_initial = project_dir / f"{stem}{config.SUFFIX_ABSTRACT_INIT}"
             if abstract_generated.exists():
                 abstract_output = strip_yaml_frontmatter(
                     abstract_generated.read_text(encoding="utf-8")
+                ).strip()
+            elif abstract_initial.exists():
+                abstract_output = strip_yaml_frontmatter(
+                    abstract_initial.read_text(encoding="utf-8")
                 ).strip()
             # Rehydrate/validate canonical artifacts.
             if (not structural_output) or (
@@ -1365,6 +1378,52 @@ def summarize_transcript(
             logger.info("✓ Blog post saved to: %s", blog_path)
         else:
             logger.info("Blog generation skipped (skip_blog=True).")
+
+        if not skip_overview:
+            missing_inputs = [
+                name for name, value in [
+                    ("abstract", abstract_output),
+                    ("structural_themes", structural_output),
+                    ("topics", topics_output),
+                    ("key_terms", key_terms_output),
+                ]
+                if not value
+            ]
+            if missing_inputs:
+                logger.error(
+                    "Overview generation aborted; missing required artifacts: %s",
+                    ", ".join(missing_inputs),
+                )
+                return False
+            logger.info("\n--- PART 9: Generating Overview Post (GEO) ---")
+            prompt_template = _load_summary_prompt(config.PROMPT_OVERVIEW_FILENAME)
+            prompt = _fill_prompt_template(
+                prompt_template,
+                metadata,
+                transcript="",
+                focus_keyword=focus_keyword,
+                target_audience=target_audience,
+                target_word_count=config.OVERVIEW_MIN_WORDS,
+                title=metadata.get("title", ""),
+                presenter=metadata.get("presenter", metadata.get("author", "")),
+                date=metadata.get("date", ""),
+                abstract=abstract_output,
+                structural_themes=structural_output,
+                topics=topics_output,
+                key_terms=key_terms_output,
+            )
+            overview_output = _generate_summary_with_claude(
+                prompt,
+                model,
+                config.TEMP_BALANCED,
+                logger,
+                min_words=config.OVERVIEW_MIN_WORDS,
+                system=transcript_system_message,
+            )
+            overview_path = _save_summary(overview_output, formatted_filename, "overview")
+            logger.info("✓ Overview post saved to: %s", overview_path)
+        else:
+            logger.info("Overview generation skipped (skip_overview=True).")
 
         logger.info("✓ Transcript processing complete!")
 

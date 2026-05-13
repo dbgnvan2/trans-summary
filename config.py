@@ -263,6 +263,7 @@ SUFFIX_ABSTRACT_VAL = " - abstract-validation.txt"
 SUFFIX_KEY_TERMS_VAL = " - key-terms-validation.md"
 SUFFIX_TOPICS_VAL = " - topics-validation.md"
 SUFFIX_BLOG = " - blog.md"
+SUFFIX_OVERVIEW = " - overview.md"
 SUFFIX_WEBPAGE = ".html"
 SUFFIX_WEBPAGE_SIMPLE = " - simple.html"
 SUFFIX_PDF = ".pdf"
@@ -329,6 +330,7 @@ PROMPT_LENS_GENERATION_FILENAME = "Transcript Summary - Lens Generation v1.md"
 PROMPT_THEME_LENS_VALIDATION_FILENAME = "Transcript Summary - Theme Lens Validation v1.md"
 PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
 PROMPT_BLOG_FILENAME = "Transcript Summary Blog Post v1.md"
+PROMPT_OVERVIEW_FILENAME = "Transcript Summary Overview Post v1.md"
 PROMPT_ABSTRACT_VALIDATION_FILENAME = "abstract_quality_assessment_prompt_v2.md"
 PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
 PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
@@ -366,6 +368,7 @@ SUMMARY_QA_PCT = 0.10
 # Validation Thresholds
 TRANSCRIPT_MIN_WORDS = 1500
 BLOG_MIN_WORDS = 800
+OVERVIEW_MIN_WORDS = 800
 EVALUATIVE_TERMS = ["valuable", "insightful", "excellent"]
 
 # Token Estimation & Safety
@@ -699,6 +702,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
         "ABSTRACT_MIN_WORDS": ABSTRACT_MIN_WORDS,
         "TRANSCRIPT_MIN_WORDS": TRANSCRIPT_MIN_WORDS,
         "BLOG_MIN_WORDS": BLOG_MIN_WORDS,
+        "OVERVIEW_MIN_WORDS": OVERVIEW_MIN_WORDS,
         "VALIDATION_CHUNK_SIZE": VALIDATION_CHUNK_SIZE,
         "VALIDATION_CHUNK_OVERLAP": VALIDATION_CHUNK_OVERLAP,
         "VALIDATION_MIN_CONTEXT_WORDS": VALIDATION_MIN_CONTEXT_WORDS,
@@ -765,6 +769,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
             "PROMPT_THEME_LENS_VALIDATION_FILENAME": PROMPT_THEME_LENS_VALIDATION_FILENAME,
             "PROMPT_KEY_TERMS_FILENAME": PROMPT_KEY_TERMS_FILENAME,
             "PROMPT_BLOG_FILENAME": PROMPT_BLOG_FILENAME,
+            "PROMPT_OVERVIEW_FILENAME": PROMPT_OVERVIEW_FILENAME,
             "PROMPT_ABSTRACT_VALIDATION_FILENAME": PROMPT_ABSTRACT_VALIDATION_FILENAME,
             "PROMPT_VOICE_AUDIT_FILENAME": PROMPT_VOICE_AUDIT_FILENAME,
             "PROMPT_STRUCTURED_SUMMARY_FILENAME": PROMPT_STRUCTURED_SUMMARY_FILENAME,

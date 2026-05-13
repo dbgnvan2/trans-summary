@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-05-13
+
+### Added
+
+- **GEO-optimized Overview Post**: New post type that runs parallel to the existing Lens #1 blog. Built from the abstract, structural themes, topics, and key terms — no lens required. Designed for Generative Engine Optimization with a definitional opener, TL;DR, question-shaped H2s, atomic citable statements, and a Frequently Asked Questions section. Frontmatter exposes `schema_type: "Article"`, `author`, `date_published`, and a structured `faq:` list ready for JSON-LD downstream. New GUI button "7b. Overview Post" triggers it independently of the lens-based blog. Configuration: `OVERVIEW_MIN_WORDS = 800`, `SUFFIX_OVERVIEW = " - overview.md"`, `PROMPT_OVERVIEW_FILENAME = "Transcript Summary Overview Post v1.md"`. Implementation plan and spec coverage at `docs/implementation_plan_2026-05-13.md` and `docs/spec_coverage_2026-05-13.md`.
+- **Abstract loader fallback**: Standalone-path blog/overview generation now falls back from `SUFFIX_ABSTRACT_GEN` to `SUFFIX_ABSTRACT_INIT` when the validated abstract is absent, so transcripts that have only completed the initial abstract step can still produce post artifacts.
+
 ## [Unreleased] - 2026-03-10
 
 ### Fixed

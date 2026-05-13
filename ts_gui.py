@@ -659,9 +659,13 @@ class TranscriptProcessorGUI:
             button_frame, text="7. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
         self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
 
+        self.overview_btn = ttk.Button(
+            button_frame, text="7b. Overview Post", command=self.do_generate_overview, state=tk.DISABLED)
+        self.overview_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
+
         self.webpdf_btn = ttk.Button(
             button_frame, text="8. Full Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
-        self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
+        self.webpdf_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
 
         self.extract_quotes_btn = ttk.Button(
             button_frame,
@@ -669,19 +673,19 @@ class TranscriptProcessorGUI:
             command=self.do_extract_bowen_emphasis,
             state=tk.DISABLED,
         )
-        self.extract_quotes_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
+        self.extract_quotes_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
 
         self.package_btn = ttk.Button(
             button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
-        self.package_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
+        self.package_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
 
         self.clean_logs_btn = ttk.Button(
             button_frame, text="Clean Logs...", command=self.do_clean_logs)
-        self.clean_logs_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
+        self.clean_logs_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=2, column=6, padx=(0, 5), pady=2)
 
         self.do_all_btn = ttk.Button(
             button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
@@ -935,6 +939,7 @@ class TranscriptProcessorGUI:
             ("Abstracts Val", project_dir /
              f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
             ("Blog", project_dir / f"{base}{config.SUFFIX_BLOG}"),
+            ("Overview", project_dir / f"{base}{config.SUFFIX_OVERVIEW}"),
             ("Webpage", project_dir /
              f"{base}{config.SUFFIX_WEBPAGE}"),
             ("Simple Web", project_dir /
@@ -1405,6 +1410,31 @@ class TranscriptProcessorGUI:
             task_name="Blog Post (Top Lens)",
         )
 
+    def do_generate_overview(self):
+        """Generate a GEO-optimized overview post from upstream artifacts.
+
+        Purpose: Trigger summarize_transcript with skip_overview=False only.
+        Spec:    docs/implementation_plan_2026-05-13.md#OV.7
+        Tests:   tests/test_overview_post.py
+        """
+        if not self.base_name:
+            return
+        self.log("STEP 7b: Generating Overview Post (GEO)...")
+        self.run_task_in_thread(
+            pipeline.summarize_transcript,
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            True,   # skip_blog
+            False,  # skip_overview
+            logger=self.logger,
+            task_name="Overview Post (GEO)",
+        )
+
     def do_estimate_cost(self):
         """Estimate the token usage and cost for processing the transcript."""
         if not self.selected_file:
@@ -1810,6 +1840,7 @@ class TranscriptProcessorGUI:
         self.yaml_btn.config(state=state)
         self.summary_btn.config(state=state)
         self.blog_btn.config(state=state)
+        self.overview_btn.config(state=state)
         self.gen_abstract_btn.config(state=state)
         self.abstracts_btn.config(state=state)
         self.webpdf_btn.config(state=state)

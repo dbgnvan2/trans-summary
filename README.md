@@ -12,7 +12,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Automated Formatting**: Cleans raw transcripts, removes timestamps, and applies Markdown formatting
 - **Structured Extraction**: Extracts Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, and Emphasized Items
 - **Standalone Bowen + Emphasis Run**: Run Bowen reference extraction and emphasis extraction together from the GUI with one cached transcript context, or run either one separately via the CLI
-- **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), full HTML webpages, and PDFs
+- **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), GEO-optimized Overview Posts, full HTML webpages, and PDFs
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts
 
 ### Reliability & Quality (NEW - 2026-01-10)
@@ -83,6 +83,7 @@ The current workflow is designed to run in this order:
 8. Generate abstract
 9. Validate abstract coverage
 10. Generate blog post from validated top-ranked Lens #1
+10b. Optionally generate a GEO-optimized Overview Post (orientation/reference post built from abstract + structural themes + topics + key terms; engineered for retrieval by AI search engines)
 11. Generate full webpage and PDF
 12. Package outputs into ZIP
 
