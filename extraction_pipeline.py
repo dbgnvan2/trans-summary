@@ -1044,7 +1044,10 @@ def summarize_transcript(
         logger = setup_logging("summarize_transcript")
 
     try:
-        if not config.SOURCE_DIR.exists():
+        # SOURCE_DIR is only used by upstream extraction. Standalone runs
+        # (skip_extracts_summary=True) read from PROJECTS_DIR instead, so
+        # don't require SOURCE_DIR to exist.
+        if not skip_extracts_summary and not config.SOURCE_DIR.exists():
             raise FileNotFoundError(
                 f"Source directory not found: {config.SOURCE_DIR}")
 
