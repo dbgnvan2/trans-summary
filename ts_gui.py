@@ -16,7 +16,7 @@ from contextlib import redirect_stdout
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
-from tkinter import filedialog, messagebox, scrolledtext, ttk
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 
 import analyze_token_usage
 import cleanup_pipeline
@@ -38,6 +38,73 @@ from validation_learning import (
 
 INIT_VAL_FILTER_VERSION = "compact-v3"
 _GIT_REVISION_CACHE = None
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.5
+# Fixed pipeline execution order for the 13 selectable stages. Also drives
+# checkbox layout in setup_ui() and the run order in _run_selected_stages().
+STAGE_DEFINITIONS = [
+    ("init_val", "0. Init Val"),
+    ("format", "1. Format"),
+    ("val_headers", "2. Val Headers"),
+    ("yaml", "3. YAML"),
+    ("core", "4. Core (ST/IT/T/KT/L)"),
+    ("structured_summary", "Structured Summary"),
+    ("gen_abstract", "5. Gen Abstract"),
+    ("val_abstract", "6. Val Abstract"),
+    ("blog", "7. Blog (Lens #1)"),
+    ("overview", "7b. Overview Post"),
+    ("webpdf", "8. Full Web/PDF"),
+    ("bowen_emphasis", "Bowen + Emphasis"),
+    ("package", "Package"),
+]
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
+# {stage_key: [group, ...]} where each group is a list of
+# (producing_stage_key, artifact_suffix_attr) pairs. A group is satisfied if
+# ANY pair in it is satisfied; a stage's prerequisites are satisfied only if
+# EVERY group is satisfied. artifact_suffix_attr is a config.py attribute
+# name (e.g. "SUFFIX_FORMATTED"), resolved via _stage_artifact_path().
+STAGE_DEPENDENCIES = {
+    "init_val": [],
+    "format": [],
+    "val_headers": [[("format", "SUFFIX_FORMATTED")]],
+    "yaml": [[("format", "SUFFIX_FORMATTED")]],
+    "core": [[("yaml", "SUFFIX_YAML")]],
+    "structured_summary": [[("core", "SUFFIX_TOPICS")]],
+    "gen_abstract": [
+        [("core", "SUFFIX_TOPICS")],
+        [("core", "SUFFIX_INTERPRETIVE_THEMES")],
+    ],
+    "val_abstract": [[("gen_abstract", "SUFFIX_ABSTRACT_GEN")]],
+    "blog": [
+        [("core", "SUFFIX_STRUCTURAL_THEMES")],
+        [("core", "SUFFIX_INTERPRETIVE_THEMES")],
+    ],
+    "overview": [
+        [("core", "SUFFIX_ABSTRACT_INIT"), ("gen_abstract", "SUFFIX_ABSTRACT_GEN")],
+        [("core", "SUFFIX_STRUCTURAL_THEMES")],
+        [("core", "SUFFIX_TOPICS")],
+        [("core", "SUFFIX_KEY_TERMS")],
+    ],
+    "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+    "bowen_emphasis": [],
+    "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+}
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.15
+# Human-readable label for each artifact_suffix_attr used in the pre-flight
+# blocking message (e.g. "Topics" for SUFFIX_TOPICS). Kept as data so the
+# validator's message text and any consumer of it never drift.
+ARTIFACT_LABELS = {
+    "SUFFIX_FORMATTED": "Formatted Transcript",
+    "SUFFIX_YAML": "YAML",
+    "SUFFIX_TOPICS": "Topics",
+    "SUFFIX_INTERPRETIVE_THEMES": "Interpretive Themes",
+    "SUFFIX_STRUCTURAL_THEMES": "Structural Themes",
+    "SUFFIX_KEY_TERMS": "Key Terms",
+    "SUFFIX_ABSTRACT_GEN": "Generated Abstract",
+    "SUFFIX_ABSTRACT_INIT": "Initial Abstract",
+}
 
 
 def _current_git_revision():
@@ -417,11 +484,13 @@ class TranscriptProcessorGUI:
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
         self.make_dir_default_var = tk.BooleanVar(value=False)
-        self.include_init_val_do_all = tk.BooleanVar(value=False)
-        self.omit_summary_do_all = tk.BooleanVar(value=True)  # Default: skip structured summary
         self.include_emphasis_core = tk.BooleanVar(value=True)
         self.include_bowen_core = tk.BooleanVar(value=True)
         self.selected_file_label_var = tk.StringVar(value="No file selected.")
+
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.8
+        self.stage_vars = {key: tk.BooleanVar(value=False) for key, _ in STAGE_DEFINITIONS}
+        self.active_selection_var = tk.StringVar(value="(none)")
 
         # ADDED: StringVars for model selection
         self.model_vars = {
@@ -435,6 +504,8 @@ class TranscriptProcessorGUI:
         self.update_dir_label()
         self.update_terms_file_label()
         self.refresh_file_list()
+        self.update_button_states()
+        self._apply_default_stage_selection()
         self.log(
             "GUI started: commit=%s filter=%s default_terms=%s",
             _current_git_revision(),
@@ -589,127 +660,81 @@ class TranscriptProcessorGUI:
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
         self.progress.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Row 4: Action Buttons
+        # Row 4: Stage Selection Checkboxes
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.7
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E))
 
-        # Row 1 (buttons remain in button_frame)
-        self.init_val_btn = ttk.Button(
-            button_frame, text="0. Init Val", command=self.do_initial_validation, state=tk.DISABLED)
-        self.init_val_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
+        STAGE_COLUMNS = 5
+        self.stage_checkbuttons = {}
+        for idx, (key, label) in enumerate(STAGE_DEFINITIONS):
+            row, col = divmod(idx, STAGE_COLUMNS)
+            chk = ttk.Checkbutton(button_frame, text=label, variable=self.stage_vars[key])
+            chk.grid(row=row, column=col, padx=(0, 5), pady=2, sticky=tk.W)
+            self.stage_checkbuttons[key] = chk
 
-        self.format_btn = ttk.Button(
-            button_frame, text="1. Format", command=self.do_format_validate, state=tk.DISABLED)
-        self.format_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
+        modifier_row = (len(STAGE_DEFINITIONS) - 1) // STAGE_COLUMNS + 1
 
-        self.headers_btn = ttk.Button(
-            button_frame, text="2. Val Headers", command=self.do_validate_headers, state=tk.DISABLED)
-        self.headers_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
-
-        self.yaml_btn = ttk.Button(
-            button_frame, text="3. YAML", command=self.do_add_yaml, state=tk.DISABLED)
-        self.yaml_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
-
-        self.summary_btn = ttk.Button(
-            button_frame, text="4. Core (ST/IT/T/KT/L)", command=self.do_summaries, state=tk.DISABLED)
-        self.summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
-
-        self.cost_btn = ttk.Button(
-            button_frame, text="Est. Cost", command=self.do_estimate_cost, state=tk.DISABLED)
-        self.cost_btn.grid(row=0, column=5, padx=(0, 5), pady=2)
-
-        # Row 2
         self.core_emphasis_chk = ttk.Checkbutton(
             button_frame,
-            text="Include Emphasis in Core/Do All",
+            text="Include Emphasis in Core",
             variable=self.include_emphasis_core,
         )
-        self.core_emphasis_chk.grid(row=1, column=0, padx=(0, 5), pady=2, sticky=tk.W)
+        self.core_emphasis_chk.grid(row=modifier_row, column=0, padx=(0, 5), pady=2, sticky=tk.W)
 
         self.core_bowen_chk = ttk.Checkbutton(
             button_frame,
-            text="Include Bowen in Core/Do All",
+            text="Include Bowen in Core",
             variable=self.include_bowen_core,
         )
-        self.core_bowen_chk.grid(row=1, column=1, padx=(0, 5), pady=2, sticky=tk.W)
+        self.core_bowen_chk.grid(row=modifier_row, column=1, padx=(0, 5), pady=2, sticky=tk.W)
 
-        self.gen_abstract_btn = ttk.Button(
-            button_frame, text="5. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
-        self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
-
-        self.abstracts_btn = ttk.Button(
-            button_frame, text="6. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
-        self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
+        # Utility buttons row
+        utility_row = modifier_row + 1
+        self.cost_btn = ttk.Button(
+            button_frame, text="Est. Cost", command=self.do_estimate_cost, state=tk.DISABLED)
+        self.cost_btn.grid(row=utility_row, column=0, padx=(0, 5), pady=2)
 
         self.config_btn = ttk.Button(
             button_frame, text="Config Check", command=self.do_config_check)
-        self.config_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
-
-        # Row 3
-        self.blog_btn = ttk.Button(
-            button_frame, text="7. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
-        self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
-
-        self.overview_btn = ttk.Button(
-            button_frame, text="7b. Overview Post", command=self.do_generate_overview, state=tk.DISABLED)
-        self.overview_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
-
-        self.webpdf_btn = ttk.Button(
-            button_frame, text="8. Full Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
-        self.webpdf_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
-
-        self.extract_quotes_btn = ttk.Button(
-            button_frame,
-            text="Bowen + Emphasis",
-            command=self.do_extract_bowen_emphasis,
-            state=tk.DISABLED,
-        )
-        self.extract_quotes_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
-
-        self.package_btn = ttk.Button(
-            button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
-        self.package_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
+        self.config_btn.grid(row=utility_row, column=1, padx=(0, 5), pady=2)
 
         self.clean_logs_btn = ttk.Button(
             button_frame, text="Clean Logs...", command=self.do_clean_logs)
-        self.clean_logs_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
+        self.clean_logs_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=2, column=6, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
 
-        self.do_all_btn = ttk.Button(
-            button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=7, rowspan=3,
-                             padx=(10, 5), sticky=(tk.N, tk.S))
-
-        self.do_all_init_val_chk = ttk.Checkbutton(
-            button_frame,
-            text="Init Val in Do All (Auto)",
-            variable=self.include_init_val_do_all
-        )
-        self.do_all_init_val_chk.grid(row=3, column=7, padx=(10, 5), pady=2, sticky=tk.W)
-
-        self.do_all_omit_summary_chk = ttk.Checkbutton(
-            button_frame,
-            text="Omit Summary in Do All",
-            variable=self.omit_summary_do_all
-        )
-        self.do_all_omit_summary_chk.grid(row=4, column=7, padx=(10, 5), pady=2, sticky=tk.W)
-
-        # Row 3 (Maintenance)
         self.cleanup_btn = ttk.Button(
             button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
-        self.cleanup_btn.grid(row=3, column=0, padx=(0, 5), pady=2)
+        self.cleanup_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
+
+        # Row 5: Run Selected / Manage Selections
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.9
+        run_frame = ttk.Frame(main_frame)
+        run_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(8, 0))
+
+        self.run_selected_btn = ttk.Button(
+            run_frame, text="▶ Run Selected", command=self.do_run_selected, state=tk.DISABLED)
+        self.run_selected_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.manage_selections_btn = ttk.Button(
+            run_frame, text="Manage Selections...", command=self.open_selection_manager_dialog)
+        self.manage_selections_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Label(run_frame, text="Active selection:").pack(side=tk.LEFT, padx=(10, 5))
+        ttk.Label(run_frame, textvariable=self.active_selection_var).pack(side=tk.LEFT)
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=5, column=0, pady=(5, 0), sticky=tk.W)
+        self.status_label.grid(row=6, column=0, pady=(5, 0), sticky=tk.W)
 
         # Memory Usage Label
         self.memory_label = ttk.Label(
             main_frame, text="Mem: -- MB", foreground="gray")
-        self.memory_label.grid(row=5, column=0, pady=(5, 0), sticky=tk.E)
+        self.memory_label.grid(row=6, column=0, pady=(5, 0), sticky=tk.E)
 
         # Start memory monitoring
         self.monitor_memory()
@@ -1714,73 +1739,144 @@ class TranscriptProcessorGUI:
         """Permanently delete log files and token usage CSV."""
         return pipeline.delete_logs(logger=self.logger)
 
-    def do_all_steps(self):
-        """Run the entire processing pipeline sequentially."""
+    # ------------------------------------------------------------------
+    # Stage-selection execution (Spec: docs/spec_stage_selection_2026-07-12.md)
+    # ------------------------------------------------------------------
+
+    def _stage_artifact_path(self, artifact_suffix_attr):
+        """Resolve the on-disk path for a stage's produced artifact.
+
+        Purpose: Single shared path-builder used by both the pre-flight
+                 dependency validator and the _run_stage_* wrappers, so the
+                 validator's notion of "does this artifact exist" can never
+                 drift from where a stage actually reads/writes it.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.14
+        """
+        suffix = getattr(config, artifact_suffix_attr)
+        return config.PROJECTS_DIR / self.base_name / f"{self.base_name}{suffix}"
+
+    def _validate_stage_dependencies(self, selected_keys):
+        """Check every selected stage's prerequisite groups.
+
+        Purpose: Synchronous pre-flight check that blocks a doomed run
+                 before the confirmation dialog / background thread starts.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.14
+
+        Returns a list of (stage_label, [missing_group_description, ...])
+        for every selected stage with at least one unmet dependency group,
+        in STAGE_DEFINITIONS order. A group is satisfied if ANY pair in it
+        is satisfied (producing stage also selected, or its artifact exists
+        on disk right now); a stage is satisfied only if EVERY group is.
+        """
+        unmet = []
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            missing_descriptions = []
+            for group in STAGE_DEPENDENCIES.get(key, []):
+                group_satisfied = False
+                for producing_stage, artifact_suffix_attr in group:
+                    if producing_stage in selected_keys:
+                        group_satisfied = True
+                        break
+                    if self._stage_artifact_path(artifact_suffix_attr).exists():
+                        group_satisfied = True
+                        break
+                if not group_satisfied:
+                    labels = [
+                        f'"{ARTIFACT_LABELS.get(attr, attr)}"'
+                        for _, attr in group
+                    ]
+                    missing_descriptions.append(" or ".join(labels))
+            if missing_descriptions:
+                unmet.append((label, missing_descriptions))
+        return unmet
+
+    def _format_preflight_message(self, unmet):
+        """Build the exact SS.15 blocking message body from unmet records."""
+        lines = ["The following selected stage(s) are missing required prior output:"]
+        for stage_label, missing_descriptions in unmet:
+            joined = " and ".join(missing_descriptions)
+            lines.append(f"  • {stage_label} needs {joined} to have run first")
+        lines.append(
+            "Check the required stage(s) above, or run them in an earlier session, then retry."
+        )
+        return "\n".join(lines)
+
+    def do_run_selected(self):
+        """Guarded entry point: runs exactly the checked stages, in order.
+
+        Purpose: Data-driven replacement for the old hardcoded do_all_steps.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.10
+        """
         if not self.selected_file:
             return
         if self.processing:
             self.log("⚠️ Pipeline is already running.")
             return
 
-        run_init_val = self._get_bool_var("include_init_val_do_all")
-
-        # Enforce validation unless auto Init Val is requested
-        if not run_init_val and "_validated" not in self.selected_file.name:
-            messagebox.showwarning("Validation Required",
-                                   "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.")
+        selected_keys = [key for key, _ in STAGE_DEFINITIONS if self.stage_vars[key].get()]
+        if not selected_keys:
+            messagebox.showwarning("No Stages Selected", "Please check at least one stage to run.")
             return
 
+        unmet = self._validate_stage_dependencies(selected_keys)
+        if unmet:
+            messagebox.showwarning("Missing Prerequisites", self._format_preflight_message(unmet))
+            return
+
+        if "init_val" not in selected_keys and "_validated" not in self.selected_file.name:
+            messagebox.showwarning(
+                "Validation Required",
+                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.",
+            )
+            return
+
+        selected_labels = [label for key, label in STAGE_DEFINITIONS if key in selected_keys]
         confirm_text = (
-            "This will run the entire pipeline from start to finish.\n\n"
-            "Init Val in Do All: {}\n"
-            "(If enabled, all suggested corrections are auto-applied and finalized.)\n\n"
-            "Structured Summary: {}\n\n"
-            "Continue?"
-        ).format(
-            "Enabled" if run_init_val else "Disabled",
-            "Omitted" if self._get_bool_var("omit_summary_do_all", default=True) else "Included",
+            "This will run the following selected stage(s):\n\n"
+            + "\n".join(f"  • {label}" for label in selected_labels)
+            + "\n\nContinue?"
         )
         if not messagebox.askyesno("Confirm", confirm_text):
             return
-        self.log("▶ STARTING FULL PIPELINE EXECUTION...")
-        self.run_task_in_thread(self._run_all_steps)
 
-    def _run_all_steps(self):
+        self.log("▶ STARTING SELECTED STAGES EXECUTION...")
+        self.run_task_in_thread(self._run_selected_stages, selected_keys)
+
+    def _run_selected_stages(self, selected_keys):
+        """Run every selected stage in STAGE_DEFINITIONS order, halting on first failure.
+
+        Purpose: Data-driven replacement for the old hardcoded _run_all_steps.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.11
+        """
         start_time = datetime.now()
 
-        # Optional Step -1: Initial Validation (Auto approve/apply)
-        if self._get_bool_var("include_init_val_do_all"):
-            self.log("\n--- STEP -1: Initial Validation (Auto) ---")
-            if not self._run_initial_validation_auto():
-                return False
-
-        # Step 0: Cost Estimate (informational)
+        # Unconditional cost estimate first (informational, same as old _run_all_steps).
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
             self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
 
-        # Step 1: Format & Validate
-        self.log("\n--- STEP 1: Formatting ---")
-        # Use config.settings.FORMATTING_MODEL
-        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
-            return False
-        self.log("--- STEP 1a: Format Validation ---")
-        if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
-            self.log("❌ Format validation failed.")
-            return False
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            self.log("\n--- %s ---", label)
+            if not self.stage_runners[key]():
+                self.log("❌ %s failed. Halting run.", label)
+                return False
 
-        # Step 1b: Header Validation
-        self.log("\n--- STEP 1b: Header Validation ---")
-        if not self._run_header_validation():
-            self.log("❌ Header validation failed.")
-            return False
+        self.log("\n--- Token Usage Report ---")
+        self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
-        # Step 2: Add YAML
-        self.log("\n--- STEP 2: Adding YAML ---")
-        if not pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger):
-            return False
+        self.log("\n✅ SELECTED STAGES COMPLETE!")
+        return True
 
-        # Step 3: Core Extraction (ST/IT/Topics/Terms/Lenses/Bowen/Emphasis + internal validation)
+    def _run_stage_yaml(self):
+        """Runner for the 'yaml' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger)
+
+    def _run_stage_core(self):
+        """Runner for the 'core' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
         include_bowen = self._get_bool_var("include_bowen_core", default=True)
         include_emphasis = self._get_bool_var("include_emphasis_core", default=True)
         extras = []
@@ -1789,67 +1885,266 @@ class TranscriptProcessorGUI:
         if include_emphasis:
             extras.append("Emphasis")
         extras_text = f" + {'/'.join(extras)}" if extras else ""
-        self.log("\n--- STEP 3: Core Extraction%s ---", extras_text)
-        # Core extraction only; blog runs as separate step from validated Lens #1.
-        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.settings.DEFAULT_MODEL, # MODIFIED
-                                             "Family Systems", "General public",
-                                             False,
-                                             not include_emphasis,
-                                             not include_bowen,
-                                             True,
-                                             logger=self.logger):
+        self.log("Core Extraction%s...", extras_text)
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            False,  # skip_extracts_summary
+            not include_emphasis,
+            not include_bowen,
+            True,   # skip_blog
+            logger=self.logger,
+        )
+
+    def _run_stage_structured_summary(self):
+        """Runner for the 'structured_summary' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.generate_structured_summary(
+            self.base_name, logger=self.logger, model=config.settings.AUX_MODEL
+        )
+
+    def _run_stage_gen_abstract(self):
+        """Runner for the 'gen_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.generate_structured_abstract(
+            self.base_name, self.logger, model=config.settings.AUX_MODEL
+        )
+
+    def _run_stage_val_abstract(self):
+        """Runner for the 'val_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.validate_abstract_coverage(
+            self.base_name, self.logger, model=config.settings.DEFAULT_MODEL
+        )
+
+    def _run_stage_blog(self):
+        """Runner for the 'blog' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            False,  # skip_blog
+            logger=self.logger,
+        )
+
+    def _run_stage_overview(self):
+        """Runner for the 'overview' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            True,   # skip_blog
+            False,  # skip_overview
+            logger=self.logger,
+        )
+
+    def _run_stage_bowen_emphasis(self):
+        """Runner for the 'bowen_emphasis' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            self.log("❌ Bowen + Emphasis: no valid input file found.")
             return False
+        self.log(
+            "Extracting Bowen References + Scored Emphasis from %s...", source_label
+        )
+        return pipeline.extract_bowen_and_emphasis(
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+        )
 
-        # Step 3b: Structured Summary (optional)
-        if not self._get_bool_var("omit_summary_do_all", default=True):
-            self.log("\n--- STEP 3b: Structured Summary ---")
-            if not pipeline.generate_structured_summary(self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
-                self.log("❌ Structured summary generation failed.")
-                return False
+    def _run_stage_package(self):
+        """Runner for the 'package' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.package_transcript(self.base_name, self.logger)
 
-        # Step 4: Generate Abstract
-        self.log("\n--- STEP 4: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.AUX_MODEL):
-            self.log("❌ Abstract generation failed.")
-            return False
+    @property
+    def stage_runners(self):
+        """Map every STAGE_DEFINITIONS key to its runner (bound method).
 
-        # Step 5: Validate Abstracts
-        self.log("\n--- STEP 5: Validating Abstracts ---")
-        if not pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):
-            self.log("❌ Abstract validation failed.")
-            return False
+        Purpose: Provide the stage-key → runner mapping. Implemented as a
+                 property (not an __init__ dict) so it is reachable on a
+                 headlessly-constructed instance without a Tk mainloop; a
+                 setter stores an override so tests can inject mock runners.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.12
+        Tests:   tests/test_ts_gui_run_all.py::test_stage_runners_cover_all_keys
+        """
+        override = getattr(self, "_stage_runners_override", None)
+        if override is not None:
+            return override
+        return {
+            "init_val": self._run_initial_validation_auto,
+            "format": self._run_format_and_validate,
+            "val_headers": self._run_header_validation,
+            "yaml": self._run_stage_yaml,
+            "core": self._run_stage_core,
+            "structured_summary": self._run_stage_structured_summary,
+            "gen_abstract": self._run_stage_gen_abstract,
+            "val_abstract": self._run_stage_val_abstract,
+            "blog": self._run_stage_blog,
+            "overview": self._run_stage_overview,
+            "webpdf": self._run_web_pdf_generation,
+            "bowen_emphasis": self._run_stage_bowen_emphasis,
+            "package": self._run_stage_package,
+        }
 
-        # Step 6: Reserved (separate validation happens inside extraction + abstract validation above)
+    @stage_runners.setter
+    def stage_runners(self, value):
+        self._stage_runners_override = value
 
-        # Step 7: Blog from validated lens #1
-        self.log("\n--- STEP 7: Blog (Lens #1) ---")
-        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.settings.DEFAULT_MODEL,
-                                             "Family Systems", "General public",
-                                             True,
-                                             True,
-                                             True,
-                                             False,
-                                             logger=self.logger):
-            return False
+    def _apply_stage_selection(self, name):
+        """Load a saved stage selection into the checkboxes and core modifiers.
 
-        # Step 8: Full Webpage & PDF
-        self.log("\n--- STEP 8: Full Web & PDF ---")
-        if not self._run_web_pdf_generation():
-            return False
+        Purpose: Apply a saved/default selection; unknown stage keys in the
+                 saved data (e.g. from a stale/renamed stage) are ignored
+                 rather than raising, so a partially-stale selection still
+                 loads whatever keys remain valid.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.13
+        """
+        selection = config.get_stage_selections().get(name)
+        if not selection:
+            return
+        saved_stages = set(selection.get("stages", []))
+        known_keys = {key for key, _ in STAGE_DEFINITIONS}
+        # P2: surface (don't silently drop) any saved stage key that no longer
+        # exists in STAGE_DEFINITIONS (e.g. a stage renamed/removed in a later
+        # release). The valid keys still load; the unknown ones are reported.
+        unknown_keys = saved_stages - known_keys
+        if unknown_keys:
+            self.log(
+                "⚠️ Selection '%s' references %d unknown stage(s), skipped: %s",
+                name,
+                len(unknown_keys),
+                ", ".join(sorted(unknown_keys)),
+            )
+        for key, _ in STAGE_DEFINITIONS:
+            self.stage_vars[key].set(key in saved_stages)
+        self.include_bowen_core.set(selection.get("include_bowen_core", True))
+        self.include_emphasis_core.set(selection.get("include_emphasis_core", True))
+        self.active_selection_var.set(name)
 
-        # Step 9: Package
-        self.log("\n--- STEP 9: Packaging ---")
-        pipeline.package_transcript(self.base_name, self.logger)
+    def _apply_default_stage_selection(self):
+        """Pre-tick the default saved selection at startup; never runs the pipeline.
 
-        # Post-run Token Usage Report
-        self.log("\n--- Token Usage Report ---")
-        self.log(analyze_token_usage.generate_usage_report(
-            since_timestamp=start_time))
+        Spec: docs/spec_stage_selection_2026-07-12.md#SS.20
+        """
+        default_name = config.get_default_stage_selection()
+        if not default_name:
+            return
+        if default_name not in config.get_stage_selections():
+            return
+        self._apply_stage_selection(default_name)
 
-        self.log("\n✅ FULL PIPELINE COMPLETE!")
-        return True
+    def open_selection_manager_dialog(self):
+        """Manage saved stage selections: load, save, set/clear default, delete.
+
+        Spec: docs/spec_stage_selection_2026-07-12.md#SS.18
+        """
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Manage Selections")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        dlg.columnconfigure(0, weight=1)
+        dlg.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
+
+        listbox = tk.Listbox(frame, height=10)
+        listbox.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 8))
+
+        def refresh_list():
+            listbox.delete(0, tk.END)
+            default_name = config.get_default_stage_selection()
+            for name in sorted(config.get_stage_selections().keys()):
+                prefix = "★ " if name == default_name else ""
+                listbox.insert(tk.END, f"{prefix}{name}")
+
+        def selected_name():
+            selection = listbox.curselection()
+            if not selection:
+                return None
+            text = listbox.get(selection[0])
+            return text[2:] if text.startswith("★ ") else text
+
+        def do_load():
+            name = selected_name()
+            if not name:
+                return
+            self._apply_stage_selection(name)
+            self.log("Loaded stage selection '%s'.", name)
+
+        def do_save_as():
+            name = simpledialog.askstring("Save Current As", "Selection name:", parent=dlg)
+            if not name:
+                return
+            if name in config.get_stage_selections():
+                if not messagebox.askyesno(
+                    "Overwrite?",
+                    f"A selection named '{name}' already exists. Overwrite it?",
+                    parent=dlg,
+                ):
+                    return
+            selected_keys = [key for key, _ in STAGE_DEFINITIONS if self.stage_vars[key].get()]
+            config.save_stage_selection(
+                name,
+                selected_keys,
+                include_bowen_core=self.include_bowen_core.get(),
+                include_emphasis_core=self.include_emphasis_core.get(),
+            )
+            self.active_selection_var.set(name)
+            refresh_list()
+            self.log("Saved stage selection '%s'.", name)
+
+        def do_set_default():
+            name = selected_name()
+            if not name:
+                return
+            config.set_default_stage_selection(name)
+            refresh_list()
+            self.log("Set '%s' as default stage selection.", name)
+
+        def do_clear_default():
+            config.set_default_stage_selection(None)
+            refresh_list()
+            self.log("Cleared default stage selection.")
+
+        def do_delete():
+            name = selected_name()
+            if not name:
+                return
+            if not messagebox.askyesno(
+                "Confirm Delete", f"Delete saved selection '{name}'?", parent=dlg
+            ):
+                return
+            config.delete_stage_selection(name)
+            refresh_list()
+            self.log("Deleted stage selection '%s'.", name)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        ttk.Button(btn_frame, text="Load", command=do_load).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Save Current As...", command=do_save_as).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Set as Default", command=do_set_default).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Clear Default", command=do_clear_default).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Delete", command=do_delete).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+
+        refresh_list()
 
     def _run_initial_validation_auto(self):
         """Run Init Val without dialogs; auto-apply all findings into a finalized _validated file."""
@@ -1924,26 +2219,21 @@ class TranscriptProcessorGUI:
             return False
 
     def update_button_states(self):
+        """Enable/disable every stage checkbox and action button.
+
+        Purpose: Extend the enable/disable rule to every stage checkbox and
+                 run_selected_btn; "Manage Selections..." stays always
+                 enabled.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.19
+        """
         state = tk.NORMAL if not self.processing and self.selected_file else tk.DISABLED
-        self.init_val_btn.config(state=state)
-        self.format_btn.config(state=state)
-        self.headers_btn.config(state=state)
-        self.yaml_btn.config(state=state)
-        self.summary_btn.config(state=state)
-        self.blog_btn.config(state=state)
-        self.overview_btn.config(state=state)
-        self.gen_abstract_btn.config(state=state)
-        self.abstracts_btn.config(state=state)
-        self.webpdf_btn.config(state=state)
-        self.extract_quotes_btn.config(state=state)
+        for chk in self.stage_checkbuttons.values():
+            chk.config(state=state)
+        self.run_selected_btn.config(state=state)
+        # Manage Selections is always enabled (independent of file selection).
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
         # Config check button is always enabled
-        self.package_btn.config(state=state)
-        self.do_all_btn.config(
-            state=tk.NORMAL if self.selected_file else tk.DISABLED)
-        self.do_all_init_val_chk.config(state=state)
-        self.do_all_omit_summary_chk.config(state=state)
         self.core_emphasis_chk.config(state=state)
         self.core_bowen_chk.config(state=state)
 

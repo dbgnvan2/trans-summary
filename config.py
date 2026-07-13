@@ -161,6 +161,41 @@ class ProjectSettings:
             self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
         self._save_runtime_settings()
 
+    def save_stage_selection(self, name: str, stages, include_bowen_core: bool = True,
+                              include_emphasis_core: bool = True):
+        """Save a named stage selection (stage keys + core modifier flags)."""
+        selections = self.runtime_settings.setdefault("stage_selections", {})
+        selections[name] = {
+            "stages": list(stages),
+            "include_bowen_core": include_bowen_core,
+            "include_emphasis_core": include_emphasis_core,
+        }
+        self._save_runtime_settings()
+
+    def delete_stage_selection(self, name: str):
+        """Delete a named stage selection, clearing the default pointer if it pointed here."""
+        selections = self.runtime_settings.get("stage_selections", {})
+        selections.pop(name, None)
+        if self.runtime_settings.get("default_stage_selection") == name:
+            self.runtime_settings.pop("default_stage_selection", None)
+        self._save_runtime_settings()
+
+    def get_stage_selections(self) -> dict:
+        """Return all saved stage selections, keyed by name."""
+        return self.runtime_settings.get("stage_selections", {})
+
+    def set_default_stage_selection(self, name: Union[str, None]):
+        """Save or clear the default stage selection name."""
+        if name:
+            self.runtime_settings["default_stage_selection"] = name
+        else:
+            self.runtime_settings.pop("default_stage_selection", None)
+        self._save_runtime_settings()
+
+    def get_default_stage_selection(self):
+        """Return the default stage selection name, or None if unset."""
+        return self.runtime_settings.get("default_stage_selection")
+
     # ADDED: Methods to dynamically get and set model names
     def get_all_model_names(self) -> list[str]:
         """Returns a list of all model names from model_specs.PRICING."""
@@ -281,6 +316,32 @@ def set_default_projects_dir(path: Union[str, Path, None]):
     settings.set_default_projects_dir(path)
     global PROJECTS_DIR
     PROJECTS_DIR = settings.PROJECTS_DIR
+
+
+def save_stage_selection(name: str, stages, include_bowen_core: bool = True,
+                          include_emphasis_core: bool = True):
+    """Global function to save a named stage selection."""
+    settings.save_stage_selection(name, stages, include_bowen_core, include_emphasis_core)
+
+
+def delete_stage_selection(name: str):
+    """Global function to delete a named stage selection."""
+    settings.delete_stage_selection(name)
+
+
+def get_stage_selections():
+    """Global function to retrieve all saved stage selections."""
+    return settings.get_stage_selections()
+
+
+def set_default_stage_selection(name: Union[str, None]):
+    """Global function to save or clear the default stage selection."""
+    settings.set_default_stage_selection(name)
+
+
+def get_default_stage_selection():
+    """Global function to retrieve the default stage selection name."""
+    return settings.get_default_stage_selection()
 
 
 # ============================================================================

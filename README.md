@@ -67,7 +67,8 @@ python ts_gui.py
 - **Status Panel Refresh**: A dedicated "Refresh" button on the File Status panel to manually re-check the status of all generated files.
 - **Interactive Correction**: A pop-up dialog for reviewing and applying dictionary-based corrections found during Initial Validation.
 - **Model Selection**: Dropdown menus to select different AI models for formatting and core processing tasks.
-- **Process Control**: Individual buttons for each step of the pipeline, plus a "Do All Steps" button for full automation.
+- **Selectable pipeline stages**: Each pipeline stage is a checkbox. Tick any subset and click **▶ Run Selected** to run just those stages, in fixed pipeline order. A pre-flight check blocks the run (with a "Missing Prerequisites" message) if a checked stage needs upstream output that is neither selected in the same run nor already present on disk — so you can't accidentally run "Val Abstract" without an abstract.
+- **Saved stage selections**: **Manage Selections...** lets you save the current set of ticked stages under a name, reload it later, delete it, and mark one selection as the default that pre-ticks automatically on startup (it never auto-runs — you still choose a file and click Run). Selections persist in `logs/runtime_settings.json`.
 - **Live Logging**: A "Processing Log" window that shows detailed, real-time output from the backend scripts.
 - **Task Management**: A visual progress bar and status indicator for running tasks.
 
@@ -89,14 +90,19 @@ The current workflow is designed to run in this order:
 11. Generate full webpage and PDF
 12. Package outputs into ZIP
 
-`Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
-If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
+Instead of a fixed "Do All Steps" button, the GUI presents every stage above as a checkbox. Tick the
+stages you want and click **▶ Run Selected**; the selected stages run in the pipeline order shown
+above. Before starting, a cost estimate is printed, and at the end a token-usage report. A run halts on
+the first stage that fails. A synchronous pre-flight check blocks the whole run (rather than failing
+deep in a pipeline call) if a checked stage's required upstream artifact is neither selected in the same
+run nor already on disk — for example, checking `6. Val Abstract` without `5. Gen Abstract` (and with no
+existing generated abstract) is blocked with a "Missing Prerequisites" message. To run step `0. Init Val`
+automatically, simply include it in the selection; it auto-applies/finalizes findings before later stages.
 
-The GUI now also includes:
+The GUI also includes:
 
-- a dedicated `Bowen + Emphasis` button
-- `Include Bowen in Core/Do All`
-- `Include Emphasis in Core/Do All`
+- a dedicated `Bowen + Emphasis` stage checkbox
+- `Include Emphasis in Core` / `Include Bowen in Core` modifiers next to the Core stage
 
 The standalone `Bowen + Emphasis` GUI run prefers the project ` - yaml.md` transcript, then ` - formatted.md`, and finally falls back to the currently selected source `.txt` file. The CLI entry points still support separate Bowen-only and Emphasis-only runs.
 

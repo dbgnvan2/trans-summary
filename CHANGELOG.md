@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-13
+
+### Added
+
+- **Selectable pipeline stages with saved selections**: The GUI's per-stage "run" buttons and the hardcoded "Do All Steps" flow are replaced by a checkbox per stage plus a single **▶ Run Selected** button that runs whichever stages are ticked, in fixed pipeline order (cost estimate first, token-usage report last, halting on the first failure). A new **Manage Selections...** dialog saves the current tick-set under a name, reloads/deletes it, and marks one selection as the default that pre-ticks on startup (never auto-runs). Selections persist in `logs/runtime_settings.json` via new `config.py` methods (`save_stage_selection`, `delete_stage_selection`, `get_stage_selections`, `set_default_stage_selection`, `get_default_stage_selection`). Spec: `docs/spec_stage_selection_2026-07-12.md` (SS.1–SS.22); independent QA test spec: `docs/qa_test_spec_stage_selection_2026-07-12.md`.
+- **Stage dependency pre-flight**: A synchronous validator (`_validate_stage_dependencies`) blocks a Run Selected before any work starts, with a single "Missing Prerequisites" message, if a checked stage's required upstream artifact is neither selected in the same run nor already present on disk (dependency graph verified against the actual pipeline function bodies, not button order). The whole run is blocked rather than partially run, and prerequisite stages are never silently auto-added. The validator resolves artifact paths through one shared helper (`_stage_artifact_path`) that the stage runners reuse, so its "does this exist" check can't drift from where stages write. Saved selections tolerate stage keys removed in a later release (unknown keys are logged and skipped, not fatal).
+
 ## [Unreleased] - 2026-07-12
 
 ### Added
