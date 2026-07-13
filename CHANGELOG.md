@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-12
+
+### Added
+
+- **Folder Defaults dialog**: New "Folder Defaults..." button beside directory selection opens a dialog to independently browse, view, and reset the default Processed directory, Projects directory, and Approved Terms file. Each is persisted via new `config.py` settings (`default_processed_dir`, `default_projects_dir`) in `logs/runtime_settings.json` alongside the existing source-directory and terms-file overrides, and reapplied automatically on the next launch.
+
+### Changed
+
+- **Resizable GUI layout**: The Source File list, File Status, and Processing Log panels are now hosted in a `ttk.PanedWindow` so their relative heights can be dragged, instead of fixed `rowconfigure` weights.
+
+### Fixed
+
+- **Format-validation timestamp stripping**: `strip_raw_speaker_prefixes()` now also matches parenthesized timestamps (not just bracketed), and `validate_format()` strips bare numeric-only TRX timestamp lines, preventing false mismatch counts on transcripts using those formats.
+
 ## [Unreleased] - 2026-05-13
 
 ### Added

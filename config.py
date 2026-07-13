@@ -69,7 +69,15 @@ class ProjectSettings:
         default_source_dir = self.runtime_settings.get("default_source_dir")
         if default_source_dir and Path(default_source_dir).exists():
             self.set_source_dir_and_infer_base(default_source_dir)
-            
+
+        processed_dir = self.runtime_settings.get("default_processed_dir")
+        if processed_dir and Path(processed_dir).exists():
+            self.PROCESSED_DIR = Path(processed_dir)
+
+        projects_dir = self.runtime_settings.get("default_projects_dir")
+        if projects_dir and Path(projects_dir).exists():
+            self.PROJECTS_DIR = Path(projects_dir)
+
         terms_path = self.runtime_settings.get("validation_approved_terms_path")
         if terms_path:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
@@ -103,14 +111,16 @@ class ProjectSettings:
         """Set the source directory directly and infer the base from its parent."""
         self.SOURCE_DIR = Path(path)
         self.TRANSCRIPTS_BASE = self.SOURCE_DIR.parent
-        # Re-run derived path logic, but SOURCE_DIR is already set
-        self.PROCESSED_DIR = self.TRANSCRIPTS_BASE / "processed"
-        self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
         self.PROMPTS_DIR = Path(__file__).parent / "prompts"
         self.LOGS_DIR = Path(__file__).parent / "logs"
         self.VALIDATION_APPROVED_TERMS_PATH = (
             self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
         )
+        # Use saved overrides if present, otherwise derive from base
+        processed_override = self.runtime_settings.get("default_processed_dir")
+        self.PROCESSED_DIR = Path(processed_override) if processed_override else self.TRANSCRIPTS_BASE / "processed"
+        projects_override = self.runtime_settings.get("default_projects_dir")
+        self.PROJECTS_DIR = Path(projects_override) if projects_override else self.TRANSCRIPTS_BASE / "projects"
 
     def set_validation_approved_terms_path(self, path: Union[str, Path, None]):
         """Set the active validation approved-terms file."""
@@ -129,6 +139,26 @@ class ProjectSettings:
             self.runtime_settings["default_source_dir"] = str(path)
         else:
             self.runtime_settings.pop("default_source_dir", None)
+        self._save_runtime_settings()
+
+    def set_default_processed_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default processed directory."""
+        if path:
+            self.PROCESSED_DIR = Path(path)
+            self.runtime_settings["default_processed_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_processed_dir", None)
+            self.PROCESSED_DIR = self.TRANSCRIPTS_BASE / "processed"
+        self._save_runtime_settings()
+
+    def set_default_projects_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default projects directory."""
+        if path:
+            self.PROJECTS_DIR = Path(path)
+            self.runtime_settings["default_projects_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_projects_dir", None)
+            self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
         self._save_runtime_settings()
 
     # ADDED: Methods to dynamically get and set model names
@@ -237,6 +267,20 @@ def set_validation_approved_terms_path(path: Union[str, Path, None]):
 def set_default_source_dir(path: Union[str, Path, None]):
     """Global function to save or clear the default source directory."""
     settings.set_default_source_dir(path)
+
+
+def set_default_processed_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default processed directory."""
+    settings.set_default_processed_dir(path)
+    global PROCESSED_DIR
+    PROCESSED_DIR = settings.PROCESSED_DIR
+
+
+def set_default_projects_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default projects directory."""
+    settings.set_default_projects_dir(path)
+    global PROJECTS_DIR
+    PROJECTS_DIR = settings.PROJECTS_DIR
 
 
 # ============================================================================

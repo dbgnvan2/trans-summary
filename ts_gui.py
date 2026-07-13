@@ -449,14 +449,10 @@ class TranscriptProcessorGUI:
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
         
-        # Configure row weights for resizing
-        # Row 1 (File List): Expand slightly (weight 1)
-        main_frame.rowconfigure(1, weight=1)
-        # Row 4 (Log): Expand significantly (weight 3)
-        main_frame.rowconfigure(4, weight=3)
-        # Other rows (0, 2, 3, 5, 6, 7) have default weight 0 (fixed height)
+        # Only the PanedWindow row grows with the window
+        main_frame.rowconfigure(2, weight=1)
 
-        # Directory selection
+        # Row 0: Directory selection
         dir_frame = ttk.Frame(main_frame)
         dir_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         self.dir_label = ttk.Label(dir_frame, text="Source Directory: ")
@@ -468,39 +464,14 @@ class TranscriptProcessorGUI:
             dir_frame, text="Make Default", variable=self.make_dir_default_var
         )
         self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Button(dir_frame, text="Folder Defaults...", command=self.open_folder_defaults_dialog).pack(
+            side=tk.LEFT, padx=(10, 0)
+        )
 
-        # File selection
-        file_outer_frame = ttk.LabelFrame(
-            main_frame, text="Select Source File", padding="10")
-        file_outer_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        file_outer_frame.rowconfigure(1, weight=1)
-        file_outer_frame.columnconfigure(0, weight=1)
-
-        file_header = ttk.Frame(file_outer_frame)
-        file_header.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
-        file_header.columnconfigure(0, weight=1) # Make label expand
-        
-        refresh_btn = ttk.Button(file_header, text="Refresh List", command=self.refresh_file_list)
-        refresh_btn.pack(side=tk.RIGHT, anchor=tk.NE)
-
-        list_frame = ttk.Frame(file_outer_frame)
-        list_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
-        list_frame.rowconfigure(0, weight=1)
-        list_frame.columnconfigure(0, weight=1)
-
-        scrollbar = ttk.Scrollbar(list_frame)
-        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.file_listbox = tk.Listbox(
-            list_frame, height=6, yscrollcommand=scrollbar.set)
-        self.file_listbox.grid(
-            row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        scrollbar.config(command=self.file_listbox.yview)
-        self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
-
-        # Model Selection Frame - ADDED
+        # Row 1: Model Selection (fixed height, above the resizable panes)
         model_selection_frame = ttk.LabelFrame(main_frame, text="Model Selection", padding="10")
-        model_selection_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        model_selection_frame.columnconfigure(1, weight=1) # Give the combobox column weight
+        model_selection_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        model_selection_frame.columnconfigure(1, weight=1)
 
         all_model_names = config.settings.get_all_model_names()
 
@@ -557,14 +528,41 @@ class TranscriptProcessorGUI:
             row=0, column=3, sticky=tk.E
         )
 
+        # Row 2: PanedWindow — all three text panes are drag-resizable
+        paned = ttk.PanedWindow(main_frame, orient=tk.VERTICAL)
+        paned.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
 
-        # Status and Log
-        # Shifted row for these frames
-        status_frame = ttk.LabelFrame(
-            main_frame, text="File Status", padding="10")
-        status_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 2 to 3
+        # Pane 1: Source File List
+        file_outer_frame = ttk.LabelFrame(paned, text="Select Source File", padding="10")
+        file_outer_frame.rowconfigure(1, weight=1)
+        file_outer_frame.columnconfigure(0, weight=1)
+        paned.add(file_outer_frame, weight=1)
+
+        file_header = ttk.Frame(file_outer_frame)
+        file_header.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        file_header.columnconfigure(0, weight=1)
+
+        refresh_btn = ttk.Button(file_header, text="Refresh List", command=self.refresh_file_list)
+        refresh_btn.pack(side=tk.RIGHT, anchor=tk.NE)
+
+        list_frame = ttk.Frame(file_outer_frame)
+        list_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.rowconfigure(0, weight=1)
+        list_frame.columnconfigure(0, weight=1)
+
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.file_listbox = tk.Listbox(list_frame, height=6, yscrollcommand=scrollbar.set)
+        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.config(command=self.file_listbox.yview)
+        self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
+
+        # Pane 2: File Status
+        status_frame = ttk.LabelFrame(paned, text="File Status", padding="10")
         status_frame.columnconfigure(0, weight=1)
-        
+        status_frame.rowconfigure(1, weight=1)
+        paned.add(status_frame, weight=1)
+
         status_top_frame = ttk.Frame(status_frame)
         status_top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
         status_top_frame.columnconfigure(0, weight=1)
@@ -572,35 +570,28 @@ class TranscriptProcessorGUI:
         self.selected_file_status_label = ttk.Label(status_top_frame, textvariable=self.selected_file_label_var, font=('sans', 10, 'bold'))
         self.selected_file_status_label.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
 
-        self.status_text = tk.Text(
-            status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
+        status_refresh_btn = ttk.Button(status_top_frame, text="Refresh", command=self.check_file_status)
+        status_refresh_btn.grid(row=0, column=1, sticky=tk.NE)
+
+        self.status_text = tk.Text(status_frame, height=8, wrap=tk.WORD, font=('Courier', 10))
         self.status_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        # Add a refresh button to the status frame
-        status_refresh_btn = ttk.Button(
-            status_top_frame, text="Refresh", command=self.check_file_status)
-        status_refresh_btn.grid(row=0, column=1, sticky=tk.NE)
-        
-        # Make the Text widget expand, not the top frame
-        status_frame.rowconfigure(1, weight=1)
-
-
-        log_frame = ttk.LabelFrame(
-            main_frame, text="Processing Log", padding="10")
-        log_frame.grid(row=4, column=0, sticky=(
-            tk.W, tk.E, tk.N, tk.S), pady=(0, 10)) # MODIFIED row from 3 to 4
+        # Pane 3: Processing Log
+        log_frame = ttk.LabelFrame(paned, text="Processing Log", padding="10")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        self.log_text = scrolledtext.ScrolledText(
-            log_frame, wrap=tk.WORD, font=('Courier', 9))
+        paned.add(log_frame, weight=2)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, font=('Courier', 9))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+        # Row 3: Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 4 to 5
+        self.progress.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Action Buttons
+        # Row 4: Action Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E)) # MODIFIED row from 5 to 6
+        button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E))
 
         # Row 1 (buttons remain in button_frame)
         self.init_val_btn = ttk.Button(
@@ -713,12 +704,12 @@ class TranscriptProcessorGUI:
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W) # MODIFIED row from 7 to 8
+        self.status_label.grid(row=5, column=0, pady=(5, 0), sticky=tk.W)
 
         # Memory Usage Label
         self.memory_label = ttk.Label(
             main_frame, text="Mem: -- MB", foreground="gray")
-        self.memory_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.E)
+        self.memory_label.grid(row=5, column=0, pady=(5, 0), sticky=tk.E)
 
         # Start memory monitoring
         self.monitor_memory()
@@ -825,6 +816,106 @@ class TranscriptProcessorGUI:
     def update_dir_label(self):
         self.dir_label.config(
             text=f"Source Directory: {config.SOURCE_DIR}")
+
+    def open_folder_defaults_dialog(self):
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Folder Defaults")
+        dlg.resizable(True, False)
+        dlg.grab_set()
+
+        path_labels = {}
+
+        def dir_label(key):
+            val = {"source": config.SOURCE_DIR, "processed": config.PROCESSED_DIR, "projects": config.PROJECTS_DIR}[key]
+            rt_key = {"source": "default_source_dir", "processed": "default_processed_dir", "projects": "default_projects_dir"}[key]
+            suffix = " (saved)" if config.settings.runtime_settings.get(rt_key) else " (derived)"
+            return str(val) + suffix
+
+        def terms_label():
+            saved = config.settings.runtime_settings.get("validation_approved_terms_path")
+            suffix = " (saved)" if saved else " (default)"
+            return str(config.VALIDATION_APPROVED_TERMS_PATH) + suffix
+
+        def refresh_labels():
+            for key, lbl in path_labels.items():
+                lbl.config(text=terms_label() if key == "terms" else dir_label(key))
+
+        def browse(key):
+            if key == "terms":
+                chosen = filedialog.askopenfilename(
+                    title="Select Approved Terms File",
+                    initialdir=str(config.TRANSCRIPTS_BASE),
+                    filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+                    parent=dlg,
+                )
+                if not chosen:
+                    return
+                config.set_validation_approved_terms_path(chosen)
+                self.update_terms_file_label()
+            else:
+                initial = {"source": config.SOURCE_DIR, "processed": config.PROCESSED_DIR, "projects": config.PROJECTS_DIR}[key]
+                chosen = filedialog.askdirectory(
+                    title=f"Select {key.title()} Folder",
+                    initialdir=str(initial),
+                    parent=dlg,
+                )
+                if not chosen:
+                    return
+                if key == "source":
+                    config.set_source_dir_and_infer_base(chosen)
+                    config.set_default_source_dir(chosen)
+                    self.update_dir_label()
+                    self.update_terms_file_label()
+                    self.refresh_file_list()
+                elif key == "processed":
+                    config.set_default_processed_dir(chosen)
+                elif key == "projects":
+                    config.set_default_projects_dir(chosen)
+            refresh_labels()
+            self.log("Set default %s to: %s", key, chosen)
+
+        def reset(key):
+            if key == "terms":
+                config.set_validation_approved_terms_path(None)
+                self.update_terms_file_label()
+            elif key == "source":
+                config.set_default_source_dir(None)
+            elif key == "processed":
+                config.set_default_processed_dir(None)
+            elif key == "projects":
+                config.set_default_projects_dir(None)
+            refresh_labels()
+            self.log("Reset %s to default.", key)
+
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        dlg.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+
+        rows = [
+            ("Source Directory", "source"),
+            ("Processed Directory", "processed"),
+            ("Projects Directory", "projects"),
+            ("Approved Terms File", "terms"),
+        ]
+        for row_idx, (label_text, key) in enumerate(rows):
+            ttk.Label(frame, text=label_text + ":").grid(
+                row=row_idx, column=0, sticky=tk.W, padx=(0, 8), pady=4
+            )
+            text = terms_label() if key == "terms" else dir_label(key)
+            path_lbl = ttk.Label(frame, text=text, foreground="gray", wraplength=380, anchor=tk.W)
+            path_lbl.grid(row=row_idx, column=1, sticky=(tk.W, tk.E), pady=4)
+            path_labels[key] = path_lbl
+            ttk.Button(frame, text="Browse...", command=lambda k=key: browse(k)).grid(
+                row=row_idx, column=2, padx=(8, 4), pady=4
+            )
+            ttk.Button(frame, text="Reset", command=lambda k=key: reset(k)).grid(
+                row=row_idx, column=3, pady=4
+            )
+
+        ttk.Button(frame, text="Close", command=dlg.destroy).grid(
+            row=len(rows), column=0, columnspan=4, pady=(12, 0)
+        )
 
     def update_terms_file_label(self):
         active_path = Path(config.VALIDATION_APPROVED_TERMS_PATH)

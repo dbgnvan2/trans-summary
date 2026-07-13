@@ -18,9 +18,17 @@ __pycache__/
 *.log
 logs/archives/
 logs/token_usage.csv
+logs/runtime_settings.json
+logs/validation_memory.json
 
 # Archived prompt templates (not part of active runtime prompt set)
 prompts/old\ prompts/
 
 # Local helper scripts
 run_review
+
+# Editable-install build artifact
+*.egg-info/
+
+# Scratch/test directories
+test1/

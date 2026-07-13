@@ -68,7 +68,7 @@ def strip_transcript_metadata_header(text: str) -> str:
 def strip_raw_speaker_prefixes(text: str) -> str:
     """Remove timestamped/raw speaker prefixes before validation comparison."""
     prefix_pattern = (
-        r"^\s*(?:\[[\d:.]+\]\s*)?"
+        r"^\s*(?:[\[\(]?[\d:.]+[\]\)]?\s*)?"  # optional timestamp: bracketed or bare
         r"(?:Unknown Speaker|Speaker \d+|[A-Za-z][\w .'-]{0,40}):\s*"
     )
     return re.sub(prefix_pattern, "", text, flags=re.MULTILINE)
@@ -592,6 +592,8 @@ def validate_format(
             flags=re.IGNORECASE,
         )
         raw_clean = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", raw_clean)
+        # Strip lines that are solely a bare number (plain TRX timestamp lines)
+        raw_clean = re.sub(r"(?m)^\s*\d+\s*$", " ", raw_clean)
 
         # Remove procedural speech from raw text to avoid validation errors
         # These are commonly removed by the formatting model

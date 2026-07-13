@@ -61,6 +61,8 @@ python ts_gui.py
 #### Key GUI Features
 - **Easy Directory Selection**: A "Set Directory" button to choose your source transcript folder.
 - **"Make Default" Directory**: A checkbox to save the selected source directory as the default for future sessions.
+- **Folder Defaults dialog**: A "Folder Defaults..." button next to directory selection opens a dialog to independently browse/reset the default Processed, Projects, and Approved Terms locations, each persisted in `logs/runtime_settings.json` and reapplied on the next launch.
+- **Resizable panel layout**: The Source File list, File Status, and Processing Log panels sit in a drag-resizable vertical pane so you can allocate more space to whichever panel you're using.
 - **File Status Panel**: A comprehensive view showing the status (present, missing, etc.) of all generated files for the selected transcript.
 - **Status Panel Refresh**: A dedicated "Refresh" button on the File Status panel to manually re-check the status of all generated files.
 - **Interactive Correction**: A pop-up dialog for reviewing and applying dictionary-based corrections found during Initial Validation.
