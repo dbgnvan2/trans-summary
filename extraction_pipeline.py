@@ -804,6 +804,51 @@ def extract_bowen_and_emphasis(
         return False
 
 
+def generate_topics(
+    formatted_filename: str,
+    model: str = config.DEFAULT_MODEL,
+    logger=None,
+    transcript_system_message=None,
+) -> bool:
+    """Generate ONLY the Topics artifact from the transcript (standalone).
+
+    Purpose: Produce SUFFIX_TOPICS from the cached transcript alone, so a lean
+             Topics -> Abstract path can skip the rest of Core (structural/
+             interpretive themes, key terms, lenses). Mirrors PART 3 of
+             summarize_transcript exactly (same prompt, min_length, header
+             normalisation, and save target).
+    Spec:    docs/spec_lean_abstract_2026-07-13.md#LA.1
+    Tests:   tests/test_lean_abstract.py::test_la1_generate_topics_writes_topics_artifact
+    """
+    if logger is None:
+        logger = setup_logging("generate_topics")
+
+    try:
+        transcript = _load_formatted_transcript(formatted_filename)
+        if transcript_system_message is None:
+            transcript_system_message = create_system_message_with_cache(transcript)
+
+        logger.info("Generating Topics (standalone) for: %s", formatted_filename)
+        topics_output = _generate_with_cached_transcript(
+            config.PROMPT_TOPICS_FILENAME,
+            model,
+            logger,
+            transcript_system_message,
+            min_length=220,
+        )
+        topics_output = re.sub(
+            r"^\s*(?:#+\s*)?(?:[\*\_]+)?(?:\d+\.?\s*)?Topics\b.*$",
+            "## Topics",
+            topics_output,
+            flags=re.MULTILINE | re.IGNORECASE,
+        )
+        _save_summary(topics_output, formatted_filename, "topics")
+        return True
+    except Exception as e:
+        logger.error("Error generating topics: %s", e, exc_info=True)
+        return False
+
+
 def generate_structured_summary(
     base_name: str,
     summary_target_word_count: int = None,
@@ -916,11 +961,17 @@ def generate_structured_abstract(
             config.SUFFIX_TOPICS,
             ["Topics", "Key Topics"],
         )
+        # Interpretive Themes are optional: the abstract prompt
+        # (prompts/Abstract Generation Prompt v1.md) builds Context / Central
+        # Argument / Key Content / Conclusions / Q&A from metadata, topics and
+        # transcript-derived opening/closing/Q&A only — it never references
+        # themes. So a missing themes artifact is tolerated (parsed to []),
+        # enabling a lean Topics-only abstract. Spec: docs/spec_lean_abstract_2026-07-13.md#LA.2
         themes_section = _load_section_from_project_file(
             base_name,
             config.SUFFIX_INTERPRETIVE_THEMES,
             ["Interpretive Themes", "Themes", "Key Themes", "Interpretive / Process Themes"],
-        )
+        ) or ""
 
         parsed_topics_preview = (
             abstract_pipeline.parse_topics_from_extraction(topics_section)
@@ -931,11 +982,15 @@ def generate_structured_abstract(
         if topics_section and not parsed_topics_preview:
             logger.warning("Topics file present but unparseable; check topics format.")
 
-        if not topics_section or not themes_section:
+        if not topics_section:
             logger.error(
-                "Could not find Topics or Interpretive Themes in canonical artifact files."
+                "Could not find Topics in canonical artifact files (required for the abstract)."
             )
             return False
+        if not themes_section:
+            logger.info(
+                "No Interpretive Themes artifact found; generating abstract from Topics + transcript only."
+            )
 
         # Calculate target word count
         transcript_words = len(transcript.split())

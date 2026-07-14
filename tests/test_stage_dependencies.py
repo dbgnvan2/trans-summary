@@ -96,11 +96,11 @@ def test_stage_dependencies_matches_verified_graph():
         "format": [],
         "val_headers": [[("format", "SUFFIX_FORMATTED")]],
         "yaml": [[("format", "SUFFIX_FORMATTED")]],
+        "topics": [[("yaml", "SUFFIX_YAML")]],
         "core": [[("yaml", "SUFFIX_YAML")]],
-        "structured_summary": [[("core", "SUFFIX_TOPICS")]],
+        "structured_summary": [[("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")]],
         "gen_abstract": [
-            [("core", "SUFFIX_TOPICS")],
-            [("core", "SUFFIX_INTERPRETIVE_THEMES")],
+            [("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")],
         ],
         "val_abstract": [[("gen_abstract", "SUFFIX_ABSTRACT_GEN")]],
         "blog": [

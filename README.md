@@ -69,6 +69,7 @@ python ts_gui.py
 - **Model Selection**: Dropdown menus to select different AI models for formatting and core processing tasks.
 - **Selectable pipeline stages**: Each pipeline stage is a checkbox. Tick any subset and click **▶ Run Selected** to run just those stages, in fixed pipeline order. A pre-flight check blocks the run (with a "Missing Prerequisites" message) if a checked stage needs upstream output that is neither selected in the same run nor already present on disk — so you can't accidentally run "Val Abstract" without an abstract.
 - **Saved stage selections**: **Manage Selections...** lets you save the current set of ticked stages under a name, reload it later, delete it, and mark one selection as the default that pre-ticks automatically on startup (it never auto-runs — you still choose a file and click Run). Selections persist in `logs/runtime_settings.json`.
+- **Lean abstract path**: A standalone **T. Topics** stage generates just the Topics from the transcript, and **5. Gen Abstract** now needs only Topics (not the full Core extraction). So a `Topics → Gen Abstract` selection produces a good abstract for roughly half the cost of running all of Core, and `Bowen + Emphasis` runs straight from the transcript alongside it.
 - **Live Logging**: A "Processing Log" window that shows detailed, real-time output from the backend scripts.
 - **Task Management**: A visual progress bar and status indicator for running tasks.
 

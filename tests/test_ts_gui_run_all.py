@@ -71,12 +71,12 @@ def _summarize_call_flags(mock_summarize):
 
 def test_stage_definitions_order():
     expected_keys = [
-        "init_val", "format", "val_headers", "yaml", "core",
+        "init_val", "format", "val_headers", "yaml", "topics", "core",
         "structured_summary", "gen_abstract", "val_abstract", "blog",
         "overview", "webpdf", "bowen_emphasis", "package",
     ]
     assert [key for key, _ in ts_gui.STAGE_DEFINITIONS] == expected_keys
-    assert len(ts_gui.STAGE_DEFINITIONS) == 13
+    assert len(ts_gui.STAGE_DEFINITIONS) == 14
 
 
 # ===========================================================================

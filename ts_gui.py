@@ -47,6 +47,7 @@ STAGE_DEFINITIONS = [
     ("format", "1. Format"),
     ("val_headers", "2. Val Headers"),
     ("yaml", "3. YAML"),
+    ("topics", "T. Topics"),
     ("core", "4. Core (ST/IT/T/KT/L)"),
     ("structured_summary", "Structured Summary"),
     ("gen_abstract", "5. Gen Abstract"),
@@ -69,11 +70,14 @@ STAGE_DEPENDENCIES = {
     "format": [],
     "val_headers": [[("format", "SUFFIX_FORMATTED")]],
     "yaml": [[("format", "SUFFIX_FORMATTED")]],
+    "topics": [[("yaml", "SUFFIX_YAML")]],
     "core": [[("yaml", "SUFFIX_YAML")]],
-    "structured_summary": [[("core", "SUFFIX_TOPICS")]],
+    "structured_summary": [[("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")]],
+    # Abstract needs Topics only (its prompt never uses Interpretive Themes);
+    # satisfiable by the standalone `topics` stage OR `core` (both write
+    # SUFFIX_TOPICS). Spec: docs/spec_lean_abstract_2026-07-13.md#LA.5
     "gen_abstract": [
-        [("core", "SUFFIX_TOPICS")],
-        [("core", "SUFFIX_INTERPRETIVE_THEMES")],
+        [("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")],
     ],
     "val_abstract": [[("gen_abstract", "SUFFIX_ABSTRACT_GEN")]],
     "blog": [
@@ -1875,6 +1879,19 @@ class TranscriptProcessorGUI:
         """Runner for the 'yaml' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
         return pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger)
 
+    def _run_stage_topics(self):
+        """Runner for the standalone 'topics' stage.
+
+        Spec:  docs/spec_lean_abstract_2026-07-13.md#LA.3
+        Tests: tests/test_lean_abstract.py::test_la3_topics_stage_registered
+        """
+        self.log("Generating Topics (standalone)...")
+        return pipeline.generate_topics(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+        )
+
     def _run_stage_core(self):
         """Runner for the 'core' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
         include_bowen = self._get_bool_var("include_bowen_core", default=True)
@@ -1983,6 +2000,7 @@ class TranscriptProcessorGUI:
             "format": self._run_format_and_validate,
             "val_headers": self._run_header_validation,
             "yaml": self._run_stage_yaml,
+            "topics": self._run_stage_topics,
             "core": self._run_stage_core,
             "structured_summary": self._run_stage_structured_summary,
             "gen_abstract": self._run_stage_gen_abstract,

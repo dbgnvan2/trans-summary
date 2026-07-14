@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-13 (lean abstract path)
+
+### Added
+
+- **Standalone Topics stage + Topics-only abstract (lean abstract path).** You can now produce an abstract (and, separately, Emphasis + Bowen) without running the full monolithic Core stage. A new `topics` stage (`generate_topics`) writes the Topics artifact straight from the transcript, and `generate_structured_abstract` now requires **only** Topics — the Interpretive-Themes artifact it previously demanded was never actually used by the abstract prompt (which builds from metadata, topics, and transcript-derived opening/closing/Q&A). Verified end-to-end on a real transcript: `Topics → Abstract` produced a coherent abstract for ~$0.02, roughly half the cost of full Core. Spec: `docs/spec_lean_abstract_2026-07-13.md` (LA.1–LA.5). Tests: `tests/test_lean_abstract.py`.
+- The stage pre-flight now models this: `topics` depends on the transcript (yaml), and `gen_abstract` depends on Topics only (satisfiable by the `topics` stage **or** `core`), no longer on Interpretive Themes.
+
+### Fixed
+
+- Headless GUI tests could hang on a real `messagebox` dialog depending on test order; an autouse fixture (`tests/conftest.py`) now stubs Tk dialogs so the suite is hermetic and order-independent.
+
 ## [Unreleased] - 2026-07-13
 
 ### Added

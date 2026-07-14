@@ -11,6 +11,7 @@ from extraction_pipeline import (
     extract_scored_emphasis,
     generate_structured_abstract,
     generate_structured_summary,
+    generate_topics,
     summarize_transcript,
 )
 from formatting_pipeline import (
@@ -49,6 +50,7 @@ __all__ = [
     "extract_scored_emphasis",
     "generate_structured_abstract",
     "generate_structured_summary",
+    "generate_topics",
     "summarize_transcript",
     "generate_pdf",
     "generate_simple_webpage",
