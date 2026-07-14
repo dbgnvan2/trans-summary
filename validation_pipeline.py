@@ -265,18 +265,23 @@ def validate_key_terms_fidelity(
         # valid terms (a false-negative that this validator previously produced).
         def_support = _keyword_grounding_ratio(definition, transcript)
 
-        if term_ratio >= 0.90 and def_support >= 0.50:
+        # The TERM must be grounded in the transcript to count at all; the
+        # definition is a synthesized paraphrase and only refines the tier. An
+        # ungrounded term FAILs even when its definition shares topical
+        # vocabulary — otherwise a hallucinated term with a plausible on-topic
+        # definition would sneak through as WEAK (P7).
+        if term_ratio < 0.50:
+            result = "FAIL"
+            failed += 1
+        elif term_ratio >= 0.90 and def_support >= 0.50:
             result = "EXACT"
             exact += 1
         elif term_ratio >= 0.80 and def_support >= 0.35:
             result = "PARTIAL"
             partial += 1
-        elif term_ratio >= 0.70 or def_support >= 0.25:
+        else:
             result = "WEAK"
             weak += 1
-        else:
-            result = "FAIL"
-            failed += 1
 
         lines.append(
             f"| {term} | {term_ratio:.2f} | {def_support:.2f} | {result} |"

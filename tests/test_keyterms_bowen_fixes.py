@@ -78,6 +78,25 @@ def test_key_terms_hallucinated_term_still_fails(tmp_path, monkeypatch):
     assert "FAIL" in report
 
 
+def test_key_terms_ungrounded_term_with_ontopic_definition_still_fails(tmp_path, monkeypatch):
+    """Adversarial (P7): the term is NOT in the transcript, but its definition
+    shares the transcript's topical vocabulary. Definition support alone must
+    NOT rescue an ungrounded term — it must FAIL."""
+    transcript = (
+        "The family discussion covered anxiety, differentiation, emotional cutoff, "
+        "and how members manage stress and reactivity across generations."
+    )
+    key_terms = (
+        "### Emotional Triangulation Matrix\n"  # not present in the transcript
+        "A family systems pattern describing how anxiety, differentiation, emotional "
+        "cutoff, stress and reactivity are managed across generations of members.\n"
+    )
+    base, proj = _make_project(tmp_path, monkeypatch, transcript, key_terms)
+    validate_key_terms_fidelity(proj / f"{base}{config.SUFFIX_FORMATTED}", base, MagicMock())
+    report = (proj / f"{base}{config.SUFFIX_KEY_TERMS_VAL}").read_text()
+    assert "FAIL" in report
+
+
 # --- Bowen attribution detector: possessive with intervening adjective --------
 
 def test_bowen_attribution_detects_possessive_with_adjective():
