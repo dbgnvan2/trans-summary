@@ -172,15 +172,23 @@ Some other content.
         # By mocking the config and the Path methods, we can assert that the
         # path construction logic is called correctly.
         
-        # Setup mock behavior
+        # Setup mock behavior. `config` is fully mocked, so `PROJECTS_DIR / a / b`
+        # produces a MagicMock (not a real Path) — the Path.exists patch does not
+        # apply to it. Drive the chained mock's own .exists() to False so the
+        # function short-circuits to [] instead of feeding a mock to re.findall.
         mock_exists.return_value = False
-        
+        bowen_file_mock = (
+            mock_config.PROJECTS_DIR.__truediv__.return_value.__truediv__.return_value
+        )
+        bowen_file_mock.exists.return_value = False
+
         # Call the function
-        load_bowen_references("test-base-name")
+        result = load_bowen_references("test-base-name")
 
         # The core assertion: was the config variable used to build the path?
         # This confirms the line that was previously missing is now present and executed.
         self.assertTrue(mock_config.PROJECTS_DIR.__truediv__.called)
+        self.assertEqual(result, [])
 
 if __name__ == '__main__':
     unittest.main()

@@ -1163,27 +1163,19 @@ def load_bowen_references(base_name: str) -> list:
         content = bowen_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
 
-        # Try multiple patterns from strictest to most lenient
-        patterns = [
-            # Matches ### Concept [HH:MM:SS] \n > "Quote"
-            re.compile(r'###\s+(.+?)\s+\[(\d{2}:\d{2}:\d{2})\]\s*\n>\s+"([^"]+)"', re.DOTALL),
-            # Matches ### Concept \n > "Quote" (no timestamp)
-            re.compile(r'###\s+(.+?)\s*\n>\s+"([^"]+)"', re.DOTALL),
+        # ONE pattern with an OPTIONAL timestamp, so a file that MIXES timestamped
+        # and non-timestamped references parses every entry. (The previous
+        # strict-then-lenient loop tried the with-timestamp pattern first and
+        # broke as soon as it matched anything, silently dropping every
+        # timestamp-less reference in a mixed file.)
+        pattern = re.compile(
+            r'###\s+([^\n\[]+?)(?:\s+\[(\d{2}:\d{2}:\d{2})\])?\s*\n>\s+"([^"]+)"'
+        )
+        refs = [
+            (concept.strip(), quote.strip(), timestamp or None)
+            for concept, timestamp, quote in pattern.findall(content)
         ]
-        
-        all_matches = []
-        for pattern in patterns:
-            matches = pattern.findall(content)
-            for match in matches:
-                if len(match) == 3:
-                    all_matches.append(match) # (concept, timestamp, quote)
-                else:
-                    all_matches.append((match[0], None, match[1])) # (concept, None, quote)
-            if all_matches:
-                break
-        
-        refs = [(concept.strip(), quote.strip(), timestamp) for concept, timestamp, quote in all_matches]
-        
+
         if refs:
             return refs
 

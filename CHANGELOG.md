@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **`load_bowen_references` dropped references in a mixed-timestamp file.** The downstream reader (webpage/PDF) tried the *with-timestamp* pattern first and stopped as soon as it matched anything, so in a file mixing timestamped and non-timestamped references it captured only the timestamped ones. Replaced with a single pattern that makes the timestamp optional, so every reference parses regardless of order. (Fixes two previously-failing tests; a mock-setup bug in one was also corrected.)
+
 - **Key-terms validation reported exact=0 / everything fail** once it started running (previous bug had it finding nothing). It required the *synthesized definition* to appear ~verbatim in the transcript, which no paraphrased definition ever does. It now grounds on the **term** (alias-aware: a slash-joined "A / B" grounds if either part appears) and checks the definition for **topical keyword support**, not verbatim. On the sample: 0 EXACT → 10 EXACT, and a hallucinated term still fails (adversarial test).
 - **Bowen attribution detector missed possessive references with an intervening adjective** — "Bowen's **basic** ideas" failed because only an immediately-adjacent noun (or "key") was recognised, so genuine references were dropped. The possessive pattern now allows intervening words; adversarial cases ("Bowen's daughter…", "Bowen theory terms…") still correctly don't match.
 
