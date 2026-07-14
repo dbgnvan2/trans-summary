@@ -1272,22 +1272,18 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
         ),
     ]
 
-    for block in re.split(r'\n\s*\n+', text):
-        block = block.strip()
-        if not block or 'concept' not in block.lower():
-            continue
-        header_match = None
+    quote_re = re.compile(r'["“](?P<quote>[\s\S]+?)["”]')
+
+    def _find_header(block):
+        if 'concept' not in block.lower():
+            return None
         for pattern in header_patterns:
-            header_match = pattern.search(block)
-            if header_match:
-                break
-        if not header_match:
-            continue
+            m = pattern.search(block)
+            if m:
+                return m
+        return None
 
-        quote_match = re.search(r'["“](?P<quote>[\s\S]+?)["”]', block)
-        if not quote_match:
-            continue
-
+    def _add_item(header_match, quote_match):
         item = {
             'type': _clean_field(header_match.group('type')),
             'category': _clean_field(header_match.group('category')),
@@ -1298,9 +1294,29 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
         }
         item_key = (item['concept'].lower(), item['quote'].lower())
         if item_key in seen:
-            continue
+            return
         seen.add(item_key)
         items.append(item)
+
+    # An item's header and its quote may render either in one block or split
+    # across a blank line into adjacent blocks (the saved file uses the latter).
+    # Carry a pending header so both layouts parse — fixes the write->read
+    # round-trip and tolerates model output that blank-lines between them.
+    pending_header = None
+    for block in re.split(r'\n\s*\n+', text):
+        block = block.strip()
+        if not block:
+            continue
+        header_match = _find_header(block)
+        quote_match = quote_re.search(block)
+        if header_match and quote_match:
+            _add_item(header_match, quote_match)
+            pending_header = None
+        elif header_match:
+            pending_header = header_match
+        elif quote_match and pending_header is not None:
+            _add_item(pending_header, quote_match)
+            pending_header = None
 
     return items
 

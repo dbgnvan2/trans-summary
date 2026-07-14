@@ -125,43 +125,68 @@ class CostEstimator:
             "1. Formatting", config.FORMATTING_MODEL, input_tokens, output_tokens, is_cache_write=True, category="processing")
 
     def estimate_summarization_steps(self):
-        """Estimate costs for all steps that use the cached transcript."""
-        # The transcript itself is now cached, so we pay the 'cache_read' price for it.
+        """Estimate costs for all steps that use the cached transcript.
 
-        # 2a. Key Items (Topics, Themes, etc.)
-        prompt = (config.PROMPTS_DIR /
-                  config.PROMPT_EXTRACTS_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
-        output_tokens = int(self.transcript_tokens *
-                            config.TARGET_EXTRACTS_PERCENT)
-        self._calculate_cost("2a. Key Items", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
+        Core extraction (summarize_transcript) issues a SEPARATE cached-transcript
+        call per artifact — Structural Themes, Interpretive Themes, Topics, Key
+        Terms, Emphasis, Bowen (x2), Ranked Lenses, and a Theme/Lens validation
+        pass — not one bundled "key items" call. Each is modelled below.
 
-        # 2b. Scored Emphasis
-        prompt = (config.PROMPTS_DIR /
-                  config.PROMPT_EMPHASIS_SCORING_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
+        Output-token heuristics are `max(pct * transcript, floor)`: analytical
+        output has a large fixed component (so a floor) plus mild growth with
+        transcript length (the pct). Floors/pcts are calibrated against observed
+        runs and are deliberately approximate — see the report disclaimer.
+        """
+        T = self.transcript_tokens
+
+        def out(pct, floor):
+            return max(int(T * pct), floor)
+
+        def _prompt_tokens(filename):
+            return estimate_token_count((config.PROMPTS_DIR / filename).read_text())
+
+        # 2a-2d. Core extraction items (each a separate Sonnet call on the cached transcript)
+        core_items = [
+            ("2a. Structural Themes", config.PROMPT_STRUCTURAL_THEMES_FILENAME, out(0.12, 1100)),
+            ("2b. Interpretive Themes", config.PROMPT_INTERPRETIVE_THEMES_FILENAME, out(0.20, 2000)),
+            ("2c. Topics", config.PROMPT_TOPICS_FILENAME, out(0.06, 450)),
+            ("2d. Key Terms", config.PROMPT_KEY_TERMS_FILENAME, out(0.06, 450)),
+        ]
+        for step_name, prompt_file, output_tokens in core_items:
+            self._calculate_cost(step_name, config.DEFAULT_MODEL, _prompt_tokens(prompt_file),
+                                 output_tokens, is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2e. Scored Emphasis
         # Heuristic: ~20 items per 10k transcript tokens, each item ~150 output tokens
-        num_items = (self.transcript_tokens / 10000) * 20
-        output_tokens = int(num_items * 150)
-        self._calculate_cost("2b. Scored Emphasis", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
+        num_items = (T / 10000) * 20
+        self._calculate_cost("2e. Scored Emphasis", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_EMPHASIS_SCORING_FILENAME),
+                             int(num_items * 150), is_cached_read=True, cached_tokens=T, category="processing")
 
-        # 2c. Key Terms
-        # Note: Key Terms are now extracted in 2a (Key Items), so this step is skipped in the pipeline.
-        # We remove it from the estimate to match the actual pipeline.
-        # prompt = (config.PROMPTS_DIR / config.PROMPT_KEY_TERMS_FILENAME).read_text()
-        # prompt_tokens = estimate_token_count(prompt)
-        # output_tokens = int(self.transcript_tokens * 0.15)
-        # self._calculate_cost("2c. Key Terms", config.DEFAULT_MODEL, prompt_tokens, output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+        # 2f. Bowen References: extraction (cached transcript) + a small semantic-filter call (no transcript)
+        self._calculate_cost("2f. Bowen Extraction", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BOWEN_EXTRACTION_FILENAME),
+                             out(0.10, 700), is_cached_read=True, cached_tokens=T, category="processing")
+        self._calculate_cost("2g. Bowen Semantic Filter", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BOWEN_FILTER_FILENAME) + 300,
+                             300, category="processing")
 
-        # 2d. Blog Post
-        prompt = (config.PROMPTS_DIR / config.PROMPT_BLOG_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
-        # Heuristic: Based on configured minimum characters
-        output_tokens = estimate_token_count(" " * config.MIN_BLOG_CHARS)
-        self._calculate_cost("2d. Blog Post", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
+        # 2h. Ranked Lenses (largest core call; prompt also carries the prior artifacts)
+        self._calculate_cost("2h. Ranked Lenses", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_LENS_GENERATION_FILENAME) + 2000,
+                             out(0.15, 1800), is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2i. Theme/Lens Validation (back-validation of structural/interpretive/top-lens).
+        # Can iterate up to VALIDATION_MAX_ITERATIONS times; estimate a single pass.
+        self._calculate_cost("2i. Theme/Lens Validation", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_THEME_LENS_VALIDATION_FILENAME) + 2500,
+                             out(0.08, 900), is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2j. Blog Post
+        self._calculate_cost("2j. Blog Post", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BLOG_FILENAME),
+                             estimate_token_count(" " * config.MIN_BLOG_CHARS),
+                             is_cached_read=True, cached_tokens=T, category="processing")
 
     def estimate_structured_steps(self):
         """Estimate costs for structured summary and abstract generation."""

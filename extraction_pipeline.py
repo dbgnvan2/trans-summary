@@ -612,10 +612,15 @@ def extract_scored_emphasis(
             if is_valid:
                 validated_items.append(item)
                 ts_str = f" | {item['timestamp']}" if item.get('timestamp') else ""
+                # Keep the header and its quote in ONE block (single newline
+                # between them); items are separated by a blank line below. This
+                # matches what parse_scored_emphasis_output re-reads, so the
+                # emphasis validator can round-trip the saved file.
                 final_content_lines.append(
-                    f"[{item['type']} - {item['category']} - Rank: {item['score']}%{ts_str}] Concept: {item['concept']}"
+                    f"[{item['type']} - {item['category']} - Rank: {item['score']}%{ts_str}] "
+                    f"Concept: {item['concept']}\n"
+                    f'"{item["quote"]}"'
                 )
-                final_content_lines.append(f'"{item["quote"]}"')
             else:
                 logger.warning("Filtered out invalid emphasis item: %s",
                                ', '.join(issues))

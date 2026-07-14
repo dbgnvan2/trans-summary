@@ -161,7 +161,11 @@ def _extract_emphasis_quotes_from_file(all_key_items_file):
 
 def _parse_key_terms_section(content: str) -> list[tuple[str, str]]:
     """Parse key terms from markdown content into (term, definition) tuples."""
-    section = extract_section(content, "Key Terms")
+    # The canonical key-terms artifact is a dedicated file; the model often
+    # emits the terms directly as `### Term` blocks with NO top-level
+    # "Key Terms" heading. Fall back to the whole content so those files still
+    # validate instead of reporting "No key terms found".
+    section = extract_section(content, "Key Terms") or content
     if not section:
         return []
 

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-13 (run-log review fixes)
+
+### Fixed
+
+- **Emphasis validation found nothing despite emphasis existing.** The scored-emphasis file is saved with the header and its quote separated by a blank line, but `parse_scored_emphasis_output` required both in one block, so the post-Core emphasis validator parsed 0 items. Hardened the parser to accept the header and quote either in one block or split across a blank line, and fixed the save to keep each item's header+quote adjacent (write→read round-trip). Real-artifact check: 0 → 10 items.
+- **Key-terms validation found nothing despite key terms existing.** The dedicated key-terms artifact often has bare `### Term` blocks with no `## Key Terms` heading, which `_parse_key_terms_section` required. It now falls back to parsing the whole file. Real-artifact check: 0 → 9 terms.
+- **Cost estimate ran ~3.6× low.** The estimator omitted Ranked Lenses, the Theme/Lens validation pass, and Bowen extraction, and collapsed the four separate core-extraction calls into one bundled "Key Items." These are now modelled separately. On the sample transcript the estimate went from $0.11 to $0.25 (actual ≈ $0.35–0.40).
+- **Tests polluted the real cost log.** `log_token_usage` appends to `logs/token_usage.csv`; several tests called it (directly or via mock loggers), leaving junk rows (`test_script`, `<MagicMock …>`, nameless `unknown_script`). An autouse fixture in the root `conftest.py` now redirects the logs dir to a temp path for every test, so the production log can't be polluted.
+
 ## [Unreleased] - 2026-07-13 (lean abstract path)
 
 ### Added

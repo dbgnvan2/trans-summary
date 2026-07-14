@@ -7,6 +7,25 @@ import os
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_logs_dir(tmp_path, monkeypatch):
+    """Redirect the logs directory (esp. token_usage.csv and runtime_settings.json)
+    to a per-test temp dir so no test can write into the real logs/.
+
+    `log_token_usage` appends to `config.LOGS_DIR / "token_usage.csv"`; several
+    tests call it (directly, or via code that logs usage with a mock model/logger),
+    which previously left junk rows — `test_script`, `<MagicMock …>`, nameless
+    `unknown_script` — in the production cost log. Redirecting LOGS_DIR makes the
+    whole suite hermetic. Tests that set their own LOGS_DIR still override this.
+    """
+    try:
+        import config
+    except Exception:
+        return
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(config.settings, "LOGS_DIR", tmp_path, raising=False)
+
+
 def _live_api_enabled(config: pytest.Config) -> bool:
     """Enable live API tests only when explicitly requested."""
     return config.getoption("--live-api") or os.getenv("RUN_LIVE_API_TESTS") == "1"
