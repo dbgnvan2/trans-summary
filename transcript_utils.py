@@ -280,6 +280,52 @@ def validate_api_response(
     return text
 
 
+def warn_if_empty_parse(
+    logger,
+    label: str,
+    parsed_count: int,
+    *,
+    source_path=None,
+    source_text: str = None,
+    min_chars: int = 20,
+) -> bool:
+    """Surface a likely format/parser mismatch (P2: never silently drop).
+
+    A parser/validator that yields ZERO items from a NON-EMPTY source is almost
+    always a format drift between producer (prompt + save) and consumer, not a
+    genuinely empty result — and it otherwise masquerades as a clean "nothing to
+    validate" pass. This makes that case loud while staying quiet when the
+    source is truly absent/empty.
+
+    Returns True if it emitted the mismatch warning (source had real content but
+    parsed to nothing); False otherwise (genuinely empty/absent — caller may log
+    a benign info instead).
+    """
+    if parsed_count:
+        return False
+    content_len = 0
+    if source_text is not None:
+        content_len = len(source_text.strip())
+    elif source_path is not None:
+        try:
+            path = Path(source_path)
+            if path.exists():
+                content_len = len(path.read_text(encoding="utf-8").strip())
+        except OSError:
+            content_len = 0
+    if content_len >= min_chars:
+        where = f": {source_path}" if source_path is not None else ""
+        logger.warning(
+            "⚠️ Parsed 0 %s from a non-empty source (%d chars%s) — likely a "
+            "format/parser mismatch, not an empty result.",
+            label,
+            content_len,
+            where,
+        )
+        return True
+    return False
+
+
 def log_token_usage(script_name: str, model: str, usage_data: object, stop_reason: str):
     """
     Log token usage and estimated cost to a CSV file.

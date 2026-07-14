@@ -27,6 +27,7 @@ from transcript_utils import (
     setup_logging,
     strip_yaml_frontmatter,
     validate_input_file,
+    warn_if_empty_parse,
 )
 
 # Reuse the helper from formatting pipeline or define here if private
@@ -228,7 +229,11 @@ def validate_key_terms_fidelity(
             "# Key Terms Validation\n\nNo key terms found to validate.\n",
             encoding="utf-8",
         )
-        logger.warning("No key terms found to validate")
+        key_terms_file = (
+            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_KEY_TERMS}"
+        )
+        if not warn_if_empty_parse(logger, "key terms", 0, source_path=key_terms_file):
+            logger.info("No key terms to validate (no key-terms artifact present).")
         return False
 
     exact = 0
@@ -366,7 +371,11 @@ def validate_topics_lightweight(
             "# Topics Validation\n\nNo topics found to validate.\n",
             encoding="utf-8",
         )
-        logger.warning("No topics found to validate")
+        topics_file = (
+            config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
+        )
+        if not warn_if_empty_parse(logger, "topics", 0, source_path=topics_file):
+            logger.info("No topics to validate (no topics artifact present).")
         return False
 
     exact = 0
@@ -469,7 +478,15 @@ def validate_emphasis_items(
     quotes = _extract_emphasis_quotes_from_file(extracts_summary_path)
 
     if not quotes:
-        logger.warning("No emphasis quotes found to validate")
+        # Resolve the scored-emphasis artifact so we can tell "no emphasis file"
+        # from "file has content but parsed to nothing" (a format/parser drift).
+        try:
+            stem = parse_filename_metadata(Path(extracts_summary_path).name)["stem"]
+        except Exception:
+            stem = Path(extracts_summary_path).stem
+        scored_path = Path(extracts_summary_path).parent / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
+        if not warn_if_empty_parse(logger, "emphasis quotes", 0, source_path=scored_path):
+            logger.info("No emphasis items to validate (no emphasis artifact present).")
         return
 
     valid_count, partial_count, invalid_count = 0, 0, 0

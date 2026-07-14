@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-07-13 (run-log review fixes)
 
+### Added
+
+- **"Silent empty" instrumentation.** New `warn_if_empty_parse` helper (transcript_utils.py) distinguishes a genuinely empty/absent source from a parser that yielded **zero items out of non-empty input** — the signature of a producer/consumer format drift (the class behind the emphasis/key-terms bugs). Wired into the post-Core emphasis, key-terms, and topics validators, which now log a loud "parsed 0 X from a non-empty source" warning instead of a silent "nothing to validate" pass. (Bowen is intentionally excluded — an empty result is valid there.)
+
 ### Fixed
 
 - **Emphasis validation found nothing despite emphasis existing.** The scored-emphasis file is saved with the header and its quote separated by a blank line, but `parse_scored_emphasis_output` required both in one block, so the post-Core emphasis validator parsed 0 items. Hardened the parser to accept the header and quote either in one block or split across a blank line, and fixed the save to keep each item's header+quote adjacent (write→read round-trip). Real-artifact check: 0 → 10 items.

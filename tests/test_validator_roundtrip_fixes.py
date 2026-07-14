@@ -9,7 +9,10 @@ Root causes fixed:
   - _parse_key_terms_section required a "## Key Terms" heading, but the dedicated
     key-terms artifact often has bare "### Term" blocks with no heading.
 """
-from transcript_utils import parse_scored_emphasis_output
+import logging
+
+from abstract_pipeline import parse_topics_from_extraction
+from transcript_utils import parse_scored_emphasis_output, warn_if_empty_parse
 from validation_pipeline import _parse_key_terms_section
 
 
@@ -85,3 +88,80 @@ def test_key_terms_parse_with_heading_still_works():
     with_heading = "## Key Terms\n\n" + BARE_TERMS
     terms = _parse_key_terms_section(with_heading)
     assert len(terms) >= 2
+
+
+# --- warn_if_empty_parse: zero-from-non-empty is loud, empty is quiet --------
+
+class _CapturingHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.warnings = []
+
+    def emit(self, record):
+        if record.levelno >= logging.WARNING:
+            self.warnings.append(record.getMessage())
+
+
+def _logger_with_capture():
+    log = logging.getLogger("warn_if_empty_parse_test")
+    log.handlers.clear()
+    log.setLevel(logging.WARNING)
+    h = _CapturingHandler()
+    log.addHandler(h)
+    log.propagate = False
+    return log, h
+
+
+def test_warn_fires_on_zero_from_nonempty_source():
+    log, cap = _logger_with_capture()
+    fired = warn_if_empty_parse(log, "widgets", 0, source_text="x" * 100)
+    assert fired is True
+    assert cap.warnings and "Parsed 0 widgets" in cap.warnings[0]
+
+
+def test_warn_silent_on_genuinely_empty_source():
+    log, cap = _logger_with_capture()
+    fired = warn_if_empty_parse(log, "widgets", 0, source_text="   ")
+    assert fired is False
+    assert cap.warnings == []
+
+
+def test_warn_silent_when_items_present():
+    log, cap = _logger_with_capture()
+    fired = warn_if_empty_parse(log, "widgets", 5, source_text="x" * 100)
+    assert fired is False
+    assert cap.warnings == []
+
+
+def test_warn_silent_on_missing_file(tmp_path):
+    log, cap = _logger_with_capture()
+    fired = warn_if_empty_parse(log, "widgets", 0, source_path=tmp_path / "nope.md")
+    assert fired is False
+    assert cap.warnings == []
+
+
+# --- Golden fixture: real Topics artifact format parses ----------------------
+
+REAL_TOPICS = """## Topics
+
+### Psychiatric Hospitalizations and Recovery
+The client experienced two psychiatric hospitalizations in 1975-1976, including a
+catatonic episode, and later achieved recovery through education.
+*_(~20% of transcript; Sections 6-8)_*
+
+### Family of Origin Dynamics
+Parental conflict, alcohol use, and the deaths of grandparents as destabilizing events.
+*_(~25% of transcript; Sections 1-3)_*
+
+### Father-Daughter Relationship
+The client's concern about his adult daughter's vulnerability to dependency.
+*_(~15% of transcript; Sections 9-10)_*
+"""
+
+
+def test_topics_golden_fixture_parses_all_topics():
+    topics = parse_topics_from_extraction(REAL_TOPICS)
+    names = [t.name for t in topics]
+    assert len(topics) >= 3
+    assert any("Psychiatric" in n for n in names)
+    assert any("Father-Daughter" in n for n in names)
