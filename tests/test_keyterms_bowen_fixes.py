@@ -97,6 +97,21 @@ def test_bowen_attribution_does_not_overmatch():
 
 # --- Bowen drop-diagnostic: a 0-result is inspectable ------------------------
 
+def test_bowen_reference_count_matches_saved_format():
+    """The log's 'Found N references' counter must match the format
+    _format_bowen_refs actually writes ('### Concept\\n> "quote"'). The old
+    '> **' pattern reported 0 even when references were saved."""
+    import re
+
+    refs = [
+        ("Pseudo-Self / No Self", "Bowen's basic ideas were pioneering", "01:20:09"),
+        ("Multigenerational Transmission", "Bowen described the process across generations", None),
+    ]
+    content = "## Bowen References\n\n" + ep._format_bowen_refs(refs)
+    assert len(re.findall(r"^###\s", content, re.MULTILINE)) == 2   # fixed counter
+    assert len(re.findall(r"^\s*>\s*\*\*", content, re.MULTILINE)) == 0  # old (buggy) counter
+
+
 def test_bowen_drop_diagnostic_written(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     monkeypatch.setattr(config.settings, "PROJECTS_DIR", tmp_path)

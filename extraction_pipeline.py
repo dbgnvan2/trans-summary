@@ -815,8 +815,10 @@ def extract_bowen_references_from_transcript(
         bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
         bowen_path.write_text(final_content, encoding="utf-8")
 
-        num_found = len(re.findall(r"^\s*>\s*\*\*",
-                        final_content, re.MULTILINE))
+        # Count one per reference. _format_bowen_refs emits "### Concept [ts]\n> \"quote\"",
+        # so count the "### " concept headers (the previous "> **" pattern never
+        # matched this format and reported 0 even when references were saved).
+        num_found = len(re.findall(r"^###\s", final_content, re.MULTILINE))
         logger.info("✓ Found %d Bowen references. Saved to: %s",
                     num_found, bowen_path.name)
         return True
