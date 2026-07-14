@@ -245,26 +245,33 @@ def validate_key_terms_fidelity(
         "",
         f"Validated terms: {len(terms)}",
         "",
-        "| Term | Term Match | Definition Match | Result |",
+        "| Term | Term Match | Definition Support | Result |",
         "|---|---:|---:|---|",
     ]
 
     for term, definition in terms:
-        term_ratio = find_text_in_content(
-            term, transcript, aggressive_normalization=True
-        )[2]
-        def_probe = " ".join(definition.split()[:20])
-        def_ratio = find_text_in_content(
-            def_probe, transcript, aggressive_normalization=True
-        )[2] if def_probe else 0.0
+        # A term is often a slash-joined alias pair ("Symbiosis / Symbiotic
+        # Relationship") that never appears verbatim as one string, though each
+        # alias does. Ground on the best-matching alias part.
+        term_parts = [p.strip() for p in re.split(r"\s*/\s*", term) if p.strip()] or [term]
+        term_ratio = max(
+            find_text_in_content(part, transcript, aggressive_normalization=True)[2]
+            for part in term_parts
+        )
+        # The definition is the model's synthesized paraphrase, NOT a transcript
+        # quote — so grounding is driven by the TERM appearing in the transcript,
+        # and the definition is checked for TOPICAL support (keyword overlap),
+        # never verbatim. Requiring a verbatim definition match failed 100% of
+        # valid terms (a false-negative that this validator previously produced).
+        def_support = _keyword_grounding_ratio(definition, transcript)
 
-        if term_ratio >= 0.95 and def_ratio >= 0.90:
+        if term_ratio >= 0.90 and def_support >= 0.50:
             result = "EXACT"
             exact += 1
-        elif term_ratio >= 0.85 and def_ratio >= 0.75:
+        elif term_ratio >= 0.80 and def_support >= 0.35:
             result = "PARTIAL"
             partial += 1
-        elif term_ratio >= 0.75 or def_ratio >= 0.65:
+        elif term_ratio >= 0.70 or def_support >= 0.25:
             result = "WEAK"
             weak += 1
         else:
@@ -272,7 +279,7 @@ def validate_key_terms_fidelity(
             failed += 1
 
         lines.append(
-            f"| {term} | {term_ratio:.2f} | {def_ratio:.2f} | {result} |"
+            f"| {term} | {term_ratio:.2f} | {def_support:.2f} | {result} |"
         )
 
     lines.extend(

@@ -397,13 +397,17 @@ def _has_bowen_source_attribution(quote: str) -> bool:
         r"referred|called|commented|noted|observed|argued|stated|told|did|does|do|"
         r"predicted|switched|shifted|suggested|concluded|found|identified|saw|"
         r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        # "to quote Bowen", "Bowen's quote / comment / prediction / observation / idea / insight"
-        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen|bowen'?s\s+"
-        r"(?:quote|comment|prediction|observation|insight|idea|ideas|"
-        r"key\s+observation|very\s+insightful|approach|conclusion|thinking|"
-        r"switch|view|framework|concept))\b",
-        # "all Bowen's ideas", "these are Bowen's ideas"
-        r"\b(?:all\s+)?bowen'?s\s+(?:key\s+)?(?:ideas?|concepts?|points?)\b",
+        # "to quote Bowen" / "quote from Bowen"
+        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen)\b",
+        # Possessive attribution: "Bowen's [adjectives] idea/observation/insight/…"
+        # Allow up to two intervening words so "Bowen's basic ideas", "Bowen's very
+        # insightful observation", "all Bowen's key points" all match — previously
+        # only an immediately-adjacent noun (or "key") was recognised, so a common
+        # phrasing like "Bowen's basic ideas" was silently dropped.
+        r"\bbowen'?s\s+(?:\w+\s+){0,2}"
+        r"(?:ideas?|concepts?|points?|observations?|insights?|views?|"
+        r"approach|framework|thinking|conclusions?|predictions?|comments?|"
+        r"quotes?|switch|work|writings?|teachings?)\b",
         # "I remember (talking to) Murray ... he said"
         r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
         # "a tape / video / recording Murray Bowen made / did"
@@ -449,6 +453,53 @@ def _rule_filter_bowen_references(
                 concept,
             )
     return filtered
+
+
+def _write_bowen_drop_diagnostic(parsed_refs, transcript_text, formatted_filename, logger):
+    """Make a 0-reference Bowen result inspectable instead of silent.
+
+    When extraction produced candidates but none survive attribution filtering +
+    grounding, dump each candidate with WHY it dropped — whether its quote/concept
+    names Bowen, and how well the quote grounds in the transcript. This answers
+    "did the extraction miss the attribution, or did the filter over-drop it?"
+    without which a 0 is opaque. Spec: run-log review (Bowen extraction).
+    """
+    try:
+        stem = clean_project_name(Path(formatted_filename).stem)
+        stem = stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
+        stem = stem.replace(config.SUFFIX_YAML.replace(".md", ""), "")
+        project_dir = config.PROJECTS_DIR / stem
+        project_dir.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# Bowen References — Drop Diagnostic",
+            "",
+            f"Extraction produced {len(parsed_refs)} candidate(s) but 0 survived "
+            "attribution filtering + transcript grounding. If a candidate names "
+            "Bowen but was dropped, the filter is over-dropping; if none name "
+            "Bowen, the extraction captured concept applications rather than "
+            "Bowen-attributed passages.",
+            "",
+            "| Concept | Names Bowen? | Grounding | Quote (excerpt) |",
+            "|---|:--:|--:|---|",
+        ]
+        for concept, quote in parsed_refs:
+            attr = _has_bowen_source_attribution(quote) or _concept_has_bowen_attribution(concept)
+            _, _, ratio = find_text_in_content(
+                quote, transcript_text, aggressive_normalization=True
+            )
+            excerpt = re.sub(r"\s+", " ", quote).strip()[:120].replace("|", "\\|")
+            lines.append(
+                f"| {concept[:50]} | {'yes' if attr else 'no'} | {ratio:.2f} | {excerpt} |"
+            )
+        debug_path = project_dir / f"{stem} - bowen-references-debug.md"
+        debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        logger.warning(
+            "Bowen: 0 grounded refs from %d candidate(s). Drop diagnostic saved to: %s",
+            len(parsed_refs),
+            debug_path.name,
+        )
+    except Exception as e:  # diagnostics must never break the run
+        logger.warning("Could not write Bowen drop diagnostic: %s", e)
 
 
 def _filter_bowen_references_semantically(
@@ -728,6 +779,13 @@ def extract_bowen_references_from_transcript(
             )
             grounded_semantic = _ground_refs(
                 _rule_filter_bowen_references(parsed_refs, logger)
+            )
+
+        # If we STILL have nothing but the extraction did find candidates, make
+        # the zero-result inspectable rather than silently dropping everything.
+        if not grounded_semantic and parsed_refs:
+            _write_bowen_drop_diagnostic(
+                parsed_refs, transcript_text, formatted_filename, logger
             )
 
         # Find timestamps for each grounded reference

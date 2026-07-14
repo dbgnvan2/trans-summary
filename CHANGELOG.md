@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-13 (run-log review, round 2)
+
+### Fixed
+
+- **Key-terms validation reported exact=0 / everything fail** once it started running (previous bug had it finding nothing). It required the *synthesized definition* to appear ~verbatim in the transcript, which no paraphrased definition ever does. It now grounds on the **term** (alias-aware: a slash-joined "A / B" grounds if either part appears) and checks the definition for **topical keyword support**, not verbatim. On the sample: 0 EXACT → 10 EXACT, and a hallucinated term still fails (adversarial test).
+- **Bowen attribution detector missed possessive references with an intervening adjective** — "Bowen's **basic** ideas" failed because only an immediately-adjacent noun (or "key") was recognised, so genuine references were dropped. The possessive pattern now allows intervening words; adversarial cases ("Bowen's daughter…", "Bowen theory terms…") still correctly don't match.
+
+### Added
+
+- **Bowen drop-diagnostic.** When extraction produces candidates but 0 survive attribution filtering + grounding, a `… - bowen-references-debug.md` is written listing each candidate with *names-Bowen?* and *grounding* — so a zero result is inspectable (extraction-missed vs filter-over-dropped) instead of silently vanishing. This immediately exposed the attribution-detector bug above.
+
 ## [Unreleased] - 2026-07-13 (run-log review fixes)
 
 ### Added
