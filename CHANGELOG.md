@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (unattended-robustness — Phase 1: fail-closed release gate)
+
+The pipeline's validators were advisory (they wrote a report; nothing blocked on
+them), so a fabricated name could reach a published artifact. Phase 1 adds a
+fail-closed release gate between generation and publication (spec M1/M4/M7).
+
+### Added
+
+- **`release_gate.py` (M1).** Every check returns a typed `Verdict`
+  (PASS/WARN/FAIL/ERROR); `run_gate` aggregates them via a `config` policy table
+  into a `GateDecision` (ALLOW / ALLOW_WITH_WARNINGS / BLOCK). A check that raises
+  becomes an ERROR verdict — never silently skipped (M1.C) — and ERROR blocks by
+  default (a run we couldn't verify must not ship, P1). Elected hard blocker:
+  `entity_grounding`.
+- **Provenance checks (M4).** `entity_grounding` (BLOCKING) FAILs on a fabricated
+  proper name in the abstract (the shipped 'Luciano Malorni' class); scoped to the
+  **abstract only** because the lexical name detector false-flags Title-Case
+  headings/concepts in synthesized artifacts ('Key Takeaways', 'Role Absorption' —
+  confirmed on real runs) and a false BLOCK is a hard stop. `verbatim_quotes`,
+  `timestamp_citations` (catches the F6 drift), and `entity_consistency` (F7) run
+  as WARN.
+- **Run manifest (M7).** Each gated run writes `<base> - run-manifest.json`
+  (per-artifact status + hashes, the GateDecision, source hash + model IDs, a
+  single `publish_decision`); `release_gate.main` exits nonzero on BLOCK for
+  cron/CI; a BLOCK drops a `PUBLISH-BLOCKED.txt` marker, cleared on a clean re-run
+  (P8).
+
+### Changed
+
+- **Publish path is now gated (M1.B.2).** `generate_webpage`,
+  `generate_simple_webpage`, `generate_pdf` (`html_generator`) and
+  `package_transcript` (`packaging_pipeline`) call `release_gate.publish_allowed`
+  and write NO bundle on a BLOCK. Tests: `tests/test_release_gate.py` (19 —
+  real-fixture BLOCK/ALLOW, ERROR fail-closed + advisory-error-doesn't-block,
+  manifest, publish guard, false-BLOCK scoping, stale-bundle quarantine, empty
+  source, accented names). Two pre-existing unit tests were isolated from the gate.
+
+### Review
+
+`learning-qa` audited the diff. Fixed before commit: the entity blocker scoped to
+the abstract (synthesized Title-Case labels false-BLOCK, confirmed on real runs);
+advisory-check ERRORs no longer hard-stop publication (only blocking checks block
+on ERROR); a BLOCK now quarantines any stale published bundle so it can't ship as
+current; a present-but-empty source is ERROR not FAIL; the name detector matches
+Latin-accented names. Documented as known limitations (TODO): single-word/acronym
+names (needs the M2 judge) and manifest wiring into the live publish path.
+
 ## [Unreleased] - 2026-07-15 (unattended-robustness — Phase 0: code health + test-validity gates)
 
 First phase of `docs/spec_unattended_robustness_2026-07-15.md` (approved scope:

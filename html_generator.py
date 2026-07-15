@@ -13,6 +13,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import config
+import release_gate
 from transcript_utils import (
     extract_section,
     load_bowen_references,
@@ -671,6 +672,8 @@ def _generate_simple_html_page(
 def generate_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the main webpage with a sidebar."""
     logger = setup_logging("generate_webpage")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
         output_file = (
             config.PROJECTS_DIR / base_name /
@@ -724,6 +727,8 @@ def generate_webpage(base_name: str) -> bool:
 def generate_simple_webpage(base_name: str) -> bool:
     """Generates a simple standalone webpage (no sidebar)."""
     logger = setup_logging("generate_simple_webpage")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
         output_file = (
             config.PROJECTS_DIR / base_name /
@@ -766,6 +771,8 @@ def generate_simple_webpage(base_name: str) -> bool:
 def generate_pdf(base_name: str) -> bool:
     """Generates a PDF from the formatted transcript."""
     logger = setup_logging("generate_pdf")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
         try:
             from weasyprint import HTML

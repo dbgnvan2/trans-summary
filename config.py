@@ -374,6 +374,45 @@ SUFFIX_WEBPAGE_SIMPLE = " - simple.html"
 SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
+SUFFIX_RUN_MANIFEST = " - run-manifest.json"
+SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
+SUFFIX_ZIP = ".zip"
+# Published bundle artifacts a BLOCK must not leave on disk as if current (M1.B.2/F4).
+PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP]
+
+# ============================================================================
+# RELEASE GATE POLICY (M1.B — spec_unattended_robustness_2026-07-15.md)
+# ============================================================================
+# Which check FAILs block publication vs. warn-and-ship. Elected 2026-07-15
+# (conservative net): a fabricated/ungrounded entity blocks; a transient ERROR
+# blocks (fail-closed — an unverified run must not publish, P1); everything else
+# WARNs until proven necessary. Flip a check into GATE_BLOCKING_CHECKS to make it
+# a hard blocker.
+GATE_BLOCKING_CHECKS = {"entity_grounding"}
+GATE_ERROR_BLOCKS = True
+# Artifacts whose proper names must be grounded in the source for the BLOCKING
+# entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
+# was calibrated on abstract prose (0 false positives across 3 real runs, and it
+# catches the shipped 'Luciano Malorni'). Synthesized artifacts (blog, themes,
+# topics, key-terms) carry Title-Case HEADINGS and CONCEPT phrases the detector
+# can't tell from names ("Key Takeaways", "Role Absorption") — scanning them as a
+# BLOCKER would false-BLOCK good runs (a hard stop). Grounding those needs the
+# semantic judge (M2, deferred), not this lexical detector.
+GATE_ENTITY_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+]
+# Broader set for the WARN-only cross-artifact consistency check (M4.D). A false
+# positive here is advisory noise, not a hard stop, so it can safely scan the
+# synthesized artifacts the BLOCKER above must avoid.
+GATE_CONSISTENCY_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+    SUFFIX_TOPICS,
+    SUFFIX_KEY_TERMS,
+]
 
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a

@@ -146,9 +146,12 @@ class TestHtmlGenerator(unittest.TestCase):
         self.assertIn("Bowen Reference - Differentiation", html)
 
     def test_generate_pdf_logs_missing_weasyprint_dependency(self):
-        with patch.dict("sys.modules", {"weasyprint": None}):
-            with patch.object(html_generator, "setup_logging", return_value=MagicMock()) as mock_setup:
-                ok = html_generator.generate_pdf("Test Title - Test Author - 2025-01-01")
+        # Bypass the M1 release gate to unit-test the weasyprint-missing path in
+        # isolation (the gate has its own tests in tests/test_release_gate.py).
+        with patch.object(html_generator.release_gate, "publish_allowed", return_value=True):
+            with patch.dict("sys.modules", {"weasyprint": None}):
+                with patch.object(html_generator, "setup_logging", return_value=MagicMock()) as mock_setup:
+                    ok = html_generator.generate_pdf("Test Title - Test Author - 2025-01-01")
 
         assert ok is False
         mock_setup.return_value.error.assert_called()

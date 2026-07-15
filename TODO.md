@@ -188,6 +188,29 @@ advisory); Bowen within-file dedup; `html_generator` 2-vs-3 tuple crash (+ sibli
   the now-flagged fabricated "Luciano Malorni" (abstract). F4's detector catches the
   fabrication; consistency across artifacts is not enforced.
 
+## Phase 1 (unattended-robustness spec) — known limitations of the release gate
+
+The fail-closed release gate (M1/M4/M7) is in. `learning-qa` reviewed the diff;
+its findings were fixed except these two, kept as honest limitations:
+
+- **F2 — the entity blocker only catches MULTI-WORD Latin names.** A single-word
+  fabricated surname ("Malorni" alone), an ALL-CAPS acronym/org, initials
+  ("J. Ewing"), or a non-Latin-script name slip through `find_ungrounded_names`
+  (`abstract_validation.py`) and publish silently. It caught the actual shipped
+  "Luciano Malorni" (multi-word). Broadening to single-word/acronym would flag
+  every capitalized word — the real fix is the semantic judge (M2, deferred). U2
+  is therefore only met for the multi-word subset (already stated in the spec).
+- **F5 — the run manifest is not wired into the live publish path.** The M7
+  manifest is produced by `release_gate.gate_and_report` / the `release_gate.py`
+  CLI, but the GUI/CLI publish flow calls `publish_allowed` (marker only, no
+  manifest). So a normal publish leaves a PUBLISH-BLOCKED marker on BLOCK but no
+  manifest, and a manifest produced later reflects a *second* gate run (TOCTOU).
+  Also each publish runs the gate 3× (webpage/pdf/package) independently. Wire a
+  single `gate_and_report` call into the pipeline orchestrator (once, after all
+  artifacts exist, before publish) and have the guards read that decision — a
+  task for when the orchestration layer (M?) is touched. Core safety (BLOCK -> no
+  bundle, stale bundle quarantined) does not depend on the manifest.
+
 ## Phase 0 (unattended-robustness spec) — product decisions surfaced
 
 Raised while resolving the pre-existing red tests (M8.B). Each is xfail-annotated

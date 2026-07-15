@@ -203,6 +203,9 @@ def test_generate_webpage_uses_yaml_when_formatted_missing(tmp_path, monkeypatch
         return "<html>ok</html>"
 
     monkeypatch.setattr(html_generator, "_generate_html_page", fake_generate_html_page)
+    # Isolate from the M1 release gate (its synthetic Title-Case labels read as
+    # ungrounded names); the gate is covered by tests/test_release_gate.py.
+    monkeypatch.setattr(html_generator.release_gate, "publish_allowed", lambda *a, **k: True)
 
     ok = html_generator.generate_webpage(base_name)
 

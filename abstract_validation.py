@@ -35,13 +35,19 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     ``config.ABSTRACT_NAME_TOKEN_MIN_LEN``) fuzzy-matches some token in the
     source. Fuzzy matching (ratio >= ``config.ABSTRACT_NAME_FUZZY_MIN``) spares
     ASR spelling normalizations (e.g. "Bertoloso" -> "Bertolaso") while still
-    catching a fabricated name whose tokens appear nowhere in the source. This is
-    an ADVISORY signal: no validator checked abstract proper-name grounding, and
-    a real run shipped the hallucinated "Luciano Malorni" (for the person the
-    source only ever calls "Bertoloso") into the published HTML.
+    catching a fabricated name whose tokens appear nowhere in the source. Matches
+    Latin-accented names ("José García") as well as ASCII.
+
+    KNOWN GAPS (this is a lexical check — a real fix is the semantic judge, M2):
+    it only detects a MULTI-WORD Title-Case shape, so a single-word surname
+    ("Malorni" alone), an ALL-CAPS acronym/org ("ACME"), initials ("J. Ewing"),
+    and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
+    (multi-word); adjacent fabrication shapes remain uncovered.
     """
+    # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
+    name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
     source_tokens = {
-        t for t in re.findall(r"[A-Za-z]+", transcript.lower())
+        t for t in re.findall(r"[a-zà-öø-ÿ]+", transcript.lower())
         if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
     }
 
@@ -57,7 +63,7 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
 
     ungrounded: list[str] = []
     seen: set[str] = set()
-    for name in re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", abstract):
+    for name in re.findall(rf"\b{name_word}(?:\s+{name_word})+\b", abstract):
         if name in seen:
             continue
         seen.add(name)
