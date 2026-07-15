@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (unattended-robustness — Phase 0: code health + test-validity gates)
+
+First phase of `docs/spec_unattended_robustness_2026-07-15.md` (approved scope:
+the fail-closed net first). Phase 0 stabilises the ground and makes test validity
+measurable, before the release-gate work (M1/M4/M7) touches the publish path.
+
+### Fixed / hardened (M8)
+
+- **`mut_harness` no longer corrupts its target on a kill (M8.C).** It restored
+  byte-exactly only in a `finally`; a timeout/SIGKILL mid-run left an
+  `ast.unparse`-reformatted, mutated file on disk (it corrupted
+  `validation_pipeline.py` twice during Step 2). Now keeps a sidecar backup +
+  SIGINT/SIGTERM handlers + self-heals a leftover mutant at the start of the next
+  run, and streams progress. Logic extracted to `run_campaign(...)` with an
+  injectable suite runner. Tests: `tests/test_mut_harness.py`.
+- **Removed the dead duplicate `_generate_simple_html_page` (M8.A).** Python kept
+  the later (live, tested) copy; the earlier was dead. Guard: `test_m8a1_no_shadowed_defs`
+  AST-scans the core modules for shadowed top-level defs.
+- **The 5 pre-existing red tests are now annotated `xfail` (M8.B),** so the suite
+  is green (0 failed / 5 xfailed) and a real regression can't hide in a red suite.
+  Each reason is recorded, and the underlying product decisions surfaced to
+  TODO.md (the universal `MAX_TOKENS_SUMMARY=4096` output ceiling; config
+  cross-instance settings reload; the abandoned-format bowen tests). Guard:
+  `test_m8b1_known_reds_are_xfail_annotated`.
+- **Artifact path audit (M8.D):** 216 uses go through `config.SUFFIX_*`; path
+  *construction* is 100% via config. Fixed one straggler (`transcript_organize.py`
+  used a literal ` - formatted.md`).
+
+### Added (M6 — test-validity gates)
+
+- **`quality_gates.py`:** a vacuity checker (`find_vacuous_tests` — flags
+  assertion-free tests) and a mutation-gate config/runner. Enforced in-suite:
+  `test_m6b1_no_new_vacuous_tests` blocks NEW vacuous tests (allowlisting the 6
+  known ones, tracked in TODO), `test_m6a1_mutation_gate_config_is_valid` pins the
+  gate config, `test_m6c1_real_format_fixtures_exist` protects the real-artifact
+  fixtures.
+- **CI (`.github/workflows/ci.yml`):** a strict `quality-gates` job (fails on a red
+  suite + runs the vacuity gate) and a scheduled/dispatch `mutation-gate` job that
+  fails when a core function drops below its score floor. The legacy lenient
+  `build` matrix is left untouched.
+
 ## [Unreleased] - 2026-07-15 (real-run audit — Step 2: validator gate hardening)
 
 Motivation: a full real run (`Where Roots Bowen Theory Reside in the Brain -

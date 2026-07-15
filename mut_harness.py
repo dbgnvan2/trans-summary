@@ -10,6 +10,7 @@ Usage: python mut_harness.py <module.py> <func1,func2,...>
 import ast
 import copy
 import json
+import signal
 import subprocess
 import sys
 import time
@@ -159,44 +160,95 @@ def run_suite():
         return False  # timeout == killed (mutant broke something)
 
 
-def main():
-    modpath = REPO / sys.argv[1]
-    names = set(sys.argv[2].split(","))
-    src = modpath.read_text()
-    orig = src
+def _sidecar_path(modpath: Path) -> Path:
+    """On-disk backup of the target's original bytes, used for crash/kill recovery."""
+    return Path(modpath).with_name(Path(modpath).name + ".mutbak")
+
+
+def run_campaign(modpath, names, suite_fn, stream=print):
+    """Run the mutation campaign against ``modpath``, restoring it byte-for-byte.
+
+    The target is restored to its original bytes on normal completion, on an
+    exception mid-run, and — via a sidecar backup — self-healed at the START of a
+    later run if a previous run was killed (SIGKILL) before it could restore. This
+    is why the harness can no longer leave an ``ast.unparse``-reformatted, mutated
+    file on disk (the footgun that corrupted validation_pipeline.py twice).
+
+    ``suite_fn() -> bool`` returns True when the suite is still green (mutant
+    SURVIVED). It is injected so tests can run the campaign without pytest.
+    """
+    modpath = Path(modpath)
+    bak = _sidecar_path(modpath)
+    # Self-heal: a leftover sidecar means a prior run was killed mid-mutation and
+    # the file on disk is a corrupt/reformatted mutant — restore the good bytes
+    # BEFORE reading them as "original".
+    if bak.exists():
+        stream(f"self-heal: restoring {modpath.name} from leftover {bak.name}", flush=True)
+        modpath.write_bytes(bak.read_bytes())
+    orig = modpath.read_bytes()
+    bak.write_bytes(orig)
+    src = orig.decode("utf-8")
     n = len(count_ops(ast.parse(src), names))
     found = {fn.name for fn in _target_funcs(ast.parse(src), names)}
     missing = names - found
-    print(f"module={sys.argv[1]} funcs_found={sorted(found)} missing={sorted(missing)} mutants={n}")
+    stream(f"module={modpath.name} funcs_found={sorted(found)} "
+           f"missing={sorted(missing)} mutants={n}", flush=True)
     survived = []
     killed = 0
     t0 = time.time()
     try:
         for k in range(n):
-            tree = ast.parse(orig)
+            tree = ast.parse(src)
             desc = apply_kth(tree, names, k)
             if desc is None:
                 continue
             try:
                 mutated = ast.unparse(tree)
             except Exception as e:
-                print(f"  [{k}] unparse-fail {e}")
+                stream(f"  [{k}] unparse-fail {e}", flush=True)
                 continue
-            modpath.write_text(mutated)
-            still_green = run_suite()
-            if still_green:
+            modpath.write_text(mutated, encoding="utf-8")
+            if suite_fn():
                 survived.append(desc)
-                print(f"  SURVIVED [{k}/{n}] {desc}")
+                stream(f"  SURVIVED [{k}/{n}] {desc}", flush=True)
             else:
                 killed += 1
+                stream(f"  killed   [{k}/{n}] {desc}", flush=True)
     finally:
-        modpath.write_text(orig)
+        modpath.write_bytes(orig)
+        bak.unlink(missing_ok=True)
     dt = time.time() - t0
-    out = {"module": sys.argv[1], "mutants": n, "killed": killed,
-           "survived": survived, "score": round(killed / n, 3) if n else None,
-           "seconds": round(dt, 1)}
+    return {"module": modpath.name, "mutants": n, "killed": killed,
+            "survived": survived, "score": round(killed / n, 3) if n else None,
+            "seconds": round(dt, 1)}
+
+
+def _stream(*args, flush=False, **kwargs):
+    """print() that always flushes, so progress streams instead of buffering."""
+    print(*args, flush=True, **kwargs)
+
+
+def main():
+    modpath = REPO / sys.argv[1]
+    names = set(sys.argv[2].split(","))
+    bak = _sidecar_path(modpath)
+
+    def _restore_and_exit(signum, _frame):
+        # Graceful SIGINT/SIGTERM: put the good bytes back before dying so a
+        # Ctrl-C / timeout never leaves a mutated file on disk.
+        if bak.exists():
+            modpath.write_bytes(bak.read_bytes())
+            bak.unlink(missing_ok=True)
+        print(f"\n[mut_harness] signal {signum}: restored {modpath.name}, exiting",
+              flush=True)
+        sys.exit(130)
+
+    signal.signal(signal.SIGINT, _restore_and_exit)
+    signal.signal(signal.SIGTERM, _restore_and_exit)
+
+    out = run_campaign(modpath, names, run_suite, stream=_stream)
     Path(f"/tmp/mut_{modpath.stem}.json").write_text(json.dumps(out, indent=2))
-    print(json.dumps(out, indent=2))
+    print(json.dumps(out, indent=2), flush=True)
 
 
 if __name__ == "__main__":

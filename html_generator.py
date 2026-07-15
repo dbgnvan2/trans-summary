@@ -263,29 +263,6 @@ def _generate_html_page(base_name, formatted_content, metadata, summary, bowen_r
     return template.render(context)
 
 
-def _generate_simple_html_page(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
-    """Generate simple HTML page using Jinja2 template."""
-    meta = parse_filename_metadata(base_name)
-
-    # Prepare template context
-    context = {
-        "meta": meta,
-        "formatted_content": formatted_content,
-        "abstract_html": markdown_to_html(metadata["abstract"]),
-        "summary_html": markdown_to_html(summary),
-        "topics_html": markdown_to_html(metadata["topics"]),
-        "themes_html": markdown_to_html(metadata["themes"]),
-        "key_terms_html": _format_key_terms(metadata.get("key_terms")),
-        "bowen_html": _format_ref_list(bowen_refs),
-        "emphasis_html": _format_ref_list(emphasis_items),
-        "common_css": COMMON_CSS,
-    }
-
-    # Render template
-    template = template_env.get_template("simple_webpage.html")
-    return template.render(context)
-
-
 def _generate_pdf_html(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
     """Generate PDF-ready HTML using Jinja2 template."""
     meta = parse_filename_metadata(base_name)

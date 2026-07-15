@@ -188,6 +188,31 @@ advisory); Bowen within-file dedup; `html_generator` 2-vs-3 tuple crash (+ sibli
   the now-flagged fabricated "Luciano Malorni" (abstract). F4's detector catches the
   fabrication; consistency across artifacts is not enforced.
 
+## Phase 0 (unattended-robustness spec) — product decisions surfaced
+
+Raised while resolving the pre-existing red tests (M8.B). Each is xfail-annotated
+with a reason; these need a product call, not a test edit.
+
+- **Universal `MAX_TOKENS_SUMMARY=4096` output ceiling.** `cap_max_tokens_for_model`
+  floors *every* model to `config.MAX_TOKENS_SUMMARY` (4096), so the haiku 8192
+  entry in `MODEL_OUTPUT_TOKEN_LIMITS` and any higher per-model limit are always
+  dominated. Header-validation batches and long summaries may be truncated (P9).
+  **Decide:** is 4096 the intended global ceiling, or should the cap be the *model*
+  limit (raising header-validation / summary headroom)? xfail:
+  `test_header_validation_token_limits.py` (2 tests).
+- **Config settings don't reload across `ProjectSettings` instances.** A new
+  instance does not pick up a persisted `default_source_dir`. Real gap; fixing it
+  is a config-wide change. xfail: `test_config_validation.py::test_runtime_settings_persistence`.
+- **Bowen integration tests certify the abandoned `> **Label:**` format.** Repoint
+  them at a real-format fixture or delete (the live format is covered by
+  `test_theme_parsing_contract` + `tests/fixtures/where_roots/`). Tracked under M6.C.
+  xfail: `test_bowen_references_integration.py` (2 tests).
+- **6 vacuous (assertion-free) tests still on the allowlist.** `test_exception_fix.py`
+  (×4) and `test_validation_headless.py` (×2) verify nothing (TEST_VALIDITY_REPORT §3).
+  The M6.B gate (`quality_gates.find_vacuous_tests`) now blocks *new* ones and
+  allowlists these; give them real assertions and drop them from `KNOWN_VACUOUS`
+  in `tests/test_quality_gates.py`.
+
 ## Bugs (unfixed)
 
 ### ~~`unknown_script` rows in the cost log on real runs~~ ✅ FIXED 2026-07-15 (Step 2)

@@ -32,10 +32,11 @@ def get_all_base_names():
         for f in config.SOURCE_DIR.glob("*.txt"):
             base_names.add(f.stem)
 
-    # Check formatted (in case source was moved)
+    # Check formatted (in case source was moved). Use the config suffix constant
+    # as the single source of truth for the artifact name (M8.D).
     if formatted_dir.exists():
-        for f in formatted_dir.glob("* - formatted.md"):
-            base_names.add(f.name.replace(" - formatted.md", ""))
+        for f in formatted_dir.glob(f"*{config.SUFFIX_FORMATTED}"):
+            base_names.add(f.name.replace(config.SUFFIX_FORMATTED, ""))
 
     return sorted(list(base_names))
 

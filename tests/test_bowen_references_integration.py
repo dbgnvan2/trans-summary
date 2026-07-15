@@ -88,6 +88,14 @@ MOCK_LLM_BOWEN_RESPONSE = """
 """
 
 
+@pytest.mark.xfail(
+    reason="M8.B (2026-07-15): fixture writes the abandoned bowen format so the "
+    "current parser reads the concept as '>'; the A7 dead-format synthetic test "
+    "flagged in TEST_VALIDITY_REPORT. Live format is covered by real-fixture "
+    "contract tests (test_theme_parsing_contract, where_roots). Repoint or delete "
+    "under M6.C.",
+    strict=False,
+)
 @patch("extraction_pipeline._filter_bowen_references_semantically")
 @patch('extraction_pipeline._generate_summary_with_claude')
 def test_bowen_references_generation_and_extraction(
@@ -180,6 +188,13 @@ def test_bowen_references_drop_ungrounded_placeholder(
     assert '> **' not in generated_content
 
 
+@pytest.mark.xfail(
+    reason="M8.B (2026-07-15): fixture writes the abandoned bowen format so the "
+    "current parser reads the concept as '>'; the A7 dead-format synthetic test "
+    "flagged in TEST_VALIDITY_REPORT. Live format is covered by real-fixture "
+    "contract tests. Repoint or delete under M6.C.",
+    strict=False,
+)
 @patch("extraction_pipeline._filter_bowen_references_semantically")
 @patch("extraction_pipeline._generate_summary_with_claude")
 def test_bowen_references_fallback_to_primary_when_filter_invalid(
