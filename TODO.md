@@ -20,11 +20,12 @@ report: `TEST_VALIDITY_REPORT.md`. Harness: `mut_harness.py`.
   `validation_pipeline` 24%→27%.
 
 ### Open follow-ups (test debt)
-- **`validate_key_terms_fidelity` tier thresholds still unpinned.** The `0.50 / 0.90 /
-  0.80 / 0.35` term-ratio/def-support cutoffs survive mutation — pinning them needs a
-  disk-fixture integration test (build a project dir with a key-terms artifact + formatted
-  transcript, assert EXACT/PARTIAL/WEAK/FAIL tiers on known inputs). Only the fail-closed
-  no-terms path and the FAIL direction are currently pinned.
+- ~~**`validate_key_terms_fidelity` tier thresholds still unpinned.**~~ ✅ FIXED
+  2026-07-15 (Step 2). The `0.50 / 0.90 / 0.80 / 0.35` cutoffs are promoted to
+  `config.KEY_TERMS_*` and pinned by a real-artifact disk-fixture test
+  (`test_f1_keyterms_real_run_tiers_pinned`: EXACT==8 / FAIL==2 on the real run).
+  A new LOCAL def-grounding floor (`KEY_TERMS_DEF_LOCAL_MIN`) closes the
+  swapped-definition false-pass and is pinned by `test_f1_keyterms_swapped_definition_not_exact`.
 - **Remaining low mutation scores.** Even after Step 1, `summary_validation` (28%) and
   `validation_pipeline` (27%) leave the medium-tier coverage branch (`match_count>=1 or
   ratio>=0.2`), word-allocation math, and `check_proportionality` internals untested.
@@ -155,15 +156,47 @@ format-drift trigger); `extract_section("Lenses (Ranked)")` regex miss (sibling 
 
 ---
 
+## Real-run audit (2026-07-15) — Step 2: validator gate hardening ✅
+
+Audited a full real run (`Where Roots Bowen Theory Reside in the Brain - Michael
+Kerr - 2022-02-18`) against its source; re-ran the deterministic validators on the
+real artifacts in both directions. See CHANGELOG.md (Step 2) + LEARNINGS.md.
+
+**Fixed:** emphasis 15-word blindspot → head+tail match + real return bool (also
+fixed a pre-existing false-negative); key-terms definition proxy → added local
+grounding (`_best_local_grounding`) + downgrade-with-warning + thresholds promoted
+to `config.*` and pinned; abstract fabricated-name detector (`find_ungrounded_names`,
+advisory); Bowen within-file dedup; `html_generator` 2-vs-3 tuple crash (+ sibling
+`format_ref_list`); `unknown_script` named loggers (5 sites). Tests:
+`tests/test_validator_gate_hardening.py`, fixtures `tests/fixtures/where_roots/`.
+
+**Adjacent issues (flagged by learning-qa review, not fixed — rule 10):**
+- **Dead duplicate `_generate_simple_html_page`.** `html_generator.py` defines it
+  twice (~line 266 dead-shadowed, ~line 642 live); the first is unreachable. Pre-existing.
+- **`_best_local_grounding` re-normalizes the whole transcript per key term.**
+  N terms × full-transcript `normalize_text` — fine at current scale (sub-second on
+  ~11k words × 10 terms) but hoist `norm_tokens` out of the per-term path if it ever bites.
+
+**Still open (generation-side, lower priority):**
+- **Emphasis timestamps drift from the quote's real location.** Several items carry
+  a timestamp for the wrong block (e.g. the mass-energy quote tagged `00:18:06`,
+  actually ~`00:20:04`; a Rediger-book quote tagged `00:48:10`, actually ~`01:24`).
+  Quotes are verbatim; the citation is wrong. This is in emphasis *generation*, not
+  the validator. Consider deriving/validating the timestamp from the matched span.
+- **Cross-artifact name inconsistency.** The same unnamed person is "Bertoloso"
+  (topics, faithful to source ASR), "Bertolaso" (structural themes, corrected), and
+  the now-flagged fabricated "Luciano Malorni" (abstract). F4's detector catches the
+  fabrication; consistency across artifacts is not enforced.
+
 ## Bugs (unfixed)
 
-### `unknown_script` rows in the cost log on real runs
-Some pipeline API calls log token usage with a nameless logger, so
-`logs/token_usage.csv` and the token-usage report show `unknown_script` rows in
-**real (non-test) runs** (5 such calls in the KCFC run). The *test*-side
-pollution is already fixed (autouse `LOGS_DIR` redirect in `conftest.py`); this
-is the real-run case. **Fix:** give those pipeline steps a named logger
-(`setup_logging("<step>")`). Ref: `transcript_utils.py` ~`getattr(logger,'name','unknown_script')`.
+### ~~`unknown_script` rows in the cost log on real runs~~ ✅ FIXED 2026-07-15 (Step 2)
+Five API calls logged token usage with a nameless logger → `unknown_script` rows in
+**real runs**. Fixed: `abstract_pipeline` (×2), `summary_pipeline`,
+`transcript_extract_terms`, `transcript_audit_voice` now pass a named logger.
+Tests: `test_validator_gate_hardening.py::test_extract_terms_passes_named_logger`,
+`::test_audit_voice_passes_named_logger`. (Abstract/summary sites pass the module
+logger directly.)
 
 ### Emphasis saver doesn't sanitize `"` inside quote/concept text *(pre-existing)*
 Unlike `_format_bowen_refs` (which maps `"`→`'`), the emphasis save block writes
@@ -180,8 +213,8 @@ or a string) would `AttributeError` on the first `.get`. Ref: `config.py` `_load
 Worth a dedicated pass; none related to the validator/estimator/Bowen fixes.
 
 - `test_config_validation.py::test_runtime_settings_persistence` — config singleton doesn't reload across instances (SOURCE_DIR).
-- `test_html_generation.py::test_highlighting_logic` — highlight tuple unpack (`expected 3, got 2`).
-- `tests/test_html_generator.py::` `test_generate_simple_html_page_structure`, `test_highlight_html_content_basic`, `test_highlight_html_content_exact_word_match` — HTML highlighting.
+- ~~`test_html_generation.py::test_highlighting_logic` — highlight tuple unpack (`expected 3, got 2`).~~ ✅ FIXED 2026-07-15 (Step 2).
+- ~~`tests/test_html_generator.py::` `test_generate_simple_html_page_structure`, `test_highlight_html_content_basic`, `test_highlight_html_content_exact_word_match` — HTML highlighting.~~ ✅ FIXED 2026-07-15 (Step 2): both `_highlight_html_content` and `format_ref_list` now tolerate 2-/3-tuples.
 - `tests/test_header_validation_token_limits.py::` `test_validate_batch_caps_tokens_for_haiku`, `test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown` — token-cap logic.
 - `tests/test_bowen_references_integration.py::` `test_bowen_references_generation_and_extraction`, `test_bowen_references_fallback_to_primary_when_filter_invalid` — Bowen integration (may now behave differently after the Bowen fixes — recheck when investigating).
 

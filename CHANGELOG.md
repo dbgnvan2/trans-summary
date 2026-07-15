@@ -2,6 +2,82 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (real-run audit — Step 2: validator gate hardening)
+
+Motivation: a full real run (`Where Roots Bowen Theory Reside in the Brain -
+Michael Kerr - 2022-02-18`) was audited against its source transcript, and the
+deterministic validators were **re-run with current code** on the real
+artifacts, in both directions (good output must PASS; deliberately degraded
+output must be FLAGGED). Several gates could be fooled or crashed. All validators
+here are advisory (their return value drives a human-reviewed report, not a hard
+pipeline gate), so a false PASS misleads the reviewer rather than auto-shipping —
+but that report is the reviewer's signal. Findings report + method:
+`scratchpad` audit notes; fixtures: `tests/fixtures/where_roots/` (real artifacts).
+
+### Fixed (validator false-PASS / crash)
+
+- **Emphasis validator only matched the first 15 words of each quote (P2/P9).**
+  A quote with a verbatim opening and a fabricated tail passed silently (verified:
+  a "…vaccines cause autism which Bowen never said" tail was accepted). It now
+  probes BOTH the head and tail of every quote (`_emphasis_quote_found_ratio`,
+  `config.EMPHASIS_HEADTAIL_WORDS`) and returns a real pass/fail bool instead of
+  `None`. Side effect: fixed a pre-existing false-NEGATIVE (a genuine "Liking,
+  that is pleasure…" quote that reflow made the 15-word match miss) — the real
+  run now validates 100%. `validation_pipeline.validate_emphasis_items`.
+- **Key-terms definition check was a gameable proxy (P7).** Definition support
+  measured keyword overlap with the WHOLE transcript, so a definition describing
+  the *wrong* concept still scored EXACT (verified: Homeostasis's definition
+  swapped for the reward/salience-network definition → 0.87 → EXACT). It now also
+  requires LOCAL grounding — overlap in the transcript window around where the
+  term actually appears (`_best_local_grounding`,
+  `config.KEY_TERMS_LOCAL_WINDOW_WORDS` / `KEY_TERMS_DEF_LOCAL_MIN`). Calibrated
+  on the real run: valid definitions ≥0.54 local, swapped/off-topic ≤0.13. A
+  grounded term whose definition fails the local check is downgraded from
+  EXACT/PARTIAL to WEAK with a loud warning (P2). The 0.50/0.80/0.90/0.35 tier
+  thresholds are promoted to `config.*` and pinned by a real-artifact test.
+- **`_highlight_html_content` and `format_ref_list` crashed on 2-tuples (P19).**
+  Loaders now emit 3-tuples `(label, quote, timestamp)`, but some callers still
+  pass 2-tuples → `ValueError: not enough values to unpack`
+  (`html_generator.py:531`). Both consumers now tolerate 2- and 3-tuples; the
+  simple-page generator reuses the correct module-level `_format_ref_list`
+  (which renders the timestamp) instead of a stale nested 2-tuple-only copy.
+  Fixes 4 pre-existing red tests.
+
+### Added (checks for previously-unguarded quality dimensions)
+
+- **Abstract proper-name grounding (advisory, P2).** No gate checked abstract
+  proper names; a real run fabricated a researcher name ("Luciano Malorni", for
+  the person the source only ever calls "Bertoloso") and it shipped into the
+  published HTML. `abstract_validation.find_ungrounded_names` flags multi-word
+  Title-Case names whose tokens appear nowhere in the source (fuzzy-tolerant of
+  ASR spelling normalization); surfaced as a warning + a line in the abstract
+  validation report.
+- **Bowen reference de-duplication (P2).** `load_bowen_references` returned the
+  same quote twice when the model listed it under two concepts (real run: 5
+  listed, 4 unique). It now dedupes by normalized quote text and logs what it
+  dropped.
+- **`tests/test_validator_gate_hardening.py` (18 tests)** — real-artifact
+  contract + adversarial + edge-case tests for every fix above, each failing on
+  the old code and asserting intended behavior (not a snapshot).
+
+A `learning-qa` second-pass review of the diff caught two follow-ups that were
+fixed before commit: (1) the key-terms local check located the term with *exact*
+contiguous matching while `term_ratio` uses *fuzzy* matching, which would falsely
+demote a legitimately-grounded multi-word term whose transcript form is
+reordered/hyphenated (P19 #9) — the locator now uses a flat normalized token
+stream and an unlocatable term gets the benefit of the doubt (no downgrade,
+no warning), so the downgrade fires only when the term *was* located and the
+definition still fails locally; (2) Bowen dedup now MERGES the duplicate's
+concept label into the kept entry (`"A; B"`) instead of dropping it, so no
+concept association is lost from the highlighter.
+
+### Fixed (token-usage log hygiene)
+
+- **Five API call sites logged token usage as `unknown_script`** on real runs
+  (`abstract_pipeline` ×2, `summary_pipeline`, `transcript_extract_terms`,
+  `transcript_audit_voice`). Each now passes a named logger so the cost log
+  records the real step.
+
 ## [Unreleased] - 2026-07-15 (test-validity audit — Step 1: broken tests + validator hardening)
 
 Motivation: a green 300+ test suite kept shipping critical bugs. A test-validity

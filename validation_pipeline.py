@@ -23,6 +23,7 @@ from transcript_utils import (
     extract_section,
     find_text_in_content,
     load_project_transcript,
+    normalize_text,
     parse_filename_metadata,
     parse_scored_emphasis_output,
     setup_logging,
@@ -209,6 +210,46 @@ def _load_key_terms_for_validation(base_name: str) -> list[tuple[str, str]]:
     return []
 
 
+def _best_local_grounding(definition: str, term: str, transcript: str) -> Optional[float]:
+    """
+    Local grounding of a definition: the best keyword overlap of the definition
+    over transcript windows centred on each occurrence of the term (or an alias
+    part). Returns None when the term is not found in the transcript at all.
+
+    Global overlap with the whole transcript barely discriminates — almost any
+    on-topic text scores high — so a definition that describes the WRONG concept
+    still passed (verified on a real run: a swapped, transcript-vocabulary
+    definition scored 0.87 globally and validated EXACT). Local grounding drops
+    sharply for a swapped/off-topic definition because its keywords are not near
+    where the term is actually discussed (valid >=0.54 vs swapped <=0.13 on the
+    calibration run).
+    """
+    window = config.KEY_TERMS_LOCAL_WINDOW_WORDS
+    parts = [
+        p.strip()
+        for p in re.split(r"[/()]|\bversus\b|\bvs\b|\band\b", term)
+        if len(p.strip()) > 3
+    ] or [term]
+    # Normalise the WHOLE transcript once, then split — so a hyphenated/compound
+    # occurrence ("self-differentiation") tokenises the same way as the term
+    # ("self differentiation") and the contiguous match can find it. (Per-word
+    # normalisation kept "self differentiation" as one element and never matched.)
+    norm_tokens = normalize_text(transcript, aggressive=True).split()
+    best: Optional[float] = None
+    for part in parts:
+        part_norm = normalize_text(part, aggressive=True).split()
+        if not part_norm:
+            continue
+        span = len(part_norm)
+        for i in range(len(norm_tokens) - span + 1):
+            if norm_tokens[i:i + span] == part_norm:
+                lo = max(0, i - window)
+                hi = min(len(norm_tokens), i + span + window)
+                g = _keyword_grounding_ratio(definition, " ".join(norm_tokens[lo:hi]))
+                best = g if best is None else max(best, g)
+    return best
+
+
 def validate_key_terms_fidelity(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -246,8 +287,8 @@ def validate_key_terms_fidelity(
         "",
         f"Validated terms: {len(terms)}",
         "",
-        "| Term | Term Match | Definition Support | Result |",
-        "|---|---:|---:|---|",
+        "| Term | Term Match | Definition Support | Def Locality | Result |",
+        "|---|---:|---:|---:|---|",
     ]
 
     for term, definition in terms:
@@ -265,27 +306,51 @@ def validate_key_terms_fidelity(
         # never verbatim. Requiring a verbatim definition match failed 100% of
         # valid terms (a false-negative that this validator previously produced).
         def_support = _keyword_grounding_ratio(definition, transcript)
+        # def_support alone is a gameable proxy: overlap with the WHOLE transcript
+        # is high for almost any on-topic text, so a definition describing the
+        # wrong concept still scored EXACT (P7). Also require LOCAL grounding —
+        # overlap in the window around where the term actually appears.
+        def_local = _best_local_grounding(definition, term, transcript)
+        # Benefit of the doubt when the term can't be localised at all: term_ratio
+        # (fuzzy) may ground a term that the exact-sequence locator can't pin
+        # (reordered/compound wording). Only DOWNGRADE when we DID locate the term
+        # and the definition still fails the local floor — otherwise a legitimate
+        # multi-word term would be silently demoted (P19 checklist #9).
+        local_ok = def_local is None or def_local >= config.KEY_TERMS_DEF_LOCAL_MIN
 
         # The TERM must be grounded in the transcript to count at all; the
         # definition is a synthesized paraphrase and only refines the tier. An
         # ungrounded term FAILs even when its definition shares topical
         # vocabulary — otherwise a hallucinated term with a plausible on-topic
         # definition would sneak through as WEAK (P7).
-        if term_ratio < 0.50:
+        if term_ratio < config.KEY_TERMS_TERM_FAIL_BELOW:
             result = "FAIL"
             failed += 1
-        elif term_ratio >= 0.90 and def_support >= 0.50:
+        elif (term_ratio >= config.KEY_TERMS_EXACT_TERM_MIN
+              and def_support >= config.KEY_TERMS_EXACT_DEF_MIN and local_ok):
             result = "EXACT"
             exact += 1
-        elif term_ratio >= 0.80 and def_support >= 0.35:
+        elif (term_ratio >= config.KEY_TERMS_PARTIAL_TERM_MIN
+              and def_support >= config.KEY_TERMS_PARTIAL_DEF_MIN and local_ok):
             result = "PARTIAL"
             partial += 1
         else:
             result = "WEAK"
             weak += 1
+            # Surface (P2) a grounded term whose definition failed the local
+            # check — the likely cause is a definition that does not match its
+            # term, not merely a thin paraphrase.
+            if term_ratio >= config.KEY_TERMS_PARTIAL_TERM_MIN and not local_ok:
+                logger.warning(
+                    "Key term '%s' is grounded but its definition is weakly "
+                    "localized (local=%.2f < %.2f) — the definition may not "
+                    "describe this term.",
+                    term, def_local or 0.0, config.KEY_TERMS_DEF_LOCAL_MIN,
+                )
 
         lines.append(
-            f"| {term} | {term_ratio:.2f} | {def_support:.2f} | {result} |"
+            f"| {term} | {term_ratio:.2f} | {def_support:.2f} | "
+            f"{'n/a' if def_local is None else f'{def_local:.2f}'} | {result} |"
         )
 
     lines.extend(
@@ -483,10 +548,39 @@ def validate_topics_lightweight(
     return failed == 0
 
 
+def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
+    """
+    Grounding ratio for one emphasis quote against the transcript.
+
+    Matches BOTH the head and the tail of the quote (not just the opening words)
+    and returns the WEAKER of the two match ratios. A quote whose first words are
+    verbatim but whose remainder is fabricated therefore scores low (the tail
+    fails) instead of passing on its opening alone. Short quotes (<= 2x the
+    head/tail window) are matched whole. Reflow across timestamp markers in the
+    middle of a long quote is tolerated because only the ends are probed.
+    """
+    words = quote.split()
+    n = config.EMPHASIS_HEADTAIL_WORDS
+    if len(words) <= 2 * n:
+        probes = [quote]
+    else:
+        probes = [" ".join(words[:n]), " ".join(words[-n:])]
+    return min(
+        find_text_in_content(p, formatted_content, aggressive_normalization=True)[2]
+        for p in probes
+    )
+
+
 def validate_emphasis_items(
     formatted_file_path: Path, extracts_summary_path: Path, logger
-):
-    """Validate all emphasis quotes exist in the formatted transcript."""
+) -> bool:
+    """Validate all emphasis quotes exist verbatim in the formatted transcript.
+
+    Returns True when every emphasis quote is grounded (no invalid quote and no
+    parse-drift). Previously matched only the first 15 words of each quote, so a
+    verbatim opening followed by a fabricated tail passed silently (P2/P9); it now
+    probes both ends via ``_emphasis_quote_found_ratio``.
+    """
     formatted_content = formatted_file_path.read_text(encoding="utf-8")
     quotes = _extract_emphasis_quotes_from_file(extracts_summary_path)
 
@@ -498,24 +592,20 @@ def validate_emphasis_items(
         except Exception:
             stem = Path(extracts_summary_path).stem
         scored_path = Path(extracts_summary_path).parent / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
-        if not warn_if_empty_parse(logger, "emphasis quotes", 0, source_path=scored_path):
+        drift = warn_if_empty_parse(logger, "emphasis quotes", 0, source_path=scored_path)
+        if not drift:
             logger.info("No emphasis items to validate (no emphasis artifact present).")
-        return
+        # Content-present-but-parsed-to-nothing is a failure; genuinely absent is not.
+        return not drift
 
     valid_count, partial_count, invalid_count = 0, 0, 0
 
     for label, quote in quotes:
-        # Use only first 15 words for fuzzy matching to avoid issues with long quotes
-        quote_core = " ".join(quote.split()[:15])
+        ratio = _emphasis_quote_found_ratio(quote, formatted_content)
 
-        # Use shared utility instead of local _find_best_match
-        _, _, ratio = find_text_in_content(
-            quote_core, formatted_content, aggressive_normalization=True
-        )
-
-        if ratio >= 0.95:
+        if ratio >= config.EMPHASIS_QUOTE_FOUND_RATIO:
             valid_count += 1
-        elif ratio >= 0.80:
+        elif ratio >= config.EMPHASIS_QUOTE_PARTIAL_RATIO:
             partial_count += 1
         else:
             logger.error("NOT FOUND: %s - Quote: %s...", label, quote[:100])
@@ -531,6 +621,8 @@ def validate_emphasis_items(
     accuracy = (valid_count + partial_count) / \
         len(quotes) * 100 if quotes else 0
     logger.info("  Overall accuracy: %.1f%%", accuracy)
+
+    return invalid_count == 0
 
 
 # ============================================================================
@@ -682,6 +774,23 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         passed, report = abstract_validation.validate_and_report(
             abstract_text, abstract_input, api_client=client, model=model, logger=logger
         )
+
+        # Advisory (P2): surface abstract proper-names absent from the source.
+        # No gate previously checked this, and a real run shipped a fabricated
+        # researcher name ("Luciano Malorni") into the published HTML.
+        ungrounded_names = abstract_validation.find_ungrounded_names(
+            abstract_text, transcript
+        )
+        if ungrounded_names:
+            logger.warning(
+                "Abstract contains %d proper name(s) not grounded in the source "
+                "transcript (possible hallucination): %s",
+                len(ungrounded_names), "; ".join(ungrounded_names),
+            )
+            report += (
+                "\n\nUngrounded names (not found in source — verify): "
+                + "; ".join(ungrounded_names)
+            )
 
         report_path = (
             config.PROJECTS_DIR / base_name /

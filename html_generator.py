@@ -523,6 +523,19 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             lbls.append(label)
             existing[3] = "; ".join(lbls)
 
+    # Tolerate both 2-tuples (label, quote) and 3-tuples (label, quote,
+    # timestamp): loaders now emit the timestamped form, but some callers still
+    # pass the older 2-tuple shape. Pad the missing timestamp with None so the
+    # unpacking below can't raise a ValueError (producer/consumer drift, P19).
+    def _pad_timestamp(items):
+        return [
+            (item[0], item[1], item[2] if len(item) > 2 else None)
+            for item in items
+        ]
+
+    emphasis_items = _pad_timestamp(emphasis_items)
+    bowen_refs = _pad_timestamp(bowen_refs)
+
     tokens = tokenize_html(formatted_html)
     search_text, char_map = build_search_text_and_map(tokens)
     highlights = []
@@ -649,17 +662,11 @@ def _generate_simple_html_page(
     elif metadata.get("key_terms"):
         key_terms_html = f"<p>{escape(str(metadata['key_terms']))}</p>"
 
-    def format_ref_list(items):
-        if not items:
-            return "<p>None found.</p>"
-        html_list = "<ul class='ref-list'>"
-        for label, quote in items:
-            html_list += f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
-        html_list += "</ul>"
-        return html_list
-
-    bowen_html = format_ref_list(bowen_refs)
-    emphasis_html = format_ref_list(emphasis_items)
+    # Reuse the module-level helper, which renders the optional timestamp and
+    # tolerates both 2- and 3-tuples (the stale nested copy here only handled
+    # 2-tuples and crashed on the timestamped shape the loaders now emit).
+    bowen_html = _format_ref_list(bowen_refs)
+    emphasis_html = _format_ref_list(emphasis_items)
 
     # Prepare template context
     context = {

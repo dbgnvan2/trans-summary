@@ -19,10 +19,55 @@ Usage:
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Optional
 
 import config
 from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
+
+
+def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
+    """
+    Return multi-word proper names in the abstract that are NOT grounded in the
+    source transcript.
+
+    A name is grounded when at least one of its significant tokens (length >=
+    ``config.ABSTRACT_NAME_TOKEN_MIN_LEN``) fuzzy-matches some token in the
+    source. Fuzzy matching (ratio >= ``config.ABSTRACT_NAME_FUZZY_MIN``) spares
+    ASR spelling normalizations (e.g. "Bertoloso" -> "Bertolaso") while still
+    catching a fabricated name whose tokens appear nowhere in the source. This is
+    an ADVISORY signal: no validator checked abstract proper-name grounding, and
+    a real run shipped the hallucinated "Luciano Malorni" (for the person the
+    source only ever calls "Bertoloso") into the published HTML.
+    """
+    source_tokens = {
+        t for t in re.findall(r"[A-Za-z]+", transcript.lower())
+        if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+    }
+
+    def _grounded(token: str) -> bool:
+        low = token.lower()
+        if low in source_tokens:
+            return True
+        return any(
+            SequenceMatcher(None, low, s).ratio() >= config.ABSTRACT_NAME_FUZZY_MIN
+            for s in source_tokens
+            if abs(len(s) - len(low)) <= 2
+        )
+
+    ungrounded: list[str] = []
+    seen: set[str] = set()
+    for name in re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", abstract):
+        if name in seen:
+            continue
+        seen.add(name)
+        sig_tokens = [
+            t for t in name.split()
+            if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+        ]
+        if sig_tokens and not any(_grounded(t) for t in sig_tokens):
+            ungrounded.append(name)
+    return ungrounded
 
 QA_OPTIONAL_THRESHOLD = 15
 QA_REQUIRED_THRESHOLD = 30

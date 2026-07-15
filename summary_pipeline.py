@@ -784,6 +784,7 @@ def generate_summary(
         stream=True,
         min_length=2400,  # Ensure substantial summary (~600 words minimum)
         min_words=600,    # Enforce strict minimum of 600 words
+        logger=logger,    # named logger -> real script name in token-usage log
         **kwargs,
     )
 

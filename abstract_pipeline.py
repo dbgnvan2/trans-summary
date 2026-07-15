@@ -252,6 +252,7 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
             max_tokens=200,  # A single sentence should be short
             temperature=0.0,
             min_length=10, # Expect at least a short sentence
+            logger=logger,  # named logger -> real script name in token-usage log
         )
         
         purpose = message.content[0].text.strip()
@@ -464,6 +465,7 @@ def generate_abstract(
         temperature=config.TEMP_BALANCED,
         stream=True,
         min_length=150,  # Ensure substantial abstract
+        logger=logger,  # named logger -> real script name in token-usage log
         **kwargs,
     )
 

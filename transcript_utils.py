@@ -1291,8 +1291,36 @@ def load_bowen_references(base_name: str) -> list:
             for concept, timestamp, quote in pattern.findall(content)
         ]
 
-        if refs:
-            return refs
+        # Dedupe by normalized quote text: the model sometimes emits the SAME
+        # quote under two different concept headers, which inflates any
+        # "N references" count and double-highlights the same span. Keep the
+        # first occurrence and MERGE the later concept label(s) into it (the
+        # highlighter shows a "; "-joined label), so no concept association is
+        # lost — then surface the merge (P2) rather than silently collapsing.
+        seen: dict[str, int] = {}
+        deduped: list[tuple] = []
+        merged = []
+        for concept, quote, timestamp in refs:
+            key = normalize_text(quote, aggressive=True)
+            if key in seen:
+                idx = seen[key]
+                c0, q0, t0 = deduped[idx]
+                labels = [x.strip() for x in c0.split(";") if x.strip()]
+                if concept and concept not in labels:
+                    deduped[idx] = ("; ".join(labels + [concept]), q0, t0)
+                merged.append(concept)
+                continue
+            seen[key] = len(deduped)
+            deduped.append((concept, quote, timestamp))
+        if merged:
+            logging.getLogger('bowen_references').warning(
+                "Merged %d duplicate Bowen reference(s) sharing a quote already "
+                "listed under another concept: %s",
+                len(merged), "; ".join(merged),
+            )
+
+        if deduped:
+            return deduped
 
     return []
 

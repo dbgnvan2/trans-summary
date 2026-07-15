@@ -515,6 +515,39 @@ FUZZY_MATCH_THRESHOLD = 0.85
 FUZZY_MATCH_EARLY_STOP = 0.98
 FUZZY_MATCH_PREFIX_LEN = 20
 
+# Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
+# the opening words), so a quote whose first words are verbatim but whose
+# remainder is fabricated is flagged rather than silently accepted. A quote is
+# "found" only if BOTH ends clear EMPHASIS_QUOTE_FOUND_RATIO; below
+# EMPHASIS_QUOTE_PARTIAL_RATIO on either end it is reported NOT FOUND.
+EMPHASIS_HEADTAIL_WORDS = 12
+EMPHASIS_QUOTE_FOUND_RATIO = 0.95
+EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
+
+# Key-terms definition grounding: the definition is a synthesized paraphrase, so
+# it is checked for topical keyword overlap, never verbatim. Global overlap with
+# the whole transcript barely discriminates (almost any on-topic text scores
+# high), so a definition that describes the WRONG concept still passed. We also
+# require LOCAL grounding: the definition's keywords must overlap the transcript
+# window around where the term actually appears. Calibrated on real runs: valid
+# definitions score >=0.54 locally, a swapped/off-topic definition <=0.13.
+KEY_TERMS_LOCAL_WINDOW_WORDS = 140
+KEY_TERMS_DEF_LOCAL_MIN = 0.30
+# Tier thresholds for validate_key_terms_fidelity (term-grounding / def-support).
+KEY_TERMS_TERM_FAIL_BELOW = 0.50
+KEY_TERMS_EXACT_TERM_MIN = 0.90
+KEY_TERMS_EXACT_DEF_MIN = 0.50
+KEY_TERMS_PARTIAL_TERM_MIN = 0.80
+KEY_TERMS_PARTIAL_DEF_MIN = 0.35
+
+# Abstract proper-name grounding (advisory): a multi-word Title-Case name in the
+# abstract is flagged when none of its significant tokens appears in the source
+# transcript. Fuzzy matching spares ASR spelling normalizations (e.g.
+# "Bertoloso" -> "Bertolaso") while catching a fabricated name whose tokens are
+# absent (verified on a real run: the hallucinated "Luciano Malorni").
+ABSTRACT_NAME_TOKEN_MIN_LEN = 4
+ABSTRACT_NAME_FUZZY_MIN = 0.80
+
 # ============================================================================
 # VALIDATION V2 SETTINGS
 # ============================================================================
