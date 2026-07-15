@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (test-validity audit — Step 1: broken tests + validator hardening)
+
+Motivation: a green 300+ test suite kept shipping critical bugs. A test-validity
+audit (mutation testing + fixture-provenance + vacuity scan + learnings→test map)
+found the suite is strong at pinning already-fixed bugs (all A1–A12 enforced) but
+weak on the *validator decision logic* — mutation score 9% in `summary_validation`,
+24% in `validation_pipeline`. Full write-up: `TEST_VALIDITY_REPORT.md`; harness:
+`mut_harness.py`.
+
+### Fixed (tests that verified nothing)
+
+- **`test_summary_proportionality_warning` crashed before asserting.** It used
+  `unittest.mock.patch` with only `import unittest` (no `unittest.mock`), so it
+  raised `AttributeError` and never reached its assertions — an order-dependent
+  false pass (it only "passed" when another test imported `unittest.mock` first).
+  Added the import; corrected the stale mock (the test preset `item.covered=True`,
+  but `validate_summary_coverage` re-derives coverage via `check_keyword_coverage`,
+  so the item now carries real keywords present in the summary).
+- **`test_summary_evaluative_warning` never ran.** It was indented one level too
+  deep, defined *inside* `test_summary_too_long_warning`, so pytest never collected
+  it. Dedented to a real test method; it passes.
+
+### Added (validator decision-logic regression tests)
+
+- **`tests/test_validator_logic_hardening.py` (15 tests).** Pins the validator
+  logic the mutation pass exposed as unprotected: `required=` integrity of coverage
+  items (speaker/opening/closing/Q&A), the topic required thresholds (`>=10%`
+  summary, `>=15%` abstract), the first-theme-required rule (`i == 0`), the Q&A
+  optional/required bands (15/30), the keyword-coverage count/ratio decision, the
+  lexical grounding ratio, and the fail-closed `validate_key_terms_fidelity` on zero
+  terms. Each assertion is written so the specific surviving mutation would fail it.
+
+### Result
+
+- Mutation score on the audited validator functions: `summary_validation` 9%→28%,
+  `abstract_validation` 36%→50%, `validation_pipeline` 24%→27%. Suite grew by 16
+  real tests (2 revived + 14 net new logic checks) with no regressions.
+
 ## [Unreleased] - 2026-07-14 (P19 contract audit — remaining medians A4/A6/A7/A8/A12)
 
 ### Fixed

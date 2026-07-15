@@ -6,6 +6,40 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## Test-validity audit (2026-07-15) — Step 1 done, follow-ups open
+
+Mutation testing + fixture-provenance + vacuity scan of the whole suite. Full
+report: `TEST_VALIDITY_REPORT.md`. Harness: `mut_harness.py`.
+
+### ✅ FIXED 2026-07-15 (Step 1)
+- Two broken tests in `test_validation_warnings.py`: `test_summary_proportionality_warning`
+  (crashed — `unittest.mock` unimported; stale mock) and `test_summary_evaluative_warning`
+  (mis-indented into the prior method, never collected). Both now run and pass.
+- Added `tests/test_validator_logic_hardening.py` (15 tests) pinning validator decision
+  logic. Mutation score: `summary_validation` 9%→28%, `abstract_validation` 36%→50%,
+  `validation_pipeline` 24%→27%.
+
+### Open follow-ups (test debt)
+- **`validate_key_terms_fidelity` tier thresholds still unpinned.** The `0.50 / 0.90 /
+  0.80 / 0.35` term-ratio/def-support cutoffs survive mutation — pinning them needs a
+  disk-fixture integration test (build a project dir with a key-terms artifact + formatted
+  transcript, assert EXACT/PARTIAL/WEAK/FAIL tiers on known inputs). Only the fail-closed
+  no-terms path and the FAIL direction are currently pinned.
+- **Remaining low mutation scores.** Even after Step 1, `summary_validation` (28%) and
+  `validation_pipeline` (27%) leave the medium-tier coverage branch (`match_count>=1 or
+  ratio>=0.2`), word-allocation math, and `check_proportionality` internals untested.
+- **False-green synthetic format tests.** Several theme/bowen/key-terms tests assert
+  abandoned formats as correct (e.g. `test_summary_pipeline_parsing.py::test_parse_themes_header_format`
+  certifies the A1 `### header`-as-theme bug). Repoint at `tests/fixtures/` real artifacts
+  or delete; they pass only via legacy fallback paths and mask a re-drift.
+- **Vacuous assertion-free tests.** `test_validation_headless.py` (×2) and
+  `test_exception_fix.py` (×4) `print`/`return` instead of asserting; give them real
+  assertions or mark clearly as manual harnesses.
+- **Institutionalize:** add a mutation-score gate on the seven core modules to CI so
+  this cannot silently rot again (coverage % does not detect it).
+
+---
+
 ## P19 contract-audit findings (2026-07-14, step 3)
 
 Multi-agent producer→consumer (prompt → generation → save → parser/validator)
