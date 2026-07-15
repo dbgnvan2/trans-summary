@@ -2,6 +2,114 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-14 (P19 contract audit — remaining medians A4/A6/A7/A8/A12)
+
+### Fixed
+
+- **Abstract closing-conclusion search discarded the closing body (A4, P19).**
+  `extract_closing_conclusion` built the section regex with a *capturing* group
+  `(N|…)`, so `re.findall` returned only section NUMBERS and the conclusion search
+  ran against a string of digits — always failing and returning "No explicit
+  conclusion stated", which silently dropped the required conclusion-coverage check.
+  Made the alternation non-capturing so the body is searched. (The
+  `conclusion_patterns` phrase list is now in `config.ABSTRACT_CONCLUSION_PATTERNS`,
+  rule #9; its narrowness is a tracked recall gap, not a correctness bug.)
+- **`parse_section_range` truncated multi-segment citations (A6, P19).**
+  An anchored `re.match` fired on the leading range and returned only it, so
+  `"7-8, 15, 33-35"` became `[7,8]` — deflating topic section-grounding (the real
+  cause of the `section_mismatch` counts previously mislabelled "cosmetic"). Now
+  expands every comma segment (`re.search`/`findall`, so `"Sections 7-8, 15"` also
+  survives), deduped order-preserving.
+- **Highlight verifier read an abandoned quote format (A7, P19).**
+  `verify_highlights_bs4.load_source_quotes` matched only `> **Label:** "quote"`,
+  returning `[]` on the real `### Concept\n> "quote"` (bowen) and `[meta] Concept:
+  …\n"quote"` (emphasis-scored) artifacts — so the verifier reported a clean pass
+  having checked nothing. Now parses all three formats, resolves the emphasis file to
+  `emphasis-scored.md`, and treats "content present but zero parsed" as a drift error
+  (loud warning + non-zero exit). On the real files: bowen 0→1, emphasis 0→22 quotes.
+- **`top_lens` accepted without grounding (A8, P7).**
+  The theme/lens validation loop accepted the validator's `top_lens` on a truthy-dict
+  gate, never reconciling it to the ranked lenses actually generated, so a
+  paraphrased/hallucinated top lens rode through into the blog. Added
+  `_top_lens_is_grounded` (content-token overlap against the real `N. **Title**`
+  lines); the loop now requires grounding to break and **fails closed after retries**
+  (a `validated` flag — the exhaustion path no longer ships an ungrounded lens).
+- **Abstract word count included the forbidden `# Abstract` header (A12).**
+  `_strip_leading_scaffolding` now drops leading YAML front matter / heading / bold-
+  label lines before the word count and keyword matching, so a header the model emits
+  despite the "no headers" instruction can't tip the length check or the counts.
+
+## [Unreleased] - 2026-07-14 (P19 contract audit — validator pass-on-empty cluster)
+
+### Fixed
+
+- **Header validation reported success on a report containing a real FAIL (A5, P19).**
+  `validate_headers` / `HeaderValidator.run` wrote the report and returned success
+  without ever counting the model's PASS/WARN/FAIL verdicts, and the model's format
+  drift (`**STATUS:** FAIL` vs plain `STATUS: FAIL`) hid the failures from any naive
+  counter. Added `transcript_utils.count_header_verdicts` (drift-tolerant), wired into
+  both producers: a loud warning fires on `FAIL>0` or zero-verdicts-from-non-empty, and
+  the report gets a `## Verdict Summary` header. On the real KCFC report it now surfaces
+  1 FAIL / 5 WARN / 44 PASS (previously a silent pass). Advisory by design — the bool
+  return still means "report generated", consistent with the coverage validators.
+- **Coverage validators reported PASS on an empty required checklist (A9, P19).**
+  `all(item.covered for item in required_items)` is `True` when `required_items == []`,
+  so a summary/abstract whose upstream topics/themes were missing or format-drifted
+  validated as "Required coverage: 0/0 — PASSED". Both `summary_validation` and
+  `abstract_validation` now fail closed (with a warning) when no required items could be
+  derived.
+- **A transient purpose-extraction failure flipped a FAIL into a PASS (A10, P1).**
+  `extract_opening_purpose` returned the same `"manually insert"` sentinel for a genuine
+  absence AND for transient/config failures (no API key, timeout, missing prompt),
+  silently demoting the required purpose check to optional. Transient failures now return
+  a distinct `config.PURPOSE_EXTRACTION_FAILED` sentinel; the validator keeps that check
+  REQUIRED and hard-uncovered (excluded from the LLM rescue pass), so validation cannot
+  pass on an unverified purpose.
+- **An ungroundable coverage item was auto-marked covered='high' (A11, P7).**
+  `check_keyword_coverage` returned `(True, "high")` when an item had zero extractable
+  keywords (e.g. an all-stopword topic name), satisfying required coverage with no
+  grounding. It now returns `(False, "low")` — not auto-passed, but still eligible for
+  the LLM rescue pass / human review (not hard-failed, so a legitimately-covered
+  short-name topic can still be confirmed). Applied to both validators (P5 siblings).
+
+## [Unreleased] - 2026-07-14 (P19 contract audit — theme-parsing cluster)
+
+### Fixed
+
+- **Theme parsers dropped or corrupted every theme on real transcripts (P19 — TODO.md A1/A2/A3).**
+  The extraction stage writes structural/interpretive themes as bold-numbered
+  `**N. Title**` blocks wrapped in `###`/`##` scaffolding (`### Structural Themes
+  (3 total)`, `### Summary Paragraph`). Both consumers gated on `"###"` *first*, so
+  they captured the scaffolding header as the theme name and mashed every real theme
+  into one description blob — `parse_themes_from_extraction` returned **1 bogus theme**
+  from a 3-theme file (abstract), `parse_themes` returned **2 junk entries** from a
+  7-theme file (summary), and `summary_pipeline` had *no* code path that read the real
+  `**N.**` format at all. Both now detect the bold-numbered format first (shared
+  `parse_bold_numbered_theme_blocks` in `transcript_utils.py`), treat `###`-as-theme as
+  a legacy fallback, reject scaffolding names (`is_scaffolding_theme_name`), and log a
+  loud warning when non-empty input parses to zero themes. Verified against the real
+  KCFC artifacts: structural 1→3, interpretive 2→7, with correct per-theme descriptions.
+  Round-trip tests on the real artifacts: `tests/test_theme_parsing_contract.py`
+  (fixtures copied from the real on-disk files, not idealized synthetic samples).
+- **Extraction validity gate passed all-scaffolding structural files (P19 sibling, learning-qa).**
+  `_is_valid_section_content` validated structural themes with a number-outside-bold
+  regex (`1. **X**`) or a bare `###` presence check — so a `structural-themes.md`
+  containing only scaffolding (`### Structural Themes (0 total)`, `### Summary
+  Paragraph`) validated as usable content. It now routes through the format-aware
+  `parse_themes_from_extraction` first and its fallback matches both bold forms.
+  Ref: `extraction_pipeline.py` `_is_valid_section_content`.
+
+### Changed
+
+- **Theme scaffolding labels promoted to config** (`config.THEME_SCAFFOLDING_LABELS`,
+  rule #9 — editorial content out of source). `is_scaffolding_theme_name` narrowed to
+  four deliberately-conservative discriminators (empty / `#`-prefixed / config label /
+  `(N total)` roll-up) after review flagged that a false-positive silently drops one
+  theme without tripping the zero-from-non-empty guard; adversarial tests now assert
+  real titles resembling scaffolding wording survive. Theme-block boundary widened from
+  `#{2,3}` to `#{1,6}` so a stray H1/H4 scaffold can't be swallowed into the last
+  theme's description.
+
 ## [Unreleased] - 2026-07-13 (run-log review, round 2)
 
 ### Fixed

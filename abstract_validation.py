@@ -230,13 +230,26 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
         )
 
     # Purpose coverage
-    if (
+    if abstract_input.opening_purpose == config.PURPOSE_EXTRACTION_FAILED:
+        # A10/P1: purpose extraction failed transiently. We cannot confirm the
+        # abstract covers the purpose, so keep the check REQUIRED and uncoverable
+        # (no keywords) — validation must NOT silently pass on an unverified purpose.
+        items.append(
+            CoverageItem(
+                category="purpose",
+                label="Speaker's stated purpose (extraction FAILED - retry, unverified)",
+                required=True,
+                keywords=[],
+                source_text=abstract_input.opening_purpose,
+            )
+        )
+    elif (
         abstract_input.opening_purpose
         and abstract_input.opening_purpose != "Not explicitly stated"
     ):
         purpose_keywords = extract_keywords(abstract_input.opening_purpose)
 
-        # If purpose extraction failed, this is a warning, not a required item.
+        # A genuine "manually insert" absence (speaker stated no purpose) is optional.
         is_required = "manually insert" not in abstract_input.opening_purpose
 
         items.append(
@@ -310,7 +323,11 @@ def check_keyword_coverage(
     total_keywords = len(item.keywords)
 
     if total_keywords == 0:
-        return True, "high"  # No keywords to check
+        # No keywords to ground on — DO NOT auto-pass (A11/P7). Return low
+        # confidence (not covered) so the item is eligible for the LLM rescue pass
+        # / human review rather than silently satisfied OR hard-failed with no
+        # recovery (a short/stopword topic name legitimately yields no keywords).
+        return False, "low"
 
     match_ratio = match_count / total_keywords
 
@@ -341,8 +358,21 @@ def validate_abstract_coverage(
     """
     items = generate_coverage_items(abstract_input)
 
+    # A12: match keywords against the abstract BODY, not a leading `# Abstract`
+    # header/label the model may have emitted.
+    abstract = _strip_leading_scaffolding(abstract)
+
     # First pass: keyword matching
     for item in items:
+        if item.source_text == config.PURPOSE_EXTRACTION_FAILED:
+            # A10: purpose extraction failed transiently. Cannot verify coverage,
+            # and the sentinel is meaningless to keyword/LLM checks. Mark
+            # hard-uncovered with a DISTINCT confidence so it (a) never auto-passes
+            # and (b) is excluded from the LLM rescue pass below (reserved for
+            # genuinely low-confidence content items — A11).
+            item.covered = False
+            item.confidence = "extraction_failed"
+            continue
         covered, confidence = check_keyword_coverage(abstract, item)
         item.covered = covered
         item.confidence = confidence
@@ -367,7 +397,20 @@ def validate_abstract_coverage(
     required_covered = sum(1 for item in required_items if item.covered)
     optional_covered = sum(1 for item in optional_items if item.covered)
 
-    passed = all(item.covered for item in required_items)
+    if required_items:
+        passed = all(item.covered for item in required_items)
+    else:
+        # No required coverage items could be derived — upstream topics/themes/
+        # purpose/conclusion are missing or format-drifted. `all([]) == True` would
+        # report a clean pass on a validation that checked NOTHING, so fail closed
+        # (A9/P19). Sibling of the summary-coverage guard.
+        passed = False
+        if logger:
+            logger.warning(
+                "validate_abstract_coverage: zero required coverage items derived "
+                "from abstract_input — upstream extraction missing/drifted; refusing "
+                "to report PASS (A9)."
+            )
 
     # Generate human review checklist for failures or low confidence
     needs_review = [
@@ -611,13 +654,34 @@ def validate_and_report(
     return coverage["passed"], "\n".join(report_lines)
 
 
+def _strip_leading_scaffolding(text: str) -> str:
+    """Remove leading YAML front matter and markdown heading/bold-label lines the
+    model sometimes emits despite the prompt's "no headers" instruction (e.g. a
+    leading ``# Abstract``), so they aren't counted as abstract body (A12).
+    """
+    t = (text or "").strip()
+    if t.startswith("---"):
+        end = t.find("\n---", 3)
+        if end != -1:
+            t = t[end + 4:].lstrip()
+    lines = t.split("\n")
+    while lines and (
+        not lines[0].strip()
+        or re.match(r"^\s*#{1,6}\s+", lines[0])          # markdown heading
+        or re.match(r"^\s*\*\*[^*\n]+\*\*\s*$", lines[0])  # bold-only label line
+    ):
+        lines.pop(0)
+    return "\n".join(lines).strip()
+
+
 def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     """
     Structural validation (from original validate_abstract).
     """
     issues = []
     warnings = []
-    word_count = len(abstract.split())
+    # A12: count the abstract BODY, not a forbidden leading `# Abstract` header.
+    word_count = len(_strip_leading_scaffolding(abstract).split())
 
     # Allow 20% tolerance - Now a WARNING
     min_words = int(target_word_count * 0.8)

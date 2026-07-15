@@ -24,8 +24,16 @@ from typing import Optional
 
 import anthropic
 
+import logging
+
 import config
-from transcript_utils import call_claude_with_retry
+from transcript_utils import (
+    call_claude_with_retry,
+    is_scaffolding_theme_name,
+    parse_bold_numbered_theme_blocks,
+)
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -127,26 +135,24 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
 def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     """
-    Parse Interpretive Themes using robust pattern matching.
+    Parse structural/interpretive themes using robust pattern matching.
+
+    Strategy order matters: the real extraction artifact writes bold-numbered
+    ``**N. Title**`` blocks with ``###``/``##`` scaffolding headers around them
+    (``### Structural Themes (3 total)``, ``### Summary Paragraph``). We MUST
+    detect the bold-numbered format first; gating on ``###`` first captured the
+    scaffolding header as the theme name and collapsed every real theme into one
+    blob (P19 — TODO.md A1). ``###``-as-theme is a legacy fallback only.
     """
     themes = []
 
-    def _is_real_theme_name(name: str) -> bool:
-        normalized = name.strip().lower()
-        if not normalized:
-            return False
-        if normalized.startswith("#"):
-            return False
-        if normalized in {
-            "summary paragraph",
-            "summary",
-            "conclusion",
-        }:
-            return False
-        return True
+    # Strategy 1 (PREFERRED): real bold-numbered block format `**N. Title**`.
+    for name, description in parse_bold_numbered_theme_blocks(themes_markdown):
+        themes.append(Theme(name=name, description=description))
 
-    # Strategy 1: Header format (### Theme Name)
-    if "###" in themes_markdown:
+    # Strategy 2 (LEGACY): `### Theme Name` header blocks. Only when no
+    # bold-numbered themes exist — in the real format `###` marks scaffolding.
+    if not themes and "###" in themes_markdown:
         header_blocks = re.finditer(
             r"(?:^|\n)###\s+([^\n]+)\n(.*?)(?=(?:\n###\s+)|\Z)",
             themes_markdown,
@@ -157,41 +163,7 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             description = " ".join(
                 ln.strip() for ln in match.group(2).split("\n") if ln.strip()
             ).strip()
-            if _is_real_theme_name(name) and description:
-                themes.append(Theme(name=name, description=description))
-
-    # Strategy 2: Bold-numbered heading blocks:
-    # **1. Theme Name**
-    if not themes:
-        numbered_blocks = re.finditer(
-            r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n###\s+)|\Z)",
-            themes_markdown,
-            re.DOTALL,
-        )
-        for match in numbered_blocks:
-            name = match.group(2).strip()
-            block = match.group(3).strip()
-            if not _is_real_theme_name(name) or not block:
-                continue
-
-            desc_match = re.search(
-                r"\*\*Description:\*\*\s*(.+?)(?=(?:\n\*\*[A-Z][^:\n]+:\*\*)|\Z)",
-                block,
-                re.DOTALL,
-            )
-            if desc_match:
-                description = " ".join(
-                    ln.strip() for ln in desc_match.group(1).split("\n") if ln.strip()
-                ).strip()
-            else:
-                description = re.sub(r"\*\*[^*\n]+:\*\*\s*", "", block)
-                description = " ".join(
-                    ln.strip()
-                    for ln in description.split("\n")
-                    if ln.strip() and ln.strip() != "---"
-                ).strip()
-
-            if description:
+            if not is_scaffolding_theme_name(name) and description:
                 themes.append(Theme(name=name, description=description))
 
     # Strategy 3: Numbered format
@@ -211,7 +183,7 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             if not line_match:
                 continue
             name = line_match.group(1).strip()
-            if not _is_real_theme_name(name):
+            if is_scaffolding_theme_name(name):
                 continue
             description = f"{line_match.group(2).strip()} {rest.strip()}".strip()
             description = re.sub(
@@ -222,6 +194,15 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             ).strip()
             if name and description:
                 themes.append(Theme(name=name, description=description))
+
+    # P19 guard: non-empty input that parsed to nothing is contract drift, not a
+    # benign empty — surface it loudly rather than silently returning [].
+    if not themes and themes_markdown.strip():
+        logger.warning(
+            "parse_themes_from_extraction: non-empty themes input (%d chars) "
+            "parsed to ZERO themes — producer/consumer format drift (P19).",
+            len(themes_markdown.strip()),
+        )
 
     # Take top 2 themes
     return themes[:2]
@@ -252,14 +233,16 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
         template = prompt_path.read_text(encoding="utf-8")
         prompt = template.replace("{{opening_text}}", opening_text)
     except FileNotFoundError:
-        return "Speakers purpose missing - manually insert"
+        # Deployment/config problem, not "speaker said nothing" — retryable (A10/P1).
+        return config.PURPOSE_EXTRACTION_FAILED
 
     # 3. Call the LLM
     try:
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
-            return "Speakers purpose missing - manually insert"
-        
+            # Config/transient — do NOT masquerade as genuine-absent (A10/P1).
+            return config.PURPOSE_EXTRACTION_FAILED
+
         client = anthropic.Anthropic(api_key=api_key)
         
         message = call_claude_with_retry(
@@ -280,8 +263,9 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
         return purpose
 
     except Exception:
-        # If API call fails for any reason, fall back gracefully
-        return "Speakers purpose missing - manually insert"
+        # Transient API failure (timeout, rate-limit, 5xx) — retryable, not a
+        # genuine absence; keep it distinct so the check isn't silently demoted (A10/P1).
+        return config.PURPOSE_EXTRACTION_FAILED
 
 
 def extract_closing_conclusion(transcript: str, section_count: int) -> str:
@@ -291,19 +275,15 @@ def extract_closing_conclusion(transcript: str, section_count: int) -> str:
     """
     closing_start = section_count - (section_count // 10) or section_count - 1
 
-    # Common conclusion indicators
-    conclusion_patterns = [
-        r"I think we can safely say[^.]+\.",
-        r"in conclusion[^.]+\.",
-        r"to conclude[^.]+\.",
-        r"the answer[^.]+\.",
-        r"I conclude[^.]+\.",
-        r"this suggests[^.]+\.",
-    ]
+    # Conclusion-indicator phrases live in config (rule #9: editorial content).
+    conclusion_patterns = config.ABSTRACT_CONCLUSION_PATTERNS
 
-    # Search in last N sections
+    # Search in last N sections. The alternation is NON-capturing: with a single
+    # capturing group `re.findall` returns only the captured section NUMBERS and
+    # discards the `[^#]+` body, so the conclusion search below ran against a string
+    # of digits and always failed (A4/P19). `(?:...)` -> findall returns whole matches.
     section_pattern = (
-        r"## Section ("
+        r"## Section (?:"
         + "|".join(str(i) for i in range(closing_start, section_count + 1))
         + r")[^#]+"
     )

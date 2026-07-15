@@ -375,6 +375,35 @@ SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 
+# Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
+# (no API key, prompt file missing, API error) — must NOT be confused with a
+# genuine "speaker did not state a purpose" (which demotes the check to optional).
+# A transient failure keeps the purpose check REQUIRED so validation can't silently
+# pass on an unverified purpose (A10/P1). Compared by-value; keep stable.
+PURPOSE_EXTRACTION_FAILED = "Speaker's purpose UNDETERMINED - extraction failed (retryable)"
+
+# Conclusion-indicator phrases for extract_closing_conclusion (editorial — rule #9:
+# content, not code). Each is a regex fragment matched (case-insensitively) against
+# the closing sections' text. NOTE: this list is deliberately narrow — a real closing
+# that uses none of these phrases returns "No explicit conclusion stated" (a recall
+# gap tracked in TODO.md, not a correctness bug).
+ABSTRACT_CONCLUSION_PATTERNS = [
+    r"I think we can safely say[^.]+\.",
+    r"in conclusion[^.]+\.",
+    r"to conclude[^.]+\.",
+    r"the answer[^.]+\.",
+    r"I conclude[^.]+\.",
+    r"this suggests[^.]+\.",
+]
+
+# Theme-artifact scaffolding labels (editorial — rule #9: content, not code).
+# Section headers/roll-ups that appear in structural/interpretive theme files but
+# are NOT themes. Compared case-insensitively against a candidate theme name.
+# Used by transcript_utils.is_scaffolding_theme_name. See TODO.md A1/A2/A3.
+THEME_SCAFFOLDING_LABELS = frozenset(
+    {"summary paragraph", "summary", "conclusion"}
+)
+
 # Validation learning artifacts
 VALIDATION_MEMORY_FILENAME = "validation_memory.json"
 VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME

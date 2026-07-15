@@ -178,15 +178,21 @@ def _is_valid_section_content(section_name: str, text: str) -> bool:
     normalized = section_name.lower()
     if normalized in ("topics", "key topics"):
         return bool(abstract_pipeline.parse_topics_from_extraction(text))
-    if normalized in ("interpretive themes", "themes", "key themes"):
-        parsed = abstract_pipeline.parse_themes_from_extraction(text)
-        if parsed:
+    if normalized in (
+        "interpretive themes",
+        "themes",
+        "key themes",
+        "structural themes",
+    ):
+        # Route through the format-aware parser so validity means "real themes
+        # parsed", not "some scaffolding present". A bare `###`/number-outside-bold
+        # check passed all-scaffolding structural files as valid (P19 sibling).
+        if abstract_pipeline.parse_themes_from_extraction(text):
             return True
-        return bool(re.search(r"(?:^|\n)\s*\d+\.\s+\*\*.+?\*\*", text))
-    if normalized == "structural themes":
+        # Fallback matches BOTH bold forms: `**1. Title**` (real, number inside
+        # bold) and legacy `1. **Title**` (number outside bold).
         return bool(
-            re.search(r"(?:^|\n)\s*\d+\.\s+\*\*.+?\*\*", text)
-            or re.search(r"(?:^|\n)###\s+", text)
+            re.search(r"(?:^|\n)\s*(?:\*\*\d+\.\s+.+?\*\*|\d+\.\s+\*\*.+?\*\*)", text)
         )
     if normalized == "key terms":
         return bool(
@@ -1109,6 +1115,62 @@ def generate_structured_abstract(
         return False
 
 
+def _extract_lens_titles(lenses_output: str) -> list[str]:
+    """Pull the ranked-lens titles the producer actually wrote — the bold text of
+    each `N. **Title**` line in the lenses artifact."""
+    return [
+        m.strip()
+        for m in re.findall(r"(?m)^\s*\d+\.\s*\*\*(.+?)\*\*", lenses_output)
+    ]
+
+
+_LENS_STOPWORDS = frozenset({
+    "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
+    "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",
+    "but", "not", "your", "you", "my", "this", "these", "those", "from", "about",
+    "into", "keeps", "keep",
+})
+
+
+def _top_lens_is_grounded(top_lens: dict, lenses_output: str) -> bool:
+    """True only if the validator's `top_lens.title` corresponds to a lens that was
+    actually generated (A8/P7). Without this, the top_lens was accepted on a
+    truthy-dict gate alone, so a paraphrased or hallucinated lens rode through as
+    "validated" and into the blog.
+
+    Matching is on CONTENT tokens (stopwords + short tokens removed, punctuation
+    stripped) so smart-quote/em-dash/case differences don't cause a false reject,
+    while a title that merely reuses common filler words can't false-match (P7). No
+    raw substring match — a short generic title being a substring of a long real
+    lens was gameable.
+    """
+    title = (top_lens.get("title") or "").strip()
+    if not title:
+        return False
+    candidates = _extract_lens_titles(lenses_output)
+    if not candidates:
+        return False
+
+    def content_tokens(s: str) -> set:
+        return {
+            t
+            for t in re.findall(r"[a-z0-9]+", s.lower())
+            if len(t) > 2 and t not in _LENS_STOPWORDS
+        }
+
+    title_tokens = content_tokens(title)
+    if not title_tokens:
+        return False
+    for cand in candidates:
+        cand_tokens = content_tokens(cand)
+        if not cand_tokens:
+            continue
+        # Fraction of the top_lens title's CONTENT words present in the candidate.
+        if len(title_tokens & cand_tokens) / len(title_tokens) >= 0.6:
+            return True
+    return False
+
+
 def _validate_themes_and_lenses(
     model: str,
     logger,
@@ -1304,6 +1366,7 @@ def summarize_transcript(
             )
             # Back-validation and regeneration loop: ensure lens #1 is valid.
             max_attempts = 3
+            validated = False  # A8: only ship if a grounded top lens was achieved.
             for attempt in range(max_attempts):
                 logger.info(
                     "Theme/lens validation attempt %d/%d...",
@@ -1321,6 +1384,15 @@ def summarize_transcript(
                 structural_valid = bool(validation.get("structural_themes_valid"))
                 interpretive_valid = bool(validation.get("interpretive_themes_valid"))
                 top_lens = validation.get("top_lens", {}) or {}
+                # A8/P7: the validator's top_lens must correspond to a lens actually
+                # generated — otherwise a paraphrased/hallucinated lens is accepted.
+                top_lens_grounded = _top_lens_is_grounded(top_lens, lenses_output)
+                if top_lens and not top_lens_grounded:
+                    logger.warning(
+                        "Top lens '%s' is NOT grounded in the generated lenses — "
+                        "treating as unvalidated and regenerating.",
+                        top_lens.get("title", "(untitled lens)"),
+                    )
 
                 if not structural_valid:
                     logger.warning("Structural themes denied by validator; regenerating...")
@@ -1341,11 +1413,12 @@ def summarize_transcript(
                         min_length=260,
                         structural_themes=structural_output,
                     )
-                if structural_valid and interpretive_valid and top_lens:
+                if structural_valid and interpretive_valid and top_lens and top_lens_grounded:
                     logger.info(
                         "✓ Top-ranked lens validated: %s",
                         top_lens.get("title", "(untitled lens)"),
                     )
+                    validated = True
                     break
 
                 logger.warning(
@@ -1366,8 +1439,16 @@ def summarize_transcript(
                     lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
                 )
 
-            if not top_lens:
-                logger.error("Failed to produce a validated top-ranked lens after retries.")
+            if not validated:
+                # A8/P7: retries exhausted without themes valid AND a top lens that
+                # is grounded in the generated lenses. Do NOT ship an ungrounded/
+                # unvalidated lens (the exhaustion-path fall-through the truthy-dict
+                # gate allowed) — fail closed.
+                logger.error(
+                    "Failed to produce a validated + grounded top-ranked lens after "
+                    "%d attempts; last top_lens=%r.",
+                    max_attempts, top_lens.get("title", "(none)"),
+                )
                 return False
 
             _save_summary(structural_output, formatted_filename, "structural-themes")

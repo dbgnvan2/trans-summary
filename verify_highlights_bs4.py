@@ -44,19 +44,56 @@ def normalize_text(text):
 
 
 def load_source_quotes(md_file):
-    """Extract quotes from Markdown file (Bowen References or Emphasis Items)."""
+    """Extract (label, quote) pairs from a Bowen-references or emphasis-scored file.
+
+    Reads the formats the producers ACTUALLY write (A7/P19). The prior regex only
+    matched the abandoned `> **Label:** "Quote"` shape, so it returned [] on the
+    real artifacts and the verifier reported a clean pass having checked nothing.
+    Now handles, in order:
+      1. Bowen:           `### Concept [hh:mm:ss]` newline `> "Quote"`
+      2. Emphasis-scored: `[meta...] Concept: Name` newline `"Quote"`
+      3. Legacy:          `> **Label:** "Quote"`
+    A non-empty file that yields zero quotes is surfaced loudly, not silently
+    treated as "no highlights to verify".
+    """
     if not md_file.exists():
         print(f"❌ Source file not found: {md_file}")
         return []
 
     content = md_file.read_text(encoding="utf-8")
 
-    # Extract quotes: > **Label:** "Quote"
-    # Handles variations in bolding and spacing
-    pattern = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
-    matches = re.findall(pattern, content)
+    results = []
 
-    return [(label.strip(), quote.strip()) for label, quote in matches]
+    # 1. Bowen: `### Concept [ts]` then a blockquoted quote (reuses the canonical
+    #    load_bowen_references shape).
+    bowen_pat = r'###\s+([^\n\[]+?)(?:\s+\[\d{2}:\d{2}:\d{2}\])?\s*\n>\s+"([^"]+)"'
+    results.extend(
+        (label.strip(), quote.strip())
+        for label, quote in re.findall(bowen_pat, content)
+    )
+
+    # 2. Emphasis-scored: `[Clinical - C1 - Rank: 95% | 00:00:07] Concept: Name`
+    #    followed on the next line by the quoted text.
+    emph_pat = r'^\[[^\]]*\]\s*Concept:\s*(.+?)\s*\n\s*"([^"]+)"'
+    results.extend(
+        (label.strip(), quote.strip())
+        for label, quote in re.findall(emph_pat, content, flags=re.MULTILINE)
+    )
+
+    # 3. Legacy: `> **Label:** "Quote"`.
+    legacy_pat = r'>\s*\*\*([^*]+):\*\*\s*"([^"]+)"'
+    results.extend(
+        (label.strip(), quote.strip())
+        for label, quote in re.findall(legacy_pat, content)
+    )
+
+    if content.strip() and not results:
+        print(
+            f"⚠️  {md_file.name}: file is non-empty but ZERO quotes parsed — "
+            f"producer/consumer format drift (A7/P19), NOT 'nothing to verify'."
+        )
+
+    return results
 
 
 def extract_html_highlights(html_file):
@@ -93,8 +130,11 @@ def verify(base_name):
     project_dir = config.PROJECTS_DIR / base_name
     html_file = project_dir / f"{base_name}{config.SUFFIX_WEBPAGE}"
 
-    # Try standard name first, then _yaml variant
-    emphasis_file = project_dir / f"{base_name}{config.SUFFIX_EMPHASIS}"
+    # Emphasis: the pipeline writes the scored artifact; fall back to the legacy
+    # emphasis-items names for older projects.
+    emphasis_file = project_dir / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    if not emphasis_file.exists():
+        emphasis_file = project_dir / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if not emphasis_file.exists():
         emphasis_file = project_dir / f"{base_name} - yaml - emphasis-items.md"
 
@@ -156,9 +196,26 @@ def verify(base_name):
     print("-" * 60)
     print(f"Summary: {matches} Passed, {failures} Failed.")
 
+    # A7/P19: a source file that has quote content but parsed to ZERO quotes is
+    # format drift, NOT "nothing to verify" — make it fail the exit code, not just
+    # log. (A header-only / genuinely empty file has no `"` and is benign.)
+    drift = []
+    for name, src in (("emphasis", emphasis_file), ("bowen", bowen_file)):
+        if src.exists() and '"' in src.read_text(encoding="utf-8"):
+            parsed = emphasis_quotes if name == "emphasis" else bowen_quotes
+            if not parsed:
+                drift.append(name)
+    if drift:
+        print(
+            f"⚠️  Format drift: {', '.join(drift)} file(s) contain quotes but parsed "
+            f"ZERO — producer/consumer contract drift (A7/P19)."
+        )
+
+    return failures == 0 and not drift
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python verify_highlights_bs4.py <base_name>")
         sys.exit(1)
-    verify(sys.argv[1])
+    sys.exit(0 if verify(sys.argv[1]) else 1)

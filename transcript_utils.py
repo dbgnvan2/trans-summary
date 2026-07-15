@@ -1147,6 +1147,121 @@ def extract_bowen_references(content: str) -> list:
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
 
+# ---------------------------------------------------------------------------
+# Theme-artifact parsing (shared by abstract_pipeline + summary_pipeline)
+#
+# The extraction stage writes structural/interpretive themes as bold-numbered
+# blocks — the real on-disk format:
+#
+#     ### Structural Themes (3 total)          <- scaffolding header, not a theme
+#     **1. Theme Title**
+#     **Description:** ...
+#     **Key evidence:** ...
+#     ### Summary Paragraph                    <- scaffolding header, not a theme
+#
+# Both theme consumers must read THIS format first; the `###`/`##` headers are
+# scaffolding, never themes. Keeping the parse in one place stops the two
+# consumers from drifting apart (P19). See TODO.md A1/A2/A3.
+# ---------------------------------------------------------------------------
+
+def is_scaffolding_theme_name(name: str) -> bool:
+    """True when `name` is section scaffolding (a header/roll-up), not a theme.
+
+    Three discriminators, deliberately narrow to avoid dropping a real theme
+    (a false-positive here silently loses one theme without tripping the
+    zero-from-non-empty guard — P2). Covers the real scaffolding seen in the
+    artifacts (``### Structural Themes (3 total)``, ``### Summary Paragraph``,
+    ``## Interpretive / Process Themes (7 total)``, the ``# ...`` title lines):
+      1. empty,
+      2. markdown-heading-prefixed (``#...``) — catches every ``#``/``##`` title,
+      3. a ``config.THEME_SCAFFOLDING_LABELS`` word (summary/conclusion/...),
+      4. a ``... (N total)`` roll-up header.
+    """
+    normalized = name.strip().lower()
+    if not normalized:
+        return True
+    if normalized.startswith("#"):
+        return True
+    if normalized in config.THEME_SCAFFOLDING_LABELS:
+        return True
+    # Roll-up scaffolding header: "... (N total)"
+    if re.search(r"\(\s*\d+\s+total\s*\)\s*$", normalized):
+        return True
+    return False
+
+
+def _extract_theme_description(block: str) -> str:
+    """Pull the ``**Description:**`` field from a theme block; if absent, strip
+    ``**Field:**`` labels and horizontal rules and return the residual prose."""
+    desc_match = re.search(
+        r"\*\*Description:\*\*\s*(.+?)(?=(?:\n\*\*[A-Z][^:\n]+:\*\*)|\Z)",
+        block,
+        re.DOTALL,
+    )
+    if desc_match:
+        return " ".join(
+            ln.strip() for ln in desc_match.group(1).split("\n") if ln.strip()
+        ).strip()
+    stripped = re.sub(r"\*\*[^*\n]+:\*\*\s*", "", block)
+    return " ".join(
+        ln.strip()
+        for ln in stripped.split("\n")
+        if ln.strip() and ln.strip() != "---"
+    ).strip()
+
+
+def parse_bold_numbered_theme_blocks(text: str) -> list:
+    """Parse the real theme format — ``**N. Title**`` blocks each followed by a
+    ``**Description:**`` field (plus other ``**Field:**`` metadata).
+
+    Returns a list of ``(name, description)`` tuples for every genuine theme, in
+    document order. Returns ``[]`` when the text has no bold-numbered theme
+    headings, so callers can fall back to legacy formats; an empty result from
+    *non-empty* input is contract drift the caller should surface loudly (P19).
+    """
+    themes = []
+    # A description ends at: the next `**N. Title**` theme, ANY markdown heading
+    # (H1–H6 — the trailing `### Summary Paragraph` scaffold and any future
+    # heading level), or end-of-text. `#{1,6}` (not `#{2,3}`) so a stray H1/H4
+    # scaffold after the last theme can't be swallowed into its description.
+    block_iter = re.finditer(
+        r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)"
+        r"(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n#{1,6}\s+)|\Z)",
+        text,
+        re.DOTALL,
+    )
+    for match in block_iter:
+        name = match.group(2).strip()
+        block = match.group(3).strip()
+        if is_scaffolding_theme_name(name) or not block:
+            continue
+        description = _extract_theme_description(block)
+        if description:
+            themes.append((name, description))
+    return themes
+
+
+def count_header_verdicts(report_text: str) -> dict:
+    """Count PASS/WARN/FAIL verdicts in a header-validation report.
+
+    Tolerant of the model's real format drift — plain ``STATUS: FAIL``,
+    markdown-bold ``**STATUS:** FAIL``, and ``##``-prefixed section headers — so a
+    real FAIL can't hide behind a formatting variation (A5/P19). The prompt's own
+    ``STATUS: [PASS / WARN / FAIL]`` scaffold line is NOT counted (the verdict must
+    be a bare PASS/WARN/FAIL token, not a bracketed list).
+
+    Returns ``{"PASS": n, "WARN": n, "FAIL": n, "total": n}``. A ``total`` of 0 from
+    a non-empty report is contract drift the caller should surface, not treat as a
+    clean pass.
+    """
+    counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
+    pattern = r"(?im)^\s*#{0,6}\s*\*{0,2}\s*STATUS\s*\*{0,2}\s*:\s*\*{0,2}\s*(PASS|WARN|FAIL)\b"
+    for match in re.finditer(pattern, report_text or ""):
+        counts[match.group(1).upper()] += 1
+    counts["total"] = counts["PASS"] + counts["WARN"] + counts["FAIL"]
+    return counts
+
+
 def load_bowen_references(base_name: str) -> list:
     """
     Load Bowen reference quotes from canonical dedicated file.

@@ -6,6 +6,121 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## P19 contract-audit findings (2026-07-14, step 3)
+
+Multi-agent producer→consumer (prompt → generation → save → parser/validator)
+contract audit against the **real KCFC artifacts**. 12 confirmed, each verified
+against real on-disk bytes + an adversarial refutation pass (8 candidate findings
+were refuted). Ordered by corrected severity. IDs `A1`–`A12`.
+
+### 🔴 HIGH — ✅ FIXED 2026-07-14 (A1–A3 + sibling)
+Shared bold-numbered-first parser (`transcript_utils.parse_bold_numbered_theme_blocks`
++ `is_scaffolding_theme_name`), both consumers reordered, loud zero-from-non-empty
+warning, round-trip tests on the real artifacts (`tests/test_theme_parsing_contract.py`).
+Verified on real KCFC files: structural 1→3, interpretive 2→7. `learning-qa` review
+also fixed a P19 sibling — `extraction_pipeline._is_valid_section_content` validated
+all-scaffolding structural files as usable content (now routes through the parser) —
+and hardened `is_scaffolding_theme_name` against false-positives (labels →
+`config.THEME_SCAFFOLDING_LABELS`, rule #9). 284 tests pass, 7 pre-existing failures
+unrelated. See CHANGELOG.md.
+
+### ✅ FIXED 2026-07-14 — validator pass-on-empty cluster (A5, A9, A10, A11)
+"Validators reporting success without verifying." A5: `count_header_verdicts`
+(drift-tolerant) wired into both header producers — loud warning on FAIL>0 /
+zero-from-non-empty + report `## Verdict Summary` (real KCFC: 1 FAIL/5 WARN/44 PASS,
+was silent pass); advisory by design. A9: empty required-items → fail-closed in
+`summary_validation` + `abstract_validation` (P5 siblings). A10: distinct
+`config.PURPOSE_EXTRACTION_FAILED` sentinel — transient failure keeps the purpose
+check required + hard-uncovered (P1), not silently demoted. A11: empty-keyword item →
+`(False,'low')` (LLM-rescue-eligible, not auto-'high', not hard-failed). `learning-qa`
+2nd pass caught + fixed an LLM-rescue-bypass regression (F1/F2). 295 tests pass. See
+CHANGELOG.md + `tests/test_validator_pass_on_empty_contract.py`.
+
+- **A1 — Theme parser returns 1 bogus theme instead of 3 (abstract path).**
+  `parse_themes_from_extraction` gates on `"###" in text`, so Strategy 1 captures
+  the section header `### Structural Themes (3 total)` as the theme *name* and
+  mashes the 3 real `**N. …**` themes into one description blob. The bold-numbered
+  Strategy 2 that would parse them is dead-gated behind `if not themes:`. Live run
+  on real `structural-themes.md` → **1 theme, the 3 real ones lost**, fed to the
+  abstract with no error. Ref: `abstract_pipeline.py:149` (`_is_real_theme_name`
+  `:134`, gate `:165`, bold regex `:167`).
+- **A2 — Theme parser collapses 7 interpretive themes into 2 junk entries (summary path).**
+  Same root cause, different consumer. Real 7-theme `interpretive-themes.md` parses
+  to `['## Interpretive / Process Themes (7 total)' (12 002-char blob), 'Summary Paragraph']`;
+  zero real themes reach `prepare_summary_input`. Ref: `summary_pipeline.py:300`
+  (early `return themes` `:338`), consumed `:607`.
+- **A3 — `summary_pipeline.parse_themes` has NO path that reads the real format.**
+  Even with A2's `###` hijack fixed, both fallback regexes anchor on a bare
+  `\d+.` line, but real headers start with `**`. The working bold-numbered handler
+  exists only in `abstract_pipeline` (`:166`), never ported. Zero-from-non-empty is
+  silent. Ref: `summary_pipeline.py:346-363`.
+
+### 🟠 MEDIUM — ✅ FIXED 2026-07-14 (A4, A6, A7, A8) + 🟡 A12
+A4: non-capturing alternation so the closing body is searched (patterns →
+`config.ABSTRACT_CONCLUSION_PATTERNS`, rule #9; narrow-phrase recall gap tracked
+below). A6: `parse_section_range` expands every comma segment (`re.search`/`findall`,
+survives "Sections N" prefixes), deduped — real cause of the topics `section_mismatch`.
+A7: `verify_highlights_bs4.load_source_quotes` reads all 3 real quote formats +
+non-zero exit on drift (bowen 0→1, emphasis 0→22). A8: `_top_lens_is_grounded`
+(content-token overlap) gates the loop and **fails closed after retries** (no ungrounded
+lens ships). A12: `_strip_leading_scaffolding` excludes a leading `# Abstract` header
+from word count + keyword matching. `learning-qa` 2nd pass caught + fixed 2 HIGH
+regressions (A8 exhaustion fall-through, A6 anchored-match drop). 311 tests pass. See
+CHANGELOG.md + `tests/test_audit_medians_contract.py`.
+
+- **A4 — `extract_closing_conclusion` single-group `re.findall` drops the body.**
+  `r"## Section (N|…)[^#]+"` has one capturing group, so `findall` returns section
+  *numbers* (`"45 46 …50"`) and discards the closing text. Conclusion search always
+  fails → returns `"No explicit conclusion stated"` → the abstract validator
+  **silently skips the required conclusion-coverage check on 100 % of transcripts**.
+  Ref: `abstract_pipeline.py:305-317`; gate `abstract_validation.py:253-256`.
+- **A5 — Header-validation verdicts are never counted; a real FAIL passes.**
+  `validate_headers` returns `True` on `len≥100` with zero parsing. Model format-drifts
+  (`**STATUS:** FAIL` in some batches vs plain elsewhere); a declared-format counter
+  sees 0 FAILs / 2 of 5 WARNs. Section 15 genuinely FAILs yet the step reports success.
+  Ref: `validation_pipeline.py:594`; no STATUS counter in any consumer.
+- **A6 — `parse_section_range` truncates multi-segment citations to the first range.**
+  Anchored `re.match(r"(\d+)\s*-\s*(\d+)")` fires on the leading range and never
+  reaches the `else` findall: `"7-8, 15, 33-35"` → `[7,8]`. Deflates section-grounding
+  scores. **This is the real cause of the `section_mismatch: 7` mislabelled "cosmetic"
+  below.** Ref: `summary_pipeline.py:274-288`; consumed `validation_pipeline.py:429-430`,
+  `summary_pipeline.py:249`.
+- **A7 — `verify_highlights_bs4.load_source_quotes` uses the abandoned bowen format.**
+  Regex expects `> **Label:** "quote"`; real artifact is `### Concept\n> "quote"` →
+  returns `[]` → "Loaded 0 bowen references" → highlight verifier reports a clean pass
+  having **verified nothing** (a mis-highlighted/hallucinated bowen quote rides through).
+  Ref: `verify_highlights_bs4.py:56`; reuse `transcript_utils.load_bowen_references`.
+- **A8 — `top_lens` accepted on a truthy-dict gate, never reconciled to the ranked lenses.**
+  `if structural_valid and interpretive_valid and top_lens: break` — nothing compares
+  `top_lens.title` to the 12 lenses actually written, so a paraphrased/invented top lens
+  is "✓ validated" and piped to the blog. Ref: `extraction_pipeline.py:1323,1344,1484-1490`.
+- **A9 — `validate_summary_coverage` reports PASS on an empty checklist (`all([]) == True`).**
+  When topics are missing/drifted the required-items list is empty → "Required coverage:
+  0/0" → **any non-empty (even off-topic) summary validates**. Also `check_keyword_coverage`
+  auto-returns `(True,'high')` when `total_keywords == 0`. Ref: `summary_validation.py:469,316-317`.
+- **A10 — Abstract coverage denominator regenerated from a live LLM call at validation time.**
+  `is_required = "manually insert" not in opening_purpose`, and `extract_opening_purpose`
+  hits the API at read time. No key / a timeout demotes the purpose check required→optional
+  — **a transient outage flips FAIL into reported PASS** (P1). Re-run now yields `3/3` vs the
+  saved `4/4`. Ref: `abstract_validation.py:240`; `abstract_pipeline.py:259`; `validation_pipeline.py:650`.
+
+### 🟡 LOW
+
+- **A11 — Empty-keyword coverage item auto-marked covered `'high'`.** `if total_keywords
+  == 0: return True, "high"` — latent on this artifact (all topic names >4 keywords), bites
+  on all-stopword/short topic names. Ref: `summary_validation.py:316`.
+- **A12 — Abstract word count includes the forbidden `# Abstract` header (+2 tokens).**
+  Prompt says "no headers"; model emits one; `len(abstract.split())` counts it (331 vs 329),
+  can tip a boundary-length abstract's min/max check. Ref: `abstract_validation.py:620`;
+  save `extraction_pipeline.py:1102`.
+
+### Refuted but real fragility (not strict P19 — keep on radar)
+Emphasis raw-quote no-escaping (non-greedy regex tolerates it; = pre-existing item below);
+`verify_with_llm` positional YES/NO zip (both abstract & summary — real fragility, no
+format-drift trigger); `extract_section("Lenses (Ranked)")` regex miss (sibling path handles it).
+
+---
+
 ## Bugs (unfixed)
 
 ### `unknown_script` rows in the cost log on real runs
@@ -53,10 +168,22 @@ Improved 3.6× → ~1.3× low. Remaining gap: Ranked Lenses output under-modeled
 (modeled as 1 pass). Calibrate against more real runs if tighter estimates matter.
 Ref: `transcript_cost_estimator.py`.
 
-### Topics validation `section_mismatch`
+### Topics validation `section_mismatch` — ✅ parser bug FIXED (A6)
 Topics cite section ranges that don't line up with actual sections
-(`section_mismatch` 6–7 on real runs). Cosmetic; the topics themselves validate.
-Ref: `validation_pipeline.py` `validate_topics_lightweight`.
+(`section_mismatch` 6–7 on real runs). ~~Cosmetic; the topics themselves validate.~~
+**2026-07-14:** the P19 audit (**A6**) traced most of this to `parse_section_range`
+truncating multi-segment citations to the first range — **fixed** (see the MEDIUM
+banner above). Re-run a real transcript to confirm the residual mismatch count drops;
+any remainder is genuine topic/section drift, not the parser.
+Ref: `validation_pipeline.py` `validate_topics_lightweight`, `summary_pipeline.py` `parse_section_range`.
+
+### Abstract conclusion detection has narrow phrase recall *(from A4 fix)*
+`extract_closing_conclusion` now searches the closing body correctly, but
+`config.ABSTRACT_CONCLUSION_PATTERNS` is a short hardcoded phrase list — a real
+closing using none of them (e.g. the KCFC "witching hour…" sign-off) still returns
+"No explicit conclusion stated", dropping the conclusion-coverage check. Broaden the
+phrase set (editorial) or add a fallback (e.g. last 1–2 sentences of the final
+section). Ref: `abstract_pipeline.py` `extract_closing_conclusion`, `config.ABSTRACT_CONCLUSION_PATTERNS`.
 
 ### `_validated` filename gate broader than needed
 `do_run_selected` blocks any selection whose source lacks `_validated`, including
@@ -72,11 +199,9 @@ Ref: `ts_gui.py` `_run_selected_stages`.
 
 ---
 
-## Next: Step 3 — multi-agent contract audit (P19)
-One agent per LLM pipeline step builds a 4-way contract table
-(**prompt → generation → save format → parser/validator**), verified against the
-**real KCFC artifacts** already on disk (no new API spend), with an adversarial
-verification pass to avoid false positives. Token-heavy — **best started in a
-fresh conversation**; context to hand off: this file, LEARNINGS.md (P19 +
-checklist), and the KCFC project dir
-`/Volumes/CrucialX9/1 MY DISK/KCFC ALL/projects/2021 Webcast Feb - KCFC - 2021-02-xx/`.
+## ~~Step 3 — multi-agent contract audit (P19)~~ ✅ DONE 2026-07-14
+Ran: 11 finders (one per LLM pipeline step) + 20 adversarial verifiers, all checked
+against the real KCFC artifacts. 12 findings confirmed (see **P19 contract-audit
+findings** at the top of this file, A1–A12), 8 refuted. No new API spend.
+Next actionable work: the **theme-parsing cluster A1–A3** (highest impact — silently
+corrupts both the abstract and summary inputs on every real transcript).

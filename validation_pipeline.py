@@ -17,6 +17,7 @@ import summary_validation
 from transcript_utils import (
     call_claude_with_retry,
     cap_max_tokens_for_model,
+    count_header_verdicts,
     create_system_message_with_cache,
     extract_emphasis_items,
     extract_section,
@@ -592,6 +593,26 @@ def validate_headers(
             / f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
         )
         report_path.write_text(response, encoding="utf-8")
+
+        # A5/P19: surface the AI verdicts so a real FAIL isn't hidden by the
+        # "report written -> return True" success path (drift-tolerant counter).
+        # ADVISORY BY DESIGN: the bool return means "report generated", not "all
+        # sections passed" — consistent with the coverage validators, which also
+        # produce a human-reviewed report rather than gating the pipeline. A content
+        # FAIL is surfaced via this warning + the report's Verdict Summary, not the
+        # return value; no caller aborts on it.
+        verdicts = count_header_verdicts(response)
+        if verdicts["FAIL"] > 0:
+            logger.warning(
+                "Header validation: %d section(s) reported STATUS: FAIL, %d WARN "
+                "(%d PASS) — review %s",
+                verdicts["FAIL"], verdicts["WARN"], verdicts["PASS"], report_path,
+            )
+        elif response.strip() and verdicts["total"] == 0:
+            logger.warning(
+                "Header validation: report has content but ZERO parseable STATUS "
+                "verdicts — prompt/output format drift (A5/P19)."
+            )
 
         logger.info("✓ Header validation report saved to: %s", report_path)
         return True
