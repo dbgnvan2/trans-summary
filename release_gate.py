@@ -324,12 +324,20 @@ def build_manifest(base_name: str, decision: GateDecision, generated_at: str) ->
 
 
 def write_manifest(base_name: str, decision: GateDecision, generated_at: str,
-                   logger=None) -> Path:
-    """Write the manifest JSON next to the artifacts; return its path (M7.A)."""
+                   logger=None) -> Optional[Path]:
+    """Write the manifest JSON next to the artifacts; return its path (M7.A), or
+    None if the project directory doesn't exist."""
     import json
 
     manifest = build_manifest(base_name, decision, generated_at)
     path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_RUN_MANIFEST}"
+    if not path.parent.exists():
+        # No project dir (e.g. wrong PROJECTS_DIR) — the decision still stands;
+        # don't crash trying to write the manifest into a nonexistent directory.
+        if logger:
+            logger.error("Cannot write run manifest — project directory missing: %s",
+                         path.parent)
+        return None
     path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     if logger:
         logger.info("Run manifest written: %s (publish_decision=%s)",
@@ -393,15 +401,44 @@ def gate_and_report(base_name: str, generated_at: str, logger=None) -> GateDecis
     return decision
 
 
+def _candidate_projects_dirs(override=None) -> list:
+    """Where to look for a run's project folder, in priority order. An explicit
+    override wins; otherwise the configured PROJECTS_DIR, then PROCESSED_DIR/projects
+    (real runs live under the processed-transcripts folder even when only
+    default_processed_dir — not default_projects_dir — is set in runtime settings)."""
+    if override:
+        return [Path(override)]
+    cands = [config.PROJECTS_DIR]
+    processed_projects = config.PROCESSED_DIR / "projects"
+    if processed_projects not in cands:
+        cands.append(processed_projects)
+    return cands
+
+
 def main(argv) -> int:
-    """CLI: python release_gate.py "<base_name>" — exit nonzero on BLOCK (M7.B)."""
+    """CLI: python release_gate.py "<base_name>" ["<projects_dir>"]
+
+    Exit 0 on ALLOW/ALLOW_WITH_WARNINGS, 1 on BLOCK (M7.B), 2 on a usage/config
+    error. Auto-discovers the run under the configured PROJECTS_DIR or
+    PROCESSED_DIR/projects; pass a projects folder as the 2nd argument to override."""
     import logging
     from datetime import datetime
 
     if len(argv) < 2:
-        print('usage: python release_gate.py "<base_name>"')
+        print('usage: python release_gate.py "<base_name>" ["<projects_dir>"]')
         return 2
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    override = argv[2] if len(argv) >= 3 else None
+    candidates = _candidate_projects_dirs(override)
+    resolved = next((c for c in candidates if (c / argv[1]).exists()), None)
+    if resolved is None:
+        looked = "\n  ".join(str(c / argv[1]) for c in candidates)
+        print(f"ERROR: project directory not found. Looked in:\n  {looked}\n"
+              f"Pass the projects folder as the 2nd argument, e.g.:\n"
+              f'  python release_gate.py "{argv[1]}" "/path/to/projects"')
+        return 2
+    config.PROJECTS_DIR = resolved
+    print(f"Using projects dir: {resolved}")
     decision = gate_and_report(argv[1], datetime.now().isoformat(timespec="seconds"),
                                logging.getLogger("release_gate"))
     print(f"publish_decision={decision.decision.value}")

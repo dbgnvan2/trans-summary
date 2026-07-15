@@ -206,6 +206,40 @@ def test_m7a1_manifest_matches_gate(cloned_run):
     assert (proj / f"{base}{config.SUFFIX_PUBLISH_BLOCKED}").exists()
 
 
+def test_write_manifest_missing_project_dir_returns_none(tmp_path, monkeypatch):
+    """Regression: write_manifest must not crash when the project dir doesn't
+    exist (wrong PROJECTS_DIR) — it caught a real FileNotFoundError."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    decision = rg.GateDecision(Decision.BLOCK, [], [])
+    assert rg.write_manifest("No Such Base", decision, "t", logging.getLogger("t")) is None
+
+
+def test_cli_missing_project_dir_returns_2_not_crash(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    rc = rg.main(["release_gate.py", "Nonexistent Base"])
+    assert rc == 2
+    assert "not found" in capsys.readouterr().out
+
+
+def test_cli_projects_dir_arg_points_gate_at_folder(cloned_run):
+    base, proj = cloned_run
+    rc = rg.main(["release_gate.py", base, str(proj.parent)])
+    assert rc == 1  # BLOCK (the real fabricated name)
+    assert (proj / f"{base}{config.SUFFIX_RUN_MANIFEST}").exists()
+
+
+def test_cli_auto_discovers_run_under_processed_dir(cloned_run, monkeypatch):
+    """User layout: runs live under PROCESSED_DIR/projects while PROJECTS_DIR
+    points at an (empty) default. The CLI must still find the run."""
+    base, proj = cloned_run  # proj.parent == <tmp>/projects
+    tmp = proj.parent.parent
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp / "unused-default")
+    monkeypatch.setattr(config, "PROCESSED_DIR", tmp)  # PROCESSED_DIR/projects == proj.parent
+    rc = rg.main(["release_gate.py", base])  # no override arg
+    assert rc == 1
+    assert (proj / f"{base}{config.SUFFIX_RUN_MANIFEST}").exists()
+
+
 def test_m7b1_exit_code_reflects_decision(cloned_run):
     base, proj = cloned_run
     assert rg.main(["release_gate.py", base]) == 1  # BLOCK -> nonzero
