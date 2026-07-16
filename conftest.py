@@ -47,6 +47,18 @@ def _faithfulness_judge_offline(monkeypatch):
         release_gate._FAITHFULNESS_CACHE.clear()
     except Exception:
         pass
+    # Second layer (defense-in-depth, F5): default NO resolvable key, unless a live
+    # calibration opts in. So even a test that re-enables the judge but forgets to
+    # supply a key cannot reach a live API call — check_faithfulness ERRORs on the
+    # missing key instead. A test exercising the enabled path must EXPLICITLY patch
+    # resolve_anthropic_key to a value (and mock the judge), making the opt-in loud.
+    if not os.getenv("RUN_FAITHFULNESS_CALIBRATION"):
+        try:
+            import transcript_utils
+            monkeypatch.setattr(transcript_utils, "resolve_anthropic_key",
+                                lambda: None, raising=False)
+        except Exception:
+            pass
 
 
 def _live_api_enabled(config: pytest.Config) -> bool:

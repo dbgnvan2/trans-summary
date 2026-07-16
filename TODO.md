@@ -19,8 +19,16 @@ RUN_FAITHFULNESS_CALIBRATION=1 \
 `transcript_utils.resolve_anthropic_key()`.)
 
 Follow-ups (not blockers) — incl. learning-qa arming-review findings:
-1. **Themes coverage.** Themes are excluded (interpretive by design). To cover them,
-   judge the DESCRIPTION field only, via the M3 themes codec — not the raw markdown.
+1. **Themes coverage — the description-only approach is CONFIRMED NON-VIABLE with the
+   entailment judge (tested 2026-07-15).** Extracting theme DESCRIPTIONS via the M3
+   codec and judging those still FAILs: both structural and interpretive descriptions
+   are legitimate INTERPRETATION ("This reflects the core Bowen theory commitment…",
+   "Kerr implicitly positions Bowen theory…", "a cycle, not a linear progression") —
+   the judge correctly flags them as exceeding the literal source, but that IS a
+   theme's job. Source-entailment is the wrong check for interpretive content. A real
+   theme check would be a *different* judge ("is this a reasonable interpretation of
+   the source?", not "is it stated in the source?") — a separate design, deferred.
+   Themes stay OUT of `FAITHFULNESS_ARTIFACT_SUFFIXES`.
 2. **Living gold set.** Add every escaped hallucination found in production to
    `tests/fixtures/faithfulness_gold/gold.json`; re-run the calibration on any prompt
    or threshold change (spec §M2 flags the judge's semantic quality as curated-eval,
@@ -37,11 +45,13 @@ Follow-ups (not blockers) — incl. learning-qa arming-review findings:
    prose artifacts blocks. Verified the abstract is always emitted (it's in
    `GATE_REQUIRED_ARTIFACT_SUFFIXES` + scanned by entity_grounding), so a real
    publishable run always has ≥1 prose artifact — no false-BLOCK class here.
-6. **Test-guard hardening (low).** The suite's offline safety is the root-conftest
-   force-off; the enabled-path tests must ALSO mock the judge. A future enabled-path
-   test that forgets to mock could make a live call on a dev machine where the shared
-   keys file resolves. Consider an autouse net that makes any unmocked judge call in a
-   non-calibration test fail loudly (tricky — must not break the mocked-enabled tests).
+6. **Test-guard hardening (F5) — DONE 2026-07-15.** The root-conftest offline fixture
+   now also defaults `resolve_anthropic_key -> None` (unless `RUN_FAITHFULNESS_CALIBRATION`),
+   so an enabled-path test that forgets to supply a key cannot reach a live API call —
+   `check_faithfulness` ERRORs on the missing key instead. Enabled-path tests opt in
+   explicitly by patching `resolve_anthropic_key` (loud opt-in). Residual: a test that
+   provides a key but forgets to mock the judge could still call live — mock-discipline,
+   documented here.
 7. **Cost/latency.** When armed, each publish judges the prose artifacts via Sonnet
    (deduped per-content by the gate memo). If per-publish cost matters, consider a
    single orchestrator-level gate call instead of the per-entry-point `publish_allowed`.

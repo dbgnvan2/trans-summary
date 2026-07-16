@@ -268,9 +268,11 @@ def test_m2_faithfulness_disabled_is_noop_pass(real_run, monkeypatch):
 def test_m2_faithfulness_fail_blocks(cloned_run, monkeypatch):
     """When enabled, an unentailed-claim artifact -> FAIL -> BLOCK (U2)."""
     import faithfulness_judge as fjudge
+    import transcript_utils
     base, proj = cloned_run
     monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    # explicit key opt-in (the offline guard defaults resolve_anthropic_key -> None)
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: "test-key")
     # judge every narrative artifact as FAIL without touching the API
     bad = fjudge.FaithfulnessResult(
         fjudge.FAIL, "1 of 3 claim(s) not entailed",
@@ -286,9 +288,10 @@ def test_m2_faithfulness_fail_blocks(cloned_run, monkeypatch):
 def test_m2_faithfulness_no_narrative_artifact_is_error(tmp_path, monkeypatch):
     """Enabled, source present, key present, but NO narrative artifact on disk ->
     ERROR (nothing judged is not 'all faithful', P7 pass-on-empty / F2)."""
+    import transcript_utils
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: "test-key")
     proj = tmp_path / BASE
     proj.mkdir(parents=True)
     (proj / f"{BASE}{config.SUFFIX_FORMATTED}").write_text("## Section 1\nSome source text.\n")
