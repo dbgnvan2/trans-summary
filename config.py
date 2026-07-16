@@ -388,7 +388,11 @@ PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, 
 # blocks (fail-closed — an unverified run must not publish, P1); everything else
 # WARNs until proven necessary. Flip a check into GATE_BLOCKING_CHECKS to make it
 # a hard blocker.
-GATE_BLOCKING_CHECKS = {"entity_grounding"}
+#   artifact_contracts (M3, added 2026-07-15): a structured artifact that violates
+#   its schema is producer/consumer format drift (P19). U4 requires drift to be a
+#   HARD error, not a silent zero, so it blocks — a legitimately-empty artifact
+#   validates as an empty object and does not trip it.
+GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector

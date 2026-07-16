@@ -6,6 +6,33 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## M3 schema contracts — staging follow-ups (2026-07-15)
+
+Codec layer (`artifact_contracts.py`) + bowen boundary landed (M3a, M3b-bowen).
+Remaining boundaries stage one at a time behind the migration shim.
+
+- **⚠️ Themes migration shim must handle TWO real formats.** A P6 sweep of the
+  codec over every real artifact on the drive found `parse_bold_numbered_theme_blocks`
+  (consumer) returns **zero** on a real structural-themes file that uses
+  `### N. Title` (H3-numbered) instead of the `**N. Title**` (bold-numbered) format
+  the parser expects (`Monika Baege and Michael Kerr interview - 2010-09-23`,
+  processed with the 2025-02 prompt). This is genuine pre-existing producer/consumer
+  drift (P19). **Before wiring themes to the gate** (`_CONTRACT_ARTIFACTS`), the
+  themes codec / `parse_bold_numbered_theme_blocks` must parse BOTH formats, or the
+  first unattended re-publish of that (and any same-era) run will false-BLOCK
+  (AC M3.D.1 requires legacy real artifacts to migrate). bowen/key-terms/topics/
+  emphasis/interpretive-themes are all clean across the 6 real projects checked.
+- **JSON sidecar is write-only so far.** `write_json_sidecar` emits `<base> -
+  <artifact>.json` but no consumer reads it yet (gate + renderers still re-parse
+  the `.md`). Durable provenance today; make a consumer prefer the validated
+  `.json` (with an md↔json reconcile) in a later step to fully realize the
+  structured-intermediate benefit.
+- **Remaining boundaries to wire:** emphasis, key-terms, themes (see above),
+  topics, abstract-input (JSON validate hook at `AbstractInput` assembly — no
+  markdown wire format, so no round-trip; pinned by the producer/gate path).
+
+---
+
 ## Test-validity audit (2026-07-15) — Step 1 done, follow-ups open
 
 Mutation testing + fixture-provenance + vacuity scan of the whole suite. Full

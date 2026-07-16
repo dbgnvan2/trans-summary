@@ -250,6 +250,40 @@ def check_entity_consistency(base_name: str, logger=None) -> Verdict:
     return Verdict("entity_consistency", Status.PASS, "names consistent across artifacts")
 
 
+# --------------------------------------------------------------------------- M3.C
+# Structured boundaries validated on read at the gate. Extended one artifact at a
+# time as each is wired behind the codec (M3 staging). Each entry is
+# (schema-key, path-suffix, extra parse args).
+_CONTRACT_ARTIFACTS: list = [
+    ("bowen", config.SUFFIX_BOWEN, ()),
+]
+
+
+def check_artifact_contracts(base_name: str, logger=None) -> Verdict:
+    """ERROR if any structured artifact on disk fails its schema contract — a
+    corrupted / old-format / drifted artifact is a loud, publish-blocking failure,
+    never a silent zero (P19, U4). A legitimately-empty artifact (bare header, no
+    body) validates as an empty object and passes."""
+    import artifact_contracts as ac
+
+    proj = config.PROJECTS_DIR / base_name
+    problems = []
+    for key, suffix, args in _CONTRACT_ARTIFACTS:
+        path = proj / f"{base_name}{suffix}"
+        if not path.exists():
+            continue
+        try:
+            ac.codec(key).parse_markdown(path.read_text(encoding="utf-8"), *args)
+        except ac.SchemaError as e:
+            problems.append({"artifact": key, "error": str(e)})
+    if problems:
+        return Verdict("artifact_contracts", Status.ERROR,
+                       f"{len(problems)} structured artifact(s) violate their schema "
+                       f"contract (P19 drift)", items=problems)
+    return Verdict("artifact_contracts", Status.PASS,
+                   "all structured artifacts conform to their schema")
+
+
 def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     """WARN (named) if a required artifact is missing or empty — publishing an
     incomplete bundle unattended is a silent drop (P2/M5.B). Advisory by policy;
@@ -274,6 +308,7 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
 # the rest are advisory verdicts recorded in the manifest.
 DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
+    ("artifact_contracts", check_artifact_contracts),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
     ("timestamp_citations", check_timestamp_citations),

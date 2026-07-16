@@ -821,6 +821,32 @@ def extract_bowen_references_from_transcript(
         bowen_path = project_dir / f"{stem}{config.SUFFIX_BOWEN}"
         bowen_path.write_text(final_content, encoding="utf-8")
 
+        # M3.B — producer self-validation + JSON sidecar. Re-read the saved
+        # artifact through the schema codec: if we extracted references but the
+        # saved markdown does not parse back to them (or violates the schema),
+        # that is producer/consumer format drift (P19). LEAVE the drifted file on
+        # disk on purpose — deleting it would convert a loud, publish-blocking
+        # gate ERROR (check_artifact_contracts, a hard blocker per U4) into a
+        # silent absence with no signal, since no caller retries on the return
+        # value and bowen is not a required artifact. Instead we remove any stale
+        # (previously-valid) sidecar so the .json can't contradict the drifted
+        # .md, log loudly, and return False. An empty-by-design run (zero refs)
+        # skips the item check.
+        import artifact_contracts as ac
+        try:
+            obj = ac.verify_saved_artifact(
+                bowen_path, "bowen", expect_items=bool(refs_with_timestamps)
+            )
+            ac.write_json_sidecar(bowen_path, "bowen", obj)
+        except ac.SchemaError as e:
+            logger.error(
+                "Bowen artifact FAILED contract self-check — the saved artifact "
+                "drifts from its schema; leaving it on disk so the release gate "
+                "BLOCKs publication (P19/U4). Invalidating any stale sidecar. %s", e
+            )
+            ac.json_sidecar_path(bowen_path).unlink(missing_ok=True)
+            return False
+
         # Count one per reference. _format_bowen_refs emits "### Concept [ts]\n> \"quote\"",
         # so count the "### " concept headers (the previous "> **" pattern never
         # matched this format and reported 0 even when references were saved).

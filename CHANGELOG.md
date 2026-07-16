@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (unattended-robustness — M3: schema contracts)
+
+Kill the P19 producer/consumer format-drift *class* (U4). Every structured
+boundary becomes a schema-validated object; drift is a hard error, never a silent
+zero. Scope decision: codec layer first — markdown stays the wire format, JSON is
+a derived sidecar, generation prompts unchanged (delivers U4 regardless of wire
+format). Staged one artifact at a time behind a migration shim; gate green
+throughout.
+
+**M3a — foundation.**
+- **`schemas/*.schema.json` (6):** bowen, emphasis, key_terms, topics, themes,
+  abstract_input — versioned, `additionalProperties:false` envelopes with
+  `artifact`/`version` `const`s (catch a mis-routed object).
+- **`artifact_contracts.py`:** per-boundary `Codec` — `parse_markdown` (migration
+  shim, delegates to the ONE canonical text parser the consumer uses) / `validate`
+  (jsonschema, loud `SchemaError` on drift) / `render_markdown` / `to_json`/
+  `from_json`. Non-empty body → zero items = `SchemaError` (P19); truly empty
+  (blank / frontmatter-only / bare H1–H2 header) = benign empty object.
+- **Single-canonical-parser refactors** (behavior-preserving): extracted
+  `parse_bowen_references_text` and `parse_topics_structure` so loader + codec
+  share ONE format implementation. `parse_topics_structure` is *faithful* (the
+  `<5%` editorial cut stays in `parse_topics_with_details`), so the JSON contract
+  represents the artifact exactly.
+- `jsonschema` pinned (requirements.txt, pyproject.toml). Real topics/themes
+  fixtures copied from a production run for round-trip/migration tests.
+
+**M3b — bowen wired (first boundary).**
+- **Producer self-validation + JSON sidecar** at the bowen save site
+  (`extract_bowen_references_from_transcript`): re-reads the saved artifact
+  through the codec; on drift it LEAVES the file on disk (so the gate BLOCKs —
+  deleting would invert a loud BLOCK into a silent drop), invalidates any stale
+  sidecar, logs, and returns False. A valid save writes `<base> -
+  bowen-references.json`.
+- **Gate consumer-validation** `check_artifact_contracts` (release_gate.py):
+  validates every on-disk structured artifact through the codec; drift → ERROR →
+  **BLOCK**. Added to `config.GATE_BLOCKING_CHECKS` (U4: drift is a hard error).
+  Verified against ALL real bowen artifacts on the drive (6/6 parse, 0 false
+  reject) before landing as a hard blocker (P6).
+- **`_has_body` empty-vs-drift discriminant:** a bare H1/H2 section header is a
+  benign empty; an H3+ item header (or any non-heading line) with zero parsed
+  items is drift — closes the all-headers-no-body gap.
+- Tests: 30 codec + producer tests on REAL fixtures (round-trip field-level
+  fidelity, drift-is-loud incl. all-headers, frontmatter/header-only benign,
+  migration, producer self-check) + 4 gate tests. `_has_body` and
+  `verify_saved_artifact` 100% mutation-killed; codec drift guard pinned.
+- Two `learning-qa` pre-flight passes applied: topics faithful-parser +
+  false-drift guard, emphasis type case-normalization, field-level round-trip
+  assertion, and the delete-on-drift → leave-for-gate inversion fix (a HIGH
+  finding — the producer's delete was silencing the very drift the gate blocks on).
+
+Suite: 525 passed / 14 skipped / 5 xfailed / 0 failed.
+
+Spec: docs/spec_unattended_robustness_2026-07-15.md#M3 (M3.A, M3.B, M3.C, M3.D)
+
 ## [Unreleased] - 2026-07-15 (unattended-robustness — M5: fault-injection matrix)
 
 The acceptance test for the fail-closed net: under adverse inputs and injected

@@ -149,6 +149,56 @@ def test_emphasis_type_case_variant_normalized_not_blocked():
     assert obj["items"][0]["type"] == "Explicit"
 
 
+def test_header_only_artifact_is_benign_empty():
+    """A bare section header (H1/H2) with no body is a legitimately-empty
+    artifact, not drift (the empty-vs-drift discriminant the gate relies on)."""
+    for md in ("## Bowen References", "## Bowen References\n", "## Bowen References\n\n",
+               "# Title\n\n## Bowen References\n"):
+        assert codec("bowen").parse_markdown(md)["items"] == []
+
+
+def test_all_headers_no_body_is_drift_not_empty():
+    """An all-headers-no-body artifact (### item headers whose quote bodies were
+    dropped entirely) is DRIFT, not a benign empty — H3+ item headers imply
+    content that must parse. Without this, the drift would slip the gate silently."""
+    md = "## Bowen References\n\n### Concept A\n\n### Concept B\n"
+    with pytest.raises(SchemaError):
+        codec("bowen").parse_markdown(md)
+
+
+# --------------------------------------------------------------------------- M3.B.1 (producer save)
+def test_m3b1_verify_saved_artifact_errors_on_drift_no_sidecar(tmp_path):
+    """Producer self-check: a saved artifact that drifts to zero items despite
+    extracted content raises SchemaError (-> producer records retryable ERROR) and
+    NO JSON sidecar is written."""
+    md = tmp_path / "x - bowen-references.md"
+    md.write_text("## Bowen References\n\n### Concept\nlost its quote marker\n")
+    with pytest.raises(SchemaError):
+        ac.verify_saved_artifact(md, "bowen", expect_items=True)
+    assert not ac.json_sidecar_path(md).exists()
+
+
+def test_m3b1_verify_saved_artifact_writes_sidecar_on_valid(tmp_path):
+    """A conforming saved artifact validates and its JSON sidecar round-trips."""
+    md = tmp_path / "x - bowen-references.md"
+    md.write_text('## Bowen References\n\n### Differentiation [00:03:09]\n> "a real quote"\n')
+    obj = ac.verify_saved_artifact(md, "bowen", expect_items=True)
+    sidecar = ac.write_json_sidecar(md, "bowen", obj)
+    assert sidecar.exists() and sidecar.name.endswith(".json")
+    assert codec("bowen").from_json(sidecar.read_text()) == obj
+
+
+def test_m3b1_empty_by_design_run_skips_item_check(tmp_path):
+    """A zero-reference run (expect_items=False) is a clean empty, not an error."""
+    md = tmp_path / "x - bowen-references.md"
+    md.write_text("## Bowen References\n")
+    obj = ac.verify_saved_artifact(md, "bowen", expect_items=False)
+    assert obj["items"] == []
+    # the DEFAULT is the safe permissive one (don't require items unless asked):
+    # calling without expect_items must also not raise on an empty artifact.
+    assert ac.verify_saved_artifact(md, "bowen")["items"] == []
+
+
 # --------------------------------------------------------------------------- schema enforcement
 def test_validate_rejects_out_of_enum_type():
     bad = {"version": "1", "artifact": "emphasis",

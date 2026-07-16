@@ -190,6 +190,49 @@ def test_m4d_name_spelling_divergence_warns(cloned_run):
     assert any("Kerr" in "".join(pair) for pair in v.items)
 
 
+# --------------------------------------------------------------- M3.C gate consumer
+def test_m3c_bowen_contract_passes_on_real_run(real_run):
+    """The real, well-formed bowen artifact conforms -> PASS (no false drift)."""
+    v = rg.check_artifact_contracts(real_run, logging.getLogger("t"))
+    assert v.status is Status.PASS
+
+
+def test_m3c2_drifted_bowen_artifact_blocks(cloned_run):
+    """A non-empty bowen artifact whose body no longer parses (format drift) is a
+    loud ERROR that BLOCKS publication — not a silent zero (P19, U4)."""
+    base, proj = cloned_run
+    bowen = proj / f"{base}{config.SUFFIX_BOWEN}"
+    # real heading + a concept block with the quote marker stripped: non-empty
+    # body, zero parseable references.
+    bowen.write_text("## Bowen References\n\n### Some Concept\n"
+                     "This lost its quote-block marker and no longer parses.\n")
+    v = rg.check_artifact_contracts(base, logging.getLogger("t"))
+    assert v.status is Status.ERROR
+    # and it blocks through the real policy (artifact_contracts is a hard blocker)
+    d = rg.run_gate(base, logging.getLogger("t"),
+                    checks=[("artifact_contracts", rg.check_artifact_contracts)])
+    assert d.decision is Decision.BLOCK
+
+
+def test_m3c2_all_headers_no_body_bowen_blocks(cloned_run):
+    """All-headers-no-body drift (### concept headers with quote bodies dropped)
+    must BLOCK, not read as a benign empty and slip the gate (finding #2)."""
+    base, proj = cloned_run
+    bowen = proj / f"{base}{config.SUFFIX_BOWEN}"
+    bowen.write_text("## Bowen References\n\n### Concept A\n\n### Concept B\n")
+    v = rg.check_artifact_contracts(base, logging.getLogger("t"))
+    assert v.status is Status.ERROR
+
+
+def test_m3c_empty_bowen_is_not_drift(cloned_run):
+    """A legitimately-empty bowen run (bare header, no references) validates as an
+    empty object and PASSES — the empty case must not be mislabeled as drift."""
+    base, proj = cloned_run
+    (proj / f"{base}{config.SUFFIX_BOWEN}").write_text("## Bowen References\n")
+    v = rg.check_artifact_contracts(base, logging.getLogger("t"))
+    assert v.status is Status.PASS
+
+
 # --------------------------------------------------------------- M7 manifest
 def test_m7a1_manifest_matches_gate(cloned_run):
     base, proj = cloned_run

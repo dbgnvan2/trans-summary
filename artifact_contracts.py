@@ -59,6 +59,35 @@ def _validator(key: str):
     return Draft202012Validator(load_schema(key))
 
 
+def _has_body(text: Optional[str]) -> bool:
+    """True when ``text`` carries a MEANINGFUL body — content that should have
+    parsed into items. Discriminates a legitimately-empty artifact from drift:
+
+      * a bare section header (``## Bowen References`` / ``# Title``, H1–H2) with
+        nothing under it is a benign empty -> no body;
+      * any non-heading content line is a body;
+      * an H3+ heading (``### Concept``) is an ITEM header — its presence with
+        zero parsed items is itself drift (the all-headers-no-body case: quote
+        bodies dropped entirely), so it counts as a body.
+
+    Without the H3 rule, an all-headers drift would read as benign-empty and slip
+    past the gate silently (P19). H1/H2 stay scaffolding so the empty case passes."""
+    from transcript_utils import strip_yaml_frontmatter
+
+    stripped = strip_yaml_frontmatter(text or "")
+    for line in stripped.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#"):
+            hashes = len(s) - len(s.lstrip("#"))
+            if hashes >= 3:  # H3+ item header implies content that must parse
+                return True
+            continue  # H1/H2 section scaffolding
+        return True  # non-heading content
+    return False
+
+
 def validate(key: str, obj: dict) -> dict:
     """Validate ``obj`` against the ``key`` schema; return it on success, raise
     ``SchemaError`` (listing every violation) on failure."""
@@ -202,21 +231,15 @@ class Codec:
     def parse_markdown(self, text: str, *args) -> dict:
         """Legacy markdown -> validated schema object. A non-empty artifact that
         parses to zero items is contract drift -> ``SchemaError`` (P19), not an
-        empty pass. Truly empty/whitespace input (incl. a frontmatter-only stub)
-        -> a valid empty object, NOT a mislabeled drift error."""
+        empty pass. Truly empty input — blank, frontmatter-only, or a bare section
+        header with no body (a legitimately zero-item run) -> a valid empty object,
+        NOT a mislabeled drift error."""
         obj = self._from_markdown(text, *args)
-        if not obj.get("items"):
-            # Measure MEANINGFUL body, not raw bytes: frontmatter-only / blank
-            # input has no content to parse, so zero items there is a benign empty
-            # — reserve the loud drift error for real content that parsed to zero.
-            from transcript_utils import strip_yaml_frontmatter
-
-            meaningful = strip_yaml_frontmatter(text or "").strip()
-            if meaningful:
-                raise SchemaError(
-                    f"{self.key}: {len(meaningful)} chars of non-empty content parsed "
-                    f"to zero items — producer/consumer format drift (P19), not a clean empty."
-                )
+        if not obj.get("items") and _has_body(text):
+            raise SchemaError(
+                f"{self.key}: non-empty artifact body parsed to zero items — "
+                f"producer/consumer format drift (P19), not a clean empty."
+            )
         return validate(self.key, obj)
 
     def render_markdown(self, obj: dict) -> str:
@@ -247,3 +270,44 @@ def codec(key: str) -> Codec:
     if key not in CODECS:
         raise SchemaError(f"no codec registered for artifact {key!r}")
     return CODECS[key]
+
+
+# --------------------------------------------------------------------------- save/load helpers
+def json_sidecar_path(md_path) -> Path:
+    """The structured JSON sidecar next to a markdown artifact:
+    ``<base> - bowen-references.md`` -> ``<base> - bowen-references.json``."""
+    return Path(md_path).with_suffix(".json")
+
+
+def write_json_sidecar(md_path, key: str, obj: dict) -> Path:
+    """Write the validated object as the durable JSON sidecar; return its path."""
+    path = json_sidecar_path(md_path)
+    path.write_text(codec(key).to_json(obj) + "\n", encoding="utf-8")
+    return path
+
+
+def load_and_validate(md_path, key: str, *parse_args) -> Optional[dict]:
+    """Read a saved markdown artifact and return its validated object, or None if
+    the file is absent. Raises ``SchemaError`` on drift (M3.C consumer check)."""
+    p = Path(md_path)
+    if not p.exists():
+        return None
+    return codec(key).parse_markdown(p.read_text(encoding="utf-8"), *parse_args)
+
+
+def verify_saved_artifact(md_path, key: str, *parse_args, expect_items: bool = False) -> dict:
+    """Producer self-check (M3.B): re-read the just-saved artifact, validate it,
+    and — when the producer actually extracted items — require it parsed back to
+    >0 items. A saved file that drifts to zero (or violates the schema) is a
+    format-contract failure, not a save. Returns the validated object; raises
+    ``SchemaError`` on any failure so the producer records a retryable ERROR and
+    does NOT leave a malformed artifact authoritative."""
+    obj = load_and_validate(md_path, key, *parse_args)
+    if obj is None:
+        raise SchemaError(f"{key}: no artifact written at {md_path}")
+    if expect_items and not obj.get("items"):
+        raise SchemaError(
+            f"{key}: saved artifact parsed to zero items despite extracted content "
+            f"— producer/consumer format drift (P19)."
+        )
+    return obj
