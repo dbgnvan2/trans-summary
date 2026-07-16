@@ -19,16 +19,13 @@ RUN_FAITHFULNESS_CALIBRATION=1 \
 `transcript_utils.resolve_anthropic_key()`.)
 
 Follow-ups (not blockers) — incl. learning-qa arming-review findings:
-1. **Themes coverage — the description-only approach is CONFIRMED NON-VIABLE with the
-   entailment judge (tested 2026-07-15).** Extracting theme DESCRIPTIONS via the M3
-   codec and judging those still FAILs: both structural and interpretive descriptions
-   are legitimate INTERPRETATION ("This reflects the core Bowen theory commitment…",
-   "Kerr implicitly positions Bowen theory…", "a cycle, not a linear progression") —
-   the judge correctly flags them as exceeding the literal source, but that IS a
-   theme's job. Source-entailment is the wrong check for interpretive content. A real
-   theme check would be a *different* judge ("is this a reasonable interpretation of
-   the source?", not "is it stated in the source?") — a separate design, deferred.
-   Themes stay OUT of `FAITHFULNESS_ARTIFACT_SUFFIXES`.
+1. ~~**Themes coverage.**~~ ✅ DONE 2026-07-15 — a separate **theme GROUNDING judge**.
+   The entailment judge is the wrong check for themes (they interpret by design);
+   `faithfulness_judge.judge_themes_artifact` + `release_gate.check_theme_grounding`
+   ask "is this theme grounded in real source content?" instead. ARMED (Hard BLOCK),
+   calibrated on real theme artifacts (20 grounded / 8 fabricated, recall/precision
+   1.0). Themes stay OUT of `FAITHFULNESS_ARTIFACT_SUFFIXES` (entailment) but ARE in
+   `THEME_ARTIFACT_SUFFIXES` (grounding).
 2. **Living gold set.** Add every escaped hallucination found in production to
    `tests/fixtures/faithfulness_gold/gold.json`; re-run the calibration on any prompt
    or threshold change (spec §M2 flags the judge's semantic quality as curated-eval,

@@ -128,3 +128,56 @@ def test_m2b1_injected_fabrication_in_real_abstract_is_caught():
     r = fj.judge_artifact(injected, src, client)
     assert r.status == "FAIL"
     assert any("Vienna" in c.claim or "grant" in c.claim for c in r.unfaithful)
+
+
+# ---------------------------------------------------------------------------
+# THEME GROUNDING judge calibration (M-themes): every REAL theme is grounded; every
+# curated fabricated theme is ungrounded. Recall on the ungrounded class is the bar.
+# ---------------------------------------------------------------------------
+THEME_GOLD = FIX / "theme_gold" / "gold.json"
+
+
+def test_theme_judge_meets_gold_thresholds():
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    gold = json.loads(THEME_GOLD.read_text(encoding="utf-8"))
+    pairs, rows = [], []
+
+    # grounded truth: every theme in each REAL theme artifact
+    import artifact_contracts as ac
+    for ga in gold["grounded_artifacts"]:
+        src = (FIX / gold["sources"][ga["source"]]).read_text(encoding="utf-8")
+        text = (FIX / ga["dir"] / f"{ga['suffix']}.md").read_text(encoding="utf-8")
+        obj = ac.codec("themes").parse_markdown(text, ga["kind"])
+        verdicts = fj.judge_themes(obj["items"], src, client)
+        for t, v in zip(obj["items"], verdicts):
+            pairs.append(("grounded", v.label))
+            rows.append((ga["source"], "grounded", v.label, t["name"][:45]))
+
+    # ungrounded truth: curated fabricated themes
+    for ut in gold["ungrounded_themes"]:
+        src = (FIX / gold["sources"][ut["source"]]).read_text(encoding="utf-8")
+        v = fj.judge_themes([{"name": ut["name"], "description": ut["description"]}],
+                            src, client)[0]
+        pairs.append(("ungrounded", v.label))
+        rows.append((ut["source"], "ungrounded", v.label, ut["name"][:45]))
+
+    is_ung = lambda lab: lab == fj.UNGROUNDED  # noqa: E731
+    tp = sum(1 for t, p in pairs if is_ung(t) and is_ung(p))
+    fp = sum(1 for t, p in pairs if not is_ung(t) and is_ung(p))
+    fn = sum(1 for t, p in pairs if is_ung(t) and not is_ung(p))
+    recall = tp / (tp + fn) if (tp + fn) else 1.0
+    precision = tp / (tp + fp) if (tp + fp) else 1.0
+
+    print(f"\n=== theme grounding calibration (model={config.THEME_JUDGE_MODEL}) ===")
+    for source, truth, pred, name in rows:
+        flag = "" if (truth == pred) else "  <-- MISS"
+        print(f"  {source:12} truth={truth:10} pred={pred:10} {name}{flag}")
+    print(f"  tp={tp} fp={fp} fn={fn}  recall={recall:.2f} precision={precision:.2f}")
+
+    assert recall >= config.THEME_JUDGE_MIN_RECALL_UNGROUNDED, (
+        f"theme judge recall {recall:.2f} below bar — missed {fn} fabricated theme(s)")
+    assert precision >= config.THEME_JUDGE_MIN_PRECISION_UNGROUNDED, (
+        f"theme judge precision {precision:.2f} below bar — {fp} real theme(s) "
+        f"wrongly flagged ungrounded")

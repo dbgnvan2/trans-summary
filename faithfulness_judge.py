@@ -52,7 +52,10 @@ class ClaimVerdict:
 
     @property
     def faithful(self) -> bool:
-        return self.label == ENTAILED
+        # A "passing" verdict for EITHER judge: the faithfulness judge's ENTAILED or
+        # the theme judge's GROUNDED. (Without "grounded" here, `unfaithful` would
+        # list every theme — grounded ones included — in a theme FAIL report.)
+        return self.label in ("entailed", "grounded")
 
 
 @dataclass
@@ -244,10 +247,13 @@ def _extract_json_array(text: str) -> list:
     return data
 
 
-def _parse_judge_response(response_text: str, claims: list) -> list:
+def _parse_judge_response(response_text: str, claims: list,
+                          valid_labels: Optional[set] = None) -> list:
     """Map the judge's JSON verdicts back onto the claims by 1-based index. Every
     claim must receive a valid label; a missing/invalid verdict raises (-> ERROR),
-    never defaults to entailed (fail closed)."""
+    never defaults to a pass label (fail closed). ``valid_labels`` defaults to the
+    faithfulness label set; the theme judge passes its own {grounded, ungrounded}."""
+    valid = valid_labels if valid_labels is not None else _LABELS
     data = _extract_json_array(response_text)
     by_index = {}
     for obj in data:
@@ -258,7 +264,7 @@ def _parse_judge_response(response_text: str, claims: list) -> list:
         except (TypeError, ValueError):
             continue
         label = str(obj.get("label", "")).strip().lower()
-        if label in _LABELS:
+        if label in valid:
             by_index[idx] = (label, str(obj.get("rationale", "")).strip())
     verdicts = []
     for i, claim in enumerate(claims, start=1):
@@ -360,3 +366,124 @@ def classify_claim(claim: str, source: str, client, *,
     """Judge a single claim against a source and return its label — the primitive
     the gold-set calibration (M2.B) grades. Raises on API/parse failure."""
     return judge_claims([claim], source, client, model=model, logger=logger)[0].label
+
+
+# ===========================================================================
+# THEME GROUNDING JUDGE — a DIFFERENT check for interpretive artifacts.
+# ===========================================================================
+# Structural/interpretive THEMES legitimately interpret, generalize, and apply
+# frameworks beyond the literal source, so the source-ENTAILMENT judge above
+# false-flags them (confirmed empirically). The theme judge asks a different
+# question: is the theme GROUNDED — does its subject matter actually appear in /
+# follow from the transcript — rather than "is it literally stated?".
+GROUNDED = "grounded"
+UNGROUNDED = "ungrounded"
+_THEME_LABELS = {GROUNDED, UNGROUNDED}
+
+_THEME_JUDGE_INSTRUCTIONS = """\
+You are auditing whether each THEME extracted from a transcript is GROUNDED in that
+transcript. A theme is a synthesized, INTERPRETIVE summary — it legitimately
+generalizes, names patterns, draws connections, and applies analytical frameworks
+(e.g. "Bowen theory") to the source. That interpretation is its PURPOSE, so do NOT
+penalize a theme for going beyond the literal wording or for being bold.
+
+Judge ONLY whether the theme is grounded — whether the people, events, topics,
+claims, and dynamics it describes actually appear in, or reasonably follow from, the
+transcript:
+
+- "grounded": the theme interprets, synthesizes, or draws conclusions from content
+  that IS present in the transcript. A reasonable (even bold, framework-laden)
+  reading of real material is grounded.
+- "ungrounded": the theme is built on people, events, topics, or claims that are NOT
+  in the transcript (fabricated subject matter), OR it asserts something the
+  transcript directly contradicts, OR it is not a defensible reading of anything the
+  source contains. A theme is ALSO ungrounded if — even when its general subject is
+  grounded — it weaves in a fabricated CONCRETE SPECIFIC: a named person, institution,
+  place, date, award, or cited study that does NOT appear in the source. A single
+  fabricated specific makes the whole theme ungrounded.
+
+Judge ONLY against the source; do not use outside knowledge. When the theme's
+subject matter is present in the source and the interpretation is a fair reading —
+and it introduces no fabricated concrete specific — label "grounded". Reserve
+"ungrounded" for a theme whose substance the transcript does not contain OR that
+injects an invented specific. Do not penalize a bold or framework-laden reading of
+REAL material; but a fabricated name/date/institution is always ungrounded, however
+grounded the surrounding narrative.
+
+Return ONLY a JSON array, one object per theme, in order:
+[{"index": 1, "label": "grounded|ungrounded", "rationale": "<= 20 words"}]
+No prose before or after the JSON."""
+
+
+def build_theme_judge_prompt(themes: list, source: str) -> str:
+    numbered = "\n\n".join(
+        f"{i + 1}. {t['name']}\n{t.get('description', '')}" for i, t in enumerate(themes)
+    )
+    return (
+        f"{_THEME_JUDGE_INSTRUCTIONS}\n\n"
+        f"=== SOURCE ===\n{source}\n\n"
+        f"=== THEMES ({len(themes)}) ===\n{numbered}\n"
+    )
+
+
+def judge_themes(themes: list, source: str, client, *,
+                 model: Optional[str] = None, logger=None) -> list:
+    """Judge every theme against the source in ONE batched call -> ``ClaimVerdict``
+    list (label in {grounded, ungrounded}, ``claim`` = the theme name). Raises on
+    API/parse failure so the caller fails closed."""
+    from transcript_utils import call_claude_with_retry
+
+    model = model or config.THEME_JUDGE_MODEL
+    message = call_claude_with_retry(
+        client=client,
+        model=model,
+        messages=[{"role": "user", "content": build_theme_judge_prompt(themes, source)}],
+        max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
+        temperature=config.TEMP_STRICT,
+        min_length=1,
+        logger=logger or logging.getLogger("theme_judge"),
+        timeout=config.TIMEOUT_DEFAULT,
+    )
+    names = [t["name"] for t in themes]
+    return _parse_judge_response(message.content[0].text, names, valid_labels=_THEME_LABELS)
+
+
+def judge_themes_artifact(themes_markdown: str, source: str, kind: str, client, *,
+                          model: Optional[str] = None, logger=None) -> FaithfulnessResult:
+    """Judge one themes artifact for GROUNDING against the source. Parses the themes
+    via the M3 codec (so only real themes, not scaffolding, are judged), then labels
+    each grounded/ungrounded. Any ungrounded theme -> FAIL naming it; a judge error
+    or missing source -> ERROR (fail closed). No themes -> PASS."""
+    log = logger or logging.getLogger("theme_judge")
+    if not source or not source.strip():
+        return FaithfulnessResult(ERROR, "source transcript missing — cannot verify themes")
+    try:
+        import artifact_contracts as ac
+        obj = ac.codec("themes").parse_markdown(themes_markdown, kind)
+        themes = obj["items"]
+    except Exception as e:  # noqa: BLE001 — a codec/parse failure must fail closed
+        log.error("Theme parse failed (fail-closed ERROR): %s", e, exc_info=True)
+        return FaithfulnessResult(ERROR, f"theme parse error: {type(e).__name__}: {e}")
+    if not themes:
+        return FaithfulnessResult(PASS, "no themes to judge")
+    try:
+        verdicts = judge_themes(themes, source, client, model=model, logger=log)
+    except Exception as e:  # noqa: BLE001 — judge failure fails closed, never passes
+        log.error("Theme judge failed (fail-closed ERROR): %s", e, exc_info=True)
+        return FaithfulnessResult(ERROR, f"theme judge error: {type(e).__name__}: {e}")
+    ungrounded = [v for v in verdicts if v.label != GROUNDED]
+    if ungrounded:
+        first = ungrounded[0]
+        return FaithfulnessResult(
+            FAIL,
+            f"{len(ungrounded)} of {len(verdicts)} theme(s) ungrounded; "
+            f"first: {first.claim[:100]!r}",
+            claims=verdicts,
+        )
+    return FaithfulnessResult(PASS, f"all {len(verdicts)} theme(s) grounded", claims=verdicts)
+
+
+def classify_theme(theme: dict, source: str, client, *,
+                   model: Optional[str] = None, logger=None) -> str:
+    """Judge a single theme and return its grounding label — the calibration primitive."""
+    return judge_themes([theme], source, client, model=model, logger=logger)[0].label

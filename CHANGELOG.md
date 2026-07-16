@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (theme GROUNDING judge + test-validity follow-ups)
+
+**Theme grounding judge (ARMED).** Themes were excluded from the faithfulness judge
+because source-ENTAILMENT is the wrong check for interpretive content (a theme's job
+is to interpret beyond the literal text). Added a SEPARATE judge that asks the right
+question — *is this theme a grounded interpretation (its subject matter appears in /
+follows from the source)?* — so it passes legitimate interpretation and FAILs a theme
+built on fabricated subject matter.
+- `faithfulness_judge.judge_themes_artifact` / `judge_themes` — one batched Sonnet
+  call labelling each theme grounded/ungrounded (parsed via the M3 themes codec, so
+  only real themes are judged, not scaffolding). Any ungrounded theme → FAIL naming
+  it; source/API/parse error → ERROR (fail closed). `_parse_judge_response`
+  generalized with a `valid_labels` param.
+- `release_gate.check_theme_grounding` (structural + interpretive), Hard BLOCK
+  (`config.GATE_BLOCKING_CHECKS += theme_grounding`), per-content memo, key via
+  `resolve_anthropic_key`, forced OFF in the unit suite (root conftest).
+- Calibrated on REAL theme artifacts (`tests/fixtures/theme_gold/gold.json`): all 20
+  real themes → grounded; all 8 curated fabricated/contradicting themes → ungrounded
+  (**recall 1.0 / precision 1.0**, `claude-sonnet-4-6`). Model pinned
+  (`config.THEME_JUDGE_MODEL`). Offline tests (mocked) + live calibration (opt-in).
+  This closes the themes gap the faithfulness work deferred (P20-compliant: calibrated
+  on the real extraction path, smoke-tested end-to-end before arming).
+
+**Test-validity follow-ups (TEST_VALIDITY_REPORT §3 closed).**
+- 6 vacuous tests given real assertions (`test_exception_fix.py` ×4 pin
+  `log_token_usage`'s swallow-not-raise contract; `test_validation_headless.py` ×2
+  assert findings/schema + `pytest.skip`); `KNOWN_VACUOUS` emptied.
+- False-green format tests repointed to REAL fixtures: `test_summary_pipeline_parsing`
+  theme tests (kcfc structural=3 / interpretive=7; removed the `###`-as-theme A1-bug
+  test); `test_bowen_references_integration` (2 formerly-xfail) → real consumer
+  `parse_bowen_references_text`, un-xfailed.
+- `summary_validation` mutation coverage 44%→71% on `check_keyword_coverage` +
+  `check_proportionality` (medium tier, section/total terms, dynamic-tolerance tiers,
+  divide-by-zero guard) — `test_validator_logic_hardening.py`.
+
 ## [Unreleased] - 2026-07-15 (unattended-robustness — M2: faithfulness judge)
 
 Claim-level semantic faithfulness for NARRATIVE artifacts (U2) — catches a fluent

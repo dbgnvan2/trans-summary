@@ -313,6 +313,49 @@ def test_m2c_faithfulness_no_apikey_is_error_blocks(cloned_run, monkeypatch):
     assert v.status is Status.ERROR
 
 
+# --------------------------------------------------------------- theme grounding gate
+def _theme_project(tmp_path, monkeypatch):
+    """A minimal project dir with a source + a structural-themes artifact."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    proj = tmp_path / BASE
+    proj.mkdir(parents=True)
+    (proj / f"{BASE}{config.SUFFIX_FORMATTED}").write_text(
+        "## Section 1\nReal source content about a family case.\n")
+    (proj / f"{BASE}{config.SUFFIX_STRUCTURAL_THEMES}").write_text(
+        "## Structural Themes\n\n**1. A Theme**\n**Description:** interprets the case.\n")
+    return proj
+
+
+def test_theme_grounding_disabled_is_noop_pass(real_run, monkeypatch):
+    monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", False)
+    assert rg.check_theme_grounding(real_run, logging.getLogger("t")).status is Status.PASS
+
+
+def test_theme_grounding_ungrounded_fails_and_blocks(tmp_path, monkeypatch):
+    import faithfulness_judge as fjudge
+    import transcript_utils
+    _theme_project(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", True)
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: "test-key")
+    bad = fjudge.FaithfulnessResult(
+        fjudge.FAIL, "1 of 1 theme(s) ungrounded",
+        claims=[fjudge.ClaimVerdict("A Fabricated Theme", fjudge.UNGROUNDED)])
+    monkeypatch.setattr(fjudge, "judge_themes_artifact", lambda *a, **k: bad)
+    v = rg.check_theme_grounding(BASE, logging.getLogger("t"))
+    assert v.status is Status.FAIL
+    d = rg.run_gate(BASE, logging.getLogger("t"),
+                    checks=[("theme_grounding", rg.check_theme_grounding)])
+    assert d.decision is Decision.BLOCK
+
+
+def test_theme_grounding_no_apikey_is_error(tmp_path, monkeypatch):
+    import transcript_utils
+    _theme_project(tmp_path, monkeypatch)
+    monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", True)
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: None)
+    assert rg.check_theme_grounding(BASE, logging.getLogger("t")).status is Status.ERROR
+
+
 # --------------------------------------------------------------- M7 manifest
 def test_m7a1_manifest_matches_gate(cloned_run):
     base, proj = cloned_run

@@ -373,6 +373,84 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
                    f"all narrative claims entailed by source ({judged} artifact(s) judged)")
 
 
+# --------------------------------------------------------------------------- theme grounding
+# suffix -> theme kind for the M3 codec.
+_THEME_KIND = {
+    config.SUFFIX_STRUCTURAL_THEMES: "structural",
+    config.SUFFIX_INTERPRETIVE_THEMES: "interpretive",
+}
+_THEME_JUDGE_CACHE: dict = {}
+
+
+def _judge_theme_cached(fjudge, text: str, source: str, kind: str, client, logger):
+    import hashlib
+
+    key = (hashlib.sha256(text.encode("utf-8")).hexdigest(),
+           hashlib.sha256(source.encode("utf-8")).hexdigest(), kind)
+    cached = _THEME_JUDGE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    result = fjudge.judge_themes_artifact(text, source, kind, client, logger=logger)
+    if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
+        _THEME_JUDGE_CACHE[key] = result
+    return result
+
+
+def check_theme_grounding(base_name: str, logger=None) -> Verdict:
+    """Interpretive GROUNDING of the theme artifacts (structural + interpretive): a
+    theme must be a reasonable interpretation of content actually in the source; a
+    theme built on fabricated subject matter -> FAIL. This is the theme counterpart
+    of the faithfulness judge (which is source-ENTAILMENT and wrong for interpretive
+    content). Fails closed (no source / no key / judge error -> ERROR). Disabled by
+    default (a PASS no-op) until its gold-set calibration clears
+    (`config.THEME_JUDGE_ENABLED`)."""
+    if not getattr(config, "THEME_JUDGE_ENABLED", False):
+        return Verdict("theme_grounding", Status.PASS,
+                       "theme grounding judge disabled (awaiting calibration)")
+    import faithfulness_judge as fjudge
+    from transcript_utils import resolve_anthropic_key
+
+    transcript = _load_source_transcript(base_name)
+    if not transcript or not transcript.strip():
+        return Verdict("theme_grounding", Status.ERROR,
+                       "source transcript missing or empty — cannot verify themes")
+    api_key = resolve_anthropic_key()
+    if not api_key:
+        return Verdict("theme_grounding", Status.ERROR,
+                       "no Anthropic API key — cannot run theme judge (fail closed)")
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    proj = config.PROJECTS_DIR / base_name
+    fails, errors = [], []
+    judged = 0
+    for suffix, kind in _THEME_KIND.items():
+        path = proj / f"{base_name}{suffix}"
+        if not path.exists():
+            continue
+        judged += 1
+        result = _judge_theme_cached(
+            fjudge, path.read_text(encoding="utf-8"), transcript, kind, client, logger)
+        art = suffix.strip(" -")
+        if result.status == fjudge.FAIL:
+            fails.append({"artifact": art, "detail": result.detail,
+                          "ungrounded": [c.claim for c in result.unfaithful]})
+        elif result.status == fjudge.ERROR:
+            errors.append({"artifact": art, "detail": result.detail})
+    if judged == 0:
+        return Verdict("theme_grounding", Status.PASS, "no theme artifacts present")
+    if fails:
+        return Verdict("theme_grounding", Status.FAIL,
+                       f"{len(fails)} of {judged} theme artifact(s) contain ungrounded "
+                       f"theme(s)", items=fails + errors)
+    if errors:
+        return Verdict("theme_grounding", Status.ERROR,
+                       f"{len(errors)} of {judged} theme artifact(s) could not be verified",
+                       items=errors)
+    return Verdict("theme_grounding", Status.PASS,
+                   f"all themes grounded ({judged} artifact(s) judged)")
+
+
 def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     """WARN (named) if a required artifact is missing or empty — publishing an
     incomplete bundle unattended is a silent drop (P2/M5.B). Advisory by policy;
@@ -399,6 +477,7 @@ DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
     ("faithfulness", check_faithfulness),
+    ("theme_grounding", check_theme_grounding),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
     ("timestamp_citations", check_timestamp_citations),

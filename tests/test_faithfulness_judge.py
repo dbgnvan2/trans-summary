@@ -201,3 +201,80 @@ def test_gold_set_is_balanced_and_sources_exist():
     assert set(labels) == {"entailed", "contradicted", "unsupported"}
     for rel in gold["sources"].values():
         assert (FIX / rel).exists(), f"gold source missing: {rel}"
+
+
+# --------------------------------------------------------------------------- theme grounding judge
+def test_theme_judge_grounded_artifact_passes(monkeypatch):
+    md = "## Structural Themes\n\n**1. A Grounded Theme**\n**Description:** interprets content in the source.\n"
+    client = _canned_client(monkeypatch, json.dumps([{"index": 1, "label": "grounded"}]))
+    r = fj.judge_themes_artifact(md, "some real source text", "structural", client)
+    assert r.status == fj.PASS
+
+
+def test_theme_judge_ungrounded_theme_fails(monkeypatch):
+    md = "## Structural Themes\n\n**1. A Fabricated Theme**\n**Description:** about content absent from the source.\n"
+    client = _canned_client(monkeypatch, json.dumps(
+        [{"index": 1, "label": "ungrounded", "rationale": "absent from source"}]))
+    r = fj.judge_themes_artifact(md, "source", "structural", client)
+    assert r.status == fj.FAIL
+    assert len(r.unfaithful) == 1 and "Fabricated" in r.unfaithful[0].claim
+
+
+def test_theme_judge_mixed_reports_only_the_ungrounded_theme(monkeypatch):
+    """With one grounded + one ungrounded theme, the FAIL report must name ONLY the
+    ungrounded theme — not both (regression: ClaimVerdict.faithful once hardcoded
+    `== entailed`, so every theme showed as ungrounded)."""
+    md = ("## Structural Themes\n\n"
+          "**1. A Grounded Theme**\n**Description:** interprets real content.\n\n"
+          "**2. A Fabricated Theme**\n**Description:** about content not in the source.\n")
+    resp = json.dumps([
+        {"index": 1, "label": "grounded"},
+        {"index": 2, "label": "ungrounded", "rationale": "absent"},
+    ])
+    client = _canned_client(monkeypatch, resp)
+    r = fj.judge_themes_artifact(md, "source", "structural", client)
+    assert r.status == fj.FAIL
+    assert [c.claim for c in r.unfaithful] == ["A Fabricated Theme"]
+
+
+def test_theme_judge_error_is_error_not_pass(monkeypatch):
+    md = "## Structural Themes\n\n**1. T**\n**Description:** d.\n"
+    client = _canned_client(monkeypatch, raises=RuntimeError("api down"))
+    assert fj.judge_themes_artifact(md, "source", "structural", client).status == fj.ERROR
+
+
+def test_theme_judge_missing_source_is_error():
+    md = "## Structural Themes\n\n**1. T**\n**Description:** d.\n"
+    assert fj.judge_themes_artifact(md, "", "structural", client=None).status == fj.ERROR
+
+
+def test_theme_judge_no_themes_is_pass():
+    assert fj.judge_themes_artifact("## Structural Themes\n", "source", "structural",
+                                    client=None).status == fj.PASS
+
+
+def test_theme_judge_drift_is_error_not_pass():
+    """A non-empty themes artifact that parses to zero themes (format drift) -> the
+    codec raises -> ERROR (fail closed), never a silent PASS."""
+    md = "## Structural Themes\n\n### Not a numbered theme heading\nsome prose here\n"
+    assert fj.judge_themes_artifact(md, "source", "structural", client=None).status == fj.ERROR
+
+
+def test_theme_parse_response_uses_theme_labels():
+    v = fj._parse_judge_response(
+        json.dumps([{"index": 1, "label": "grounded", "rationale": "x"}]),
+        ["A theme"], valid_labels=fj._THEME_LABELS)
+    assert v[0].label == "grounded"
+    # a faithfulness label is INVALID for the theme judge -> raises (fail closed)
+    with pytest.raises(ValueError):
+        fj._parse_judge_response(
+            json.dumps([{"index": 1, "label": "entailed"}]), ["A theme"],
+            valid_labels=fj._THEME_LABELS)
+
+
+def test_theme_gold_set_well_formed():
+    gold = json.loads((FIX / "theme_gold" / "gold.json").read_text())
+    assert len(gold["ungrounded_themes"]) >= 5
+    assert len(gold["grounded_artifacts"]) >= 4
+    for rel in gold["sources"].values():
+        assert (FIX / rel).exists(), f"gold source missing: {rel}"

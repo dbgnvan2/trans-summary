@@ -40,11 +40,13 @@ def _faithfulness_judge_offline(monkeypatch):
     try:
         import config
         monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+        monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", False, raising=False)
     except Exception:
         return
     try:
         import release_gate
         release_gate._FAITHFULNESS_CACHE.clear()
+        release_gate._THEME_JUDGE_CACHE.clear()
     except Exception:
         pass
     # Second layer (defense-in-depth, F5): default NO resolvable key, unless a live

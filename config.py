@@ -396,7 +396,12 @@ PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, 
 #   is a fluent hallucination (U2). Blocks when enabled; a PASS no-op while
 #   FAITHFULNESS_JUDGE_ENABLED is False (awaiting M2.B calibration), so it does not
 #   affect the deterministic gate until turned on.
-GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness"}
+#   theme_grounding (2026-07-15): an ungrounded theme (built on fabricated subject
+#   matter) is a hallucination in a published artifact (U2). Blocks when enabled; a
+#   PASS no-op while THEME_JUDGE_ENABLED is False, so it does not affect the gate
+#   until armed.
+GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness",
+                        "theme_grounding"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
@@ -478,10 +483,11 @@ FAITHFULNESS_SKIP_LINE_LABELS = [
 # the source. Themes are DELIBERATELY EXCLUDED — a real-artifact smoke test
 # (2026-07-15) showed structural/interpretive themes are interpretive BY DESIGN
 # (they name patterns and apply theoretical frames like "Bowen theory" that aren't
-# literally in the transcript), so a source-entailment check false-flags ~30/40 of
-# their claims as "unsupported". Judging a theme means judging its DESCRIPTION only,
-# via structured extraction — deferred (see TODO.md / LEARNINGS.md). Spec §M2.A
-# lists themes; this narrower scope is the finding-driven correction.
+# literally in the transcript), so a source-ENTAILMENT check false-flags ~30/40 of
+# their claims as "unsupported". Themes are instead covered by a DIFFERENT check —
+# the theme GROUNDING judge below ("is this a reasonable interpretation of real
+# content?" not "is it stated?"). Spec §M2.A lists themes; this split is the
+# finding-driven correction.
 FAITHFULNESS_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
     SUFFIX_SUMMARY_GEN,
@@ -493,6 +499,27 @@ FAITHFULNESS_ARTIFACT_SUFFIXES = [
 # the judge must almost never wave a fabrication through.
 FAITHFULNESS_MIN_RECALL_UNFAITHFUL = 0.90
 FAITHFULNESS_MIN_PRECISION_UNFAITHFUL = 0.70
+
+# ---- Theme GROUNDING judge (interpretive artifacts) ----
+# A separate judge for structural/interpretive THEMES: it asks whether a theme is a
+# GROUNDED interpretation (its subject matter appears in / follows from the source),
+# NOT whether it is literally stated — so it passes legitimate interpretation and
+# FAILs a theme built on fabricated subject matter. Same fail-closed/Hard-BLOCK
+# posture as the faithfulness judge; pinned to the calibrated model.
+# ARMED 2026-07-15. Calibrated on REAL theme artifacts (the production extraction
+# path): all 20 real themes -> grounded; all 8 curated fabricated/contradicting themes
+# -> ungrounded (recall 1.0 / precision 1.0). Same fail-closed Hard-BLOCK posture as
+# the faithfulness judge; forced OFF in the unit suite via the root-conftest fixture.
+THEME_JUDGE_ENABLED = True
+THEME_JUDGE_MODEL = "claude-sonnet-4-6"
+THEME_ARTIFACT_SUFFIXES = [
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+]
+# The theme judge ships only if it clears these on the curated theme gold set
+# (recall on the UNGROUNDED class is load-bearing — a fabricated theme must not pass).
+THEME_JUDGE_MIN_RECALL_UNGROUNDED = 0.90
+THEME_JUDGE_MIN_PRECISION_UNGROUNDED = 0.70
 
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a
