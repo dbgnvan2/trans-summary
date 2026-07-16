@@ -413,6 +413,18 @@ GATE_CONSISTENCY_ARTIFACT_SUFFIXES = [
     SUFFIX_TOPICS,
     SUFFIX_KEY_TERMS,
 ]
+# Artifacts a complete run is expected to have (M5.B). A missing/empty one is a
+# WARN (named) — not a hard block, per the elected entity-only blocking policy;
+# a missing SOURCE still hard-blocks via entity_grounding's ERROR (can't verify).
+# Flip "required_artifacts" into GATE_BLOCKING_CHECKS to make completeness a gate.
+GATE_REQUIRED_ARTIFACT_SUFFIXES = [
+    SUFFIX_FORMATTED,
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_TOPICS,
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+    SUFFIX_KEY_TERMS,
+]
 
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a

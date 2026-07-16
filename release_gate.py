@@ -250,10 +250,31 @@ def check_entity_consistency(base_name: str, logger=None) -> Verdict:
     return Verdict("entity_consistency", Status.PASS, "names consistent across artifacts")
 
 
+def check_required_artifacts(base_name: str, logger=None) -> Verdict:
+    """WARN (named) if a required artifact is missing or empty — publishing an
+    incomplete bundle unattended is a silent drop (P2/M5.B). Advisory by policy;
+    a missing SOURCE additionally hard-blocks via entity_grounding's ERROR."""
+    proj = config.PROJECTS_DIR / base_name
+    missing = []
+    for suffix in config.GATE_REQUIRED_ARTIFACT_SUFFIXES:
+        f = proj / f"{base_name}{suffix}"
+        try:
+            present = f.exists() and f.read_text(encoding="utf-8", errors="ignore").strip()
+        except OSError:
+            present = False
+        if not present:
+            missing.append(suffix.strip(" -") or suffix.strip())
+    if missing:
+        return Verdict("required_artifacts", Status.WARN,
+                       f"missing or empty required artifact(s): {missing}", items=missing)
+    return Verdict("required_artifacts", Status.PASS, "all required artifacts present")
+
+
 # Ordered registry. entity_grounding is the only hard blocker (config policy);
 # the rest are advisory verdicts recorded in the manifest.
 DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
+    ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
     ("timestamp_citations", check_timestamp_citations),
     ("entity_consistency", check_entity_consistency),

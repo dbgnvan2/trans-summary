@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (unattended-robustness — M5: fault-injection matrix)
+
+The acceptance test for the fail-closed net: under adverse inputs and injected
+faults the gate must give a definite decision (never crash) and degrade with a
+distinct signal, or fail closed — never silently publish.
+
+- **`tests/test_m5_fault_injection.py` (12).** M5.A input edge matrix (empty /
+  whitespace / short / malformed / very-long transcript — no crash, correct
+  block/allow); M5.B partial artifacts (missing source -> BLOCK; missing/empty
+  abstract -> WARN, named); M5.C dirty re-run (BLOCK then clean clears the marker
+  and quarantines the stale bundle; gate idempotent — same state, same manifest
+  hashes); M5.D fault injection (a transient in a BLOCKING check -> ERROR -> BLOCK
+  with no bundle; a fault in an ADVISORY check -> ALLOW_WITH_WARNINGS, F3).
+- **`check_required_artifacts` (WARN).** Names a missing/empty required artifact
+  (`config.GATE_REQUIRED_ARTIFACT_SUFFIXES`) so an incomplete bundle isn't shipped
+  silently. Advisory per the entity-only blocking policy; a missing SOURCE still
+  hard-blocks via entity_grounding's ERROR.
+
 ## [Unreleased] - 2026-07-15 (unattended-robustness — Phase 1: fail-closed release gate)
 
 The pipeline's validators were advisory (they wrote a report; nothing blocked on
