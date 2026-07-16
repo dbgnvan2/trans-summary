@@ -35,12 +35,21 @@ calibration clears its precision/recall bars — so the gate is unaffected until
 - Two `learning-qa` passes applied: short-concrete-claim coverage hole (F1),
   pass-on-empty when nothing judged (F2), and gold-set precision-stress cases (F3).
 
-**Status:** code + gold set + gate + offline tests complete and green; the live
-M2.B.1 calibration is **blocked pending an `ANTHROPIC_API_KEY`** in the run
-environment (none present here — not fabricating results). Coverage:
-docs/spec_coverage_m2_2026-07-15.md.
+**Status:** code + gold set + gate + offline tests complete and green; **NOT armed.**
+The isolated-gold M2.B.1 calibration PASSED (recall/precision 1.0, key resolved via
+the shared `~/.config/llm/keys.json` store), but a **real-full-artifact smoke test
+showed the judge would false-BLOCK real runs** — a P10 test-validity gap (the gold
+set of isolated clean claims never exercised the real extraction path). Response:
+kept it disabled, scoped it to prose summaries (dropped THEMES — interpretive by
+design), hardened `extract_claims` (skip scaffolding/meta via
+`config.FAITHFULNESS_SKIP_LINE_LABELS`, strip enumerators) and loosened the prompt.
+Added `transcript_utils.resolve_anthropic_key` (env → shared keys file) so
+calibration/live runs work without exporting the key, plus a per-content judge memo
+and a conftest guard forcing the judge off in the suite. Remaining before arming:
+real-artifact gold cases, label-precision tuning, structured description-only theme
+path (TODO.md, LEARNINGS.md). Coverage: docs/spec_coverage_m2_2026-07-15.md.
 
-Suite: 562 passed / 15 skipped / 5 xfailed / 0 failed (calibration skipped).
+Suite: 564 passed / 15 skipped / 5 xfailed / 0 failed (calibration skipped).
 
 Spec: docs/spec_unattended_robustness_2026-07-15.md#M2 (M2.A, M2.B, M2.C)
 

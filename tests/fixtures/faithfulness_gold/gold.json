@@ -2,7 +2,8 @@
   "_doc": "M2.B gold set — curated (claim, source, label) triples against REAL sources, to grade the faithfulness judge. entailed = supported/fair-inference; contradicted = conflicts with a specific source fact; unsupported = fabricated specific absent from source. Labels verified against the source text (P6). Recall on the {contradicted,unsupported} class is the load-bearing bar.",
   "sources": {
     "dave_g": "dave_g_test2/formatted.md",
-    "where_roots": "where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md"
+    "where_roots": "where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+    "roots_bowen": "roots_bowen_test/formatted.md"
   },
   "cases": [
     {"id": "e1", "source": "dave_g", "label": "entailed",
@@ -82,6 +83,19 @@
      "note": "no such degree stated in the source"},
     {"id": "u5", "source": "where_roots", "label": "unsupported",
      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence.",
-     "note": "no WHO study or 2019 date in the source"}
+     "note": "no WHO study or 2019 date in the source"},
+
+    {"id": "rb_e1", "source": "roots_bowen", "label": "entailed",
+     "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism.",
+     "note": "source: Aristotle geocentric, Copernicus restored credibility in the heliocentric universe"},
+    {"id": "rb_e2", "source": "roots_bowen", "label": "entailed",
+     "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action.",
+     "note": "source: DOS equals ... differentiation of self equals emotional objectivity plus action"},
+    {"id": "rb_c1", "source": "roots_bowen", "label": "contradicted",
+     "claim": "Kerr credits Ptolemy with restoring the heliocentric model.",
+     "note": "source: Ptolemy did epicycle refinements; COPERNICUS restored heliocentrism"},
+    {"id": "rb_u1", "source": "roots_bowen", "label": "unsupported",
+     "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation.",
+     "note": "no such study, date, or institution in the source"}
   ]
 }

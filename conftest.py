@@ -26,6 +26,29 @@ def _isolate_logs_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config.settings, "LOGS_DIR", tmp_path, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _faithfulness_judge_offline(monkeypatch):
+    """Keep the LLM faithfulness judge (M2) OFF and hermetic across the WHOLE suite.
+
+    The shipped default is ENABLED (calibration passed 2026-07-15), so a test that
+    runs the real gate would otherwise make a live Anthropic call (the key resolves
+    from the shared keys file) or, with no key, ERROR->BLOCK — breaking deterministic
+    gate tests and spending API. Force it disabled here; the enabled path is
+    exercised with a MOCKED judge by tests that opt in via their own monkeypatch
+    (which runs after this and overrides it). Also clear the process-lifetime verdict
+    cache so a memoized result can't leak between tests (P8)."""
+    try:
+        import config
+        monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+    except Exception:
+        return
+    try:
+        import release_gate
+        release_gate._FAITHFULNESS_CACHE.clear()
+    except Exception:
+        pass
+
+
 def _live_api_enabled(config: pytest.Config) -> bool:
     """Enable live API tests only when explicitly requested."""
     return config.getoption("--live-api") or os.getenv("RUN_LIVE_API_TESTS") == "1"

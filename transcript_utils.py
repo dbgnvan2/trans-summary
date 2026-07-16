@@ -63,22 +63,50 @@ def setup_logging(script_name: str) -> logging.Logger:
     return logger
 
 
+def resolve_anthropic_key() -> Optional[str]:
+    """Resolve the Anthropic API key: the ``ANTHROPIC_API_KEY`` env var first, then
+    the shared global keys file the ``global-api-config`` module reads
+    (``$LLM_KEYS_FILE`` or ``~/.config/llm/keys.json``). Returns None if neither
+    has it. Reads the shared keys JSON directly so this has no dependency on the
+    global module (which imports ``requests``)."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    import json
+
+    path = os.environ.get("LLM_KEYS_FILE") or os.path.expanduser(
+        "~/.config/llm/keys.json")
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    providers = data.get("providers", data)
+    if isinstance(providers, dict):
+        anth = providers.get("anthropic")
+        if isinstance(anth, dict) and anth.get("api_key"):
+            return anth["api_key"]
+    return None
+
+
 def validate_api_key() -> str:
     """
-    Validate that ANTHROPIC_API_KEY is set.
+    Validate that an Anthropic API key is available (env or the shared global keys
+    file, via ``resolve_anthropic_key``).
 
     Returns:
         The API key
 
     Raises:
-        ValueError: If API key is not set
+        ValueError: If no API key can be resolved
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = resolve_anthropic_key()
     if not api_key:
         raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Please set it in your .env file or environment:\n"
+            "No Anthropic API key found.\n"
+            "Set ANTHROPIC_API_KEY in your environment:\n"
             "  export ANTHROPIC_API_KEY='your-api-key-here'\n"
+            "or add an 'anthropic' provider to ~/.config/llm/keys.json "
+            "(shared global keys file).\n"
             "Get your key from: https://console.anthropic.com/"
         )
     return api_key

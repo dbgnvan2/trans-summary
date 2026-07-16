@@ -117,14 +117,23 @@ def extract_claims(text: str) -> list:
         return []
     claims: list = []
     dropped = 0
+    skip_labels = {s.lower() for s in config.FAITHFULNESS_SKIP_LINE_LABELS}
     for raw_line in _strip_frontmatter(text).splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or line == "---":
             continue
         # drop list markers, blockquote markers, and a leading bold field label
         line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)
-        line = re.sub(r"^\*\*[^*\n]{1,40}:\*\*\s*", "", line)  # **Description:** ...
         line = line.replace("**", "").replace("__", "").strip()
+        # skip a structured-artifact scaffolding / meta line ("Coverage / role:",
+        # "Document:", "Key evidence:") — meta-commentary, not a source claim.
+        label = line.split(":", 1)[0].strip().lower() if ":" in line else ""
+        if label and label in skip_labels:
+            continue
+        line = re.sub(r"^[A-Za-z][^:\n]{0,40}:\s*", "", line, count=1)  # Description: ...
+        # strip a leading list/theme enumerator ("1. ", "2) ") so a numbered theme
+        # header doesn't split into a bare-number "1." fragment.
+        line = re.sub(r"^\d+[.)]\s+", "", line).strip()
         if not line:
             continue
         for sentence in _split_sentences(line):
@@ -166,16 +175,23 @@ numbered list of CLAIMS taken from a summary of that transcript. For EACH claim,
 decide whether the source supports it, using exactly one label:
 
 - "entailed": the claim is directly stated in the source OR is a fair paraphrase, \
-aggregation, or reasonable summary-level inference from the source.
-- "contradicted": the claim conflicts with a specific fact in the source (wrong \
-name, date, number, relationship, or outcome).
-- "unsupported": the claim introduces a specific fact (a named person, place, date, \
-quantity, event, or attribution) that is NOT present in and NOT derivable from the \
-source. This is the hallucination case.
+aggregation, generalization, or reasonable summary-level inference from the source. \
+A summary legitimately abstracts, connects, and generalizes across the source — \
+that is faithful, not a fabrication.
+- "contradicted": the claim DIRECTLY conflicts with a specific fact stated in the \
+source (a wrong name, date, number, relationship, or outcome — the source says X, \
+the claim says not-X). A broader generalization or interpretation is NOT a \
+contradiction; only a factual clash is.
+- "unsupported": the claim introduces a specific concrete fact (a named person, \
+place, date, quantity, cited study, or attribution) that is NOT present in and NOT \
+derivable from the source. This is the hallucination case — a fabricated specific, \
+not a high-level interpretation.
 
-Judge ONLY against the source; do not use outside knowledge. When a claim is a \
-high-level thematic summary that fairly reflects the source, label it "entailed". \
-Reserve "unsupported" for concrete fabricated specifics.
+Judge ONLY against the source; do not use outside knowledge. Default to "entailed" \
+for thematic summaries, interpretations, and reasonable inferences that fairly \
+reflect the source. Reserve "contradicted" for a direct factual clash and \
+"unsupported" for a concrete fabricated specific. When genuinely unsure, prefer \
+"entailed" — the check exists to catch clear fabrications, not to police wording.
 
 Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]

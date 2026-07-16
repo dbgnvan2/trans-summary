@@ -6,21 +6,36 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
-## M2 faithfulness judge — arm it (2026-07-15)
+## M2 faithfulness judge — NOT yet armable (2026-07-15)
 
-Built and offline-green, **disabled by default** until calibrated. To arm:
+Built and offline-green, **disabled**. The isolated-gold calibration passed
+perfectly (recall/precision 1.0) but a **real-full-artifact smoke test showed it
+would false-BLOCK real runs** (see LEARNINGS.md — a P10 test-validity gap). Do NOT
+arm until the below are done and a real-artifact smoke test passes clean.
 
-1. **Run live calibration (M2.B.1)** — needs an Anthropic key (absent in this env):
-   ```
-   RUN_FAITHFULNESS_CALIBRATION=1 ANTHROPIC_API_KEY=… \
-     PYTHONPATH=$PWD .venv/bin/python -m pytest tests/test_faithfulness_calibration.py -q -s
-   ```
-   Prints a per-case truth-vs-prediction table + metrics. Must clear recall ≥0.90
-   and precision ≥0.70 on the dangerous (contradicted+unsupported) class.
-2. If it clears, flip `config.FAITHFULNESS_JUDGE_ENABLED = True` to arm the gate.
-   If it misses, tune the judge prompt (`faithfulness_judge._JUDGE_INSTRUCTIONS`)
-   / thresholds and re-run. The gold set is the living calibration artifact — add
-   every escaped hallucination found in production.
+Remaining work before arming:
+1. **Real-artifact gold cases.** Rebuild the gold set from claims extracted by
+   `extract_claims` on REAL abstract/summary/overview/blog files (not hand-picked
+   isolated sentences), so calibration exercises the production extraction path.
+2. **Label-precision tuning.** The judge over-flags legitimate summary synthesis
+   and mislabels "unsupported" vs "contradicted" (dave_g abstract: "recurring
+   pattern … nubbin of self" → contradicted). Tune `_JUDGE_INSTRUCTIONS` and
+   re-measure precision on real abstracts; decide BLOCK vs WARN for borderline
+   over-synthesis.
+3. **Themes need a structured path.** Themes were dropped from
+   `FAITHFULNESS_ARTIFACT_SUFFIXES` (interpretive by design). To judge a theme,
+   extract its DESCRIPTION only (via the M3 themes codec) and judge that — not the
+   raw markdown (titles/metadata/interpretation false-flag).
+4. Re-run `tests/test_faithfulness_calibration.py` on the rebuilt gold set; smoke-test
+   the enabled gate on a real project; only then flip `FAITHFULNESS_JUDGE_ENABLED = True`.
+
+Key access: `transcript_utils.resolve_anthropic_key()` reads env then the shared
+`~/.config/llm/keys.json` (global-api-config store), so calibration/live runs work
+without exporting the key. Calibration command:
+```
+RUN_FAITHFULNESS_CALIBRATION=1 ANTHROPIC_API_KEY=… \
+  PYTHONPATH=$PWD .venv/bin/python -m pytest tests/test_faithfulness_calibration.py -q -s
+```
 - **Consider native structured output (L4).** The judge parses a JSON array via
   robust regex + fail-closed guard. A tool-use / structured-output call would be
   more robust than free-text JSON; not required (unparseable → ERROR, never silent),

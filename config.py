@@ -441,22 +441,53 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
 # hallucination the lexical checks can't. Gated behind an enable flag (strict mode)
 # until calibrated on the gold set; when enabled, an unentailed claim FAILs and the
 # judge's own error is ERROR (both blocking per U2 — see GATE_BLOCKING_CHECKS).
-FAITHFULNESS_JUDGE_ENABLED = False  # flip on once M2.B calibration clears thresholds
+# DISABLED — NOT yet safe to arm. The M2.B.1 gold-set calibration passed
+# (recall/precision 1.0 on 29 ISOLATED curated claims), but a real-full-artifact
+# smoke test (2026-07-15) showed the judge would false-BLOCK real faithful runs:
+#   * claim extraction over the themes artifacts pulls in SCAFFOLDING — bare theme
+#     numbers ("1."), the "Document: …" title line, and metadata fields like
+#     "Coverage / role: ~55-60%" — and the judge (correctly) calls those unsupported;
+#   * on a full abstract it over-flags legitimate summary-level synthesis
+#     ("a recurring pattern she terms the nubbin of self") as contradicted.
+# Root cause is a P10 test-validity gap: the gold set of clean isolated sentences
+# never exercised the real extraction path. Before arming: (a) themes-aware claim
+# extraction (judge descriptions only, skip scaffolding/metadata) or drop themes
+# from FAITHFULNESS_ARTIFACT_SUFFIXES; (b) add REAL-FULL-ARTIFACT gold cases;
+# (c) tune the prompt for synthesis tolerance. See LEARNINGS.md + TODO.md.
+FAITHFULNESS_JUDGE_ENABLED = False
 # Judge model: the project's Sonnet (accuracy over cost — a missed hallucination is
 # expensive). Config, not a magic constant, so it can be repointed centrally.
 FAITHFULNESS_JUDGE_MODEL = DEFAULT_MODEL
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # A claim shorter than this carries no verifiable assertion (heading fragments,
-# stray tokens) and is skipped by claim extraction.
+# stray tokens) and is skipped by claim extraction (unless it states a concrete
+# specific — a number or a proper noun).
 FAITHFULNESS_MIN_CLAIM_CHARS = 25
-# Narrative artifacts the judge audits (prose that can carry a fluent hallucination).
+# Structured-artifact SCAFFOLDING / META field labels whose line is NOT a claim
+# about the source and must be skipped by claim extraction (esp. the themes
+# artifacts). These are the model's own meta-commentary or document boilerplate,
+# not assertions about the transcript, so judging them for source-faithfulness
+# produces false "unsupported" verdicts (e.g. a "Coverage / role: ~55-60%"
+# estimate). Editorial list -> config, not code (rule 9). Matched case-insensitively
+# against the text before the first colon on a line.
+FAITHFULNESS_SKIP_LINE_LABELS = [
+    "document", "prompt version used", "date processed", "source document",
+    "coverage", "coverage / role", "key evidence", "nested under structural themes",
+    "nested under", "lens fuel value", "lens fuel", "status",
+]
+# Narrative artifacts the judge audits: PROSE SUMMARIES that must stay faithful to
+# the source. Themes are DELIBERATELY EXCLUDED — a real-artifact smoke test
+# (2026-07-15) showed structural/interpretive themes are interpretive BY DESIGN
+# (they name patterns and apply theoretical frames like "Bowen theory" that aren't
+# literally in the transcript), so a source-entailment check false-flags ~30/40 of
+# their claims as "unsupported". Judging a theme means judging its DESCRIPTION only,
+# via structured extraction — deferred (see TODO.md / LEARNINGS.md). Spec §M2.A
+# lists themes; this narrower scope is the finding-driven correction.
 FAITHFULNESS_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
     SUFFIX_SUMMARY_GEN,
     SUFFIX_OVERVIEW,
     SUFFIX_BLOG,
-    SUFFIX_STRUCTURAL_THEMES,
-    SUFFIX_INTERPRETIVE_THEMES,
 ]
 # M2.B gold-set gate: the judge ships only if it clears these on the curated set.
 # Recall on the dangerous class (contradicted+unsupported) is the load-bearing bar —

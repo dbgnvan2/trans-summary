@@ -5,9 +5,14 @@ Scope (confirmed 2026-07-15): all narrative artifacts (abstract, summary, overvi
 blog, themes); Sonnet judge; full build incl. live calibration.
 
 **Status:** code + gold set + gate wiring + offline tests complete; the judge is
-**disabled by default** (`config.FAITHFULNESS_JUDGE_ENABLED = False`) and ships
-only once the live M2.B.1 calibration clears the precision/recall bars. Live
-calibration is **blocked pending an `ANTHROPIC_API_KEY`** in the run environment.
+**disabled** (`config.FAITHFULNESS_JUDGE_ENABLED = False`). The isolated-gold
+calibration (M2.B.1) PASSED perfectly, **but a real-full-artifact smoke test
+(2026-07-15) showed the judge would false-BLOCK real runs** — so it is NOT armed.
+This is a P10 test-validity finding (LEARNINGS.md): the gold set of isolated clean
+claims never exercised the real extraction path (themes scaffolding/metadata,
+full-abstract synthesis). Scope narrowed to prose summaries (themes dropped —
+interpretive by design). Remaining before arming: real-artifact gold cases,
+label-precision tuning, a structured description-only path for themes — see TODO.md.
 
 ## Acceptance criteria → tests
 
@@ -17,7 +22,7 @@ calibration is **blocked pending an `ANTHROPIC_API_KEY`** in the run environment
 | **M2.A.1** | On a fixture with a known fabrication, returns FAIL naming that sentence | ✅ done | `::test_m2a1_fabricated_claim_flagged` (Luciano-Malorni-shaped injected claim) |
 | **M2.A.2** | On the clean real artifact, returns PASS (no false FAIL) | ✅ done | `::test_m2a2_clean_artifact_passes` |
 | **M2.B** | Curated gold set pins the judge's threshold | ✅ built | `tests/fixtures/faithfulness_gold/gold.json` (21 real-source cases); `::test_gold_set_is_balanced_and_sources_exist` |
-| **M2.B.1** | Judge precision/recall on the gold set ≥ threshold (recall ≥0.9 on contradicted+unsupported) | ⏳ blocked | `test_faithfulness_calibration.py::test_m2b1_judge_meets_gold_thresholds` — **needs `ANTHROPIC_API_KEY`** + `RUN_FAITHFULNESS_CALIBRATION=1` |
+| **M2.B.1** | Judge precision/recall on the gold set ≥ threshold (recall ≥0.9 on contradicted+unsupported) | ✅ **PASSED** | `test_faithfulness_calibration.py::test_m2b1_judge_meets_gold_thresholds` — 2026-07-15, model `claude-sonnet-4-6`, 29-case gold set (3 real sources): **recall 1.0, precision 1.0, accuracy 1.0** (tp=13, fp=0, fn=0, tn=16). Every fabrication caught incl. real `Luciano Malorni`; all 6 summary-inference precision-stress cases correctly PASSED. Key resolved via the global shared keys file. |
 | **M2.C** | Judge fails closed — its own error → ERROR (blocks), never PASS | ✅ done | `::test_m2c1_judge_error_is_error_not_pass`, `::test_m2c_unparseable_judge_response_is_error`; gate: `test_release_gate.py::test_m2c_faithfulness_no_apikey_is_error_blocks` |
 | **M2.C.1** | Judge exception → ERROR verdict | ✅ done | `::test_m2c1_judge_error_is_error_not_pass` |
 

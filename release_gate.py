@@ -293,6 +293,27 @@ def check_artifact_contracts(base_name: str, logger=None) -> Verdict:
 
 
 # --------------------------------------------------------------------------- M2
+# Process-lifetime memo of judge verdicts keyed on (artifact-sha, source-sha). The
+# publish path calls the gate once per entry point (webpage/pdf/package), so an
+# un-memoized LLM judge would re-run ~N calls per publish; caching by content dedupes
+# them. A transient ERROR is NOT cached (P1) so a retry can still succeed.
+_FAITHFULNESS_CACHE: dict = {}
+
+
+def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
+    import hashlib
+
+    key = (hashlib.sha256(artifact_text.encode("utf-8")).hexdigest(),
+           hashlib.sha256(source.encode("utf-8")).hexdigest())
+    cached = _FAITHFULNESS_CACHE.get(key)
+    if cached is not None:
+        return cached
+    result = fjudge.judge_artifact(artifact_text, source, client, logger=logger)
+    if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
+        _FAITHFULNESS_CACHE[key] = result
+    return result
+
+
 def check_faithfulness(base_name: str, logger=None) -> Verdict:
     """Claim-level semantic faithfulness of the NARRATIVE artifacts (M2). Each
     artifact's claims must be entailed by the source; a contradicted/unsupported
@@ -303,18 +324,18 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return Verdict("faithfulness", Status.PASS,
                        "faithfulness judge disabled (awaiting M2.B calibration)")
-    import os
-
     import faithfulness_judge as fjudge
+    from transcript_utils import resolve_anthropic_key
 
     transcript = _load_source_transcript(base_name)
     if not transcript or not transcript.strip():
         return Verdict("faithfulness", Status.ERROR,
                        "source transcript missing or empty — cannot verify faithfulness")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = resolve_anthropic_key()
     if not api_key:
         return Verdict("faithfulness", Status.ERROR,
-                       "no ANTHROPIC_API_KEY — cannot run faithfulness judge (fail closed)")
+                       "no Anthropic API key (env or shared keys file) — cannot run "
+                       "faithfulness judge (fail closed)")
     import anthropic
 
     client = anthropic.Anthropic(api_key=api_key)
@@ -326,8 +347,8 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
         if not path.exists():
             continue
         judged += 1
-        result = fjudge.judge_artifact(
-            path.read_text(encoding="utf-8"), transcript, client, logger=logger)
+        result = _judge_cached(
+            fjudge, path.read_text(encoding="utf-8"), transcript, client, logger)
         art = suffix.strip(" -")
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
