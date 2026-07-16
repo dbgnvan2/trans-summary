@@ -32,3 +32,6 @@ run_review
 
 # Scratch/test directories
 test1/
+
+# Scratch review/delete staging
+_to_delete/
