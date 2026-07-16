@@ -133,13 +133,17 @@ report: `TEST_VALIDITY_REPORT.md`. Harness: `mut_harness.py`.
 - **Remaining low mutation scores.** Even after Step 1, `summary_validation` (28%) and
   `validation_pipeline` (27%) leave the medium-tier coverage branch (`match_count>=1 or
   ratio>=0.2`), word-allocation math, and `check_proportionality` internals untested.
-- **False-green synthetic format tests.** Several theme/bowen/key-terms tests assert
-  abandoned formats as correct (e.g. `test_summary_pipeline_parsing.py::test_parse_themes_header_format`
-  certifies the A1 `### header`-as-theme bug). Repoint at `tests/fixtures/` real artifacts
-  or delete; they pass only via legacy fallback paths and mask a re-drift.
-- **Vacuous assertion-free tests.** `test_validation_headless.py` (×2) and
-  `test_exception_fix.py` (×4) `print`/`return` instead of asserting; give them real
-  assertions or mark clearly as manual harnesses.
+- ~~**False-green synthetic format tests.**~~ ✅ FIXED 2026-07-15.
+  `test_summary_pipeline_parsing.py` theme tests repointed to REAL fixtures
+  (kcfc structural=3 / interpretive=7, scaffolding-only→0); the `### header`-as-theme
+  test (certified the A1 bug) removed. `test_bowen_references_integration.py` (2
+  formerly-xfail) repointed to the real consumer `parse_bowen_references_text` (the
+  saved `### Concept\n> "quote"` format) — un-xfailed, now passing.
+- ~~**Vacuous assertion-free tests.**~~ ✅ FIXED 2026-07-15. `test_exception_fix.py`
+  (×4) now assert the swallow-not-raise contract of `log_token_usage` (row written /
+  warning printed / stack trace logged); `test_validation_headless.py` (×2, live_api)
+  now assert the findings list + schema keys and `pytest.skip` on missing preconditions.
+  `KNOWN_VACUOUS` is now EMPTY (M6.B gate blocks any new vacuous test).
 - **Institutionalize:** add a mutation-score gate on the seven core modules to CI so
   this cannot silently rot again (coverage % does not detect it).
 

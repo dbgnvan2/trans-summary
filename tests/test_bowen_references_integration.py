@@ -6,7 +6,7 @@ import re
 
 import config
 from extraction_pipeline import extract_bowen_references_from_transcript
-from transcript_utils import extract_bowen_references, strip_yaml_frontmatter, setup_logging
+from transcript_utils import parse_bowen_references_text, strip_yaml_frontmatter, setup_logging
 from unittest.mock import patch, MagicMock
 
 # Setup a logger for the test
@@ -88,14 +88,6 @@ MOCK_LLM_BOWEN_RESPONSE = """
 """
 
 
-@pytest.mark.xfail(
-    reason="M8.B (2026-07-15): fixture writes the abandoned bowen format so the "
-    "current parser reads the concept as '>'; the A7 dead-format synthetic test "
-    "flagged in TEST_VALIDITY_REPORT. Live format is covered by real-fixture "
-    "contract tests (test_theme_parsing_contract, where_roots). Repoint or delete "
-    "under M6.C.",
-    strict=False,
-)
 @patch("extraction_pipeline._filter_bowen_references_semantically")
 @patch('extraction_pipeline._generate_summary_with_claude')
 def test_bowen_references_generation_and_extraction(
@@ -131,22 +123,22 @@ def test_bowen_references_generation_and_extraction(
     # Current pipeline normalizes output to canonical "## Bowen References" section.
     assert generated_content.strip().startswith("## Bowen References")
 
-    # Test extraction using transcript_utils.extract_bowen_references
-    # Call load_bowen_references, which internally calls extract_bowen_references
-    # on the generated file.
-    extracted_references = extract_bowen_references(generated_content)
+    # Re-extract via the REAL consumer for the saved `### Concept\n> "quote"` format
+    # (parse_bowen_references_text — extract_bowen_references reads the abandoned
+    # single-line `> **Label:** "quote"` shape and mis-reads the concept as '>').
+    extracted_references = parse_bowen_references_text(generated_content)
 
     expected_references = [
-        ("Bowen Reference - On Triangles and Emotional Forces", "Murray Bowen said we live our lives in networks of emotional forces. Follow triangle patterns."),
-        ("Bowen Reference - On Triangles as Molecules", "To quote Bowen, triangles are the molecules of an emotional system."),
-        ("Bowen Reference - On Two-Person Systems", "I remember Murray saying a two person system is inherently unstable."),
+        ("On Triangles and Emotional Forces", "Murray Bowen said we live our lives in networks of emotional forces. Follow triangle patterns."),
+        ("On Triangles as Molecules", "To quote Bowen, triangles are the molecules of an emotional system."),
+        ("On Two-Person Systems", "I remember Murray saying a two person system is inherently unstable."),
     ]
-    
+
     assert len(extracted_references) == len(expected_references), \
         f"Expected {len(expected_references)} references, but got {len(extracted_references)}"
-    
+
     for i, (expected_concept, expected_quote) in enumerate(expected_references):
-        actual_concept, actual_quote = extracted_references[i]
+        actual_concept, actual_quote = extracted_references[i][0], extracted_references[i][1]
         assert actual_concept == expected_concept
         assert actual_quote == expected_quote
 
@@ -188,13 +180,6 @@ def test_bowen_references_drop_ungrounded_placeholder(
     assert '> **' not in generated_content
 
 
-@pytest.mark.xfail(
-    reason="M8.B (2026-07-15): fixture writes the abandoned bowen format so the "
-    "current parser reads the concept as '>'; the A7 dead-format synthetic test "
-    "flagged in TEST_VALIDITY_REPORT. Live format is covered by real-fixture "
-    "contract tests. Repoint or delete under M6.C.",
-    strict=False,
-)
 @patch("extraction_pipeline._filter_bowen_references_semantically")
 @patch("extraction_pipeline._generate_summary_with_claude")
 def test_bowen_references_fallback_to_primary_when_filter_invalid(
@@ -221,7 +206,7 @@ def test_bowen_references_fallback_to_primary_when_filter_invalid(
 
     bowen_output_path = project_dir / f"{base_name}{config.SUFFIX_BOWEN}"
     generated_content = bowen_output_path.read_text(encoding="utf-8")
-    extracted = extract_bowen_references(generated_content)
+    extracted = parse_bowen_references_text(generated_content)
 
     assert len(extracted) == 3
-    assert extracted[0][0] == "Bowen Reference - On Triangles and Emotional Forces"
+    assert extracted[0][0] == "On Triangles and Emotional Forces"

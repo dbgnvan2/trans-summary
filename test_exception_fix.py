@@ -1,118 +1,58 @@
 #!/usr/bin/env python3
-"""
-Quick test to verify the exception handling fix in log_token_usage.
-"""
+"""log_token_usage must never crash the pipeline — token logging is informational.
 
-import sys
-from pathlib import Path
+These tests pin that contract with REAL assertions (they were previously print-only
+/ vacuous, flagged by the M6.B vacuity checker): a normal call writes the usage row;
+a file-system, CSV, or unexpected error is swallowed (not raised) and surfaced on the
+appropriate channel. LOGS_DIR is redirected to a per-test tmp dir by the root-conftest
+`_isolate_logs_dir` autouse fixture.
+"""
+import csv
+import logging
 from unittest.mock import Mock, patch
-import tempfile
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
 
 import config
 from transcript_utils import log_token_usage
 
 
-def test_normal_operation():
-    """Test that normal logging still works"""
-    print("Test 1: Normal operation...")
-
-    # Create mock usage data
-    usage_data = Mock()
-    usage_data.input_tokens = 1000
-    usage_data.output_tokens = 500
-    usage_data.cache_creation_input_tokens = 0
-    usage_data.cache_read_input_tokens = 0
-
-    # This should work without errors
-    log_token_usage("test_script", "claude-3-5-sonnet-20241022", usage_data, "end_turn")
-    print("✅ Normal operation works\n")
+def _usage():
+    u = Mock()
+    u.input_tokens = 1000
+    u.output_tokens = 500
+    u.cache_creation_input_tokens = 0
+    u.cache_read_input_tokens = 0
+    return u
 
 
-def test_permission_error():
-    """Test that permission errors are caught and reported correctly"""
-    print("Test 2: Permission error handling...")
+def test_normal_operation_writes_a_row():
+    """A normal call writes the usage row to the cost CSV."""
+    log_token_usage("test_script", "claude-3-5-sonnet-20241022", _usage(), "end_turn")
+    csv_path = config.LOGS_DIR / "token_usage.csv"
+    assert csv_path.exists()
+    rows = list(csv.reader(csv_path.open(encoding="utf-8")))
+    assert any("test_script" in r and "1000" in r and "500" in r for r in rows), rows
 
-    usage_data = Mock()
-    usage_data.input_tokens = 1000
-    usage_data.output_tokens = 500
-    usage_data.cache_creation_input_tokens = 0
-    usage_data.cache_read_input_tokens = 0
 
-    # Mock the open function to raise PermissionError
+def test_permission_error_is_swallowed_not_raised(capsys):
+    """A PermissionError writing the log is caught (never propagated) and reported."""
     with patch("builtins.open", side_effect=PermissionError("Access denied")):
-        # This should NOT crash - just print warning
-        log_token_usage("test_script", "claude-3-5-sonnet-20241022", usage_data, "end_turn")
-
-    print("✅ Permission errors handled gracefully\n")
+        log_token_usage("test_script", "m", _usage(), "end_turn")  # must not raise
+    assert "file system error" in capsys.readouterr().out
 
 
-def test_csv_error():
-    """Test that CSV formatting errors are caught"""
-    print("Test 3: CSV error handling...")
-
-    usage_data = Mock()
-    usage_data.input_tokens = 1000
-    usage_data.output_tokens = 500
-    usage_data.cache_creation_input_tokens = 0
-    usage_data.cache_read_input_tokens = 0
-
-    # Mock to raise csv.Error
-    import csv
-    with patch("builtins.open"), patch("csv.writer", side_effect=csv.Error("Invalid CSV")):
-        # This should NOT crash
-        log_token_usage("test_script", "claude-3-5-sonnet-20241022", usage_data, "end_turn")
-
-    print("✅ CSV errors handled gracefully\n")
+def test_csv_error_is_swallowed_not_raised(capsys):
+    """A csv.Error while formatting the row is caught (never propagated)."""
+    with patch("builtins.open"), patch("csv.writer", side_effect=csv.Error("bad")):
+        log_token_usage("test_script", "m", _usage(), "end_turn")  # must not raise
+    assert "data formatting error" in capsys.readouterr().out
 
 
-def test_unexpected_error():
-    """Test that unexpected errors are logged with stack trace"""
-    print("Test 4: Unexpected error handling...")
-
-    usage_data = Mock()
-    usage_data.input_tokens = 1000
-    usage_data.output_tokens = 500
-    usage_data.cache_creation_input_tokens = 0
-    usage_data.cache_read_input_tokens = 0
-
-    # Mock to raise an unexpected exception
-    with patch("builtins.open", side_effect=RuntimeError("Unexpected error!")):
-        # This should NOT crash, but should log full stack trace
-        log_token_usage("test_script", "claude-3-5-sonnet-20241022", usage_data, "end_turn")
-
-    print("✅ Unexpected errors handled gracefully with logging\n")
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print("Testing Exception Handling Fix")
-    print("=" * 60 + "\n")
-
-    # Use temp directory for logs during testing
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config.settings.LOGS_DIR = Path(tmpdir)
-
-        try:
-            test_normal_operation()
-            test_permission_error()
-            test_csv_error()
-            test_unexpected_error()
-
-            print("=" * 60)
-            print("✅ ALL TESTS PASSED")
-            print("=" * 60)
-            print("\nThe fix correctly:")
-            print("  1. ✅ Allows normal logging to work")
-            print("  2. ✅ Catches expected errors (OSError, PermissionError)")
-            print("  3. ✅ Catches data errors (csv.Error, UnicodeEncodeError)")
-            print("  4. ✅ Logs unexpected errors with full stack trace")
-            print("  5. ✅ Never crashes the pipeline")
-
-        except Exception as e:
-            print(f"\n❌ TEST FAILED: {e}")
-            import traceback
-            traceback.print_exc()
-            sys.exit(1)
+def test_unexpected_error_is_logged_with_stacktrace(caplog):
+    """An unexpected error is caught and logged with a stack trace (exc_info)."""
+    with patch("builtins.open", side_effect=RuntimeError("boom")):
+        with caplog.at_level(logging.ERROR, logger="token_usage"):
+            log_token_usage("test_script", "m", _usage(), "end_turn")  # must not raise
+    assert any(
+        "Unexpected error logging token usage" in r.getMessage() for r in caplog.records
+    )
+    assert any(r.exc_info for r in caplog.records)  # stack trace captured

@@ -53,16 +53,11 @@ def test_m6b1_vacuity_checker_flags_assertionless_test():
     assert flagged == ["test_does_nothing"]  # the other two assert / raises
 
 
-# Pre-existing vacuous tests (TEST_VALIDITY_REPORT §3). Allowlisted so the gate
-# blocks NEW ones; these are tracked in TODO.md to be given real assertions.
-KNOWN_VACUOUS = {
-    ("test_exception_fix.py", "test_normal_operation"),
-    ("test_exception_fix.py", "test_permission_error"),
-    ("test_exception_fix.py", "test_csv_error"),
-    ("test_exception_fix.py", "test_unexpected_error"),
-    ("test_validation_headless.py", "test_validation"),
-    ("test_validation_headless.py", "test_json_format_compliance"),
-}
+# Allowlist of pre-existing vacuous tests. EMPTY as of 2026-07-15 — all six
+# (test_exception_fix.py ×4, test_validation_headless.py ×2) were given real
+# assertions (TEST_VALIDITY_REPORT §3 closed). The gate now blocks ANY new
+# assertion-free test; keep this empty unless a genuinely-manual harness is added.
+KNOWN_VACUOUS: set = set()
 
 
 def test_m6b1_no_new_vacuous_tests():
