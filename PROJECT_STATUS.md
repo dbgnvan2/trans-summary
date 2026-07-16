@@ -1,7 +1,37 @@
 # Project Status Report
 
-**Last Updated:** 2026-03-10  
+**Last Updated:** 2026-07-15  
 **Status:** Active maintenance / production workflow available
+
+## Unattended-Robustness Release Gate (complete, 2026-07-15)
+
+The "trust unattended" robustness net (spec:
+`docs/spec_unattended_robustness_2026-07-15.md`, modules M1–M8) is **complete**. The
+pipeline can now run end-to-end with no human reviewer and either publish a
+source-faithful bundle or **fail closed** with a specific, actionable status — it no
+longer silently publishes wrong/fabricated/unverifiable content.
+
+- **Fail-closed release gate** (`release_gate.py`, M1/M4/M7): every check returns a
+  typed `Verdict` (PASS/WARN/FAIL/ERROR) aggregated into a `GateDecision`
+  (ALLOW / ALLOW_WITH_WARNINGS / BLOCK). The publish path refuses to write a bundle
+  on BLOCK, quarantines stale bundles, writes a run-manifest JSON, and the CLI exits
+  nonzero on BLOCK. Elected hard blockers: fabricated entity, schema-contract drift,
+  and (now) faithfulness; ERROR blocks by default (fail-closed).
+- **Schema contracts** (`artifact_contracts.py` + `schemas/`, M3): every structured
+  boundary (bowen, emphasis, key-terms, topics, themes, abstract-input) is
+  schema-validated on both sides; producer/consumer format drift (P19) is a hard,
+  loud error, never a silent zero.
+- **Semantic faithfulness judge** (`faithfulness_judge.py`, M2): **ARMED** — a
+  claim-level LLM entailment check on prose artifacts (abstract/summary/overview/blog)
+  catches fluent hallucinations the lexical checks miss (it FAILs the real
+  `Luciano Malorni` fabrication). Policy: Hard BLOCK; model pinned to the calibrated
+  `claude-sonnet-4-6`; key resolves from env or the shared `~/.config/llm/keys.json`.
+- **Test-validity gate** (`quality_gates.py` + CI, M6) and **fault-injection matrix**
+  (`tests/test_m5_fault_injection.py`, M5) prove the fail-closed behaviour.
+
+Suite: 564 passed / 17 skipped / 5 xfailed / 0 failed. Coverage maps:
+`docs/spec_coverage_m2_2026-07-15.md`, `docs/spec_coverage_m3_2026-07-15.md`.
+Remaining follow-ups tracked in `TODO.md`.
 
 ## Current Snapshot
 
