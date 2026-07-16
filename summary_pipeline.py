@@ -20,13 +20,20 @@ Usage:
 """
 
 import json
+import logging
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import config
 from emphasis_detector import EmphasisDetector
-from transcript_utils import call_claude_with_retry
+from transcript_utils import (
+    call_claude_with_retry,
+    is_scaffolding_theme_name,
+    parse_bold_numbered_theme_blocks,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -142,40 +149,52 @@ def calculate_word_allocations(
 # === Extraction Parsing ===
 
 
-def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dict]:
-    """Parse Topics section and extract key points from transcript using robust block parsing."""
-    topics = []
+def parse_topics_structure(topics_markdown: str) -> list[dict]:
+    """Parse the topics markdown into the structural fields it literally carries:
+    ``[{name, percentage, sections, description}]`` in document order.
 
+    The single canonical text-level parser for the topics boundary contract (no
+    transcript needed). ``parse_topics_with_details`` delegates here and then
+    applies the ``>=5%`` business filter + enriches with transcript-derived
+    ``key_points``; the M3 schema codec uses this directly so there is ONE
+    implementation of the on-disk format (P19).
+
+    This is a *faithful* parser: it returns EVERY topic block the artifact
+    carries, including sub-5% ones. The 5% cut is a downstream editorial choice,
+    not part of the format contract — keeping it out here means the JSON contract
+    represents the artifact exactly (no silent drop, P2) and an all-sub-5% file
+    isn't mislabeled as format drift by the codec's zero-from-non-empty guard.
+    """
     # Regex matches: ### Name \n Description \n Metadata line
     # Matches format: *_(~25% of transcript; Sections 1-5)_*
     # Robust pattern handling spaces, brackets, and various separators
     pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
-    matches = re.findall(pattern, topics_markdown, re.DOTALL)
+    structured = []
+    for match in re.findall(pattern, topics_markdown, re.DOTALL):
+        structured.append(
+            {
+                "name": match[0].strip(),
+                "percentage": int(match[2]),
+                "sections": match[3].strip(),
+                "description": match[1].strip(),
+            }
+        )
+    return structured
 
-    for match in matches:
-        name = match[0].strip()
-        description = match[1].strip()
-        percentage = int(match[2])
-        sections = match[3].strip()
 
-        if percentage >= 5:
-            # Clean up description if it has leading/trailing markdown wrapper lines that regex captured
-            # (The regex is greedy on description, so it might capture trailing newlines/spacers)
-            description = description.strip()
-
-            # Extract key points from the description and transcript sections
-            key_points = extract_key_points(description, sections, transcript)
-
-            topics.append(
-                {
-                    "name": name,
-                    "percentage": percentage,
-                    "sections": sections,
-                    "description": description,
-                    "key_points": key_points,
-                }
-            )
+def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dict]:
+    """Parse Topics section and extract key points from transcript using robust block parsing."""
+    topics = []
+    for topic in parse_topics_structure(topics_markdown):
+        # Editorial filter: drop trivial (<5%) topics from the enriched view.
+        if topic["percentage"] < 5:
+            continue
+        # Extract key points from the description and transcript sections
+        key_points = extract_key_points(
+            topic["description"], topic["sections"], transcript
+        )
+        topics.append({**topic, "key_points": key_points})
 
     # Sort by percentage descending
     topics.sort(key=lambda t: t["percentage"], reverse=True)
@@ -272,31 +291,58 @@ def extract_points_from_sections(sections_str: str, transcript: str) -> list[str
 
 
 def parse_section_range(sections_str: str) -> list[int]:
-    """Parse section string like '6-14' or '6, 8, 10' into list of ints."""
-    sections = []
+    """Parse a section citation into a list of ints.
 
-    # Handle ranges like "6-14"
-    range_match = re.match(r"(\d+)\s*-\s*(\d+)", sections_str)
-    if range_match:
-        start, end = int(range_match.group(1)), int(range_match.group(2))
-        sections = list(range(start, end + 1))
-    else:
-        # Handle comma-separated like "6, 8, 10"
-        nums = re.findall(r"\d+", sections_str)
-        sections = [int(n) for n in nums]
+    Handles single sections, ranges, and any comma-separated MIX of the two:
+    '6-14', '6, 8, 10', and '7-8, 15, 33-35' -> [7,8,15,33,34,35]. The previous
+    anchored `re.match` fired on a leading range and returned ONLY it, silently
+    dropping every later segment (A6/P19) — so a topic grounded across
+    '7-8, 15, 33-35' had its grounding built from sections 7-8 alone.
+    """
+    sections: list[int] = []
+    for part in sections_str.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        # `re.search` (NOT anchored `re.match`) so a segment carrying a leading word
+        # — e.g. "Sections 7-8" or "Section 7", the exact header wording the model
+        # emits — still yields its numbers instead of silently dropping them.
+        range_match = re.search(r"(\d+)\s*-\s*(\d+)", part)
+        if range_match:
+            start, end = int(range_match.group(1)), int(range_match.group(2))
+            sections.extend(range(start, end + 1))
+        else:
+            # Any bare number(s) in the segment (handles "Section 7", "7 and 8").
+            sections.extend(int(n) for n in re.findall(r"\d+", part))
 
-    return sections
+    # Dedupe while preserving order.
+    seen = set()
+    return [n for n in sections if not (n in seen or seen.add(n))]
 
 
 def parse_themes(themes_markdown: str) -> list[dict]:
     """
-    Parse Interpretive Themes using a robust line-based approach.
-    Supports both new header format (### Theme) and legacy numbered lists (1. **Theme**:).
+    Parse structural/interpretive themes using a robust, multi-format approach.
+
+    Strategy order matters (P19 — TODO.md A2/A3): the real extraction artifact
+    writes bold-numbered ``**N. Title**`` blocks wrapped in ``###``/``##``
+    scaffolding (``### Summary Paragraph``, ``## Interpretive / Process Themes
+    (7 total)``). Gating on ``###`` first split the file into a header blob +
+    Summary Paragraph and returned early, dropping every real theme. We now
+    detect the bold-numbered format FIRST, treat ``###``-as-theme as a legacy
+    fallback, and never early-return an empty/scaffolding-only result.
     """
     themes = []
 
-    # Strategy 1: Check for header-based structure (###)
-    # This is the new standard as of Jan 2026
+    # Strategy 1 (PREFERRED): real bold-numbered block format `**N. Title**`.
+    for name, description in parse_bold_numbered_theme_blocks(themes_markdown):
+        themes.append({"name": name, "description": description, "sections": ""})
+    if themes:
+        return themes
+
+    # Strategy 2 (LEGACY): `### Theme Name` header blocks. Only reached when no
+    # bold-numbered themes exist — in the real format `###` marks scaffolding, so
+    # scaffolding names are skipped and an empty result falls through to Strategy 3.
     if "###" in themes_markdown:
         # Split by level 3 headers
         blocks = [
@@ -310,6 +356,8 @@ def parse_themes(themes_markdown: str) -> list[dict]:
 
             # First line is the theme name
             name = lines[0].strip()
+            if is_scaffolding_theme_name(name):
+                continue
             sections = ""
             description_lines = []
 
@@ -335,9 +383,10 @@ def parse_themes(themes_markdown: str) -> list[dict]:
                     {"name": name, "description": description, "sections": sections}
                 )
 
-        return themes
+        if themes:
+            return themes
 
-    # Strategy 2: Fallback to numbered list parsing (Legacy)
+    # Strategy 3: Fallback to numbered list parsing (Legacy)
     # Supports both:
     #   1. **Theme**: Description
     #   *Source Sections: 1, 2*
@@ -389,6 +438,15 @@ def parse_themes(themes_markdown: str) -> list[dict]:
 
         if name and description:
             themes.append({"name": name, "description": description, "sections": sections})
+
+    # P19 guard: non-empty input that parsed to nothing is contract drift, not a
+    # benign empty — surface it loudly rather than silently returning [].
+    if not themes and themes_markdown.strip():
+        logger.warning(
+            "parse_themes: non-empty themes input (%d chars) parsed to ZERO "
+            "themes — producer/consumer format drift (P19).",
+            len(themes_markdown.strip()),
+        )
 
     return themes
 
@@ -689,7 +747,7 @@ def load_prompt() -> str:
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
-    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed summaries (was AUX_MODEL/Haiku)
+    model: str = config.AUX_MODEL,  # Haiku: cost-effective for summary generation
     system: Optional[list] = None,
 ) -> str:
     """
@@ -733,10 +791,12 @@ def generate_summary(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=4000,  # Allow for 750-word summaries (~3000 tokens)
+        max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
+        stream=True,
         min_length=2400,  # Ensure substantial summary (~600 words minimum)
         min_words=600,    # Enforce strict minimum of 600 words
+        logger=logger,    # named logger -> real script name in token-usage log
         **kwargs,
     )
 

@@ -16,6 +16,7 @@ try:
     from transcript_utils import (
         cap_max_tokens_for_model,
         call_claude_with_retry,
+        count_header_verdicts,
         create_system_message_with_cache,
         setup_logging,
         validate_api_key,
@@ -239,6 +240,33 @@ class HeaderValidator:
                 failed_batches.append(batch_num)
 
         self._save_report(input_path, results, failed_batches)
+
+        # A5/P19: count the AI verdicts (drift-tolerant) so a real FAIL/WARN is
+        # surfaced instead of riding through as a silent success. Distinguish
+        # "no verdicts from a non-empty report" (contract drift) from a clean run.
+        # ADVISORY BY DESIGN: run() returns success/failure of the validation
+        # PROCESS (API batches), not the content verdicts — a section FAIL is
+        # surfaced via this warning + the report's Verdict Summary for human review.
+        ai_text = "\n".join(r["response"] for r in results if r.get("response"))
+        verdicts = count_header_verdicts(ai_text)
+        if verdicts["FAIL"] > 0:
+            self.logger.warning(
+                "Header validation: %d section(s) reported STATUS: FAIL, %d WARN "
+                "(%d PASS) — review %s",
+                verdicts["FAIL"], verdicts["WARN"], verdicts["PASS"],
+                config.SUFFIX_HEADER_VAL_REPORT,
+            )
+        elif ai_text.strip() and verdicts["total"] == 0:
+            self.logger.warning(
+                "Header validation: report has AI content but ZERO parseable "
+                "STATUS verdicts — prompt/output format drift (A5/P19)."
+            )
+        else:
+            self.logger.info(
+                "Header validation verdicts: %d PASS, %d WARN, %d FAIL",
+                verdicts["PASS"], verdicts["WARN"], verdicts["FAIL"],
+            )
+
         if failed_batches:
             self.logger.error(
                 "Header validation failed for batch(es): %s",
@@ -256,10 +284,29 @@ class HeaderValidator:
         report_path = project_dir / \
             f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
 
+        # A5/P19: verdict tally at the top so a FAIL is visible without reading
+        # every batch, using the same drift-tolerant counter the run() log uses.
+        ai_text = "\n".join(r["response"] for r in results if r.get("response"))
+        verdicts = count_header_verdicts(ai_text)
+
         with open(report_path, "w", encoding="utf-8") as f:
             f.write("# Header Validation Report\n")
             f.write(f"Source: {input_path.name}\n")
             f.write(f"Date: {os.path.getmtime(input_path)}\n\n")
+
+            f.write("## Verdict Summary\n")
+            f.write(
+                f"- PASS: {verdicts['PASS']}  |  WARN: {verdicts['WARN']}  |  "
+                f"FAIL: {verdicts['FAIL']}\n"
+            )
+            if verdicts["FAIL"] > 0:
+                f.write(f"- ⚠️ {verdicts['FAIL']} section(s) FAILED — review below.\n")
+            elif ai_text.strip() and verdicts["total"] == 0:
+                f.write(
+                    "- ⚠️ AI content present but no parseable STATUS verdicts "
+                    "(format drift).\n"
+                )
+            f.write("\n")
 
             f.write("## Problematic Term Flags (Local Check)\n")
             has_flags = False

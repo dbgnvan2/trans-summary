@@ -13,16 +13,17 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 import config
+import release_gate
 from transcript_utils import (
     extract_section,
     load_bowen_references,
     load_emphasis_items,
+    load_project_transcript,
     markdown_to_html,
     normalize_text,
     parse_filename_metadata,
     setup_logging,
     strip_yaml_frontmatter,
-    validate_input_file,
 )
 
 # ============================================================================
@@ -151,10 +152,8 @@ def _extract_key_term_definitions(base_name: str):
 
     content = strip_yaml_frontmatter(content)
 
-    # Extract Key Terms section
-    terms_section = extract_section(content, "Key Terms")
-    if not terms_section:
-        return []
+    # Extract Key Terms section, or use the whole content as a fallback
+    terms_section = extract_section(content, "Key Terms") or content
 
     terms = []
 
@@ -205,14 +204,16 @@ def _extract_key_term_definitions(base_name: str):
 
 
 def _format_ref_list(items):
-    """Format a list of (label, quote) tuples as HTML."""
+    """Format a list of (label, quote, optional_timestamp) tuples as HTML."""
     if not items:
         return "<p>None found.</p>"
 
     html_parts = ["<ul class='ref-list'>"]
-    for label, quote in items:
+    for item in items:
+        label, quote, timestamp = item if len(item) == 3 else (item[0], item[1], None)
+        ts_str = f" <span class='timestamp'>({timestamp})</span>" if timestamp else ""
         html_parts.append(
-            f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
+            f"<li><strong>{escape(label)}</strong>:{ts_str} {escape(quote)}</li>"
         )
     html_parts.append("</ul>")
     return "".join(html_parts)
@@ -260,29 +261,6 @@ def _generate_html_page(base_name, formatted_content, metadata, summary, bowen_r
 
     # Render template
     template = template_env.get_template("webpage.html")
-    return template.render(context)
-
-
-def _generate_simple_html_page(base_name, formatted_content, metadata, summary, bowen_refs, emphasis_items):
-    """Generate simple HTML page using Jinja2 template."""
-    meta = parse_filename_metadata(base_name)
-
-    # Prepare template context
-    context = {
-        "meta": meta,
-        "formatted_content": formatted_content,
-        "abstract_html": markdown_to_html(metadata["abstract"]),
-        "summary_html": markdown_to_html(summary),
-        "topics_html": markdown_to_html(metadata["topics"]),
-        "themes_html": markdown_to_html(metadata["themes"]),
-        "key_terms_html": _format_key_terms(metadata.get("key_terms")),
-        "bowen_html": _format_ref_list(bowen_refs),
-        "emphasis_html": _format_ref_list(emphasis_items),
-        "common_css": COMMON_CSS,
-    }
-
-    # Render template
-    template = template_env.get_template("simple_webpage.html")
     return template.render(context)
 
 
@@ -523,36 +501,50 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             lbls.append(label)
             existing[3] = "; ".join(lbls)
 
+    # Tolerate both 2-tuples (label, quote) and 3-tuples (label, quote,
+    # timestamp): loaders now emit the timestamped form, but some callers still
+    # pass the older 2-tuple shape. Pad the missing timestamp with None so the
+    # unpacking below can't raise a ValueError (producer/consumer drift, P19).
+    def _pad_timestamp(items):
+        return [
+            (item[0], item[1], item[2] if len(item) > 2 else None)
+            for item in items
+        ]
+
+    emphasis_items = _pad_timestamp(emphasis_items)
+    bowen_refs = _pad_timestamp(bowen_refs)
+
     tokens = tokenize_html(formatted_html)
     search_text, char_map = build_search_text_and_map(tokens)
     highlights = []
     emphasis_entries = {}
 
-    for label, quote in emphasis_items:
+    for label, quote, timestamp in emphasis_items:
         quote_snippet = " ".join(quote.split()[:75])
         start, end = find_word_span(quote_snippet, search_text)
         span = map_search_span_to_tokens(char_map, start, end)
         if span:
-            entry = [span, "emphasis", label, None]
+            entry = [span, "emphasis", label, None, timestamp] # span, type, label, extra_label, timestamp
             highlights.append(entry)
             emphasis_entries[label] = entry
 
-    for concept, quote in bowen_refs:
+    for concept, quote, timestamp in bowen_refs:
         quote_snippet = " ".join(quote.split()[:75])
         start, end = find_word_span(quote_snippet, search_text)
         if start is None:
             start, end = find_word_span(quote, search_text)
         span = map_search_span_to_tokens(char_map, start, end)
         if span:
-            highlights.append([span, "bowen", concept, None])
+            highlights.append([span, "bowen", concept, None, timestamp])
             continue
         bowen_norm = normalize_text(quote, aggressive=True)
-        for emphasis_label, emphasis_quote in emphasis_items:
+        for emphasis_label, emphasis_quote, _ in emphasis_items:
             if bowen_norm in normalize_text(emphasis_quote, aggressive=True):
                 entry = emphasis_entries.get(emphasis_label)
                 if entry:
                     add_bowen_label(entry, concept)
                 break
+
 
     highlights.sort(key=lambda x: (x[0][0], x[0][1]), reverse=True)
 
@@ -591,12 +583,13 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             filtered_highlights.pop(i)
         filtered_highlights.append(h)
 
-    for span, htype, label, extra_label in filtered_highlights:
+    for span, htype, label, extra_label, timestamp in filtered_highlights:
+        timestamp_title = f" | Timestamp: {timestamp}" if timestamp else ""
         if htype == "bowen":
             insert_mark(
                 tokens,
                 span,
-                f'<mark class="bowen-ref" title="Bowen Reference: {escape(label)}">',
+                f'<mark class="bowen-ref" title="Bowen Reference: {escape(label)}{timestamp_title}">',
                 "</mark>",
             )
         elif htype == "emphasis":
@@ -617,7 +610,7 @@ def _highlight_html_content(formatted_html, bowen_refs, emphasis_items):
             insert_mark(
                 tokens,
                 span,
-                f'<mark class="emphasis{score_class}{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}">',
+                f'<mark class="emphasis{score_class}{bowen_class}" title="Emphasized: {escape(label)}{bowen_title}{timestamp_title}">',
                 "</mark>",
             )
 
@@ -647,17 +640,11 @@ def _generate_simple_html_page(
     elif metadata.get("key_terms"):
         key_terms_html = f"<p>{escape(str(metadata['key_terms']))}</p>"
 
-    def format_ref_list(items):
-        if not items:
-            return "<p>None found.</p>"
-        html_list = "<ul class='ref-list'>"
-        for label, quote in items:
-            html_list += f"<li><strong>{escape(label)}</strong>: {escape(quote)}</li>"
-        html_list += "</ul>"
-        return html_list
-
-    bowen_html = format_ref_list(bowen_refs)
-    emphasis_html = format_ref_list(emphasis_items)
+    # Reuse the module-level helper, which renders the optional timestamp and
+    # tolerates both 2- and 3-tuples (the stale nested copy here only handled
+    # 2-tuples and crashed on the timestamped shape the loaders now emit).
+    bowen_html = _format_ref_list(bowen_refs)
+    emphasis_html = _format_ref_list(emphasis_items)
 
     # Prepare template context
     context = {
@@ -685,20 +672,15 @@ def _generate_simple_html_page(
 def generate_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the main webpage with a sidebar."""
     logger = setup_logging("generate_webpage")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
@@ -745,20 +727,15 @@ def generate_webpage(base_name: str) -> bool:
 def generate_simple_webpage(base_name: str) -> bool:
     """Generates a simple standalone webpage (no sidebar)."""
     logger = setup_logging("generate_simple_webpage")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)
@@ -794,22 +771,24 @@ def generate_simple_webpage(base_name: str) -> bool:
 def generate_pdf(base_name: str) -> bool:
     """Generates a PDF from the formatted transcript."""
     logger = setup_logging("generate_pdf")
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
-        from weasyprint import HTML
+        try:
+            from weasyprint import HTML
+        except ModuleNotFoundError:
+            logger.error(
+                "WeasyPrint is not installed. Install it with `pip install weasyprint` "
+                "and ensure the required system libraries are available."
+            )
+            return False
 
-        formatted_file = (
-            config.PROJECTS_DIR / base_name /
-            f"{base_name}{config.SUFFIX_FORMATTED}"
-        )
         output_file = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_PDF}"
         )
 
-        validate_input_file(formatted_file)
-
-        formatted_content = formatted_file.read_text(encoding="utf-8")
-        formatted_content = strip_yaml_frontmatter(formatted_content)
+        formatted_content = load_project_transcript(base_name, logger=logger)
 
         logger.info("Loading canonical artifact materials...")
         bowen_refs = load_bowen_references(base_name)

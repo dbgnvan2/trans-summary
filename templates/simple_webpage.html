@@ -84,12 +84,14 @@ header .meta {
     </div>
 </section>
 
+{% if summary_html %}
 <section class="section">
     <h2>Summary</h2>
     <div class="metadata-section">
         {{ summary_html|safe }}
     </div>
 </section>
+{% endif %}
 
 <section class="section">
     <h2>Key Topics</h2>

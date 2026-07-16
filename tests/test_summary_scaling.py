@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import summary_pipeline
-import config
+
 
 class TestSummaryScaling(unittest.TestCase):
 
@@ -81,6 +81,28 @@ class TestSummaryScaling(unittest.TestCase):
             min_words = kwargs.get('min_words')
 
             self.assertEqual(min_words, 600, f"min_words should be 600, got {min_words}")
+
+    def test_generate_summary_enables_streaming(self):
+        """Verify structured summary generation uses streaming for long requests."""
+
+        summary_input = MagicMock()
+        summary_input.target_word_count = 750
+        summary_input.qa.include = False
+        summary_input.opening.word_allocation = 105
+        summary_input.body.word_allocation = 525
+        summary_input.qa.word_allocation = 0
+        summary_input.closing.word_allocation = 45
+        summary_input.to_json.return_value = "{}"
+
+        api_client = MagicMock()
+
+        with patch('summary_pipeline.call_claude_with_retry') as mock_call:
+            mock_call.return_value.content = [MagicMock(text="Summary text")]
+
+            summary_pipeline.generate_summary(summary_input, api_client)
+
+            _, kwargs = mock_call.call_args
+            self.assertTrue(kwargs.get('stream'), "generate_summary should request streaming")
 
 if __name__ == "__main__":
     unittest.main()

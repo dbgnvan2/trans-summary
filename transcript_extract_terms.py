@@ -11,6 +11,7 @@ Example:
 """
 
 import argparse
+import logging
 import os
 from pathlib import Path
 
@@ -22,6 +23,9 @@ from transcript_utils import (
     create_system_message_with_cache,
     parse_filename_metadata,
 )
+
+# Named logger so token-usage rows record this step instead of "unknown_script".
+logger = logging.getLogger("transcript_extract_terms")
 
 
 def load_prompt() -> str:
@@ -95,6 +99,7 @@ def extract_key_terms_with_claude(
         system=system_message,
         messages=[{"role": "user", "content": prompt}],
         min_length=100,
+        logger=logger,
     )
 
     # Token usage logging is handled by call_claude_with_retry

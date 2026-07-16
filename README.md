@@ -11,7 +11,8 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 ### Core Functionality
 - **Automated Formatting**: Cleans raw transcripts, removes timestamps, and applies Markdown formatting
 - **Structured Extraction**: Extracts Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, and Emphasized Items
-- **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), full HTML webpages, and PDFs
+- **Standalone Bowen + Emphasis Run**: Run Bowen reference extraction and emphasis extraction together from the GUI with one cached transcript context, or run either one separately via the CLI
+- **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), GEO-optimized Overview Posts, full HTML webpages, and PDFs
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts
 
 ### Reliability & Quality (NEW - 2026-01-10)
@@ -19,8 +20,10 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Secure by Design**: Path traversal protection, input sanitization, XSS prevention
 - **Robust Error Handling**: Categorized exceptions with stack traces, no silent failures
 - **Template-Based HTML**: Clean separation of logic and presentation using Jinja2
-- **API Reliability**: Model-agnostic API validation with automatic retry logic, truncation detection, and token usage tracking
+- **API Reliability**: Model-agnostic API validation with automatic retry logic, long-request streaming for structured summary/abstract generation, truncation detection, and token usage tracking
+- **Artifact Recovery**: Structured generation, validation, and webpage/PDF rendering can fall back to the project ` - yaml.md` transcript if ` - formatted.md` is missing
 - **Quality Assurance**: Validation steps for word-for-word fidelity, header accuracy, and summary coverage
+- **Source Format Detection**: Formatting/validation now detects plain transcript text versus TRX/Whisper-wrapped transcript files and strips supported metadata wrappers before comparison
 
 ## Installation
 
@@ -55,6 +58,21 @@ The GUI guides you through the entire process step-by-step.
 python ts_gui.py
 ```
 
+#### Key GUI Features
+- **Easy Directory Selection**: A "Set Directory" button to choose your source transcript folder.
+- **"Make Default" Directory**: A checkbox to save the selected source directory as the default for future sessions.
+- **Folder Defaults dialog**: A "Folder Defaults..." button next to directory selection opens a dialog to independently browse/reset the default Processed, Projects, and Approved Terms locations, each persisted in `logs/runtime_settings.json` and reapplied on the next launch.
+- **Resizable panel layout**: The Source File list, File Status, and Processing Log panels sit in a drag-resizable vertical pane so you can allocate more space to whichever panel you're using.
+- **File Status Panel**: A comprehensive view showing the status (present, missing, etc.) of all generated files for the selected transcript.
+- **Status Panel Refresh**: A dedicated "Refresh" button on the File Status panel to manually re-check the status of all generated files.
+- **Interactive Correction**: A pop-up dialog for reviewing and applying dictionary-based corrections found during Initial Validation.
+- **Model Selection**: Dropdown menus to select different AI models for formatting and core processing tasks.
+- **Selectable pipeline stages**: Each pipeline stage is a checkbox. Tick any subset and click **▶ Run Selected** to run just those stages, in fixed pipeline order. A pre-flight check blocks the run (with a "Missing Prerequisites" message) if a checked stage needs upstream output that is neither selected in the same run nor already present on disk — so you can't accidentally run "Val Abstract" without an abstract.
+- **Saved stage selections**: **Manage Selections...** lets you save the current set of ticked stages under a name, reload it later, delete it, and mark one selection as the default that pre-ticks automatically on startup (it never auto-runs — you still choose a file and click Run). Selections persist in `logs/runtime_settings.json`.
+- **Lean abstract path**: A standalone **T. Topics** stage generates just the Topics from the transcript, and **5. Gen Abstract** now needs only Topics (not the full Core extraction). So a `Topics → Gen Abstract` selection produces a good abstract for roughly half the cost of running all of Core, and `Bowen + Emphasis` runs straight from the transcript alongside it.
+- **Live Logging**: A "Processing Log" window that shows detailed, real-time output from the backend scripts.
+- **Task Management**: A visual progress bar and status indicator for running tasks.
+
 ### Intended Workflow Sequence
 
 The current workflow is designed to run in this order:
@@ -63,16 +81,54 @@ The current workflow is designed to run in this order:
 2. Format transcript into sections
 3. Validate section headers
 4. Add YAML front matter to formatted output
-5. Generate core artifacts: Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses, Bowen References, Emphasized Items
-6. Validate generated artifacts against transcript (theme/lens back-validation + quote grounding/fidelity checks)
-7. Generate abstract
-8. Validate abstract coverage
-9. Generate blog post from validated top-ranked Lens #1
-10. Generate full webpage and PDF
-11. Package outputs into ZIP
+5. Generate core artifacts: Structural Themes, Interpretive Themes, Topics, Key Terms, Lenses
+6. Optionally run Bowen References and Emphasis as part of `Core` / `Do All`, or run them together from the dedicated GUI extraction button
+7. Validate generated artifacts against transcript (theme/lens back-validation + quote grounding/fidelity checks)
+8. Generate abstract
+9. Validate abstract coverage
+10. Generate blog post from validated top-ranked Lens #1
+10b. Optionally generate a GEO-optimized Overview Post (orientation/reference post built from abstract + structural themes + topics + key terms; engineered for retrieval by AI search engines)
+11. Generate full webpage and PDF
+12. Package outputs into ZIP
 
-`Run All` in the GUI now includes formatting validation, header validation, topic/key-term lightweight grounding checks, abstract validation, webpage validation, and prints a cost estimate at the start plus token usage report at the end.  
-If you enable `Init Val in Do All (Auto)`, it also runs step `0. Init Val` and auto-applies/finalizes findings before the rest of the pipeline.
+Instead of a fixed "Do All Steps" button, the GUI presents every stage above as a checkbox. Tick the
+stages you want and click **▶ Run Selected**; the selected stages run in the pipeline order shown
+above. Before starting, a cost estimate is printed, and at the end a token-usage report. A run halts on
+the first stage that fails. A synchronous pre-flight check blocks the whole run (rather than failing
+deep in a pipeline call) if a checked stage's required upstream artifact is neither selected in the same
+run nor already on disk — for example, checking `6. Val Abstract` without `5. Gen Abstract` (and with no
+existing generated abstract) is blocked with a "Missing Prerequisites" message. To run step `0. Init Val`
+automatically, simply include it in the selection; it auto-applies/finalizes findings before later stages.
+
+The GUI also includes:
+
+- a dedicated `Bowen + Emphasis` stage checkbox
+- `Include Emphasis in Core` / `Include Bowen in Core` modifiers next to the Core stage
+
+The standalone `Bowen + Emphasis` GUI run prefers the project ` - yaml.md` transcript, then ` - formatted.md`, and finally falls back to the currently selected source `.txt` file. The CLI entry points still support separate Bowen-only and Emphasis-only runs.
+
+`Set Directory` accepts either the transcript base folder or the `source` folder directly. If you select `.../source`, the GUI now normalizes that back to the parent base directory instead of incorrectly using `.../source/source`.
+
+Formatting preflight warnings now refer to the transcript `context budget` rather than a generic token limit. The formatter checks available input context capacity, not just the requested output-token cap.
+
+Scored emphasis parsing now supports both the older bracketed format and the newer plain-text format, for example `Explicit - A14 - Rank: 96% | Concept: ...`, so saved emphasis files continue to validate and highlight correctly.
+
+`Run All` is now fail-closed for validation gates. If format validation, header validation, abstract generation, or abstract coverage validation fails, the workflow stops instead of continuing into later artifact generation.
+
+### Initial Validation Learning
+
+`Init Val` now keeps lightweight review memory so repeated reruns converge instead of re-surfacing the same rejected suggestions forever.
+
+- Accepted corrections still write a new `_vN.txt` draft or `_validated.txt` file.
+- Rejected `original_text -> suggested_correction` pairs are stored in `logs/validation_memory.json`.
+- After the same rejection is seen enough times, that pair is blocked and suppressed on future runs.
+- Terms or phrases you explicitly approve in the review dialog are appended to `approve_terms.txt` at the `TRANSCRIPTS_BASE` root and filtered from future findings.
+- `approve_terms.txt` also supports deterministic alias rules in the form `wrong = Correct`. When a saved alias appears in a transcript, `Init Val` injects a high-confidence local finding without relying on the LLM.
+- `Init Val` is intentionally transcription-only. It now focuses on proper nouns, homophones, obvious misspellings/non-words, and word-boundary errors for this Bowen-domain corpus. It does not do grammar or punctuation cleanup.
+- The review dialog now presents compact `Found > Suggested` rows, checked by default. Approved items automatically update the dictionary by saving the corrected term and alias pair where applicable.
+- The GUI can now choose the active terms file used by `Init Val`, which makes side-by-side testing of different dictionary baselines practical without swapping files on disk.
+
+This is intentionally narrower than the `trx` validator: `trans-summary` remains LLM-finding driven, but now has persistent memory for rejected suggestions and approved domain terms.
 
 ### Command Line Interface
 
@@ -86,9 +142,32 @@ Or run individual steps manually:
 
 1.  **Format**: `python transcript_format.py "filename.txt"`
 2.  **Add Metadata**: `python transcript_add_yaml.py "filename - formatted.md"`
-3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md"`
-4.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
-5.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+3.  **Summarize**: `python transcript_summarize.py "filename - yaml.md" [--skip-emphasis] [--skip-bowen]`
+4.  **Extract Bowen Only**: `python transcript_extract_bowen.py "filename - yaml.md"`
+5.  **Extract Emphasis Only**: `python transcript_extract_emphasis.py "filename - yaml.md"`
+6.  **Generate Full Webpage**: `python transcript_to_webpage.py "filename"`
+7.  **Generate PDF**: `python transcript_to_pdf.py "filename"`
+
+The standalone Bowen and Emphasis commands also accept a direct source text file path, for example:
+
+```bash
+python transcript_extract_bowen.py "source/My Transcript_validated.txt"
+python transcript_extract_emphasis.py "source/My Transcript_validated.txt"
+```
+
+For structured summary/abstract generation, the project normally reads `<Base Name> - formatted.md` and will fall back to `<Base Name> - yaml.md` if the formatted transcript is missing.
+
+### Supported Transcript Inputs
+
+The pipeline now supports two common source-text shapes for formatting and fidelity validation:
+
+- `plain_transcript`: raw transcript text such as Otter-style exports or lightly cleaned timestamped transcripts
+- `trx_whisper_wrapped`: Whisper/TRX validated transcript files that include:
+  - a `TRANSCRIPT` metadata header (`Source file`, `Date`, `Duration`, `Speakers`, `Warnings`)
+  - timestamped speaker prefixes like `[00:00:03] A:`
+  - optional appended `VALIDATION REPORT` / `FLAGGED ITEMS` footer blocks
+
+When a TRX/Whisper wrapper is detected, the pipeline strips the wrapper metadata before formatting validation so the word-fidelity check compares transcript content rather than audit/report text.
 
 ### Maintenance Utilities
 

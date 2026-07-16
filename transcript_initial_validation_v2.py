@@ -8,18 +8,16 @@ import json
 import logging
 import os
 import re
-import sys
-import time
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Any, Dict, List, Tuple
 
 from anthropic import Anthropic
 
 import config
 import model_specs
 import transcript_utils
+from validation_learning import filter_validation_findings, replace_alias_occurrences
 
 
 class ValidationMetrics:
@@ -171,7 +169,17 @@ class TranscriptValidatorV2:
         if hallucinations:
              self.logger.warning(f"Detected {len(hallucinations)} hallucinations (removed).")
 
-        return valid_findings
+        filtered = filter_validation_findings(
+            valid_findings,
+            transcript_text=full_text,
+            logger=self.logger,
+        )
+        self.logger.info(
+            "Validation findings after suppression: %d/%d",
+            len(filtered.findings),
+            len(valid_findings),
+        )
+        return filtered.findings
 
     def _process_single_chunk(self, chunk: Dict, model: str) -> List[Dict]:
         """Call API for a single chunk."""
@@ -205,7 +213,7 @@ class TranscriptValidatorV2:
                 model=model,
                 messages=messages,
                 system=system_message,
-                max_tokens=8000, # Adjusted for Haiku limit
+                max_tokens=config.MAX_TOKENS_HEADER_VALIDATION,
                 logger=self.logger,
                 stream=True,
                 timeout=config.TIMEOUT_FORMATTING,
@@ -284,9 +292,6 @@ class TranscriptValidatorV2:
         valid = []
         hallucinations = []
         
-        # Normalize full text once for fuzzy matching speed
-        full_text_norm = transcript_utils.normalize_text(full_text)
-        
         for f in findings:
             original = f.get('original_text', '')
             if not original:
@@ -345,11 +350,22 @@ class TranscriptValidatorV2:
             
         replacements = [] # List of (start, end, replacement_text, source_correction)
         skipped_reasons = []
+        alias_applied_count = 0
         
         # 1. Locate all matches
         for corr in corrections:
             original = corr['original_text']
             replacement = corr['suggested_correction']
+
+            if corr.get('error_type') == 'alias':
+                content, alias_count = replace_alias_occurrences(content, original, replacement)
+                if alias_count:
+                    alias_applied_count += alias_count
+                else:
+                    msg = f"Alias replacement not found: '{original[:20]}...'"
+                    skipped_reasons.append(msg)
+                    self.logger.warning(msg)
+                continue
             
             # Find all occurrences
             # Note: This finds ALL, but we need to be careful if multiple exist.
@@ -386,7 +402,7 @@ class TranscriptValidatorV2:
         replacements.sort(key=lambda x: x[0], reverse=True)
         
         # 3. Apply
-        applied_count = 0
+        applied_count = alias_applied_count
         final_content = content
         
         # Track intervals to prevent overlap
@@ -431,9 +447,9 @@ class TranscriptValidatorV2:
         self.metrics.start_time = datetime.now()
         
         for i in range(1, max_iterations + 1):
-            self.logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            self.logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             self.logger.info(f"🔄 Iteration {i}/{max_iterations}: Validating...")
-            self.logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            self.logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             
             # 1. Validate
             # Pass the model explicitly from run_iterative arguments

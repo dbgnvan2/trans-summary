@@ -1,22 +1,22 @@
-"""
-Tests for Summary Word Count Fix (2026-01-11)
-
-Validates that the inflation removal and validation improvements work correctly.
-"""
+import os
+import sys
+from unittest.mock import Mock, patch
 
 import pytest
-import sys
-import os
-from unittest.mock import Mock, patch, MagicMock
 
 # Ensure project root is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import config
 from summary_pipeline import (
+    BodySection,
+    ClosingSection,
+    OpeningSection,
+    QASection,
+    SummaryInput,
     calculate_word_allocations,
-    prepare_summary_input,
     generate_summary,
+    prepare_summary_input,
 )
 from summary_validation import validate_structural
 
@@ -122,9 +122,6 @@ class TestAPICallParameters:
         mock_message.content = [Mock(text="Test summary content" * 50)]
         mock_call.return_value = mock_message
 
-        # Create mock SummaryInput
-        from summary_pipeline import SummaryInput, OpeningSection, BodySection, QASection, ClosingSection
-
         summary_input = SummaryInput(
             metadata={"speaker": "Test"},
             target_word_count=750,
@@ -168,9 +165,6 @@ class TestAPICallParameters:
         mock_message.content = [Mock(text="Test summary content" * 50)]
         mock_call.return_value = mock_message
 
-        # Create mock SummaryInput
-        from summary_pipeline import SummaryInput, OpeningSection, BodySection, QASection, ClosingSection
-
         summary_input = SummaryInput(
             metadata={"speaker": "Test"},
             target_word_count=750,
@@ -201,10 +195,10 @@ class TestAPICallParameters:
         # Call function
         generate_summary(summary_input, mock_client)
 
-        # Verify call_claude_with_retry was called with max_tokens=4000
+        # Verify call_claude_with_retry uses the configured summary token limit.
         mock_call.assert_called_once()
         call_kwargs = mock_call.call_args.kwargs
-        assert call_kwargs['max_tokens'] == 4000
+        assert call_kwargs['max_tokens'] == config.MAX_TOKENS_SUMMARY
 
     @patch('summary_pipeline.call_claude_with_retry')
     def test_min_length_is_2400(self, mock_call):
@@ -213,9 +207,6 @@ class TestAPICallParameters:
         mock_message = Mock()
         mock_message.content = [Mock(text="Test summary content" * 50)]
         mock_call.return_value = mock_message
-
-        # Create mock SummaryInput
-        from summary_pipeline import SummaryInput, OpeningSection, BodySection, QASection, ClosingSection
 
         summary_input = SummaryInput(
             metadata={"speaker": "Test"},

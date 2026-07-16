@@ -1,9 +1,10 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import config
 import extraction_pipeline
+import html_generator
+import validation_pipeline
 
 
 def test_generate_structured_abstract_falls_back_to_split_files(tmp_path, monkeypatch):
@@ -52,6 +53,164 @@ def test_generate_structured_abstract_falls_back_to_split_files(tmp_path, monkey
     output_path = project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
     assert output_path.exists()
     assert "Generated abstract" in output_path.read_text(encoding="utf-8")
+
+
+def test_generate_structured_abstract_uses_yaml_when_formatted_missing(tmp_path, monkeypatch):
+    base_name = "Yaml-Fallback-Abstract-Test"
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / base_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    yaml_path = project_dir / f"{base_name}{config.SUFFIX_YAML}"
+    yaml_path.write_text(
+        "---\ntitle: Test\n---\n## Section 1\nTranscript from yaml.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDescription.\n*_(~25% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n### Theme A\nA concise interpretation.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(
+        extraction_pipeline, "parse_filename_metadata", lambda _name: {"stem": base_name}
+    )
+    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+
+    captured = {}
+
+    def fake_prepare_abstract_input(**kwargs):
+        captured["transcript"] = kwargs["transcript"]
+        return SimpleNamespace(topics=["Topic A"], themes=["Theme A"])
+
+    monkeypatch.setattr(
+        extraction_pipeline.abstract_pipeline,
+        "prepare_abstract_input",
+        fake_prepare_abstract_input,
+    )
+    monkeypatch.setattr(
+        extraction_pipeline.abstract_pipeline,
+        "generate_abstract",
+        lambda *_args, **_kwargs: "Generated abstract from yaml fallback.",
+    )
+
+    logger = MagicMock()
+    ok = extraction_pipeline.generate_structured_abstract(base_name, logger=logger)
+
+    assert ok is True
+    assert "Transcript from yaml." in captured["transcript"]
+
+
+def test_validate_abstract_coverage_uses_yaml_when_formatted_missing(tmp_path, monkeypatch):
+    base_name = "Yaml-Fallback-Validation-Test"
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / base_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    (project_dir / f"{base_name}{config.SUFFIX_YAML}").write_text(
+        "---\ntitle: Test\n---\n## Section 1\nTranscript from yaml.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}").write_text(
+        "Generated abstract.",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDescription.\n*_(~25% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n### Theme A\nA concise interpretation.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(
+        validation_pipeline, "parse_filename_metadata", lambda _name: {"stem": base_name}
+    )
+
+    captured = {}
+
+    def fake_prepare_abstract_input(**kwargs):
+        captured["transcript"] = kwargs["transcript"]
+        return SimpleNamespace(topics=["Topic A"], themes=["Theme A"])
+
+    monkeypatch.setattr(
+        validation_pipeline.abstract_pipeline,
+        "prepare_abstract_input",
+        fake_prepare_abstract_input,
+    )
+    monkeypatch.setattr(
+        validation_pipeline.abstract_validation,
+        "validate_and_report",
+        lambda *_args, **_kwargs: (True, "ok"),
+    )
+    monkeypatch.setattr(validation_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(validation_pipeline.os, "getenv", lambda _k: "fake-key")
+
+    ok = validation_pipeline.validate_abstract_coverage(base_name, logger=MagicMock())
+
+    assert ok is True
+    assert "Transcript from yaml." in captured["transcript"]
+
+
+def test_generate_webpage_uses_yaml_when_formatted_missing(tmp_path, monkeypatch):
+    base_name = "Yaml Fallback Web - Tester - 2025-01-01"
+    projects_dir = tmp_path / "projects"
+    project_dir = projects_dir / base_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    (project_dir / f"{base_name}{config.SUFFIX_YAML}").write_text(
+        "---\ntitle: Test\n---\n## Section 1\nTranscript from yaml.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_ABSTRACT_GEN}").write_text(
+        "Abstract text.",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nDescription.\n*_(~25% of transcript; Sections 1)_*\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_STRUCTURAL_THEMES}").write_text(
+        "## Structural Themes\n\n### Structure A\nDescription.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_INTERPRETIVE_THEMES}").write_text(
+        "## Interpretive Themes\n\n### Theme A\nDescription.\n",
+        encoding="utf-8",
+    )
+    (project_dir / f"{base_name}{config.SUFFIX_KEY_TERMS}").write_text(
+        "## Key Terms\n\n### Term A\nDefinition.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
+    monkeypatch.setattr(html_generator, "load_bowen_references", lambda _base: [])
+    monkeypatch.setattr(html_generator, "load_emphasis_items", lambda _base: [])
+    monkeypatch.setattr(html_generator, "_load_summary", lambda _base: "")
+    monkeypatch.setattr(html_generator, "_highlight_html_content", lambda html, *_args: html)
+
+    captured = {}
+
+    def fake_generate_html_page(_base, formatted_content, *_args):
+        captured["formatted_content"] = formatted_content
+        return "<html>ok</html>"
+
+    monkeypatch.setattr(html_generator, "_generate_html_page", fake_generate_html_page)
+    # Isolate from the M1 release gate (its synthetic Title-Case labels read as
+    # ungrounded names); the gate is covered by tests/test_release_gate.py.
+    monkeypatch.setattr(html_generator.release_gate, "publish_allowed", lambda *a, **k: True)
+
+    ok = html_generator.generate_webpage(base_name)
+
+    assert ok is True
+    assert "Transcript from yaml." in captured["formatted_content"]
 
 
 def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypatch):
@@ -146,6 +305,7 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
         target_audience="General public",
         skip_extracts_summary=True,
         skip_emphasis=True,
+        skip_bowen=True,
         skip_blog=False,
         logger=logger,
     )
@@ -299,6 +459,7 @@ def test_summarize_transcript_uses_split_files_for_validation_and_blog(
         target_audience="General public",
         skip_extracts_summary=True,
         skip_emphasis=True,
+        skip_bowen=True,
         skip_blog=True,
         logger=MagicMock(),
     )

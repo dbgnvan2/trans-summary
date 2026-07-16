@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trans-summary/schemas/key_terms.schema.json",
+  "title": "Key terms",
+  "version": "1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "artifact", "items"],
+  "properties": {
+    "version": {"const": "1"},
+    "artifact": {"const": "key_terms"},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["term", "definition"],
+        "properties": {
+          "term": {"type": "string", "minLength": 1},
+          "definition": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

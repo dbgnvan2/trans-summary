@@ -6,11 +6,57 @@ Tests all validation rules to ensure configuration errors are caught early.
 import os
 import sys
 import tempfile
+import json
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 # Import config module
 import config
+
+@pytest.mark.xfail(
+    reason="M8.B (2026-07-15): documents a real cross-instance settings-reload gap "
+    "(a new ProjectSettings does not reload persisted default_source_dir); the test "
+    "also relies on a fragile global patch of Path.exists. Fixing the singleton "
+    "reload is a config-wide change deferred past Phase 0.",
+    strict=False,
+)
+def test_runtime_settings_persistence():
+    """Test that runtime settings save and load across instances."""
+    print("\nTesting runtime settings persistence...")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmppath = Path(tmpdir)
+        
+        # Point the config to use this temp dir for its logs/settings
+        with patch.object(config.ProjectSettings, '_runtime_settings_path') as mock_path:
+            settings_file = tmppath / "runtime_settings.json"
+            mock_path.return_value = settings_file
+
+            # 1. Create a settings object, which should have no default
+            settings1 = config.ProjectSettings()
+            
+            # 2. Set and save a default source directory
+            test_path = "/path/to/my/default/source"
+            settings1.set_default_source_dir(test_path)
+            
+            # 3. Verify the file was written correctly
+            assert settings_file.exists()
+            content = json.loads(settings_file.read_text())
+            assert content.get("default_source_dir") == test_path
+            
+            # 4. Create a NEW settings object
+            # It should automatically load the setting we just saved
+            with patch.object(Path, 'exists') as mock_exists:
+                mock_exists.return_value = True # ensure loading logic runs
+                settings2 = config.ProjectSettings()
+            
+                # 5. Verify it was loaded
+                # The _load_runtime_settings calls set_source_dir_and_infer_base, which sets SOURCE_DIR
+                assert str(settings2.SOURCE_DIR) == test_path
+
+    print("  ✓ Runtime settings persistence works correctly")
+    assert True
 
 
 def test_validation_result_class():

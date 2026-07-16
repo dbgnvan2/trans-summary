@@ -19,8 +19,10 @@
         <h2>Abstract</h2>
         {{ abstract_html|safe }}
 
+        {% if summary_html %}
         <h2>Summary</h2>
         {{ summary_html|safe }}
+        {% endif %}
 
         <h2>Key Topics</h2>
         {{ topics_html|safe }}

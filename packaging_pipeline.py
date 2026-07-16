@@ -5,6 +5,7 @@ Pipeline module for packaging final artifacts.
 import zipfile
 
 import config
+import release_gate
 from transcript_utils import setup_logging
 
 
@@ -14,6 +15,9 @@ def package_transcript(base_name: str, logger=None) -> bool:
     """
     if logger is None:
         logger = setup_logging('package_transcript')
+
+    if not release_gate.publish_allowed(base_name, logger):
+        return False  # M1.B.2 — fail closed: no zip bundle on a BLOCK
 
     try:
         files_to_package = []

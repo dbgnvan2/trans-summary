@@ -81,3 +81,24 @@ def test_call_claude_keeps_small_user_message_uncached():
     assert content[0]["type"] == "text"
     assert content[0]["text"] == "short"
     assert "cache_control" not in content[0]
+
+
+def test_call_claude_uses_stream_api_when_requested():
+    client = MagicMock()
+    stream_manager = MagicMock()
+    stream_manager.__enter__.return_value = stream_manager
+    stream_manager.get_final_message.return_value = _ok_response()
+    client.messages.stream.return_value = stream_manager
+
+    response = transcript_utils.call_claude_with_retry(
+        client=client,
+        model="claude-3-5-haiku-20241022",
+        messages=[{"role": "user", "content": "short"}],
+        max_tokens=64,
+        stream=True,
+        logger=MagicMock(),
+    )
+
+    assert response.content[0].text.startswith("Valid response text")
+    client.messages.stream.assert_called_once()
+    client.messages.create.assert_not_called()

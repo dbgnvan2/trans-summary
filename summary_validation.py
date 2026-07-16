@@ -314,7 +314,11 @@ def check_keyword_coverage(
     total_keywords = len(item.keywords)
 
     if total_keywords == 0:
-        return True, "high"
+        # No keywords to ground on — DO NOT auto-pass (A11/P7). Return low
+        # confidence (not covered) so the item is eligible for the LLM rescue pass
+        # / human review rather than silently satisfied OR hard-failed with no
+        # recovery (a short/stopword topic name legitimately yields no keywords).
+        return False, "low"
 
     match_ratio = match_count / total_keywords
 
@@ -466,7 +470,19 @@ def validate_summary_coverage(
     required_covered = sum(1 for item in required_items if item.covered)
     optional_covered = sum(1 for item in optional_items if item.covered)
 
-    coverage_passed = all(item.covered for item in required_items)
+    if required_items:
+        coverage_passed = all(item.covered for item in required_items)
+    else:
+        # No required coverage items could be derived — upstream topics/purpose/
+        # conclusion are missing or format-drifted. `all([]) == True` would report
+        # a clean pass on a validation that checked NOTHING, so fail closed (A9/P19).
+        coverage_passed = False
+        if logger:
+            logger.warning(
+                "validate_summary_coverage: zero required coverage items derived "
+                "from summary_input — upstream extraction missing/drifted; refusing "
+                "to report PASS (A9)."
+            )
 
     # Overall pass requires coverage (proportionality is now advisory/warning)
     passed = coverage_passed
@@ -547,7 +563,7 @@ def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: 
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=100,
+        max_tokens=config.MAX_TOKENS_VALIDATION_VERIFY,
         temperature=0.0,  # Strict for validation
         logger=logger,
     )

@@ -31,6 +31,58 @@ def strip_sic_annotations(text: str) -> tuple[str, int]:
     return cleaned_text, count
 
 
+def detect_transcript_source_format(text: str) -> str:
+    """Classify supported transcript wrapper formats for logging."""
+    sample = "\n".join(text.splitlines()[:12])
+    trx_markers = (
+        "TRANSCRIPT",
+        "Source file:",
+        "Date:",
+        "Duration:",
+        "Speakers:",
+        "Warnings:",
+    )
+    if all(marker in sample for marker in trx_markers):
+        return "trx_whisper_wrapped"
+    return "plain_transcript"
+
+
+def strip_transcript_metadata_header(text: str) -> str:
+    """Remove TRX-style transcript metadata header before content comparison."""
+    if detect_transcript_source_format(text) != "trx_whisper_wrapped":
+        return text
+    lines = text.splitlines()
+
+    separator_index = None
+    for index, line in enumerate(lines[:20]):
+        if re.match(r"^-{10,}\s*$", line):
+            separator_index = index
+            break
+
+    if separator_index is None:
+        return text
+
+    return "\n".join(lines[separator_index + 1 :]).lstrip()
+
+
+def strip_raw_speaker_prefixes(text: str) -> str:
+    """Remove timestamped/raw speaker prefixes before validation comparison."""
+    prefix_pattern = (
+        r"^\s*(?:[\[\(]?[\d:.]+[\]\)]?\s*)?"  # optional timestamp: bracketed or bare
+        r"(?:Unknown Speaker|Speaker \d+|[A-Za-z][\w .'-]{0,40}):\s*"
+    )
+    return re.sub(prefix_pattern, "", text, flags=re.MULTILINE)
+
+
+def strip_transcript_validation_footer(text: str) -> str:
+    """Remove appended TRX validation report blocks from transcript text."""
+    for marker in ("\nVALIDATION REPORT\n", "\r\nVALIDATION REPORT\r\n", "\nFLAGGED ITEMS\n"):
+        index = text.find(marker)
+        if index != -1:
+            return text[:index].rstrip() + "\n"
+    return text
+
+
 def load_prompt() -> str:
     """Load the formatting prompt template."""
     prompt_path = config.PROMPTS_DIR / config.PROMPT_FORMATTING_FILENAME
@@ -47,7 +99,8 @@ def load_raw_transcript(filename: str) -> str:
     """Load the raw transcript from source directory."""
     transcript_path = config.SOURCE_DIR / filename
     validate_input_file(transcript_path)
-    return transcript_path.read_text(encoding="utf-8")
+    raw_text = transcript_path.read_text(encoding="utf-8")
+    return strip_transcript_validation_footer(raw_text)
 
 
 def format_transcript_with_claude(
@@ -141,26 +194,32 @@ def format_transcript(
             raise FileNotFoundError(
                 f"Source directory not found: {config.SOURCE_DIR}")
 
-        logger.info(
-            f"Loading prompt template from: {config.TRANSCRIPTS_BASE / 'prompts'}"
-        )
+        logger.info("Loading prompt template from: %s", config.PROMPTS_DIR)
         prompt_template = load_prompt()
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
+        logger.info(
+            "Detected transcript source format: %s",
+            detect_transcript_source_format(raw_transcript),
+        )
 
-        # Construct full prompt to check token budget before API call
+        # Construct full prompt to check context budget before API call.
+        # This guard must compare against model context capacity, not the
+        # requested output token count.
         full_prompt_for_budget_check = (
             f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
         )
-        # This should match max_tokens in format_transcript_with_claude
-        MAX_TOKENS_FOR_FORMATTING = config.MAX_TOKENS_FORMATTING
+        max_context_input_budget = max(
+            config.MAX_CONTEXT_TOKENS - config.MAX_TOKENS_FORMATTING,
+            config.MAX_TOKENS_FORMATTING,
+        )
 
         if not check_token_budget(
-            full_prompt_for_budget_check, MAX_TOKENS_FOR_FORMATTING, logger
+            full_prompt_for_budget_check, max_context_input_budget, logger
         ):
             logger.error(
-                "Token budget exceeded for formatting. Aborting API call.")
+                "Context budget exceeded for formatting. Aborting API call.")
             return False
 
         formatted_content = format_transcript_with_claude(
@@ -211,6 +270,72 @@ DOI: ""
 '''
 
 
+def _resolve_structured_stem(filename: str) -> str:
+    """Strip transcript artifact suffixes to recover the project stem."""
+    stem = Path(filename).stem
+    for suffix in (
+        config.SUFFIX_FORMATTED.replace(".md", ""),
+        config.SUFFIX_YAML.replace(".md", ""),
+    ):
+        if stem.endswith(suffix):
+            return stem[: -len(suffix)]
+    return clean_project_name(stem)
+
+
+def _parse_metadata_fallback(stem: str, transcript_text: str | None = None) -> dict:
+    """Best-effort metadata extraction for non-canonical transcript filenames."""
+    source_filename = None
+    if transcript_text:
+        match = re.search(r"^Source file:\s*(.+)$", transcript_text, re.MULTILINE)
+        if match:
+            source_filename = Path(match.group(1).strip()).name
+
+    candidate = Path(source_filename).stem if source_filename else stem
+    candidate = clean_project_name(candidate)
+
+    date_match = re.search(r"(\d{4}-\d{2}-\d{2}|\d{8})", candidate)
+    raw_date = date_match.group(1) if date_match else ""
+    if raw_date and re.fullmatch(r"\d{8}", raw_date):
+        date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:8]}"
+    else:
+        date = raw_date or "Unknown"
+
+    year_match = re.search(r"(\d{4})", date)
+    year = year_match.group(1) if year_match else "Unknown"
+
+    title_source = candidate
+    if "GMT" in title_source:
+        title_source = title_source.split("GMT", 1)[0].strip()
+    if raw_date:
+        title_source = re.sub(re.escape(raw_date), "", title_source).strip(" -_")
+
+    title = title_source or candidate or stem
+    presenter = "Unknown"
+
+    return {
+        "title": title,
+        "presenter": presenter,
+        "author": presenter,
+        "date": date,
+        "year": year,
+        "filename": stem,
+        "source_filename": source_filename,
+        "stem": stem,
+    }
+
+
+def _resolve_yaml_metadata(transcript_filename: str, transcript_text: str | None = None) -> dict:
+    """Resolve transcript metadata for YAML, tolerating non-canonical filenames."""
+    stem = _resolve_structured_stem(transcript_filename)
+    try:
+        meta = parse_filename_metadata(transcript_filename)
+        meta["stem"] = stem
+        meta["source_filename"] = None
+        return meta
+    except ValueError:
+        return _parse_metadata_fallback(stem, transcript_text)
+
+
 def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> bool:
     """
     Orchestrates the process of adding YAML front matter to a transcript.
@@ -221,15 +346,14 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
     try:
         logger.info("Adding YAML to %s", transcript_filename)
 
-        meta = parse_filename_metadata(transcript_filename)
-        stem = meta["stem"]
+        stem = _resolve_structured_stem(transcript_filename)
 
         transcript_path = config.PROJECTS_DIR / stem / transcript_filename
         validate_input_file(transcript_path)
 
-        source_filename = f"{meta['stem']}.{source_ext.lstrip('.')}"
-
         formatted_content = transcript_path.read_text(encoding="utf-8")
+        meta = _resolve_yaml_metadata(transcript_filename, formatted_content)
+        source_filename = meta.get("source_filename") or f"{meta['stem']}.{source_ext.lstrip('.')}"
 
         yaml_block = _generate_yaml_front_matter(meta, source_filename)
         final_content = yaml_block + formatted_content
@@ -447,15 +571,17 @@ def validate_format(
 
         raw_text = raw_file_path.read_text(encoding="utf-8-sig")
         formatted_text = formatted_file_path.read_text(encoding="utf-8-sig")
+        logger.info(
+            "Detected transcript source format: %s",
+            detect_transcript_source_format(raw_text),
+        )
 
         formatted_text = strip_yaml_frontmatter(formatted_text)
 
-        raw_clean = re.sub(
-            r"^\s*(\[[\d:.]+\]\s+[^:]+:|Unknown Speaker|Speaker \d+)\s+\d+:\d+(?::\d+)?",
-            "",
-            raw_text,
-            flags=re.MULTILINE,
-        )
+        raw_clean = strip_transcript_validation_footer(raw_text)
+        raw_clean = strip_transcript_metadata_header(raw_clean)
+
+        raw_clean = strip_raw_speaker_prefixes(raw_clean)
         raw_clean = re.sub(r"^\s*Transcribed by\b.*", "",
                            raw_clean, flags=re.MULTILINE)
 
@@ -466,6 +592,8 @@ def validate_format(
             flags=re.IGNORECASE,
         )
         raw_clean = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", raw_clean)
+        # Strip lines that are solely a bare number (plain TRX timestamp lines)
+        raw_clean = re.sub(r"(?m)^\s*\d+\s*$", " ", raw_clean)
 
         # Remove procedural speech from raw text to avoid validation errors
         # These are commonly removed by the formatting model

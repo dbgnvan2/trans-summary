@@ -1,9 +1,10 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import config
+import html_generator
 from html_generator import (
     _extract_webpage_metadata,
     _generate_pdf_html,
@@ -43,6 +44,17 @@ class TestHtmlGenerator(unittest.TestCase):
             '<mark class="emphasis" title="Emphasized: Target">match</mark>', highlighted
         )
 
+    def test_highlight_html_content_with_timestamp(self):
+        formatted_html = "<p>This is a test of the highlighting system.</p>"
+        emphasis_items = [("Item 1", "highlighting system", "00:01:02")]
+
+        highlighted = _highlight_html_content(formatted_html, [], emphasis_items)
+
+        self.assertIn(
+            '<mark class="emphasis" title="Emphasized: Item 1 | Timestamp: 00:01:02">',
+            highlighted,
+        )
+
     def test_generate_simple_html_page_structure(self):
         base_name = "Test Title - Test Author - 2025-01-01"
         formatted_content = "<p>Content</p>"
@@ -58,8 +70,8 @@ class TestHtmlGenerator(unittest.TestCase):
             ],
         }
         summary = "Summary text"
-        bowen_refs = [("Ref1", "Quote1")]
-        emphasis_items = [("Emp1", "Quote2")]
+        bowen_refs = [("Ref1", "Quote1", "00:02:03")]
+        emphasis_items = [("Emp1", "Quote2", None)]
 
         html = _generate_simple_html_page(
             base_name,
@@ -77,6 +89,7 @@ class TestHtmlGenerator(unittest.TestCase):
         self.assertIn("<p>Content</p>", html)
         self.assertIn("<strong>Term1</strong>", html)
         self.assertIn("Abstract text", html)
+        self.assertIn("<li><strong>Ref1</strong>: <span class='timestamp'>(00:02:03)</span> Quote1</li>", html)
 
     def test_extract_webpage_metadata_falls_back_to_dedicated_theme_files(self):
         with TemporaryDirectory() as tmpdir:
@@ -131,6 +144,17 @@ class TestHtmlGenerator(unittest.TestCase):
         self.assertIn("Theme A", html)
         self.assertIn("Bowen References", html)
         self.assertIn("Bowen Reference - Differentiation", html)
+
+    def test_generate_pdf_logs_missing_weasyprint_dependency(self):
+        # Bypass the M1 release gate to unit-test the weasyprint-missing path in
+        # isolation (the gate has its own tests in tests/test_release_gate.py).
+        with patch.object(html_generator.release_gate, "publish_allowed", return_value=True):
+            with patch.dict("sys.modules", {"weasyprint": None}):
+                with patch.object(html_generator, "setup_logging", return_value=MagicMock()) as mock_setup:
+                    ok = html_generator.generate_pdf("Test Title - Test Author - 2025-01-01")
+
+        assert ok is False
+        mock_setup.return_value.error.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,7 +6,9 @@ Keep only items where the quote text itself attributes the statement to Murray B
 - The quote itself includes attribution wording, for example:
 - "Bowen said / wrote / thought / believed / described / referred / called ..."
 - "Murray Bowen ... said / wrote / thought / believed / described / referred / called ..."
-- "I remember Murray saying ..."
+- Recollection of Bowen's words or emphasis: "Bowen would say ...", "Bowen used to say ...", "Bowen always said ..."
+- "I remember Bowen stressing / emphasizing ...", "I remember Murray saying ..."
+- "Bowen stressed / emphasized / insisted / warned that ..."
 - "I remember talking to Murray ... He said ..."
 - "To quote Bowen ..." / "This is a quote from Bowen" / "Bowen's quote" / "Bowen's comment"
 - "Bowen was very clear about ..."

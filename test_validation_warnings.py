@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 import sys
 import os
 
@@ -44,17 +45,18 @@ class TestValidationWarnings(unittest.TestCase):
         self.assertFalse(any("Too long" in w for w in structural['warnings']),
                         f"Did not expect length warning for long summary, got: {structural['warnings']}")
 
-        def test_summary_evaluative_warning(self):
-            """Test that a summary with evaluative language passes with a warning."""
-            # "excellent" is in config.EVALUATIVE_TERMS
-            summary = "This is an excellent point.\n\nNext paragraph.\n\nFinal paragraph."
-            target_count = 10  # Low count, but length is just a warning now
-            
-            structural = summary_validation.validate_structural(summary, target_count)
-            
-            self.assertTrue(structural['valid'], "Summary should pass despite evaluative language")
-            self.assertTrue(any("Evaluative language check" in w for w in structural['warnings']),
-                            f"Expected evaluative warning, got: {structural['warnings']}")
+    def test_summary_evaluative_warning(self):
+        """Test that a summary with evaluative language passes with a warning."""
+        # "excellent" is in config.EVALUATIVE_TERMS
+        summary = "This is an excellent point.\n\nNext paragraph.\n\nFinal paragraph."
+        target_count = 10  # Low count, but length is just a warning now
+
+        structural = summary_validation.validate_structural(summary, target_count)
+
+        self.assertTrue(structural['valid'], "Summary should pass despite evaluative language")
+        self.assertTrue(any("Evaluative language check" in w for w in structural['warnings']),
+                        f"Expected evaluative warning, got: {structural['warnings']}")
+
     def test_summary_fatal_error(self):
         """Test that a summary with prohibited content still fails."""
         # "Section 1" is prohibited
@@ -115,18 +117,22 @@ class TestValidationWarnings(unittest.TestCase):
                 "sections": [{"within_tolerance": False, "deviation": 0.9, "name": "Body", "expected": 50, "actual": 100}]
             }
             
-            # Use a mock summary text
-            summary = "Summary text."
-            
-            # Mock generate_coverage_items to return all covered items so coverage passes
+            # Summary text that actually contains the item's keywords, because
+            # validate_summary_coverage RE-DERIVES coverage via check_keyword_coverage
+            # (it does not trust a preset item.covered). The keywords below are present
+            # so the required item is genuinely covered and coverage passes.
+            summary = "This summary covers the topic thoroughly."
+
+            # Mock generate_coverage_items to return one required, genuinely-coverable item
             with unittest.mock.patch('summary_validation.generate_coverage_items') as mock_items:
-                # Create a covered required item
-                item = summary_validation.CoverageItem("cat", "Label", True, [], "src", 10)
-                item.covered = True
+                item = summary_validation.CoverageItem(
+                    "cat", "Label", True, ["summary", "topic"], "src", 10
+                )
                 mock_items.return_value = [item]
-                
+
                 result = summary_validation.validate_summary_coverage(summary, mock_input)
-                
+
+                # Coverage passes; proportionality fails but is advisory, so overall PASSES.
                 self.assertTrue(result['passed'], "Summary should pass despite proportionality failure")
                 self.assertFalse(result['proportionality_passed'], "Proportionality should be False")
                 self.assertIn("proportionality deviations", result['summary'])

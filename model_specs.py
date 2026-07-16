@@ -5,6 +5,18 @@ Centralized configuration for AI model specifications and pricing.
 # Pricing per Million Tokens (USD)
 # Updated as of January 2026, reflecting user-provided 5min Cache Write and Cache Hit/Refresh rates.
 PRICING = {
+    "claude-sonnet-4-6": {  # Claude Sonnet 4.6
+        "input": 3.00,
+        "output": 15.00,
+        "cache_write": 3.75,
+        "cache_read": 0.30
+    },
+    "claude-opus-4-6": {  # Claude Opus 4.6
+        "input": 5.00,
+        "output": 25.00,
+        "cache_write": 6.25,
+        "cache_read": 0.50
+    },
     # Claude 4.5 Family (Estimates based on Opus/Haiku tiers)
     "claude-opus-4-5-20251101": {  # Claude Opus 4.5
         "input": 5.00,

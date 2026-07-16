@@ -1,17 +1,17 @@
-import unittest
-from unittest.mock import MagicMock, patch
-import json
-from pathlib import Path
-import tempfile
-import shutil
+# ruff: noqa: I001
+
 import os
+import shutil
 import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
 
-import config
-# Import V2 explicitly
+from transcript_initial_validation import TranscriptValidator
 from transcript_initial_validation_v2 import TranscriptValidatorV2
 
 class TestTranscriptValidatorLogicV2(unittest.TestCase):
@@ -173,6 +173,43 @@ class TestTranscriptValidatorLogicV2(unittest.TestCase):
         
         self.assertEqual(count, 1)
         self.assertEqual(result, "The quick brown fox jumps over the lazy cat..")
+
+
+class TestTranscriptValidatorVersionSelection(unittest.TestCase):
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+        self.api_key = "dummy_key"
+        self.logger = MagicMock()
+        with patch.object(TranscriptValidator, "_setup_client", return_value=None):
+            self.validator = TranscriptValidator(self.api_key, self.logger)
+
+    def tearDown(self):
+        shutil.rmtree(self.test_dir)
+
+    def test_base_v_valid_file_does_not_chase_numbered_versions(self):
+        base = Path(self.test_dir) / "Sample Recording_v-valid.txt"
+        base.write_text("base", encoding="utf-8")
+        for version in range(1, 4):
+            (Path(self.test_dir) / f"Sample Recording_v-valid_v{version}.txt").write_text(
+                f"v{version}",
+                encoding="utf-8",
+            )
+
+        latest = self.validator.get_latest_version(base)
+
+        self.assertEqual(latest, base)
+
+    def test_numbered_v_valid_file_stays_within_its_own_family(self):
+        base = Path(self.test_dir) / "Sample Recording_v-valid.txt"
+        base.write_text("base", encoding="utf-8")
+        selected = Path(self.test_dir) / "Sample Recording_v-valid_v2.txt"
+        selected.write_text("v2", encoding="utf-8")
+        newest = Path(self.test_dir) / "Sample Recording_v-valid_v4.txt"
+        newest.write_text("v4", encoding="utf-8")
+
+        latest = self.validator.get_latest_version(selected)
+
+        self.assertEqual(latest, newest)
 
 if __name__ == '__main__':
     unittest.main()

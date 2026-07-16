@@ -8,11 +8,15 @@ Direct access to variables (e.g. config.SOURCE_DIR) is proxied to the singleton 
 to maintain backward compatibility while enabling safer state management.
 """
 
+import json
 import os
 import sys
 from pathlib import Path
-from typing import Union, Dict, List, Tuple
+from typing import List, Union
+
 import model_specs  # ADDED: Import model_specs
+
+DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME = "approve_terms.txt"
 
 
 class ProjectSettings:
@@ -37,12 +41,53 @@ class ProjectSettings:
         self._update_derived_paths()
 
         # Initialize model variables
-        self.DEFAULT_MODEL = "claude-sonnet-4-20250514"  # Successor default to Claude 3.7 Sonnet
-        self.AUX_MODEL = "claude-3-5-haiku-20241022"      # Updated for Caching Support
-        self.FORMATTING_MODEL = "claude-3-7-sonnet-20250219" # Extended Output Support with Caching
-        self.VALIDATION_MODEL = "claude-3-5-haiku-20241022" # Cheaper model for validation
+        self.DEFAULT_MODEL = "claude-sonnet-4-6"  # Primary generation model
+        self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
+        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Haiku sufficient for structural formatting
+        self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
+        
+        self.runtime_settings = {}
+        self._load_runtime_settings()
 
         self._initialized = True
+
+    def _runtime_settings_path(self) -> Path:
+        return self.LOGS_DIR / "runtime_settings.json"
+
+    def _load_runtime_settings(self):
+        """Load persisted runtime UI settings into the settings object."""
+        path = self._runtime_settings_path()
+        if not path.exists():
+            self.runtime_settings = {}
+            return
+        try:
+            self.runtime_settings = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.runtime_settings = {}
+            return
+
+        default_source_dir = self.runtime_settings.get("default_source_dir")
+        if default_source_dir and Path(default_source_dir).exists():
+            self.set_source_dir_and_infer_base(default_source_dir)
+
+        processed_dir = self.runtime_settings.get("default_processed_dir")
+        if processed_dir and Path(processed_dir).exists():
+            self.PROCESSED_DIR = Path(processed_dir)
+
+        projects_dir = self.runtime_settings.get("default_projects_dir")
+        if projects_dir and Path(projects_dir).exists():
+            self.PROJECTS_DIR = Path(projects_dir)
+
+        terms_path = self.runtime_settings.get("validation_approved_terms_path")
+        if terms_path:
+            self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
+
+    def _save_runtime_settings(self):
+        """Persist the current runtime settings dictionary to a file."""
+        path = self._runtime_settings_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(self.runtime_settings, indent=2, sort_keys=True), encoding="utf-8")
+
 
     def _update_derived_paths(self):
         """Update paths derived from TRANSCRIPTS_BASE."""
@@ -51,11 +96,105 @@ class ProjectSettings:
         self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
         self.PROMPTS_DIR = Path(__file__).parent / "prompts"
         self.LOGS_DIR = Path(__file__).parent / "logs"
+        current_terms_path = getattr(self, "VALIDATION_APPROVED_TERMS_PATH", None)
+        if current_terms_path is None:
+            self.VALIDATION_APPROVED_TERMS_PATH = (
+                self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+            )
 
     def set_transcripts_base(self, path: Union[str, Path]):
         """Update the base directory for transcripts and all related paths."""
         self.TRANSCRIPTS_BASE = Path(path)
         self._update_derived_paths()
+
+    def set_source_dir_and_infer_base(self, path: Union[str, Path]):
+        """Set the source directory directly and infer the base from its parent."""
+        self.SOURCE_DIR = Path(path)
+        self.TRANSCRIPTS_BASE = self.SOURCE_DIR.parent
+        self.PROMPTS_DIR = Path(__file__).parent / "prompts"
+        self.LOGS_DIR = Path(__file__).parent / "logs"
+        self.VALIDATION_APPROVED_TERMS_PATH = (
+            self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+        )
+        # Use saved overrides if present, otherwise derive from base
+        processed_override = self.runtime_settings.get("default_processed_dir")
+        self.PROCESSED_DIR = Path(processed_override) if processed_override else self.TRANSCRIPTS_BASE / "processed"
+        projects_override = self.runtime_settings.get("default_projects_dir")
+        self.PROJECTS_DIR = Path(projects_override) if projects_override else self.TRANSCRIPTS_BASE / "projects"
+
+    def set_validation_approved_terms_path(self, path: Union[str, Path, None]):
+        """Set the active validation approved-terms file."""
+        if path is None:
+            new_path = self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+            self.VALIDATION_APPROVED_TERMS_PATH = new_path
+            self.runtime_settings.pop("validation_approved_terms_path", None)
+        else:
+            self.VALIDATION_APPROVED_TERMS_PATH = Path(path)
+            self.runtime_settings["validation_approved_terms_path"] = str(path)
+        self._save_runtime_settings()
+
+    def set_default_source_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default source directory."""
+        if path:
+            self.runtime_settings["default_source_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_source_dir", None)
+        self._save_runtime_settings()
+
+    def set_default_processed_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default processed directory."""
+        if path:
+            self.PROCESSED_DIR = Path(path)
+            self.runtime_settings["default_processed_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_processed_dir", None)
+            self.PROCESSED_DIR = self.TRANSCRIPTS_BASE / "processed"
+        self._save_runtime_settings()
+
+    def set_default_projects_dir(self, path: Union[str, Path, None]):
+        """Save or clear the default projects directory."""
+        if path:
+            self.PROJECTS_DIR = Path(path)
+            self.runtime_settings["default_projects_dir"] = str(path)
+        else:
+            self.runtime_settings.pop("default_projects_dir", None)
+            self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
+        self._save_runtime_settings()
+
+    def save_stage_selection(self, name: str, stages, include_bowen_core: bool = True,
+                              include_emphasis_core: bool = True):
+        """Save a named stage selection (stage keys + core modifier flags)."""
+        selections = self.runtime_settings.setdefault("stage_selections", {})
+        selections[name] = {
+            "stages": list(stages),
+            "include_bowen_core": include_bowen_core,
+            "include_emphasis_core": include_emphasis_core,
+        }
+        self._save_runtime_settings()
+
+    def delete_stage_selection(self, name: str):
+        """Delete a named stage selection, clearing the default pointer if it pointed here."""
+        selections = self.runtime_settings.get("stage_selections", {})
+        selections.pop(name, None)
+        if self.runtime_settings.get("default_stage_selection") == name:
+            self.runtime_settings.pop("default_stage_selection", None)
+        self._save_runtime_settings()
+
+    def get_stage_selections(self) -> dict:
+        """Return all saved stage selections, keyed by name."""
+        return self.runtime_settings.get("stage_selections", {})
+
+    def set_default_stage_selection(self, name: Union[str, None]):
+        """Save or clear the default stage selection name."""
+        if name:
+            self.runtime_settings["default_stage_selection"] = name
+        else:
+            self.runtime_settings.pop("default_stage_selection", None)
+        self._save_runtime_settings()
+
+    def get_default_stage_selection(self):
+        """Return the default stage selection name, or None if unset."""
+        return self.runtime_settings.get("default_stage_selection")
 
     # ADDED: Methods to dynamically get and set model names
     def get_all_model_names(self) -> list[str]:
@@ -113,6 +252,7 @@ PROCESSED_DIR = settings.PROCESSED_DIR
 PROJECTS_DIR = settings.PROJECTS_DIR
 PROMPTS_DIR = settings.PROMPTS_DIR
 LOGS_DIR = settings.LOGS_DIR
+VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
 
 # ADDED: Expose model variables as globals for backward compatibility and direct access
 DEFAULT_MODEL = settings.DEFAULT_MODEL
@@ -127,17 +267,81 @@ def set_transcripts_base(path: Union[str, Path]):
     # Update module-level globals to reflect the change for code that imported them directly
     # (Note: Code that did `from config import SOURCE_DIR` will still have the OLD value.
     # This is why `import config; config.SOURCE_DIR` is preferred.)
-    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR
+    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
     # ADDED: Make model variables global
     global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR
     PROJECTS_DIR = settings.PROJECTS_DIR
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
     # Update global model variables from settings object
     DEFAULT_MODEL = settings.DEFAULT_MODEL
     AUX_MODEL = settings.AUX_MODEL
     FORMATTING_MODEL = settings.FORMATTING_MODEL
+
+
+def set_source_dir_and_infer_base(path: Union[str, Path]):
+    """Global function to update the source directory directly."""
+    settings.set_source_dir_and_infer_base(path)
+    global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
+    TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
+    SOURCE_DIR = settings.SOURCE_DIR
+    PROCESSED_DIR = settings.PROCESSED_DIR
+    PROJECTS_DIR = settings.PROJECTS_DIR
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
+
+
+def set_validation_approved_terms_path(path: Union[str, Path, None]):
+    """Global function to update the active validation approved-terms file."""
+    settings.set_validation_approved_terms_path(path)
+    global VALIDATION_APPROVED_TERMS_PATH
+    VALIDATION_APPROVED_TERMS_PATH = settings.VALIDATION_APPROVED_TERMS_PATH
+
+
+def set_default_source_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default source directory."""
+    settings.set_default_source_dir(path)
+
+
+def set_default_processed_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default processed directory."""
+    settings.set_default_processed_dir(path)
+    global PROCESSED_DIR
+    PROCESSED_DIR = settings.PROCESSED_DIR
+
+
+def set_default_projects_dir(path: Union[str, Path, None]):
+    """Global function to save or clear the default projects directory."""
+    settings.set_default_projects_dir(path)
+    global PROJECTS_DIR
+    PROJECTS_DIR = settings.PROJECTS_DIR
+
+
+def save_stage_selection(name: str, stages, include_bowen_core: bool = True,
+                          include_emphasis_core: bool = True):
+    """Global function to save a named stage selection."""
+    settings.save_stage_selection(name, stages, include_bowen_core, include_emphasis_core)
+
+
+def delete_stage_selection(name: str):
+    """Global function to delete a named stage selection."""
+    settings.delete_stage_selection(name)
+
+
+def get_stage_selections():
+    """Global function to retrieve all saved stage selections."""
+    return settings.get_stage_selections()
+
+
+def set_default_stage_selection(name: Union[str, None]):
+    """Global function to save or clear the default stage selection."""
+    settings.set_default_stage_selection(name)
+
+
+def get_default_stage_selection():
+    """Global function to retrieve the default stage selection name."""
+    return settings.get_default_stage_selection()
 
 
 # ============================================================================
@@ -164,16 +368,197 @@ SUFFIX_ABSTRACT_VAL = " - abstract-validation.txt"
 SUFFIX_KEY_TERMS_VAL = " - key-terms-validation.md"
 SUFFIX_TOPICS_VAL = " - topics-validation.md"
 SUFFIX_BLOG = " - blog.md"
+SUFFIX_OVERVIEW = " - overview.md"
 SUFFIX_WEBPAGE = ".html"
 SUFFIX_WEBPAGE_SIMPLE = " - simple.html"
 SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
+SUFFIX_RUN_MANIFEST = " - run-manifest.json"
+SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
+SUFFIX_ZIP = ".zip"
+# Published bundle artifacts a BLOCK must not leave on disk as if current (M1.B.2/F4).
+PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP]
+
+# ============================================================================
+# RELEASE GATE POLICY (M1.B — spec_unattended_robustness_2026-07-15.md)
+# ============================================================================
+# Which check FAILs block publication vs. warn-and-ship. Elected 2026-07-15
+# (conservative net): a fabricated/ungrounded entity blocks; a transient ERROR
+# blocks (fail-closed — an unverified run must not publish, P1); everything else
+# WARNs until proven necessary. Flip a check into GATE_BLOCKING_CHECKS to make it
+# a hard blocker.
+#   artifact_contracts (M3, added 2026-07-15): a structured artifact that violates
+#   its schema is producer/consumer format drift (P19). U4 requires drift to be a
+#   HARD error, not a silent zero, so it blocks — a legitimately-empty artifact
+#   validates as an empty object and does not trip it.
+#   faithfulness (M2, added 2026-07-15): an unentailed claim in a narrative artifact
+#   is a fluent hallucination (U2). Blocks when enabled; a PASS no-op while
+#   FAITHFULNESS_JUDGE_ENABLED is False (awaiting M2.B calibration), so it does not
+#   affect the deterministic gate until turned on.
+#   theme_grounding (2026-07-15): an ungrounded theme (built on fabricated subject
+#   matter) is a hallucination in a published artifact (U2). Blocks when enabled; a
+#   PASS no-op while THEME_JUDGE_ENABLED is False, so it does not affect the gate
+#   until armed.
+GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness",
+                        "theme_grounding"}
+GATE_ERROR_BLOCKS = True
+# Artifacts whose proper names must be grounded in the source for the BLOCKING
+# entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
+# was calibrated on abstract prose (0 false positives across 3 real runs, and it
+# catches the shipped 'Luciano Malorni'). Synthesized artifacts (blog, themes,
+# topics, key-terms) carry Title-Case HEADINGS and CONCEPT phrases the detector
+# can't tell from names ("Key Takeaways", "Role Absorption") — scanning them as a
+# BLOCKER would false-BLOCK good runs (a hard stop). Grounding those needs the
+# semantic judge (M2, deferred), not this lexical detector.
+GATE_ENTITY_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+]
+# Broader set for the WARN-only cross-artifact consistency check (M4.D). A false
+# positive here is advisory noise, not a hard stop, so it can safely scan the
+# synthesized artifacts the BLOCKER above must avoid.
+GATE_CONSISTENCY_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+    SUFFIX_TOPICS,
+    SUFFIX_KEY_TERMS,
+]
+# Artifacts a complete run is expected to have (M5.B). A missing/empty one is a
+# WARN (named) — not a hard block, per the elected entity-only blocking policy;
+# a missing SOURCE still hard-blocks via entity_grounding's ERROR (can't verify).
+# Flip "required_artifacts" into GATE_BLOCKING_CHECKS to make completeness a gate.
+GATE_REQUIRED_ARTIFACT_SUFFIXES = [
+    SUFFIX_FORMATTED,
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_TOPICS,
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+    SUFFIX_KEY_TERMS,
+]
+
+# ============================================================================
+# M2 — SEMANTIC FAITHFULNESS JUDGE (spec_unattended_robustness_2026-07-15.md §M2)
+# ============================================================================
+# Claim-level entailment check for NARRATIVE artifacts — catches a fluent
+# hallucination the lexical checks can't. Gated behind an enable flag (strict mode)
+# until calibrated on the gold set; when enabled, an unentailed claim FAILs and the
+# judge's own error is ERROR (both blocking per U2 — see GATE_BLOCKING_CHECKS).
+# ARMED 2026-07-15. Calibrated on REAL prose artifacts (not just isolated claims —
+# the P10 fix): claim-level gold recall/precision 1.0; the 3 real abstracts judged
+# correctly (roots_bowen PASS; where_roots FAIL naming the real 'Luciano Malorni'
+# fabrication; dave_g FAIL on a genuine over-reach); an injected fabrication caught.
+# Scoped to PROSE only (themes excluded — interpretive by design). Policy: Hard BLOCK
+# (user-elected) — any unentailed claim OR a judge error blocks publish (fail-closed).
+# The unit suite forces this OFF via a conftest autouse fixture (deterministic +
+# offline); the enabled path is exercised with a mocked judge. Requires a resolvable
+# Anthropic key (env or the shared ~/.config/llm/keys.json store).
+FAITHFULNESS_JUDGE_ENABLED = True
+# Judge model: PINNED to the explicit version the judge was CALIBRATED on — NOT
+# aliased to DEFAULT_MODEL. A central DEFAULT_MODEL bump must not silently move the
+# armed judge onto an un-recalibrated model (P6: the arming decision trusts a
+# calibration artifact tied to this exact model). When changing it, re-run
+# tests/test_faithfulness_calibration.py and confirm the bars still pass.
+FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"
+FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
+# A claim shorter than this carries no verifiable assertion (heading fragments,
+# stray tokens) and is skipped by claim extraction (unless it states a concrete
+# specific — a number or a proper noun).
+FAITHFULNESS_MIN_CLAIM_CHARS = 25
+# Structured-artifact SCAFFOLDING / META field labels whose line is NOT a claim
+# about the source and must be skipped by claim extraction (esp. the themes
+# artifacts). These are the model's own meta-commentary or document boilerplate,
+# not assertions about the transcript, so judging them for source-faithfulness
+# produces false "unsupported" verdicts (e.g. a "Coverage / role: ~55-60%"
+# estimate). Editorial list -> config, not code (rule 9). Matched case-insensitively
+# against the text before the first colon on a line.
+FAITHFULNESS_SKIP_LINE_LABELS = [
+    "document", "prompt version used", "date processed", "source document",
+    "coverage", "coverage / role", "key evidence", "nested under structural themes",
+    "nested under", "lens fuel value", "lens fuel", "status",
+]
+# Narrative artifacts the judge audits: PROSE SUMMARIES that must stay faithful to
+# the source. Themes are DELIBERATELY EXCLUDED — a real-artifact smoke test
+# (2026-07-15) showed structural/interpretive themes are interpretive BY DESIGN
+# (they name patterns and apply theoretical frames like "Bowen theory" that aren't
+# literally in the transcript), so a source-ENTAILMENT check false-flags ~30/40 of
+# their claims as "unsupported". Themes are instead covered by a DIFFERENT check —
+# the theme GROUNDING judge below ("is this a reasonable interpretation of real
+# content?" not "is it stated?"). Spec §M2.A lists themes; this split is the
+# finding-driven correction.
+FAITHFULNESS_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_SUMMARY_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
+]
+# M2.B gold-set gate: the judge ships only if it clears these on the curated set.
+# Recall on the dangerous class (contradicted+unsupported) is the load-bearing bar —
+# the judge must almost never wave a fabrication through.
+FAITHFULNESS_MIN_RECALL_UNFAITHFUL = 0.90
+FAITHFULNESS_MIN_PRECISION_UNFAITHFUL = 0.70
+
+# ---- Theme GROUNDING judge (interpretive artifacts) ----
+# A separate judge for structural/interpretive THEMES: it asks whether a theme is a
+# GROUNDED interpretation (its subject matter appears in / follows from the source),
+# NOT whether it is literally stated — so it passes legitimate interpretation and
+# FAILs a theme built on fabricated subject matter. Same fail-closed/Hard-BLOCK
+# posture as the faithfulness judge; pinned to the calibrated model.
+# ARMED 2026-07-15. Calibrated on REAL theme artifacts (the production extraction
+# path): all 20 real themes -> grounded; all 8 curated fabricated/contradicting themes
+# -> ungrounded (recall 1.0 / precision 1.0). Same fail-closed Hard-BLOCK posture as
+# the faithfulness judge; forced OFF in the unit suite via the root-conftest fixture.
+THEME_JUDGE_ENABLED = True
+THEME_JUDGE_MODEL = "claude-sonnet-4-6"
+THEME_ARTIFACT_SUFFIXES = [
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+]
+# The theme judge ships only if it clears these on the curated theme gold set
+# (recall on the UNGROUNDED class is load-bearing — a fabricated theme must not pass).
+THEME_JUDGE_MIN_RECALL_UNGROUNDED = 0.90
+THEME_JUDGE_MIN_PRECISION_UNGROUNDED = 0.70
+
+# Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
+# (no API key, prompt file missing, API error) — must NOT be confused with a
+# genuine "speaker did not state a purpose" (which demotes the check to optional).
+# A transient failure keeps the purpose check REQUIRED so validation can't silently
+# pass on an unverified purpose (A10/P1). Compared by-value; keep stable.
+PURPOSE_EXTRACTION_FAILED = "Speaker's purpose UNDETERMINED - extraction failed (retryable)"
+
+# Conclusion-indicator phrases for extract_closing_conclusion (editorial — rule #9:
+# content, not code). Each is a regex fragment matched (case-insensitively) against
+# the closing sections' text. NOTE: this list is deliberately narrow — a real closing
+# that uses none of these phrases returns "No explicit conclusion stated" (a recall
+# gap tracked in TODO.md, not a correctness bug).
+ABSTRACT_CONCLUSION_PATTERNS = [
+    r"I think we can safely say[^.]+\.",
+    r"in conclusion[^.]+\.",
+    r"to conclude[^.]+\.",
+    r"the answer[^.]+\.",
+    r"I conclude[^.]+\.",
+    r"this suggests[^.]+\.",
+]
+
+# Theme-artifact scaffolding labels (editorial — rule #9: content, not code).
+# Section headers/roll-ups that appear in structural/interpretive theme files but
+# are NOT themes. Compared case-insensitively against a candidate theme name.
+# Used by transcript_utils.is_scaffolding_theme_name. See TODO.md A1/A2/A3.
+THEME_SCAFFOLDING_LABELS = frozenset(
+    {"summary paragraph", "summary", "conclusion"}
+)
+
+# Validation learning artifacts
+VALIDATION_MEMORY_FILENAME = "validation_memory.json"
+VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
+VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 
 # Model variables moved into ProjectSettings and exposed as globals
-# Defaults: DEFAULT_MODEL = "claude-sonnet-4-20250514"
-#           AUX_MODEL = "claude-3-5-haiku-20241022"
-#           FORMATTING_MODEL = "claude-3-7-sonnet-20250219"
+# Defaults: DEFAULT_MODEL = "claude-sonnet-4-6"
+#           AUX_MODEL = "claude-haiku-4-5-20251001"
+#           FORMATTING_MODEL = "claude-sonnet-4-6"
 
 # Default Summary Word Count
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
@@ -181,11 +566,25 @@ SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 DEFAULT_SUMMARY_WORD_COUNT = 650
 
 # Token Limits
-MAX_TOKENS_FORMATTING = 32000
-MAX_TOKENS_SUMMARY = 32000
+# Sized from observed peak output tokens on 10K+ word transcripts:
+#   Formatting:  ~14,400 observed → 20,000 (safe headroom for very long transcripts)
+#   Extraction:  ~5,200 observed  →  8,192
+#   Summary/Abstract: ~3,300 observed → 4,096 (650-word target ≈ 900 tokens)
+#   Validation/Audit: ~2,300 observed → 4,096
+MAX_TOKENS_FORMATTING = 20000
+MAX_TOKENS_SUMMARY = 4096
 MAX_TOKENS_EXTRACTION = 8192
-MAX_TOKENS_AUDIT = 2000
-MAX_TOKENS_HEADER_VALIDATION = 32000
+MAX_TOKENS_AUDIT = 4096
+MAX_TOKENS_HEADER_VALIDATION = 4096
+MAX_TOKENS_VALIDATION_VERIFY = 4096
+MAX_TOKENS_REVIEW_SEMANTIC = 8192
+MAX_TOKENS_MODEL_PROBE = 32
+MAX_CONTEXT_TOKENS = 200000
+
+# Model output caps for known low-limit models.
+MODEL_OUTPUT_TOKEN_LIMITS = {
+    "claude-3-5-haiku-20241022": 8192,
+}
 
 # Temperature Settings
 TEMP_STRICT = 0.0
@@ -211,6 +610,7 @@ PROMPT_LENS_GENERATION_FILENAME = "Transcript Summary - Lens Generation v1.md"
 PROMPT_THEME_LENS_VALIDATION_FILENAME = "Transcript Summary - Theme Lens Validation v1.md"
 PROMPT_KEY_TERMS_FILENAME = "Transcript Summary Key Terms v1.md"
 PROMPT_BLOG_FILENAME = "Transcript Summary Blog Post v1.md"
+PROMPT_OVERVIEW_FILENAME = "Transcript Summary Overview Post v1.md"
 PROMPT_ABSTRACT_VALIDATION_FILENAME = "abstract_quality_assessment_prompt_v2.md"
 PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
 PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
@@ -248,6 +648,7 @@ SUMMARY_QA_PCT = 0.10
 # Validation Thresholds
 TRANSCRIPT_MIN_WORDS = 1500
 BLOG_MIN_WORDS = 800
+OVERVIEW_MIN_WORDS = 800
 EVALUATIVE_TERMS = ["valuable", "insightful", "excellent"]
 
 # Token Estimation & Safety
@@ -259,6 +660,39 @@ TOKEN_USAGE_WARNING_THRESHOLD = 0.9
 FUZZY_MATCH_THRESHOLD = 0.85
 FUZZY_MATCH_EARLY_STOP = 0.98
 FUZZY_MATCH_PREFIX_LEN = 20
+
+# Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
+# the opening words), so a quote whose first words are verbatim but whose
+# remainder is fabricated is flagged rather than silently accepted. A quote is
+# "found" only if BOTH ends clear EMPHASIS_QUOTE_FOUND_RATIO; below
+# EMPHASIS_QUOTE_PARTIAL_RATIO on either end it is reported NOT FOUND.
+EMPHASIS_HEADTAIL_WORDS = 12
+EMPHASIS_QUOTE_FOUND_RATIO = 0.95
+EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
+
+# Key-terms definition grounding: the definition is a synthesized paraphrase, so
+# it is checked for topical keyword overlap, never verbatim. Global overlap with
+# the whole transcript barely discriminates (almost any on-topic text scores
+# high), so a definition that describes the WRONG concept still passed. We also
+# require LOCAL grounding: the definition's keywords must overlap the transcript
+# window around where the term actually appears. Calibrated on real runs: valid
+# definitions score >=0.54 locally, a swapped/off-topic definition <=0.13.
+KEY_TERMS_LOCAL_WINDOW_WORDS = 140
+KEY_TERMS_DEF_LOCAL_MIN = 0.30
+# Tier thresholds for validate_key_terms_fidelity (term-grounding / def-support).
+KEY_TERMS_TERM_FAIL_BELOW = 0.50
+KEY_TERMS_EXACT_TERM_MIN = 0.90
+KEY_TERMS_EXACT_DEF_MIN = 0.50
+KEY_TERMS_PARTIAL_TERM_MIN = 0.80
+KEY_TERMS_PARTIAL_DEF_MIN = 0.35
+
+# Abstract proper-name grounding (advisory): a multi-word Title-Case name in the
+# abstract is flagged when none of its significant tokens appears in the source
+# transcript. Fuzzy matching spares ASR spelling normalizations (e.g.
+# "Bertoloso" -> "Bertolaso") while catching a fabricated name whose tokens are
+# absent (verified on a real run: the hallucinated "Luciano Malorni").
+ABSTRACT_NAME_TOKEN_MIN_LEN = 4
+ABSTRACT_NAME_FUZZY_MIN = 0.80
 
 # ============================================================================
 # VALIDATION V2 SETTINGS
@@ -291,8 +725,7 @@ VALIDATION_MAX_STALLED_ITERATIONS = 2
 
 # Error Types
 VALIDATION_ERROR_TYPES = {
-    'spelling', 'homophone', 'proper_noun', 'word_boundary',
-    'capitalization', 'repetition', 'punctuation', 'incomplete', 'grammar'
+    'spelling', 'homophone', 'proper_noun', 'word_boundary', 'alias'
 }
 
 # Logging
@@ -491,6 +924,9 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
         "MAX_TOKENS_EXTRACTION": MAX_TOKENS_EXTRACTION,
         "MAX_TOKENS_AUDIT": MAX_TOKENS_AUDIT,
         "MAX_TOKENS_HEADER_VALIDATION": MAX_TOKENS_HEADER_VALIDATION,
+        "MAX_TOKENS_VALIDATION_VERIFY": MAX_TOKENS_VALIDATION_VERIFY,
+        "MAX_TOKENS_REVIEW_SEMANTIC": MAX_TOKENS_REVIEW_SEMANTIC,
+        "MAX_TOKENS_MODEL_PROBE": MAX_TOKENS_MODEL_PROBE,
     }
 
     for name, value in token_limits.items():
@@ -579,6 +1015,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
         "ABSTRACT_MIN_WORDS": ABSTRACT_MIN_WORDS,
         "TRANSCRIPT_MIN_WORDS": TRANSCRIPT_MIN_WORDS,
         "BLOG_MIN_WORDS": BLOG_MIN_WORDS,
+        "OVERVIEW_MIN_WORDS": OVERVIEW_MIN_WORDS,
         "VALIDATION_CHUNK_SIZE": VALIDATION_CHUNK_SIZE,
         "VALIDATION_CHUNK_OVERLAP": VALIDATION_CHUNK_OVERLAP,
         "VALIDATION_MIN_CONTEXT_WORDS": VALIDATION_MIN_CONTEXT_WORDS,
@@ -645,6 +1082,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
             "PROMPT_THEME_LENS_VALIDATION_FILENAME": PROMPT_THEME_LENS_VALIDATION_FILENAME,
             "PROMPT_KEY_TERMS_FILENAME": PROMPT_KEY_TERMS_FILENAME,
             "PROMPT_BLOG_FILENAME": PROMPT_BLOG_FILENAME,
+            "PROMPT_OVERVIEW_FILENAME": PROMPT_OVERVIEW_FILENAME,
             "PROMPT_ABSTRACT_VALIDATION_FILENAME": PROMPT_ABSTRACT_VALIDATION_FILENAME,
             "PROMPT_VOICE_AUDIT_FILENAME": PROMPT_VOICE_AUDIT_FILENAME,
             "PROMPT_STRUCTURED_SUMMARY_FILENAME": PROMPT_STRUCTURED_SUMMARY_FILENAME,
@@ -747,7 +1185,7 @@ def validate_configuration(verbose: bool = True, auto_fix: bool = False) -> Vali
     elif not VALIDATION_ERROR_TYPES:
         result.add_warning(
             "VALIDATION_ERROR_TYPES is empty\n"
-            f"  Consider: Add error types like {{'homophone', 'proper_noun', 'grammar'}}"
+            "  Consider: Add error types like {'homophone', 'proper_noun', 'spelling'}"
         )
 
     # ========================================================================

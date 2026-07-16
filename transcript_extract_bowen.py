@@ -4,6 +4,7 @@ CLI wrapper for extracting Bowen references from a transcript.
 
 Usage:
     python transcript_extract_bowen.py "Title - Presenter - Date - yaml.md" [--show-prompt]
+    python transcript_extract_bowen.py "source/Title - Presenter - Date.txt"
 """
 
 import argparse
@@ -22,6 +23,14 @@ def resolve_filename(filename: str) -> str:
     """
     Resolve filename to support base names and ' - yaml.md' extension.
     """
+    direct_path = Path(filename)
+    if direct_path.is_file():
+        return str(direct_path)
+
+    source_path = config.SOURCE_DIR / filename
+    if source_path.is_file():
+        return str(source_path)
+
     # Clean up base name from any potential full path or extension
     base = Path(filename).stem
     suffixes_to_strip = [

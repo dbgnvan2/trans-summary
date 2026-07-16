@@ -91,7 +91,7 @@ def find_missing_emphasis_items(base_name, html_file):
     """Identify which specific emphasis items are missing from HTML."""
     # Use the centralized loader from transcript_utils
     emphasis_items = load_emphasis_items(base_name)
-    source_labels = [label for label, _ in emphasis_items]
+    source_labels = [label for label, _, _ in emphasis_items]
 
     # Extract emphasis labels that are highlighted in HTML
     soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
@@ -115,7 +115,7 @@ def find_missing_bowen_items(base_name, html_file):
     """Identify which specific Bowen references are missing from HTML."""
     # Use the centralized loader from transcript_utils
     bowen_refs = load_bowen_references(base_name)
-    source_labels = [label for label, _ in bowen_refs]
+    source_labels = [label for label, _, _ in bowen_refs]
 
     soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
     highlighted_labels = []
@@ -717,16 +717,21 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
 
     # Summary
     print("\n   Summary:")
-    # Source summary may be absent if summary generation was skipped.
+    print(
+        f"      Source: {'Present' if source_meta.get('has_summary') else 'Not Generated'}"
+    )
     print(
         f"      HTML:   {'Present' if html_meta['has_summary'] else 'Missing'} "
         f"({html_meta['summary_length']} chars)"
     )
 
-    if not html_meta["has_summary"]:
-        warnings.append("Summary section missing in HTML")
+    if source_meta.get('has_summary') and not html_meta['has_summary']:
+        issues.append("Generated summary is missing from the final webpage.")
+    elif not source_meta.get('has_summary') and not html_meta['has_summary']:
+        print("      ✅ Summary correctly omitted from webpage.")
     else:
-        print("      ✅ Summary present in HTML")
+        # This covers cases where it's present in both, or present in HTML but not source.
+        print("      ✅ Summary correctly included in webpage.")
 
     # Topics (skip in simple mode - not included in that layout)
     print("\n   Key Topics:")
@@ -856,8 +861,8 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     html_normalized = normalize_text(html_content, aggressive=True)
 
     all_items = [
-        ("Bowen Ref", label, quote) for label, quote in load_bowen_references(base_name)
-    ] + [("Emphasis", label, quote) for label, quote in load_emphasis_items(base_name)]
+        ("Bowen Ref", label, quote) for label, quote, _ in load_bowen_references(base_name)
+    ] + [("Emphasis", label, quote) for label, quote, _ in load_emphasis_items(base_name)]
 
     text_missing_count = 0
     if all_items:

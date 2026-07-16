@@ -9,6 +9,7 @@ import os
 import anthropic
 from dotenv import load_dotenv
 import model_specs  # ADDED
+import config
 
 # Load environment variables
 load_dotenv()
@@ -82,7 +83,7 @@ def main():
         try:
             client.messages.create(
                 model=model_id,
-                max_tokens=10,
+                max_tokens=config.MAX_TOKENS_MODEL_PROBE,
                 messages=[{"role": "user", "content": "Hi"}],
             )
             pricing = model_specs.get_pricing(model_id)  # ADDED

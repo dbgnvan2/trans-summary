@@ -15,7 +15,7 @@ This guide reflects the current artifact set produced by the transcript processi
 | --- | --- | --- | --- |
 | Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
 | Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
-| YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter | `formatting_pipeline.add_yaml` |
+| YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter; fallback structured-transcript source for summary/abstract generation | `formatting_pipeline.add_yaml` |
 | Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
 | Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
 | Topics | `<Base Name> - topics.md` | Topic objects with coverage metadata | `extraction_pipeline.summarize_transcript` |
@@ -38,6 +38,13 @@ This guide reflects the current artifact set produced by the transcript processi
 ## Current Pipeline Stages
 
 1. Initial transcript validation (optional/manual stage in GUI/CLI workflows).
+   - Scope is intentionally narrow: proper nouns, homophones, spelling/non-words, and word-boundary issues.
+   - Review UI is compact and dictionary-first: one line per item, checked by default, with approvals automatically feeding `approve_terms.txt`.
+   - Active terms file is selectable in the GUI at runtime; it defaults to `approve_terms.txt` under `TRANSCRIPTS_BASE`.
+   - GUI review actions can now update:
+      - `logs/validation_memory.json` for repeatedly rejected suggestion pairs
+      - `approve_terms.txt` under `TRANSCRIPTS_BASE` for approved terms/phrases
+      - `approve_terms.txt` alias lines in the form `wrong = Correct` for deterministic future corrections
 2. Formatting (`format_transcript`) -> ` - formatted.md`
 3. Format validation (`validate_format`) checks word-preservation fidelity.
 4. Header validation (`validate_headers`) -> ` - header-validation.md`
@@ -46,13 +53,16 @@ This guide reflects the current artifact set produced by the transcript processi
 7. Structured generation (optional flag/GUI flow):
    - `generate_structured_summary` -> ` - summary-generated.md`
    - `generate_structured_abstract` -> ` - abstract-generated.md`
+   - These stages prefer ` - formatted.md` and fall back to ` - yaml.md` when the formatted transcript artifact is missing.
 8. Structured validation:
    - `validate_summary_coverage` -> ` - summary-validation.txt`
    - `validate_abstract_coverage` -> ` - abstract-validation.txt`
+   - These stages use the same transcript fallback behavior as structured generation.
 9. Rendering:
    - `generate_webpage` -> `.html`
    - `generate_simple_webpage` -> ` - simple.html`
    - `generate_pdf` -> `.pdf`
+   - Rendering also prefers ` - formatted.md` and falls back to ` - yaml.md` if needed.
 10. Packaging (`package_transcript`) -> `.zip`
 
 ## Notes
@@ -60,3 +70,15 @@ This guide reflects the current artifact set produced by the transcript processi
 - Webpage/PDF generation loads generated artifacts directly from dedicated one-artifact-per-output files.
 - Bowen and emphasis items are both used for transcript highlighting in HTML/PDF.
 - Legacy paths like `~/transcripts/...` are no longer the canonical default; use `config.TRANSCRIPTS_BASE`-derived directories.
+## Transcript Input Formats
+
+Formatting and word-fidelity validation now recognize two supported source transcript families:
+
+- `plain_transcript`: plain text transcript input, including Otter-style exports and lightly cleaned timestamped text
+- `trx_whisper_wrapped`: TRX/Whisper validated transcript files with:
+  - `TRANSCRIPT` metadata header
+  - `Source file` / `Date` / `Duration` / `Speakers` / `Warnings` lines
+  - timestamped speaker prefixes such as `[00:00:03] A:`
+  - optional appended `VALIDATION REPORT` and `FLAGGED ITEMS` footer blocks
+
+`formatting_pipeline` strips the supported TRX/Whisper wrapper sections before format validation so content comparison is performed against transcript text only.

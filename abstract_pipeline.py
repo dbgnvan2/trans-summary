@@ -17,12 +17,24 @@ Usage:
 """
 
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+import anthropic
+
+import logging
+
 import config
-from transcript_utils import call_claude_with_retry
+from transcript_utils import (
+    call_claude_with_retry,
+    is_scaffolding_theme_name,
+    parse_bold_numbered_theme_blocks,
+)
+
+logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -62,6 +74,23 @@ class AbstractInput:
             "target_word_count": self.target_word_count,
         }
         return json.dumps(data, indent=2)
+
+    def to_contract_dict(self) -> dict:
+        """Schema-shaped dict for the abstract_input boundary contract (M3).
+        Same payload as ``to_json`` plus the ``version``/``artifact`` envelope
+        the schema pins."""
+        return {
+            "version": "1",
+            "artifact": "abstract_input",
+            "metadata": self.metadata,
+            "topics": [asdict(t) for t in self.topics],
+            "themes": [asdict(t) for t in self.themes],
+            "opening_purpose": self.opening_purpose,
+            "closing_conclusion": self.closing_conclusion,
+            "qa_percentage": self.qa_percentage,
+            "qa_topics": self.qa_topics,
+            "target_word_count": self.target_word_count,
+        }
 
 
 def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
@@ -123,25 +152,38 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
 def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
     """
-    Parse Interpretive Themes using robust pattern matching.
+    Parse structural/interpretive themes using robust pattern matching.
+
+    Strategy order matters: the real extraction artifact writes bold-numbered
+    ``**N. Title**`` blocks with ``###``/``##`` scaffolding headers around them
+    (``### Structural Themes (3 total)``, ``### Summary Paragraph``). We MUST
+    detect the bold-numbered format first; gating on ``###`` first captured the
+    scaffolding header as the theme name and collapsed every real theme into one
+    blob (P19 — TODO.md A1). ``###``-as-theme is a legacy fallback only.
     """
     themes = []
 
-    # Strategy 1: Header format (### Theme Name)
-    if "###" in themes_markdown:
-        blocks = [
-            b.strip() for b in re.split(r"(?:^|\n)###\s+", themes_markdown) if b.strip()
-        ]
-        for block in blocks:
-            lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
-            if not lines:
-                continue
-            name = lines[0]
-            description = " ".join(lines[1:]).strip()
-            if name and description:
+    # Strategy 1 (PREFERRED): real bold-numbered block format `**N. Title**`.
+    for name, description in parse_bold_numbered_theme_blocks(themes_markdown):
+        themes.append(Theme(name=name, description=description))
+
+    # Strategy 2 (LEGACY): `### Theme Name` header blocks. Only when no
+    # bold-numbered themes exist — in the real format `###` marks scaffolding.
+    if not themes and "###" in themes_markdown:
+        header_blocks = re.finditer(
+            r"(?:^|\n)###\s+([^\n]+)\n(.*?)(?=(?:\n###\s+)|\Z)",
+            themes_markdown,
+            re.DOTALL,
+        )
+        for match in header_blocks:
+            name = match.group(1).strip()
+            description = " ".join(
+                ln.strip() for ln in match.group(2).split("\n") if ln.strip()
+            ).strip()
+            if not is_scaffolding_theme_name(name) and description:
                 themes.append(Theme(name=name, description=description))
 
-    # Strategy 2: Numbered format
+    # Strategy 3: Numbered format
     if not themes:
         blocks = re.finditer(
             r"(?:^|\n)\s*\d+\.\s+(.*?)(?=(?:\n\s*\d+\.\s+)|\Z)",
@@ -158,6 +200,8 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             if not line_match:
                 continue
             name = line_match.group(1).strip()
+            if is_scaffolding_theme_name(name):
+                continue
             description = f"{line_match.group(2).strip()} {rest.strip()}".strip()
             description = re.sub(
                 r"[\*_ \-]*Source Sections?:?\s*[^*_\n]+[\*_ \-]*",
@@ -168,37 +212,78 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             if name and description:
                 themes.append(Theme(name=name, description=description))
 
+    # P19 guard: non-empty input that parsed to nothing is contract drift, not a
+    # benign empty — surface it loudly rather than silently returning [].
+    if not themes and themes_markdown.strip():
+        logger.warning(
+            "parse_themes_from_extraction: non-empty themes input (%d chars) "
+            "parsed to ZERO themes — producer/consumer format drift (P19).",
+            len(themes_markdown.strip()),
+        )
+
     # Take top 2 themes
     return themes[:2]
 
 
 def extract_opening_purpose(transcript: str, section_count: int) -> str:
     """
-    Extract speaker's stated purpose from opening sections.
-    Looks for purpose indicators in first 10% of sections.
+    Extract speaker's stated purpose from opening sections using an LLM.
     """
-    opening_sections = section_count // 10 or 1
+    # 1. Isolate the opening 15% of the transcript's text, max 5 sections
+    opening_section_count = min(max(1, section_count // 7), 5)
+    
+    section_pattern = r"## Section (\d+)"
+    sections = re.split(section_pattern, transcript)
+    
+    opening_text = ""
+    # The split results in ['pre-section1-text', '1', 'section1-text', '2', 'section2-text', ...]
+    for i in range(1, opening_section_count * 2, 2):
+        if i + 1 < len(sections):
+            opening_text += f"## Section {sections[i]}\n{sections[i+1]}"
 
-    # Common purpose indicators
-    purpose_patterns = [
-        r"my intent[^.]+is[^.]+\.",
-        r"I'm going to[^.]+\.",
-        r"today[^.]+explore[^.]+\.",
-        r"purpose[^.]+is[^.]+\.",
-        r"goal[^.]+is[^.]+\.",
-        r"I want to[^.]+\.",
-    ]
+    if not opening_text.strip():
+        return "Speakers purpose missing - manually insert"
 
-    # Search in first N sections
-    section_pattern = r"## Section [1-" + str(opening_sections) + r"][^#]+"
-    opening_text = " ".join(re.findall(section_pattern, transcript, re.DOTALL))
+    # 2. Load the prompt
+    try:
+        prompt_path = config.PROMPTS_DIR / "purpose_extraction_prompt.md"
+        template = prompt_path.read_text(encoding="utf-8")
+        prompt = template.replace("{{opening_text}}", opening_text)
+    except FileNotFoundError:
+        # Deployment/config problem, not "speaker said nothing" — retryable (A10/P1).
+        return config.PURPOSE_EXTRACTION_FAILED
 
-    for pattern in purpose_patterns:
-        match = re.search(pattern, opening_text, re.IGNORECASE)
-        if match:
-            return match.group(0).strip()
+    # 3. Call the LLM
+    try:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            # Config/transient — do NOT masquerade as genuine-absent (A10/P1).
+            return config.PURPOSE_EXTRACTION_FAILED
 
-    return "Not explicitly stated"
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        message = call_claude_with_retry(
+            client=client,
+            model=config.settings.AUX_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200,  # A single sentence should be short
+            temperature=0.0,
+            min_length=10, # Expect at least a short sentence
+            logger=logger,  # named logger -> real script name in token-usage log
+        )
+        
+        purpose = message.content[0].text.strip()
+
+        # 4. Process the response
+        if "Not explicitly stated" in purpose:
+            return "Speakers purpose missing - manually insert"
+        
+        return purpose
+
+    except Exception:
+        # Transient API failure (timeout, rate-limit, 5xx) — retryable, not a
+        # genuine absence; keep it distinct so the check isn't silently demoted (A10/P1).
+        return config.PURPOSE_EXTRACTION_FAILED
 
 
 def extract_closing_conclusion(transcript: str, section_count: int) -> str:
@@ -208,19 +293,15 @@ def extract_closing_conclusion(transcript: str, section_count: int) -> str:
     """
     closing_start = section_count - (section_count // 10) or section_count - 1
 
-    # Common conclusion indicators
-    conclusion_patterns = [
-        r"I think we can safely say[^.]+\.",
-        r"in conclusion[^.]+\.",
-        r"to conclude[^.]+\.",
-        r"the answer[^.]+\.",
-        r"I conclude[^.]+\.",
-        r"this suggests[^.]+\.",
-    ]
+    # Conclusion-indicator phrases live in config (rule #9: editorial content).
+    conclusion_patterns = config.ABSTRACT_CONCLUSION_PATTERNS
 
-    # Search in last N sections
+    # Search in last N sections. The alternation is NON-capturing: with a single
+    # capturing group `re.findall` returns only the captured section NUMBERS and
+    # discards the `[^#]+` body, so the conclusion search below ran against a string
+    # of digits and always failed (A4/P19). `(?:...)` -> findall returns whole matches.
     section_pattern = (
-        r"## Section ("
+        r"## Section (?:"
         + "|".join(str(i) for i in range(closing_start, section_count + 1))
         + r")[^#]+"
     )
@@ -338,7 +419,7 @@ def prepare_abstract_input(
     section_count = count_sections(transcript)
     qa_percentage, qa_topics = calculate_qa_percentage(transcript)
 
-    return AbstractInput(
+    abstract_input = AbstractInput(
         metadata=metadata,
         topics=parse_topics_from_extraction(topics_markdown),
         themes=parse_themes_from_extraction(themes_markdown),
@@ -349,6 +430,14 @@ def prepare_abstract_input(
         qa_topics=qa_topics,
         target_word_count=target_word_count,
     )
+    # M3.B — producer self-validation: the assembled input must conform to the
+    # abstract_input schema before it drives a (costly) generation call. A malformed
+    # input (e.g. a topic parsed with an empty name, an out-of-range percentage) is
+    # a fail-closed SchemaError, not a garbage abstract generated from bad input.
+    import artifact_contracts as ac
+
+    ac.validate("abstract_input", abstract_input.to_contract_dict())
+    return abstract_input
 
 
 # === API Integration ===
@@ -368,7 +457,7 @@ def load_prompt() -> str:
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
-    model: str = config.DEFAULT_MODEL,  # Use Sonnet for detailed content (was AUX_MODEL/Haiku)
+    model: str = config.AUX_MODEL,  # Haiku: cost-effective for abstract generation
     system: Optional[list] = None,
 ) -> str:
     """
@@ -397,9 +486,11 @@ def generate_abstract(
         client=api_client,
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=600,  # Adequate for abstract
+        max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
+        stream=True,
         min_length=150,  # Ensure substantial abstract
+        logger=logger,  # named logger -> real script name in token-usage log
         **kwargs,
     )
 

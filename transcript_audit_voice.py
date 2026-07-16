@@ -14,12 +14,16 @@ Example:
 
 import argparse
 import json
+import logging
 import os
 
 import anthropic
 
 import config
 from transcript_utils import call_claude_with_retry
+
+# Named logger so token-usage rows record this step instead of "unknown_script".
+logger = logging.getLogger("transcript_audit_voice")
 
 
 def load_prompt() -> str:
@@ -69,6 +73,7 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
         temperature=config.TEMP_BALANCED,
         messages=[{"role": "user", "content": evaluation_prompt}],
         min_length=50,
+        logger=logger,
     )
 
     # Parse JSON response

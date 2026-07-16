@@ -17,7 +17,9 @@
         <h2>Contents</h2>
         <ol>
             <li>Abstract</li>
+            {% if summary_html %}
             <li>Summary</li>
+            {% endif %}
             <li>Key Topics</li>
             <li>Themes</li>
             <li>Key Terms</li>
@@ -35,12 +37,14 @@
     </div>
 </div>
 
+{% if summary_html %}
 <div class="section">
     <h1>Summary</h1>
     <div class="abstract">
         {{ summary_html|safe }}
     </div>
 </div>
+{% endif %}
 
 <div class="section">
     <h1>Key Topics</h1>

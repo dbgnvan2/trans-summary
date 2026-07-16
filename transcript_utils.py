@@ -26,8 +26,6 @@ from anthropic import (
 )
 
 import config
-
-
 import model_specs
 
 LARGE_INPUT_CACHE_THRESHOLD_CHARS = 10000
@@ -39,39 +37,76 @@ def setup_logging(script_name: str) -> logging.Logger:
     logs_dir = config.LOGS_DIR
     logs_dir.mkdir(exist_ok=True)
 
-    from datetime import datetime
     log_file = logs_dir / f"{script_name}_{datetime.now():%Y%m%d_%H%M%S}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
-
     logger = logging.getLogger(script_name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(formatter)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
     logger.info("Logging initialized: %s", log_file)
     return logger
 
 
+def resolve_anthropic_key() -> Optional[str]:
+    """Resolve the Anthropic API key: the ``ANTHROPIC_API_KEY`` env var first, then
+    the shared global keys file the ``global-api-config`` module reads
+    (``$LLM_KEYS_FILE`` or ``~/.config/llm/keys.json``). Returns None if neither
+    has it. Reads the shared keys JSON directly so this has no dependency on the
+    global module (which imports ``requests``)."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    import json
+
+    path = os.environ.get("LLM_KEYS_FILE") or os.path.expanduser(
+        "~/.config/llm/keys.json")
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    providers = data.get("providers", data)
+    if isinstance(providers, dict):
+        anth = providers.get("anthropic")
+        if isinstance(anth, dict) and anth.get("api_key"):
+            return anth["api_key"]
+    return None
+
+
 def validate_api_key() -> str:
     """
-    Validate that ANTHROPIC_API_KEY is set.
+    Validate that an Anthropic API key is available (env or the shared global keys
+    file, via ``resolve_anthropic_key``).
 
     Returns:
         The API key
 
     Raises:
-        ValueError: If API key is not set
+        ValueError: If no API key can be resolved
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = resolve_anthropic_key()
     if not api_key:
         raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Please set it in your .env file or environment:\n"
+            "No Anthropic API key found.\n"
+            "Set ANTHROPIC_API_KEY in your environment:\n"
             "  export ANTHROPIC_API_KEY='your-api-key-here'\n"
+            "or add an 'anthropic' provider to ~/.config/llm/keys.json "
+            "(shared global keys file).\n"
             "Get your key from: https://console.anthropic.com/"
         )
     return api_key
@@ -96,6 +131,31 @@ def validate_input_file(file_path: Path) -> None:
 
     if file_path.stat().st_size == 0:
         raise ValueError(f"Input file is empty: {file_path}")
+
+
+def load_project_transcript(base_name: str, logger: Optional[logging.Logger] = None) -> str:
+    """Load a project transcript, preferring formatted markdown and falling back to YAML."""
+    candidate_paths = [
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_FORMATTED}",
+        config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_YAML}",
+    ]
+
+    last_error: Optional[Exception] = None
+    for path in candidate_paths:
+        try:
+            validate_input_file(path)
+            if logger and path.name.endswith(config.SUFFIX_YAML):
+                logger.info(
+                    "Formatted transcript missing; falling back to YAML transcript: %s",
+                    path,
+                )
+            return strip_yaml_frontmatter(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise FileNotFoundError(f"No structured transcript found for project: {base_name}")
 
 
 def validate_api_response(
@@ -246,6 +306,52 @@ def validate_api_response(
                                    expected_model, message.model)
 
     return text
+
+
+def warn_if_empty_parse(
+    logger,
+    label: str,
+    parsed_count: int,
+    *,
+    source_path=None,
+    source_text: str = None,
+    min_chars: int = 20,
+) -> bool:
+    """Surface a likely format/parser mismatch (P2: never silently drop).
+
+    A parser/validator that yields ZERO items from a NON-EMPTY source is almost
+    always a format drift between producer (prompt + save) and consumer, not a
+    genuinely empty result — and it otherwise masquerades as a clean "nothing to
+    validate" pass. This makes that case loud while staying quiet when the
+    source is truly absent/empty.
+
+    Returns True if it emitted the mismatch warning (source had real content but
+    parsed to nothing); False otherwise (genuinely empty/absent — caller may log
+    a benign info instead).
+    """
+    if parsed_count:
+        return False
+    content_len = 0
+    if source_text is not None:
+        content_len = len(source_text.strip())
+    elif source_path is not None:
+        try:
+            path = Path(source_path)
+            if path.exists():
+                content_len = len(path.read_text(encoding="utf-8").strip())
+        except OSError:
+            content_len = 0
+    if content_len >= min_chars:
+        where = f": {source_path}" if source_path is not None else ""
+        logger.warning(
+            "⚠️ Parsed 0 %s from a non-empty source (%d chars%s) — likely a "
+            "format/parser mismatch, not an empty result.",
+            label,
+            content_len,
+            where,
+        )
+        return True
+    return False
 
 
 def log_token_usage(script_name: str, model: str, usage_data: object, stop_reason: str):
@@ -423,13 +529,15 @@ def cap_max_tokens_for_model(
     """
     model_lower = model.lower()
 
-    # Use explicit model output limits where known; otherwise default to 32000.
+    # Use explicit model output limits where known; otherwise default to configured limit.
     # Then honor the lower of requested max and allowed max.
-    known_model_output_limits = {
-        "claude-3-5-haiku-20241022": 8192,
-    }
+    known_model_output_limits = config.MODEL_OUTPUT_TOKEN_LIMITS
     model_limit = known_model_output_limits.get(model_lower)
-    allowed_max_tokens = 32000 if model_limit is None else min(model_limit, 32000)
+    allowed_max_tokens = (
+        config.MAX_TOKENS_SUMMARY
+        if model_limit is None
+        else min(model_limit, config.MAX_TOKENS_SUMMARY)
+    )
     capped_max_tokens = min(requested_max_tokens, allowed_max_tokens)
 
     if capped_max_tokens != requested_max_tokens and logger:
@@ -959,9 +1067,9 @@ def check_token_budget(text: str, max_tokens: int, logger: Optional[logging.Logg
 
     if estimated > safe_limit:
         warning = (
-            f"⚠️  Input may exceed token limit:\n"
+            f"⚠️  Input may exceed context budget:\n"
             f"   Estimated tokens: {estimated:,}\n"
-            f"   Safe limit: {int(safe_limit):,} ({config.TOKEN_BUDGET_SAFETY_MARGIN:.0%} of {max_tokens:,})\n"
+            f"   Safe input budget: {int(safe_limit):,} ({config.TOKEN_BUDGET_SAFETY_MARGIN:.0%} of {max_tokens:,})\n"
             f"   Consider processing in smaller chunks."
         )
         if logger:
@@ -1067,6 +1175,138 @@ def extract_bowen_references(content: str) -> list:
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
 
+# ---------------------------------------------------------------------------
+# Theme-artifact parsing (shared by abstract_pipeline + summary_pipeline)
+#
+# The extraction stage writes structural/interpretive themes as bold-numbered
+# blocks — the real on-disk format:
+#
+#     ### Structural Themes (3 total)          <- scaffolding header, not a theme
+#     **1. Theme Title**
+#     **Description:** ...
+#     **Key evidence:** ...
+#     ### Summary Paragraph                    <- scaffolding header, not a theme
+#
+# Both theme consumers must read THIS format first; the `###`/`##` headers are
+# scaffolding, never themes. Keeping the parse in one place stops the two
+# consumers from drifting apart (P19). See TODO.md A1/A2/A3.
+# ---------------------------------------------------------------------------
+
+def is_scaffolding_theme_name(name: str) -> bool:
+    """True when `name` is section scaffolding (a header/roll-up), not a theme.
+
+    Three discriminators, deliberately narrow to avoid dropping a real theme
+    (a false-positive here silently loses one theme without tripping the
+    zero-from-non-empty guard — P2). Covers the real scaffolding seen in the
+    artifacts (``### Structural Themes (3 total)``, ``### Summary Paragraph``,
+    ``## Interpretive / Process Themes (7 total)``, the ``# ...`` title lines):
+      1. empty,
+      2. markdown-heading-prefixed (``#...``) — catches every ``#``/``##`` title,
+      3. a ``config.THEME_SCAFFOLDING_LABELS`` word (summary/conclusion/...),
+      4. a ``... (N total)`` roll-up header.
+    """
+    normalized = name.strip().lower()
+    if not normalized:
+        return True
+    if normalized.startswith("#"):
+        return True
+    if normalized in config.THEME_SCAFFOLDING_LABELS:
+        return True
+    # Roll-up scaffolding header: "... (N total)"
+    if re.search(r"\(\s*\d+\s+total\s*\)\s*$", normalized):
+        return True
+    return False
+
+
+def _extract_theme_description(block: str) -> str:
+    """Pull the ``**Description:**`` field from a theme block; if absent, strip
+    ``**Field:**`` labels and horizontal rules and return the residual prose."""
+    desc_match = re.search(
+        r"\*\*Description:\*\*\s*(.+?)(?=(?:\n\*\*[A-Z][^:\n]+:\*\*)|\Z)",
+        block,
+        re.DOTALL,
+    )
+    if desc_match:
+        return " ".join(
+            ln.strip() for ln in desc_match.group(1).split("\n") if ln.strip()
+        ).strip()
+    stripped = re.sub(r"\*\*[^*\n]+:\*\*\s*", "", block)
+    return " ".join(
+        ln.strip()
+        for ln in stripped.split("\n")
+        if ln.strip() and ln.strip() != "---"
+    ).strip()
+
+
+# Body-end lookahead for a `**N. Title**` theme block: the next bold-numbered
+# theme, ANY markdown heading (H1–H6 — the trailing `### Summary Paragraph`
+# scaffold and any future level), or end-of-text.
+_BOLD_THEME_RE = (
+    r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)"
+    r"(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n#{1,6}\s+)|\Z)"
+)
+# Legacy real format (e.g. 2025-02-prompt runs): `### N. Title` H3+ headings. A
+# block ends at the next H3+ numbered theme, a SHALLOWER `#`/`##` section header
+# (not a deeper one, which is in-block scaffolding), or end-of-text. The `**Field:**`
+# metadata lines are NOT headings, so they stay inside the block.
+_H3_THEME_RE = (
+    r"(?:^|\n)#{3,6}\s+(\d+)\.\s+(.+?)\n(.*?)"
+    r"(?=(?:\n#{3,6}\s+\d+\.\s+)|(?:\n#{1,2}\s+)|\Z)"
+)
+
+
+def parse_bold_numbered_theme_blocks(text: str) -> list:
+    """Parse the real theme formats into ``(name, description)`` tuples in document
+    order. Handles BOTH producer formats seen in real runs: ``**N. Title**``
+    (current) and the legacy ``### N. Title`` (H3-numbered) blocks — each followed
+    by a ``**Description:**`` field. The bold format is tried first; the H3 format
+    is a fallback only when it finds nothing (a file uses one format consistently),
+    so a bold-format file can't be mis-parsed by the fallback.
+
+    Returns ``[]`` when the text has neither format, so callers can fall back to
+    other legacy shapes; an empty result from *non-empty* input is contract drift
+    the caller should surface loudly (P19). Migrating both formats is required by
+    AC M3.D.1 (a real 2010-interview structural-themes file used ``### N.``)."""
+    themes = _theme_blocks(text, _BOLD_THEME_RE)
+    if not themes:
+        themes = _theme_blocks(text, _H3_THEME_RE)
+    return themes
+
+
+def _theme_blocks(text: str, pattern: str) -> list:
+    themes = []
+    for match in re.finditer(pattern, text, re.DOTALL):
+        name = match.group(2).strip()
+        block = match.group(3).strip()
+        if is_scaffolding_theme_name(name) or not block:
+            continue
+        description = _extract_theme_description(block)
+        if description:
+            themes.append((name, description))
+    return themes
+
+
+def count_header_verdicts(report_text: str) -> dict:
+    """Count PASS/WARN/FAIL verdicts in a header-validation report.
+
+    Tolerant of the model's real format drift — plain ``STATUS: FAIL``,
+    markdown-bold ``**STATUS:** FAIL``, and ``##``-prefixed section headers — so a
+    real FAIL can't hide behind a formatting variation (A5/P19). The prompt's own
+    ``STATUS: [PASS / WARN / FAIL]`` scaffold line is NOT counted (the verdict must
+    be a bare PASS/WARN/FAIL token, not a bracketed list).
+
+    Returns ``{"PASS": n, "WARN": n, "FAIL": n, "total": n}``. A ``total`` of 0 from
+    a non-empty report is contract drift the caller should surface, not treat as a
+    clean pass.
+    """
+    counts = {"PASS": 0, "WARN": 0, "FAIL": 0}
+    pattern = r"(?im)^\s*#{0,6}\s*\*{0,2}\s*STATUS\s*\*{0,2}\s*:\s*\*{0,2}\s*(PASS|WARN|FAIL)\b"
+    for match in re.finditer(pattern, report_text or ""):
+        counts[match.group(1).upper()] += 1
+    counts["total"] = counts["PASS"] + counts["WARN"] + counts["FAIL"]
+    return counts
+
+
 def load_bowen_references(base_name: str) -> list:
     """
     Load Bowen reference quotes from canonical dedicated file.
@@ -1078,24 +1318,66 @@ def load_bowen_references(base_name: str) -> list:
         List of tuples: [(concept, quote), ...]
     """
     # Try dedicated file first
-    bowen_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_BOWEN}"
+    bowen_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
-        with open(bowen_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        content = strip_yaml_frontmatter(content)
-
-        refs = extract_bowen_references(content)
-        if refs:
-            return refs
-
-        # Fallback: If file exists but extraction failed (likely missing header),
-        # try to parse the whole content directly as a list of quotes.
-        quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'
-        quotes = re.findall(quote_pattern, content, flags=re.MULTILINE)
-        return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
+        content = bowen_file.read_text(encoding='utf-8')
+        deduped = parse_bowen_references_text(content)
+        if deduped:
+            return deduped
 
     return []
+
+
+def parse_bowen_references_text(content: str) -> list:
+    """Parse the Bowen-references markdown into ``[(concept, quote, timestamp)]``.
+
+    The single canonical text-level parser for the bowen boundary — the file
+    loader (``load_bowen_references``) and the M3 schema codec both delegate here
+    so there is exactly ONE implementation of the format contract (P19).
+    """
+    content = strip_yaml_frontmatter(content)
+
+    # ONE pattern with an OPTIONAL timestamp, so a file that MIXES timestamped
+    # and non-timestamped references parses every entry. (The previous
+    # strict-then-lenient loop tried the with-timestamp pattern first and
+    # broke as soon as it matched anything, silently dropping every
+    # timestamp-less reference in a mixed file.)
+    pattern = re.compile(
+        r'###\s+([^\n\[]+?)(?:\s+\[(\d{2}:\d{2}:\d{2})\])?\s*\n>\s+"([^"]+)"'
+    )
+    refs = [
+        (concept.strip(), quote.strip(), timestamp or None)
+        for concept, timestamp, quote in pattern.findall(content)
+    ]
+
+    # Dedupe by normalized quote text: the model sometimes emits the SAME
+    # quote under two different concept headers, which inflates any
+    # "N references" count and double-highlights the same span. Keep the
+    # first occurrence and MERGE the later concept label(s) into it (the
+    # highlighter shows a "; "-joined label), so no concept association is
+    # lost — then surface the merge (P2) rather than silently collapsing.
+    seen: dict[str, int] = {}
+    deduped: list[tuple] = []
+    merged = []
+    for concept, quote, timestamp in refs:
+        key = normalize_text(quote, aggressive=True)
+        if key in seen:
+            idx = seen[key]
+            c0, q0, t0 = deduped[idx]
+            labels = [x.strip() for x in c0.split(";") if x.strip()]
+            if concept and concept not in labels:
+                deduped[idx] = ("; ".join(labels + [concept]), q0, t0)
+            merged.append(concept)
+            continue
+        seen[key] = len(deduped)
+        deduped.append((concept, quote, timestamp))
+    if merged:
+        logging.getLogger('bowen_references').warning(
+            "Merged %d duplicate Bowen reference(s) sharing a quote already "
+            "listed under another concept: %s",
+            len(merged), "; ".join(merged),
+        )
+    return deduped
 
 
 def extract_emphasis_items(content: str) -> list:
@@ -1129,33 +1411,47 @@ def load_emphasis_items(base_name: str) -> list:
     """
     # Load Bowen references first to check for duplicates
     bowen_refs = load_bowen_references(base_name)
-    bowen_quotes = {normalize_text(q, aggressive=True) for _, q in bowen_refs}
+    bowen_quotes = {normalize_text(item[1], aggressive=True) for item in bowen_refs}
 
     # Try new scored emphasis file first
-    scored_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+    scored_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
     if scored_file.exists():
         content = scored_file.read_text(encoding='utf-8')
         items = parse_scored_emphasis_output(content)
-        filtered_items = []
-        for item in items:
-            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes:
-                filtered_items.append(
-                    (f"{item['concept']} ({item['score']}%)", item['quote']))
-        return filtered_items
+        filtered_items = [
+            (f"{item['concept']} ({item['score']}%)", item['quote'], item.get('timestamp'))
+            for item in items
+            if normalize_text(item['quote'], aggressive=True) not in bowen_quotes
+        ]
+        if filtered_items:
+            return filtered_items
 
-    # Try dedicated file first
-    emphasis_file = config.PROJECTS_DIR / base_name / \
-        f"{base_name}{config.SUFFIX_EMPHASIS}"
+    # Fallback to older, unscored emphasis file with flexible parsing
+    emphasis_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS}"
     if emphasis_file.exists():
-        with open(emphasis_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        content = emphasis_file.read_text(encoding='utf-8')
         content = strip_yaml_frontmatter(content)
-        items = extract_emphasis_items(content)
-        filtered_items = []
-        for label, quote in items:
-            if normalize_text(quote, aggressive=True) not in bowen_quotes:
-                filtered_items.append((label, quote))
+        
+        patterns = [
+            re.compile(r'>\s+\*\*(.+?)\*\*\s*\n>\s+"([^"]+)"', re.DOTALL),  # Original: > **Label** \n > "Quote"
+            re.compile(r'>\s+\*\*(.+?)\*\*\s*\n>\s*([^\n]+)', re.DOTALL),   # > **Label** \n > Quote
+            re.compile(r'\*\*(.+?)\*\*:\s*"([^"]+)"', re.DOTALL),        # **Label**: "Quote"
+            re.compile(r'^\s*[-*]\s+\*\*(.+?)\*\*:\s*(.+)', re.MULTILINE), # - **Label**: Quote
+        ]
+        
+        all_matches = []
+        for pattern in patterns:
+            all_matches = pattern.findall(content)
+            if all_matches:
+                break
+        
+        items = [(label.strip(), quote.strip(), None) for label, quote in all_matches] # Add None for timestamp
+        
+        filtered_items = [
+            (label, quote, timestamp)
+            for label, quote, timestamp in items
+            if normalize_text(quote, aggressive=True) not in bowen_quotes
+        ]
         return filtered_items
 
     return []
@@ -1187,29 +1483,76 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     "Quote"
     (Location)
     """
+    def _parse_score(score_str: str) -> int:
+        nums = [int(n) for n in re.findall(r'\d+', score_str or '')]
+        return int(sum(nums) / len(nums)) if nums else 0
+
+    def _clean_field(value: str) -> str:
+        return re.sub(r'\s+', ' ', (value or '').replace('*', '').strip())
+
     items = []
-    # Regex to capture the structured block
-    # Matches: [Type - Category - Rank: 99%] Concept: ... \n "Quote"
-    # Updated to handle optional bolding **...** and score ranges
-    # Updated to be case-insensitive for labels and flexible with separators
-    pattern = re.compile(
-        r'(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%]+)%?\](?:\*\*)?\s*(?:Concept|concept)\s*:\s*(?P<concept>[\s\S]+?)\s+["“](?P<quote>[\s\S]+?)["”]',  # noqa
-        re.MULTILINE
-    )
+    seen = set()
 
-    for match in pattern.finditer(text):
-        score_str = match.group('score').strip()
-        # Handle ranges like "87-96" or single numbers "95"
-        nums = [int(n) for n in re.findall(r'\d+', score_str)]
-        score = int(sum(nums) / len(nums)) if nums else 0
+    header_patterns = [
+        re.compile(
+            r'^\s*(?:[-*>]+\s+)?(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
+            r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
+            re.MULTILINE,
+        ),
+        re.compile(
+            r'^\s*(?:[-*>]+\s+)?(?:\*\*)?(?P<type>Explicit|Implicit|Clinical)\s*-\s*(?P<category>.+?)\s*-\s*'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^|\n%]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\s*(?:\|\s*)?'
+            r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
+            re.MULTILINE,
+        ),
+    ]
 
-        items.append({
-            'type': match.group('type').strip().replace('*', ''),
-            'category': match.group('category').strip().replace('*', ''),
-            'score': score,
-            'concept': match.group('concept').strip().replace('*', ''),
-            'quote': match.group('quote').strip()
-        })
+    quote_re = re.compile(r'["“](?P<quote>[\s\S]+?)["”]')
+
+    def _find_header(block):
+        if 'concept' not in block.lower():
+            return None
+        for pattern in header_patterns:
+            m = pattern.search(block)
+            if m:
+                return m
+        return None
+
+    def _add_item(header_match, quote_match):
+        item = {
+            'type': _clean_field(header_match.group('type')),
+            'category': _clean_field(header_match.group('category')),
+            'score': _parse_score(header_match.group('score')),
+            'concept': _clean_field(header_match.group('concept')),
+            'quote': re.sub(r'\s+', ' ', quote_match.group('quote').strip()),
+            'timestamp': header_match.group('timestamp') or None,
+        }
+        item_key = (item['concept'].lower(), item['quote'].lower())
+        if item_key in seen:
+            return
+        seen.add(item_key)
+        items.append(item)
+
+    # An item's header and its quote may render either in one block or split
+    # across a blank line into adjacent blocks (the saved file uses the latter).
+    # Carry a pending header so both layouts parse — fixes the write->read
+    # round-trip and tolerates model output that blank-lines between them.
+    pending_header = None
+    for block in re.split(r'\n\s*\n+', text):
+        block = block.strip()
+        if not block:
+            continue
+        header_match = _find_header(block)
+        quote_match = quote_re.search(block)
+        if header_match and quote_match:
+            _add_item(header_match, quote_match)
+            pending_header = None
+        elif header_match:
+            pending_header = header_match
+        elif quote_match and pending_header is not None:
+            _add_item(pending_header, quote_match)
+            pending_header = None
 
     return items
 

@@ -29,6 +29,27 @@ class CostEstimator:
         self._log("Transcript: %s", transcript_path.name)
         self._log("Estimated Tokens: %s\n", f"{self.transcript_tokens:,}")
 
+    def _record_cost(
+        self,
+        step_name: str,
+        category: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        breakdown: dict,
+    ):
+        total_cost = sum(breakdown.values())
+        self.costs.append({
+            "step": step_name,
+            "category": category,
+            "cost": total_cost,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "model": model,
+            "breakdown": breakdown,
+        })
+        return total_cost
+
     def _log(self, message: str, *args):
         if args:
             try:
@@ -43,7 +64,17 @@ class CostEstimator:
         else:
             print(text)
 
-    def _calculate_cost(self, step_name: str, model: str, input_tokens: int, output_tokens: int, is_cached_read: bool = False, cached_tokens: int = 0, is_cache_write: bool = False):
+    def _calculate_cost(
+        self,
+        step_name: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        is_cached_read: bool = False,
+        cached_tokens: int = 0,
+        is_cache_write: bool = False,
+        category: str = "processing",
+    ):
         """Calculates and records the cost for a single pipeline step."""
         prices = get_pricing(model)
 
@@ -66,22 +97,19 @@ class CostEstimator:
             cost_input = (input_tokens / 1_000_000) * prices['input']
 
         cost_output = (output_tokens / 1_000_000) * prices['output']
-        total_cost = cost_input + cost_output + cost_cache_read + cost_cache_write
-
-        self.costs.append({
-            "step": step_name,
-            "cost": total_cost,
-            "input": input_tokens + cached_tokens if is_cached_read else input_tokens,
-            "output": output_tokens,
-            "model": model,
-            "breakdown": {
+        return self._record_cost(
+            step_name=step_name,
+            category=category,
+            model=model,
+            input_tokens=input_tokens + cached_tokens if is_cached_read else input_tokens,
+            output_tokens=output_tokens,
+            breakdown={
                 "input": cost_input,
                 "output": cost_output,
                 "cache_write": cost_cache_write,
-                "cache_read": cost_cache_read
-            }
-        })
-        return total_cost
+                "cache_read": cost_cache_read,
+            },
+        )
 
     def estimate_formatting(self):
         """Estimate cost for the initial formatting step (cache write)."""
@@ -94,46 +122,71 @@ class CostEstimator:
         output_tokens = self.transcript_tokens
 
         self._calculate_cost(
-            "1. Formatting", config.FORMATTING_MODEL, input_tokens, output_tokens, is_cache_write=True)
+            "1. Formatting", config.FORMATTING_MODEL, input_tokens, output_tokens, is_cache_write=True, category="processing")
 
     def estimate_summarization_steps(self):
-        """Estimate costs for all steps that use the cached transcript."""
-        # The transcript itself is now cached, so we pay the 'cache_read' price for it.
+        """Estimate costs for all steps that use the cached transcript.
 
-        # 2a. Key Items (Topics, Themes, etc.)
-        prompt = (config.PROMPTS_DIR /
-                  config.PROMPT_EXTRACTS_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
-        output_tokens = int(self.transcript_tokens *
-                            config.TARGET_EXTRACTS_PERCENT)
-        self._calculate_cost("2a. Key Items", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+        Core extraction (summarize_transcript) issues a SEPARATE cached-transcript
+        call per artifact — Structural Themes, Interpretive Themes, Topics, Key
+        Terms, Emphasis, Bowen (x2), Ranked Lenses, and a Theme/Lens validation
+        pass — not one bundled "key items" call. Each is modelled below.
 
-        # 2b. Scored Emphasis
-        prompt = (config.PROMPTS_DIR /
-                  config.PROMPT_EMPHASIS_SCORING_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
+        Output-token heuristics are `max(pct * transcript, floor)`: analytical
+        output has a large fixed component (so a floor) plus mild growth with
+        transcript length (the pct). Floors/pcts are calibrated against observed
+        runs and are deliberately approximate — see the report disclaimer.
+        """
+        T = self.transcript_tokens
+
+        def out(pct, floor):
+            return max(int(T * pct), floor)
+
+        def _prompt_tokens(filename):
+            return estimate_token_count((config.PROMPTS_DIR / filename).read_text())
+
+        # 2a-2d. Core extraction items (each a separate Sonnet call on the cached transcript)
+        core_items = [
+            ("2a. Structural Themes", config.PROMPT_STRUCTURAL_THEMES_FILENAME, out(0.12, 1100)),
+            ("2b. Interpretive Themes", config.PROMPT_INTERPRETIVE_THEMES_FILENAME, out(0.20, 2000)),
+            ("2c. Topics", config.PROMPT_TOPICS_FILENAME, out(0.06, 450)),
+            ("2d. Key Terms", config.PROMPT_KEY_TERMS_FILENAME, out(0.06, 450)),
+        ]
+        for step_name, prompt_file, output_tokens in core_items:
+            self._calculate_cost(step_name, config.DEFAULT_MODEL, _prompt_tokens(prompt_file),
+                                 output_tokens, is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2e. Scored Emphasis
         # Heuristic: ~20 items per 10k transcript tokens, each item ~150 output tokens
-        num_items = (self.transcript_tokens / 10000) * 20
-        output_tokens = int(num_items * 150)
-        self._calculate_cost("2b. Scored Emphasis", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+        num_items = (T / 10000) * 20
+        self._calculate_cost("2e. Scored Emphasis", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_EMPHASIS_SCORING_FILENAME),
+                             int(num_items * 150), is_cached_read=True, cached_tokens=T, category="processing")
 
-        # 2c. Key Terms
-        # Note: Key Terms are now extracted in 2a (Key Items), so this step is skipped in the pipeline.
-        # We remove it from the estimate to match the actual pipeline.
-        # prompt = (config.PROMPTS_DIR / config.PROMPT_KEY_TERMS_FILENAME).read_text()
-        # prompt_tokens = estimate_token_count(prompt)
-        # output_tokens = int(self.transcript_tokens * 0.15)
-        # self._calculate_cost("2c. Key Terms", config.DEFAULT_MODEL, prompt_tokens, output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+        # 2f. Bowen References: extraction (cached transcript) + a small semantic-filter call (no transcript)
+        self._calculate_cost("2f. Bowen Extraction", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BOWEN_EXTRACTION_FILENAME),
+                             out(0.10, 700), is_cached_read=True, cached_tokens=T, category="processing")
+        self._calculate_cost("2g. Bowen Semantic Filter", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BOWEN_FILTER_FILENAME) + 300,
+                             300, category="processing")
 
-        # 2d. Blog Post
-        prompt = (config.PROMPTS_DIR / config.PROMPT_BLOG_FILENAME).read_text()
-        prompt_tokens = estimate_token_count(prompt)
-        # Heuristic: Based on configured minimum characters
-        output_tokens = estimate_token_count(" " * config.MIN_BLOG_CHARS)
-        self._calculate_cost("2d. Blog Post", config.DEFAULT_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+        # 2h. Ranked Lenses (largest core call; prompt also carries the prior artifacts)
+        self._calculate_cost("2h. Ranked Lenses", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_LENS_GENERATION_FILENAME) + 2000,
+                             out(0.15, 1800), is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2i. Theme/Lens Validation (back-validation of structural/interpretive/top-lens).
+        # Can iterate up to VALIDATION_MAX_ITERATIONS times; estimate a single pass.
+        self._calculate_cost("2i. Theme/Lens Validation", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_THEME_LENS_VALIDATION_FILENAME) + 2500,
+                             out(0.08, 900), is_cached_read=True, cached_tokens=T, category="processing")
+
+        # 2j. Blog Post
+        self._calculate_cost("2j. Blog Post", config.DEFAULT_MODEL,
+                             _prompt_tokens(config.PROMPT_BLOG_FILENAME),
+                             estimate_token_count(" " * config.MIN_BLOG_CHARS),
+                             is_cached_read=True, cached_tokens=T, category="processing")
 
     def estimate_structured_steps(self):
         """Estimate costs for structured summary and abstract generation."""
@@ -147,7 +200,7 @@ class CostEstimator:
         output_tokens = estimate_token_count(
             " " * config.DEFAULT_SUMMARY_WORD_COUNT * 5)  # 5 chars/word
         self._calculate_cost("3a. Structured Summary", config.AUX_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
 
         # 3b. Structured Abstract
         prompt = (config.PROMPTS_DIR /
@@ -156,15 +209,17 @@ class CostEstimator:
         output_tokens = estimate_token_count(
             " " * config.ABSTRACT_MIN_WORDS * 5)
         self._calculate_cost("3b. Structured Abstract", config.AUX_MODEL, prompt_tokens,
-                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens)
+                             output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
 
     def estimate_validation_steps(self):
         """Estimate cost for validation steps that use an LLM."""
-        # Header Validation is batched, so we need to estimate its total cost.
         import math
 
         from transcript_validate_headers import BATCH_SIZE
 
+        self.estimate_init_validation_steps()
+
+        # Header Validation is batched, so we need to estimate its total cost.
         # Heuristic: Estimate 1 section per 200 words. A word is ~5 chars.
         num_sections = (self.transcript_tokens *
                         config.CHARS_PER_TOKEN) / (200 * 5)
@@ -194,21 +249,88 @@ class CostEstimator:
         cost_input = (total_content_tokens / 1_000_000) * prices['input']
         cost_output = (total_output_tokens / 1_000_000) * prices['output']
 
-        total_cost = cost_cache_write + cost_input + cost_output
-
-        self.costs.append({
-            "step": "4. Header Validation",
-            "cost": total_cost,
-            "input": cached_prompt_tokens + total_content_tokens,
-            "output": total_output_tokens,
-            "model": config.AUX_MODEL,
-            "breakdown": {
+        self._record_cost(
+            step_name="4. Header Validation",
+            category="validation",
+            model=config.AUX_MODEL,
+            input_tokens=cached_prompt_tokens + total_content_tokens,
+            output_tokens=total_output_tokens,
+            breakdown={
                 "input": cost_input,
                 "output": cost_output,
                 "cache_write": cost_cache_write,
-                "cache_read": 0.0
-            }
-        })
+                "cache_read": 0.0,
+            },
+        )
+
+        self.estimate_abstract_validation()
+
+    def estimate_init_validation_steps(self):
+        """Estimate cost for Init Val V2 chunked validation."""
+        import math
+
+        prompt = (config.PROMPTS_DIR / "transcript_error_detection_prompt_v2.md").read_text()
+        if "## Input Text" in prompt:
+            instructions, _ = prompt.split("## Input Text", 1)
+        else:
+            instructions = prompt.replace("{chunk_text}", "")
+
+        cached_prompt_tokens = estimate_token_count(instructions.strip())
+        words = max(int(self.transcript_tokens * config.CHARS_PER_TOKEN / 5), 1)
+        chunk_size = config.VALIDATION_CHUNK_SIZE
+        overlap = config.VALIDATION_CHUNK_OVERLAP
+        effective_advance = max(chunk_size - overlap, 1)
+        num_chunks = max(1, math.ceil(max(words - overlap, 1) / effective_advance))
+
+        average_chunk_words = min(chunk_size, words)
+        average_chunk_tokens = max(1, int((average_chunk_words * 5) / config.CHARS_PER_TOKEN))
+        total_content_tokens = num_chunks * average_chunk_tokens
+
+        # Heuristic: compact lexical findings as JSON, roughly 450 output tokens/chunk.
+        total_output_tokens = num_chunks * 450
+
+        prices = get_pricing(config.DEFAULT_MODEL)
+        cost_cache_write = (cached_prompt_tokens / 1_000_000) * prices.get(
+            "cache_write", prices["input"]
+        )
+        cost_input = (total_content_tokens / 1_000_000) * prices["input"]
+        cost_output = (total_output_tokens / 1_000_000) * prices["output"]
+
+        self._log("   (Estimating Init Val as %d chunks)", num_chunks)
+        self._record_cost(
+            step_name="0. Init Val",
+            category="validation",
+            model=config.DEFAULT_MODEL,
+            input_tokens=cached_prompt_tokens + total_content_tokens,
+            output_tokens=total_output_tokens,
+            breakdown={
+                "input": cost_input,
+                "output": cost_output,
+                "cache_write": cost_cache_write,
+                "cache_read": 0.0,
+            },
+        )
+
+    def estimate_abstract_validation(self):
+        """Estimate cost for abstract coverage validation."""
+        prompt = (config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME).read_text()
+        prompt_tokens = estimate_token_count(prompt)
+
+        # Heuristic: abstract input combines topics/themes plus transcript support,
+        # and is much smaller than the full transcript.
+        abstract_input_tokens = int(self.transcript_tokens * 0.35)
+        input_tokens = prompt_tokens + abstract_input_tokens
+
+        # Heuristic: markdown validation report with checklist and rationale.
+        output_tokens = 1200
+
+        self._calculate_cost(
+            "6. Abstract Coverage Validation",
+            config.AUX_MODEL,
+            input_tokens,
+            output_tokens,
+            category="validation",
+        )
 
     def run_full_estimation(self):
         """Run all estimation steps."""
@@ -225,24 +347,77 @@ class CostEstimator:
         total_read = sum(c['breakdown']['cache_read'] for c in self.costs)
         total_input = sum(c['breakdown']['input'] for c in self.costs)
         total_output = sum(c['breakdown']['output'] for c in self.costs)
+        total_input_tokens = sum(c['input_tokens'] for c in self.costs)
+        total_output_tokens = sum(c['output_tokens'] for c in self.costs)
+
+        grouped = {}
+        for item in self.costs:
+            group = grouped.setdefault(item['category'], {
+                "cost": 0.0,
+                "input_cost": 0.0,
+                "output_cost": 0.0,
+                "cache_write_cost": 0.0,
+                "cache_read_cost": 0.0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+            })
+            group["cost"] += item["cost"]
+            group["input_cost"] += item["breakdown"]["input"]
+            group["output_cost"] += item["breakdown"]["output"]
+            group["cache_write_cost"] += item["breakdown"]["cache_write"]
+            group["cache_read_cost"] += item["breakdown"]["cache_read"]
+            group["input_tokens"] += item["input_tokens"]
+            group["output_tokens"] += item["output_tokens"]
 
         self._log("=" * 100)
         self._log("PIPELINE COST ESTIMATION REPORT")
         self._log("=" * 100)
         self._log("Total Estimated Cost: $%.4f", total_cost)
+        self._log("Total Estimated Tokens: in=%s out=%s",
+                  f"{total_input_tokens:,}", f"{total_output_tokens:,}")
         self._log("  - Input (Standard): $%.4f", total_input)
         self._log("  - Output:           $%.4f", total_output)
         self._log("  - Cache Write:      $%.4f", total_write)
         self._log("  - Cache Read:       $%.4f", total_read)
         self._log("-" * 100)
+        self._log("Cost by Category")
+        self._log("-" * 100)
+        for category in ("processing", "validation"):
+            if category not in grouped:
+                continue
+            item = grouped[category]
+            self._log(
+                "%s: in=%s out=%s cost=$%.4f",
+                category.title(),
+                f"{item['input_tokens']:,}",
+                f"{item['output_tokens']:,}",
+                item["cost"],
+            )
+            self._log(
+                "  input=$%.4f output=$%.4f write=$%.4f read=$%.4f",
+                item["input_cost"],
+                item["output_cost"],
+                item["cache_write_cost"],
+                item["cache_read_cost"],
+            )
+        self._log("-" * 100)
         self._log(
-            f"{'Step':<25} | {'Model':<25} | {'Input':>8} | {'Output':>8} | {'Write':>8} | {'Read':>8} | {'Cost':>8}")
+            f"{'Step':<33} | {'Category':<10} | {'In Tok':>8} | {'Out Tok':>8} | {'Cost':>8}")
+        self._log("-" * 100)
+
+        for item in self.costs:
+            self._log(
+                f"{item['step']:<33} | {item['category']:<10} | {item['input_tokens']:>8,} | {item['output_tokens']:>8,} | ${item['cost']:>7.4f}")
+
+        self._log("-" * 100)
+        self._log(
+            f"{'Step':<33} | {'Model':<25} | {'Input $':>8} | {'Output $':>8} | {'Write $':>8} | {'Read $':>8} | {'Cost $':>8}")
         self._log("-" * 100)
 
         for item in self.costs:
             bd = item['breakdown']
             self._log(
-                f"{item['step']:<25} | {item['model']:<25} | ${bd['input']:>7.4f} | ${bd['output']:>7.4f} | ${bd['cache_write']:>7.4f} | ${bd['cache_read']:>7.4f} | ${item['cost']:>7.4f}")
+                f"{item['step']:<33} | {item['model']:<25} | ${bd['input']:>7.4f} | ${bd['output']:>7.4f} | ${bd['cache_write']:>7.4f} | ${bd['cache_read']:>7.4f} | ${item['cost']:>7.4f}")
 
         self._log("-" * 100)
         self._log(

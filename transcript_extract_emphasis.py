@@ -4,10 +4,12 @@ CLI wrapper for extracting scored emphasis items from a transcript.
 
 Usage:
     python transcript_extract_emphasis.py "Title - Presenter - Date - yaml.md"
+    python transcript_extract_emphasis.py "source/Title - Presenter - Date.txt"
 """
 
 import argparse
 import sys
+from pathlib import Path
 
 import config
 from pipeline import _load_formatted_transcript, extract_scored_emphasis
@@ -18,6 +20,14 @@ def resolve_filename(filename: str) -> str:
     """
     Resolve filename to support base names and ' - yaml.md' extension.
     """
+    direct_path = Path(filename)
+    if direct_path.is_file():
+        return str(direct_path)
+
+    source_path = config.SOURCE_DIR / filename
+    if source_path.is_file():
+        return str(source_path)
+
     # Clean up base name
     base = filename
     suffixes = [config.SUFFIX_YAML, config.SUFFIX_FORMATTED, ".md", ".txt"]

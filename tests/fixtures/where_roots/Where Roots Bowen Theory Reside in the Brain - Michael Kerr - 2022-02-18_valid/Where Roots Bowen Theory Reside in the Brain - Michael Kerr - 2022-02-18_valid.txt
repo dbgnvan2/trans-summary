@@ -1,0 +1,2098 @@
+TRANSCRIPT
+==========
+Source file:  Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18.mp4
+Date:         2026-04-12
+Duration:     01:31:52
+Speakers:     Unknown
+Warnings:     Initial prompt truncated to 224 tokens.; initial_prompt not supported by this WhisperX version; skipped.; HF token missing. Diarization disabled.
+
+--------------------------------------------------
+
+
+
+[00:00:04]
+
+
+Okay, well, welcome as usual to this webcast.
+
+I am going to do another lecture, in fact, two mini lectures today.
+
+That was the forefront of my mind of what I wanted to talk about, and I'll try to get back to a clinical case in the near term.
+
+But Kathy, if you would please put up the first slides.
+
+Here it comes.
+
+Here it comes, yeah.
+
+Okay, as I said, I'm gonna have two presentations today, both fairly short, the first one a little longer than the second one.
+
+
+
+[00:01:11]
+
+
+And my intent here today is to explore where the roots of Bowen theory reside.
+
+I mean, the last time I did the webcast, people really liked sort of restatement of the theory with a certain clarity that webcast conveyed that I hadn't fully appreciated before how useful it could be to people.
+
+But we all spend our lives trying to learn this theory.
+
+But I'm falling back on an interest of mine, which is...
+
+What are the roots of Bowen theory?
+
+Where do they reside?
+
+So the first presentation describes the incredible length of time it can take for a paradigm shift.
+
+
+
+[00:02:10]
+
+
+In this instance, we'll explore the 2000 or so years it took humankind to shift from the geocentric model
+
+to the heliocentric model.
+
+This is a set of slides.
+
+I don't think I've presented very many places before.
+
+So I welcome the opportunity to do it today and the next.
+
+So the second presentation is unabashedly technical.
+
+I couldn't seem to avoid it.
+
+And this effort is to describe what goes on in the brain that is related to some aspects of differentiation of self.
+
+It's a delivery.
+
+We have a delivery at the front door, and that's my dog's going nuts out until he leaves.
+
+
+
+[00:03:09]
+
+
+Okay, so most are familiar with E equals MC squared.
+
+Everybody probably pretty well knows Einstein is the author of that.
+
+And maybe a little less familiar, but I hope not too unfamiliar, is one I came up with some years ago.
+
+DOS equals EO plus A.
+
+Next line.
+
+Meaning differentiation of self equals emotional objectivity plus action.
+
+I think that's really a quote from Bowen that I incorporated.
+
+The key thing about emotional objectivity that I want to emphasize is that it allows for emotional neutrality.
+
+
+
+[00:04:09]
+
+
+And it's that emotional neutrality, I think, that allows a person to engage somebody in a relatively non-reactive way and taking action on something that doesn't violate the boundaries of the other or allow the other to violate your own boundaries.
+
+So emotional neutrality, I think, is a real important concept along with emotional objectivity in Bowen's ideas.
+
+So over the course of my 50 plus years of trying to master Bowen theory and its applications, a hallmark of my effort has been broadening my perspective, trying to broaden my perspective on Bowen theory.
+
+
+
+[00:05:08]
+
+
+I think a broad perspective apparently powerfully contributes to gaining that emotional objectivity that permits neutrality and action based on that.
+
+So it began with the nuclear family, then the multigenerational family.
+
+This was my personal path, then evolution, and of late delving into the cosmos.
+
+It may prove a treacherous route to take.
+
+Today, I'll give you a taste of my efforts without claiming any profound breakthroughs.
+
+I guess my basic direction is learning about the carryovers from the physical to the biological realms.
+
+
+
+[00:06:06]
+
+
+In other words, as we know, the physical world preceded the biological world.
+
+And I think it's pretty reasonable to recognize that early physical evolution on the Earth
+
+has hung on in helping us understand the biological, physical functioning of human beings.
+
+As I proceed, if you hear any background noises, they may be sounds of Murray Bowen turning over in his grave.
+
+Please don't let such noises divert your attention too much.
+
+So what are the roots of Bowen theory?
+
+And I'm going to talk about solar system models, Aristotle to Einstein.
+
+
+
+[00:07:14]
+
+
+This part of my effort to illustrate how science, in this case, a physical science, progresses and stagnates over a long period of time.
+
+What will the course of Bowen Family Systems Theory be like?
+
+I suspect it will not take 2000 years to dominate the public consciousness, as did heliocentrism, as we'll see in what follows.
+
+So I thank Kathy Kerr for these two Christmas presents, which I devoured pretty quickly.
+
+after Christmas, the first, A More Perfect Heaven by Dava Sobel, and the other there, Galileo, Science Deniers by Mario Livio.
+
+
+
+[00:08:12]
+
+
+And I think that did push me along to wonder, want to review and better understand the physical universe that preceded the biological universe.
+
+and then try to see how they're both interrelated and what's been preserved, as I've been saying.
+
+So I go back to Aristotle, and I actually didn't know this until I set out to pull this together.
+
+So you see his lifetime, 384 BC to 322.
+
+And he was definitely wedded to the geocentric universe.
+
+And this is a model that he had made with the earth there at the center.
+
+
+
+[00:09:08]
+
+
+And you can see on the outside of the earth, this cloud of air, which permits life.
+
+And then farther,
+
+out and out the moon mercury venus mars jupiter Saturn with the sun orbiting around the earth and most of you probably know that's why they call it geocentric because it emphasizes the earth as sort of the center of everything in the solar system and and god really has made it that way
+
+to remind us of our importance to the whole situation.
+
+But I had forgotten.
+
+I had heard this, I think, on Cosmos series 30 years ago.
+
+
+
+[00:10:04]
+
+
+But Aristarchus, unbelievably, just born a few years after Aristotle died,
+
+he authored a heliocentric model.
+
+And that's this model that went underground for 2,000 years.
+
+As you can see, he puts the sun at the center, heliocentric, and then various planets, Earth and the Moon, the third out there, and on out to those known planets, all the way to Saturn in his day.
+
+So Aristarchus was a astronomer and mathematician.
+
+He was first known for the heliocentric model.
+
+He placed six brown planets in the correct order around it.
+
+That's all that could be observed with the naked eye at that point.
+
+
+
+[00:11:08]
+
+
+So, and this is what...
+
+is a paradigm shift, huge paradigm shift that waited 2000 years to be reawakened.
+
+And that to me was the power of this story, how long it can take for a paradigm to shift.
+
+Next one, please.
+
+So Ptolemy, many of you have heard of Ptolemy.
+
+He was one of the great, great supporters of the geocentric universe.
+
+And he was several hundred years younger than Aristarchus and Aristotle.
+
+But there you see that he had the earth at the center of it all.
+
+And then he envisioned to explain what they were looking at in the cosmos.
+
+
+
+[00:12:07]
+
+
+that all the planets were on rotating spheres, Earth, Moon, Mercury, Venus, Sun, Mars, Jupiter, stars.
+
+Again, the Sun orbiting around the Earth.
+
+And then in order to explain certain movements that couldn't otherwise be explained, he invented...
+
+this thing called epicycles, which periodically these planets would kind of go around in a circle on themselves in their orbits and that could explain why the planets looked where they were when they studied them.
+
+Next one, please.
+
+
+
+[00:13:06]
+
+
+But that all changed with Nicholas Copernicus, who probably almost everyone is familiar with.
+
+He restored credibility in the heliocentric universe and definitely credited Aristarchus for being the true author of that.
+
+But as you can see then, he's got the sun at the center, Mercury, Venus, the earth with our moon circling the sun, not vice versa, and on out to Mars and Jupiter, Saturn, the known planets at that point in time in our history.
+
+So that was a big, big change.
+
+He was himself kind of wanted to play it down
+
+because there was so much opposition to this idea.
+
+And again, religion was very much tied up in this as well, because the church, particularly the Catholic church and the Jesuits, insisted that God would have put us at the center of the universe.
+
+
+
+[00:14:22]
+
+
+It can't be heliocentric.
+
+So there's a lot of resistance.
+
+He thought he'd get in a lot of trouble if he pushed his ideas too hard.
+
+Next one, please.
+
+But along comes Johannes Kepler.
+
+And he was the first borrowing tons of sightings without telescope of Tycho Brahe.
+
+And this moving object at the bottom is showing out.
+
+
+
+[00:15:04]
+
+
+That's really an ellipse and how a model he used to explain this.
+
+and that the sun sweeps out equal areas during equal intervals of time.
+
+That was one of his principles that he put forth and figured out that the square of a planet's orbital period is proportional to the cube of the length of the major, semi-major axis of its orbit.
+
+I won't try to explain that, but he came out with
+
+not a theory, but laws that these orbits seem to obey without any understanding of how did you come to be that way.
+
+
+
+[00:16:04]
+
+
+And you can't expect much on that with the instruments they were dealing with.
+
+Tycho Bra was very important in collecting visually all this material.
+
+Next one, please.
+
+So the man who did it, I'm sure most all of you know, is the one with the telescope in his hand there, Galileo Galilei.
+
+And he was what he called an observational astronomer.
+
+So with his telescope, he was able to...
+
+described the faces of Venus, described the four largest satellites of Jupiter, the Saturn's rings and sunspots.
+
+
+
+[00:17:04]
+
+
+And again, that set up a dialogue concerning the two chief world systems, which appeared to attack Pope Urban
+
+and thus alienated both the Pope and the Jesuits who had early on supported Galileo until they fully realized what he was talking about, which was heliocentric.
+
+And so he was tried by the Inquisition.
+
+found vehemently suspect of heresy, heliocentrism, and forced to recant, he did not.
+
+He spent the rest of his life under house arrest, which was 10 years.
+
+Next, we move to someone well-known to all of you, Isaac Newton, who
+
+
+
+[00:18:06]
+
+
+and he's the person who introduced the notion of forces, the force of gravity.
+
+And that was a way to explain, by understanding the force of gravity, he could explain how Kepler arrived at the laws of planetary motion.
+
+To me, that was a very interesting step because forces, as you know, are very big in Bowen theory.
+
+but they're not widely used in biology by a long shot.
+
+So he could account for the laws that Kepler described for the movement of the tides back and forth during the seasons and during a given time period, trajectories of the comets and procession of the equinoxes and other phenomenon.
+
+eradicating doubt about the solar system being heliocentric, solar system being other than heliocentric.
+
+
+
+[00:19:15]
+
+
+So that's a huge, he really put the nail in the coffin on that one.
+
+He was a mathematician.
+
+par excellence, as I say there, and his basic theory that everybody credits him with is the idea of universal gravitation, that this operated everywhere in the universe.
+
+Next one, please.
+
+And then guess who pops onto the scene with E equals MC squared?
+
+Einstein had his theory of special relativity that I certainly won't try to explain, don't understand it well enough to do that, that expresses the fact that mass and energy are the same physical entity.
+
+
+
+[00:20:04]
+
+
+I found that just an extraordinary insight, that mass and energy are the same physical entity.
+
+They can be changed into each other.
+
+How he arrived at that insight, I don't know.
+
+But in the equation, the increased relativistic mass, the m, of a body times the speed of light squared, c squared, is equal to the kinetic energy of that body.
+
+I can't remember where on the websites I found this, but it just reminded me of what an incredible contribution this was to
+
+understanding the world around us next one please so then i began delving deeply into the physical world i thought more and more i've got to better understand wanted to understand if and whether i could uh
+
+
+
+[00:21:17]
+
+
+what the forces existed in that physical world that have been carried over into the biological world that had been carried over by a pioneer called Murray Bowen into the understanding of human behavior.
+
+Again, forces is not something that's commonly talked about in that arena.
+
+So I went to Frank Wilczek.
+
+I forget how I ran into his book, but...
+
+He's 10 keys to reality, but a very well-known, recognized physicist.
+
+So this next small bit of material is going to be from his book.
+
+Next one.
+
+So maybe all of you know, some of you know.
+
+
+
+[00:22:05]
+
+
+Probably very few in the audience could list the six particles, five particles he lists there.
+
+The physical world is constructed using very few kinds of ingredients.
+
+Moreover, those ingredients are ideally simple in the sense that they only have a handful of properties.
+
+And what's that group, of course, the electron, the photon, the U quark, the D quark, and the gluon.
+
+I won't get bogged down in trying to explain those because I'd have to be a much better scholar to do that.
+
+But the ordinary matter of our bodies, that's what we're built from.
+
+And recognizing that, again, I think begs to say, well, what...
+
+given the electrons, photons, quarks, and the gluon are so important, how is this expressed in the body of a mammal, such as Homo Sapiens?
+
+
+
+[00:23:11]
+
+
+What kind of constraints or possibilities exist with that?
+
+Next one.
+
+So there's very few physical laws.
+
+and that there's the same everywhere and always.
+
+Physicists, I know they have their disagreements, I believe, but they have the privilege of having a whole bunch of stuff that everybody agrees about.
+
+Yes, this is the way it works.
+
+Next one.
+
+So the physical laws simply describe what will happen.
+
+They don't describe
+
+should happen or anything like that.
+
+They simply describe and predict what will happen.
+
+Next.
+
+And it's expressed in mathematical equations, which I don't think Bowen theory will ever be possible.
+
+
+
+[00:24:10]
+
+
+Although many of you are interested in that area and maybe pull it off, could pull it off.
+
+I don't know.
+
+expressed as mathematical equations among precisely defined quantities.
+
+I mean, the physical world is very, very well understood, I think, and organized.
+
+Next one, please.
+
+So they leave no room for ambiguity or disagreement among competent, they've put competent experts.
+
+They all agree on these things.
+
+Next one, please.
+
+So biology now comes along and suggests another direction for the future of matter.
+
+Next line.
+
+And he's talking about thinking of cells as elementary particles of advanced life forms.
+
+
+
+[00:25:09]
+
+
+They're the elementary particles, kind of, I guess, synonymous with the quarks and the...
+
+and what we were discussing earlier.
+
+So these are the elementary particles of advanced life forms such as ourselves.
+
+They share a bag, a large bag of tricks that enable them to function as repositories of information and chemical factories.
+
+A lot of new capacity there with biology.
+
+Next one.
+
+They have also sophisticated interfaces with the external world, which enable them to gather resources and exchange information.
+
+So biology then, that was a huge leap in what was possible.
+
+Next one.
+
+So the most unique feature of biological cells to which present day engineering has no close analog
+
+
+
+[00:26:13]
+
+
+is the power of modulated self-reproduction.
+
+First, unicellular life, later, multicellular life.
+
+And again, please keep on trying to think, what carries over from one phase of all this to the next?
+
+Does this have anything to do with what Bowen came up with in terms of counterbalancing life forces?
+
+So in appropriate, reasonably forgiving environment, cells will gather ingredients to make new cells that are close to them, but not necessarily exact copies of themselves, allowing for variation, which was later been backed up by genetics, as you know.
+
+
+
+[00:27:04]
+
+
+And these differences are not random, but follow programs contained within the cell itself.
+
+Next one.
+
+So in this field of physics, and this writer writes about this, is the concept of complementarity.
+
+The concept is that one single thing...
+
+when considered from different perspectives, can seem to have very different or even contradictory properties.
+
+And he's talking about the physical world here.
+
+Next one.
+
+Niels Bohr said, harmony is a local analysis, while melody is a more global analysis.
+
+
+
+[00:28:04]
+
+
+I mean, I would say melody would be synonymous with Bowen's theory, but it's also consistent with local analysis.
+
+We can't do those two forms of processing at the same time.
+
+I won't try to delve into that one.
+
+That's Niels Bohr's picture.
+
+So to measure something's properties, you must interact with it.
+
+And that's going to change.
+
+what you're seeing.
+
+Science tells us many things about how things are, but does not pronounce how things should be.
+
+And this reminds me of Murray Bowen's often quote, individuality or togetherness.
+
+You have a choice.
+
+That choice is yours.
+
+And the next one.
+
+So free will and physical determinism are complementary aspects
+
+
+
+[00:29:05]
+
+
+of reality.
+
+Next one, please.
+
+So now I'm going to shift over in the latter part of this section of the two talks to lessons from cancer research.
+
+And some of you have seen me present this before, but I'm going to just summarize it to try to give a better sense of carryover from what I've been describing earlier to what's going on now in cancer research.
+
+Next one.
+
+So some will remember I ran across this
+
+book kind of by accident i forget now how i got to it but uh it's a book called the society of cells cancer and the control of cell Proliferation and that's edited by two folks down at Tufts carlos Sonenschein and ann marie Soto they're part of the department of anatomy and cellular biology
+
+
+
+[00:30:14]
+
+
+at Tufts.
+
+And I had vouched to go down there and meet them, and they invited me down to talk about some of this stuff in Bowen theory.
+
+In exchanges by email, Sonichime took the time to respond and explain why he didn't think a lot of the things I was saying were relevant to what his work was.
+
+but said, please come down and we can discuss all this further.
+
+And I haven't yet made that trip.
+
+But that led to the next slide, the person who's gonna be our featured speaker for the Bowen Theory Academy Conference in early October.
+
+And she's gonna be presenting virtually from Rome, Italy.
+
+
+
+[00:31:09]
+
+
+And she's an assistant professor of the philosophy of science at that college in Rome.
+
+And you can see she's a pretty young woman, but has done some incredible stuff.
+
+And I stumbled across her book and I thought, well, philosophy of cancer.
+
+Now, what the heck is this all about?
+
+But then you can see as a subtitle, a dynamic and relational view.
+
+And this is what's had the huge impact on my enthusiasm about the acceptance of Bowen theory sooner or later, rather than later.
+
+I've often said that if a systems theory of an individual can be developed, and I think her work moves it in that direction significantly,
+
+and uses systems thinking to do it, that that's gonna make it easier to connect it to the Bowen's family systems theory.
+
+
+
+[00:32:18]
+
+
+Next one, please.
+
+So she is very interested in cancer and not in plenty of other things, but she said the origin of cancer seems to be entangled
+
+with the very nature of living things.
+
+And I forget if I have this, what I'm gonna say now later in this set of statements on these slides, but that's the thing Murray Bowen said to me, I can distinctly remember us riding from Georgetown Hospital back to the Family Center in the mid 1970s.
+
+We heard on the radio that, or I guess we're just talking about it, Niels had declared the war on cancer.
+
+
+
+[00:33:09]
+
+
+And Murray said, Mike, that's not going to solve it.
+
+It's not going to solve it.
+
+Cancer is a part of nature.
+
+It's not a disease.
+
+And I think she is presenting a lot of solid evidence to back that up.
+
+Next one.
+
+So the other thing that she and I have exchanged about, and we've met
+
+on virtual along with Lana Hardy about several months ago to discuss what could happen in this conference we're gonna do.
+
+But what intrigued me was she sees counterbalancing forces, one for differentiation, and that's not Bowen's differentiation, it's cell differentiation.
+
+into particular abilities to perform certain kinds of functions in a multicellular organism versus what she called state holding processes.
+
+
+
+[00:34:10]
+
+
+And I think that's a very sharp parallel with individuality and togetherness.
+
+That the togetherness process is trying to keep the system stable and intact.
+
+And that's what she's referring to there.
+
+She said so in an email exchange.
+
+And the differentiation is not the same.
+
+We all know that.
+
+But the counterbalancing forces, she agrees, yes, there seems to be a lot of parallel there.
+
+Next one.
+
+Next slide, please.
+
+So Proliferation versus differentiation.
+
+And these are the steps that she got to.
+
+I think in my words that led her to the need for systems or dynamic relational thinking and using systems thinking to do that.
+
+
+
+[00:35:06]
+
+
+That Proliferation versus differentiation.
+
+And her key point is cancer as a disease of cell differentiation rather than multiplication.
+
+In other words, it's a case of blocked ontogeny.
+
+What appeals to me in that is that's exactly what it is in Bowen theory, that differentiation, as you know, as a result of consequence of the level of fusion between parent and offspring, that ontogeny or
+
+full development of the organism is hampered.
+
+So that...
+
+
+
+[00:36:05]
+
+
+Anyway, case of blocked ontogeny.
+
+Let me stop there with that.
+
+Next slide.
+
+So as metazoan cells in culture become free from the bonds of homeostatic influence necessary to coordinate the needs of a multicellular organism,
+
+The liberated metazellin cells may require, reacquire latent ancestral properties, including Proliferation and mobility.
+
+Now, what I'm trying to get at there, I put regression.
+
+It seems like this is an indication of regression.
+
+That when a single-celled organism, with all its way of doing things,
+
+that the point that it becomes part of a multicellular organism is the point at which you need specialists to make it work and you need stability to make it work.
+
+
+
+[00:37:14]
+
+
+But when multicellular, if single-celled organisms were formed, when they reform, like if they
+
+They don't mature properly.
+
+The idea is that what comes next is a regression to earlier ancestral properties of cells, that they had the ability to reproduce themselves in their own way of going about understanding when it's time to do that, which I don't know how they do it, but...
+
+But once those cells are beginning to move back out of the multicellular mold into the liberated mode right there in the body, then it allows Proliferation of the cells in a way that's abnormal, which is cancer, Proliferation, and mobility.
+
+
+
+[00:38:19]
+
+
+And I think that supports the idea of thinking of it as a regression, that something is disturbing the homeostasis within the particular tissue involved, which I think is also a reflection of the disturbance of homeostasis for the organism as a whole.
+
+And I would take it out to the family level as well, of course.
+
+But that they're...
+
+Properties become more and more ancestral when they are reawakened because they're now acting like they're not part of a group, yet they are part of a group.
+
+And that's what we're calling a disease, that they're replicating in a way that destroys the tissue around them and where they're doing it.
+
+
+
+[00:39:18]
+
+
+Next one.
+
+So a biological entity acts as a dynamic multi-unity system, not as parts, whole organization.
+
+I think that's the same idea of emotional field.
+
+So when you look at this biological entity,
+
+you look at an emotional field, Bowen theory terms, and not parts and wholes, because it's all linked together in a way that where's the part, where's the whole?
+
+They're all linked together in a way that's indistinguishable.
+
+
+
+[00:40:06]
+
+
+So the maintenance and persistence of its construction requires two different modes of causation.
+
+Again, differentiation causal dynamics and stakeholder causality to provide unity.
+
+The differentiation causal principle is related to how the whole is organized through functionally heterogeneous elements.
+
+The state holding causality is tied to the unitary dynamic stability of the whole at different levels of organization.
+
+And I said to her in an email, the family is yet a different level of biological organization that individuals within it are being affected significantly.
+
+And if you don't understand...
+
+the family system, it's impossible to have a complete picture of what's going on, say, with a schizophrenic person.
+
+
+
+[00:41:09]
+
+
+There's more to it than a disease within the person.
+
+It's a symptom of a larger process in the family system.
+
+Next one.
+
+So now to crawl way out on a limb, and here's the evolutionary tree, and there's man up there in the right.
+
+And the idea that all living things belong to one family and are descended from common ancestors, which is evolution, of course.
+
+Next one.
+
+Next one.
+
+Let's tap it again, yeah.
+
+Here is my conjecture.
+
+Has the individuality life force evolved over the long course of evolution?
+
+from processes involved in self-regulation and the togetherness life force from processes involved in regulating and being regulated by others.
+
+
+
+[00:42:13]
+
+
+Do these life forces reflect anything about physical laws?
+
+Two different levels of investigation, but complimentary.
+
+So that's where I've come out on it.
+
+that this is indeed possible, that these life forces that Bowen's talking about have roots deep in our history of biological history, but also in the physical history of the universe, maybe.
+
+So next slide, I think it's the last, well, does my presentation here today bring us any closer to Bowen theory's roots?
+
+Affirm no.
+
+Secondly, but I do think
+
+The kind of knowledge I have presented about non-living and living systems is what ultimately will provide the answers.
+
+Certainly aren't there yet.
+
+
+
+[00:43:04]
+
+
+And next one.
+
+I think we can safely say that the answers extend beyond the boundaries of our species, which I think Bowen believed as well.
+
+So I admit it ain't over till the fat lady sings and she ain't sung yet.
+
+Okay, so I'll stop here for...
+
+If people have some questions or comments they'd like to make about this, I'd like to hear what you got out of it.
+
+Hopefully something that's useful to you.
+
+And it didn't seem too far afield from everyday work as a clinician, let's say.
+
+So if anybody has a comment or question, or if you just put yourself in the chat room.
+
+I'll call on you as you come in.
+
+Amy Post.
+
+Okay, Amy.
+
+Dr. Kerr, I was thinking about the function of chronic anxiety and this idea that if the cell is having difficulty managing its function and its stability in relationship to other, it reverts back to a latent way of behaving before.
+
+
+
+[00:44:26]
+
+
+And we have this idea in Bowen's theory that differentiation is related to the amount of chronic anxiety that lives in the family unit.
+
+Would you see the latent callback to a prior function being similar to that chronic anxiety function?
+
+That's the way my brain works.
+
+Yeah, I think, I don't know what a cell biologist would do with chronic anxiety in a cell.
+
+We know something equivalent's got to be there and part of a regressive process as you're talking about.
+
+I think that pulls forward a really important distinction.
+
+
+
+[00:45:07]
+
+
+Sometimes I've heard chronic anxiety is described as causal.
+
+There's too much of it and that makes this family more impinged.
+
+But when you put it back into a recollection of a former way of being that was initially adaptive, it changes it from being a problem to solve
+
+to a retained capacity that was necessary for survival.
+
+I think it's well said.
+
+Thank you, Amy.
+
+Thanks.
+
+OK, who's next there?
+
+Dave Galloway.
+
+Hello, David.
+
+Hi, thank you for this.
+
+My comment was on the idea that
+
+The observations, you know, throughout the history of astronomy illustrate that people can have lots of valid, correct data points, but depending on the theory they use to conceptualize them, you know, they'll be useful or not in a way in predicting and planning and that kind of thing.
+
+
+
+[00:46:07]
+
+
+And so I think that...
+
+To the degree that Bowen theory is accurate, there could be lots of observations from other areas of science that should mesh with it.
+
+And it doesn't have to come directly from Bowen theory, you know, just like all the observations fit into Copernicus and Kepler's models and that kind of thing once they had a good theory to talk about them with.
+
+Gotcha.
+
+Yeah.
+
+Yep.
+
+Good point.
+
+Thank you, David.
+
+Yeah.
+
+I was thinking about the parallel with evolution that when Darwin and Wallace came up with their concept about evolution, they didn't have the benefit of using genetics.
+
+and heredity to think about the theory.
+
+Those came later and were incorporated in.
+
+
+
+[00:47:05]
+
+
+And the theory had to be adjusted here and there, but a lot of the ideas ended up being validated by later science.
+
+I'm also reminded that when they went into outer space and tested parts of Einstein's theory and said, oh, it really works, his response was, of course it works.
+
+Yeah, no, I see what you're getting at and I think it's a good point.
+
+And I think that's for the future of Bowen theory.
+
+Janice Norton.
+
+Okay, Janice.
+
+Just the comment about, this seems so relevant to my clinical work and my family.
+
+The development is hampered
+
+by a lack of differentiation and that's my new that'll be my new index card um on my bulletin board in my office i mean what else is there you know it just puts it right out there and um kind of highlights the unnecessary
+
+
+
+[00:48:10]
+
+
+amount of detail and categories and diagnoses that inform so much of that clinical world, but really development is hampered by a lack of differentiation.
+
+Full stop.
+
+Okay.
+
+Yeah.
+
+I mean, I think it's a much more neutral view that stops blaming the mother.
+
+It's not her fault that this symbiosis occurred.
+
+It's multi-generational and she was just trying to be the best mother she can be.
+
+And I think that's what helps
+
+a lot of bull and theorists deal with these families is that they're not judgmental of the family and how it's going.
+
+Okay, so who next?
+
+Me.
+
+Kathy Kerr.
+
+I think I remember her.
+
+She's the bookkeeper.
+
+So I just had a couple of comments about the interesting possibility raise of physical...
+
+concepts from physics and laws moving over into in any way could they help us to understand human beings and biology in general.
+
+
+
+[00:49:15]
+
+
+And.
+
+I was struck by one of your slides where you had that in in physics, there are precisely defined entities.
+
+that always behave X way.
+
+I don't think that's the definition of living entities.
+
+I think in living entities, what we get into is probabilities.
+
+It is most probable that X dog, when X package is delivered to Mike and Kathy Kerr's house is going to bark her head off.
+
+It's very low probability that she will not do that.
+
+But it's not impossible, but at some point she might not do that.
+
+We're talking about you, Maisie.
+
+
+
+[00:50:06]
+
+
+So so the other thought was that comes out of my sort of deep dive into different types of systems theories and.
+
+People who have been using second order cybernetics have been working for years to create life.
+
+And they can't do it.
+
+They can create a membrane.
+
+But they can't populate the membrane with all the ingredients of the cell, which would create a living cell.
+
+And so it argues, as Monty Python used to argue, that when, however, life did happen, that something maybe not completely different, but importantly different happens when you move into living systems.
+
+
+
+[00:51:05]
+
+
+And so I was just thinking about that.
+
+And then I was thinking about Bertoloso's Dynamic Multi-Unity is such a different...
+
+concept than either general systems or cybernetic systems understanding of what is what are you looking at when you're trying to understand analyze the system and you had I forget what you put up there as the the driving thing but you know I I was thinking oh you put up emotional field I was going to put up emotional system
+
+You're looking at an emotional system and that.
+
+Of necessity, you're not going to ever create a foolproof diagram of an emotional system like you can of a thermostat.
+
+
+
+[00:52:08]
+
+
+Anyway, those those are some random thoughts.
+
+OK, is Randy last?
+
+He's next.
+
+And then there's Margaret Otto.
+
+Okay, we'll get those.
+
+Randy, you used to bet lead off.
+
+Now you're betting down with the pitcher.
+
+Well, that may be appropriate.
+
+No, I was just thinking about the, you know, Einstein's discovery that mass and energy were the same thing, you know, in different forms.
+
+And
+
+And in a way, Bowen's concept of undifferentiation, as it emerges from the relationship of families to individuals who become adults, form families of their own, that what's undifferentiated from that original family
+
+
+
+[00:53:15]
+
+
+translates into the vulnerability to the four mechanisms of dysfunction or maladaptation have some adaptive capacities, but things like conflict and distance and functioning of kids and functioning of spouses that this
+
+phenomenon of separation, degree of separation and differentiation from the original family, then that amount of undifferentiation plays out in these four other areas under varying conditions.
+
+It just reminded me of taking two things that seemed unrelated and relating them.
+
+
+
+[00:54:13]
+
+
+much as Einstein did with mass and energy.
+
+High praise.
+
+Thank you.
+
+And the last one we'll go to Kansas City.
+
+Here I come.
+
+Hardly.
+
+I could hardly make it up the hill this morning in the snow, but I was thinking about the disparity between reality and the view of it.
+
+And all the history you went into and how it just seems to gradually get closer to the way it is.
+
+And that's how I've been thinking about differentiation of self lately.
+
+The emotional cue in the family and the disparity between the reality.
+
+And of course, the broader that is, the lower the functioning.
+
+And then two other points that are just sort of a little random, but...
+
+
+
+[00:55:04]
+
+
+One is, you know, it took me a long time to realize that chronic anxiety didn't necessarily feel bad.
+
+Now, manic people feel great.
+
+Psychotic people, when they're, you know, thinking they're Jesus, they feel great.
+
+It doesn't have to be a negative emotion.
+
+And it's hard to convey that with the word anxiety or chronic, but it doesn't necessarily have to have a negative affect.
+
+And then just the final point, I think it was Dave that commented on it that in some ways new tests aren't really needed, new measurements aren't really needed.
+
+It's just a new view using the same instrument.
+
+So that's it.
+
+Appreciate it.
+
+You're welcome.
+
+Okay, well, this next presentation I have is shorter.
+
+I think I can do it in, I don't know, 20 minutes or so.
+
+We'll still have about 10 minutes for questions.
+
+If Kathy, you could pull that up, please.
+
+
+
+[00:56:11]
+
+
+This one is more recent in my efforts.
+
+I just, I think, again, stumbled across this book.
+
+I think it was in the New York Times book review.
+
+And it's emotional.
+
+And I thought, well, I can always learn something from that.
+
+How feelings shape our thinking.
+
+Leonard Malodenau.
+
+Malodenau, I guess he pronounces it.
+
+PhD.
+
+And so I'm going to take and pass along a certain number of points he made in his book that I thought would be of great interest to Bowen Theory people.
+
+So here's a concept, as I said in the parentheses, a new idea to me called core affect.
+
+
+
+[00:57:04]
+
+
+I had never heard of that before.
+
+It is believed to represent the input of your body, which when combined with the circumstances you find yourself in, the context of the situation and your background knowledge will produce emotions you experience.
+
+And that would be true for dogs
+
+people and beyond i mean i think that's a i just never heard of it the idea of core affect maybe others have but he amplifies it by saying it's a neurological state in higher animals more than just humans
+
+that acts as a sentinel to watch for threats to homeostasis and influences an organism to respond accordingly.
+
+This threats to homeostasis, I think, is a profound importance in the body responding to that and trying to limit any damage and restore equilibrium.
+
+
+
+[00:58:09]
+
+
+You see it in the family when there's...
+
+togetherness is usually used to try to restore equilibrium.
+
+So one, just to review one definition, homostasis refers to that ability of an organism or individual cell to maintain its stable internal order, even in the face of changes in the environment that could threaten it.
+
+Next one.
+
+So we humans evolved to exercise not purely rational thought, but rational thought guided and inspired by emotion.
+
+That reminded me of Murray Bowen's comment about that, that the intellectual system and the feeling system, emotional system are a working team.
+
+
+
+[00:59:12]
+
+
+So next one.
+
+So emotions arose as a more flexible way of reacting to novel circumstances.
+
+I just found that interesting.
+
+I just never thought of it that way.
+
+Emotions arose as a more flexible way of reacting to novel circumstances.
+
+Next one.
+
+Organisms like the planaria
+
+which 560 million years ago, that's not that long ago, if you measure it in Earth time, were among the first to have nervous systems.
+
+And as a result, they finally graduated from a reliance on programmed automatic responses.
+
+In other words, some input would come in from the environment and
+
+
+
+[01:00:07]
+
+
+one or another automatic responses would kick in automatically to preserve the life of that individual.
+
+And these creatures, planaria, 560 million years ago with a nervous system, they had a new ability.
+
+They could assess novel situations and react with actions...
+
+that were tailored to specific circumstances and goals.
+
+And that is quite a boost just recently, 560 million years.
+
+Next one.
+
+So two major topics in this book.
+
+One is motivation, and we'll start with that.
+
+This is a fellow, Kent Berridge, who's out at the University of Michigan.
+
+He's one who has described distinction between enjoyment
+
+and motivation.
+
+And we all talk about the emotional system, but how does it really play out in the brain?
+
+
+
+[01:01:16]
+
+
+That's what I was trying to think through as I read this book.
+
+So he concluded that our reward system, there is a distinction between liking something
+
+and the motivation to seek it, which we call wanting.
+
+So activation of the reward pathway by addictive drugs would then motivate one, for example, to seek those drugs if they wanted them.
+
+So the emotional system, again, is the force that motivates.
+
+The relationship system is the way it is expressed.
+
+So liking, that is pleasure, and wanting, desiring, that is motivation.
+
+
+
+[01:02:12]
+
+
+They're two separate things, are produced by two distinct interconnected subsystems within our reward system.
+
+I just never knew that before.
+
+I found it very interesting.
+
+Liking...
+
+That is pleasure, wanting, and desiring are two different things.
+
+And you can prove this with drugs where you can make animals desire something that's awful or animals that want something but have no motivation to get it, even though it seems obvious how it could happen.
+
+So they're produced by two distinct interconnected subsystems within our reward system deep in the brain.
+
+We have a separate wanting circuitry to determine whether we are motivated enough to pursue any particular instance of pleasure.
+
+
+
+[01:03:07]
+
+
+Next one.
+
+By blocking dopamine chemically, he was knocking out the rats wanting system, but not the circuits used for liking.
+
+So the rats would be exposed to something they liked.
+
+but didn't necessarily try to get it.
+
+Employing a tiny electrical current into their brains to stimulate wanting circuits, he induced them to guzzle down a bitter quinine solution, something that tasted awful, but he could get them because of the wanting circuit.
+
+And it's so compelling to try to think of this at the brain level, I find.
+
+The judging by rats' facial expressions, when they drank it, the rats found it unpalatable.
+
+He's supposed to be an expert in reading the emotional state of rats by looking at their faces.
+
+
+
+[01:04:08]
+
+
+The liking subsystem employs opioids and endocannabinoids.
+
+So we all know about these things, the natural versions of heroin and marijuana and its neurotransmitters,
+
+are opioids and cannabinoids.
+
+He went on to look for such dissociations between wanting and liking in human behavior.
+
+Next one.
+
+One example occurs in people who are addicted to drugs such as nicotine and desperately want their fix when it produces little or no feeling of pleasure.
+
+The focus of advertising is to stimulate not your enjoyment of an item, but your desire to have it.
+
+Those bastards.
+
+I never knew that before.
+
+His brother is in advertisements.
+
+
+
+[01:05:04]
+
+
+Psychologists have found that when we run into barriers in a quest to attain something, we sometimes want it more.
+
+We sometimes want it more while liking it less.
+
+And it's hard to get, hard to get conditioned.
+
+Playing hard to get is, they gave an example of two women who dated, or they met these, the men met these two women.
+
+One was very, very attractive.
+
+And the other one was attractive, but very hard to get.
+
+And were they attracted to the very attractive one?
+
+No, they went to the hard-to-get condition, liking it less.
+
+Good old Socrates advised a courtesan, prostitute in essence, Theodora, that she would attract more friends if she would sometimes withhold her affections until men are hungry with desire.
+
+
+
+[01:06:08]
+
+
+Good old Socrates.
+
+So he's pinpointing the specific areas in the human brain where the neurons responsible for pleasure and motivation are located.
+
+Next one.
+
+Whenever we feel compelled to eat, drink, copulate, sing, watch television, or exercise, signals from the neurons are likely...
+
+our real inspiration, that's what inspires us, the signals from the neurons, is only after the desire arises that it passes into our orbital frontal cortex, which creates conscious experience of it.
+
+That's where Bowen theory comes in.
+
+Next one.
+
+In human beings, wanting is stimulated by liking, but not automatically.
+
+
+
+[01:07:06]
+
+
+Before activating our wanting circuits, our brain takes liking into account as well as other factors, meaning conscious self-control.
+
+So the other thing they look into is determination.
+
+This is a different set of research.
+
+William Seeley, a neurologist at UC San Francisco.
+
+one of the discoverers of the emotional Salience network and the executive control network.
+
+Next one.
+
+The emotional Salience network nodes are anchored in the so-called limbic structures.
+
+The executive control network, in contrast, includes sites in the executive prefrontal cortex.
+
+a region known to have a role in sustained attention and working memory.
+
+
+
+[01:08:06]
+
+
+He doesn't mention Paul McLean anywhere in the book.
+
+The originator of the triune brain gets bypassed, and he first credits somebody much more recent.
+
+So the picture of the limbic system, and then, of course, the prefrontal cortex.
+
+So we're talking here Bowen theory.
+
+Certainly the capacity for self-regulation has everything to do with the frontal cortex, but feelings can't be ignored.
+
+I mean, they are a guide to what needs to be done.
+
+And the two work together.
+
+So the Salience network monitors our internal emotions and our external environment and take note of what is important.
+
+Next one.
+
+Identifies the most relevant among those inputs and spurs you to act or not act on that basis.
+
+Next one.
+
+The executive control network has the job of keeping you focused on what is relevant to your goals while ignoring distractions.
+
+
+
+[01:09:11]
+
+
+Next one.
+
+The ECN, the executive control network, jumps into action once the Salience network has been activated.
+
+It then marshals the brain's resources to enable you to act if necessary.
+
+Next one.
+
+A team of neurologists at Stanford, as part of a clinical assessment of patients, were implanting electrons in a patient's brain.
+
+Next one.
+
+serendipitously, in one of the implantation cycles in which they were asking the person about his sensations when they were in a specific spot in the brain, thoughts, what are your thoughts, feelings, the man reported feeling determination.
+
+
+
+[01:10:10]
+
+
+If it was not dread, but a positive feeling that says push harder, push harder to try to get through this.
+
+It's a beautiful piece at the beginning of the chapter there, this part of the book about a prize fighter who, I think it was Sonny Liston he knocked out.
+
+When he was, Sonny Liston was the champion of the world.
+
+And the next time he faced Liston in a rematch, Liston knocked him out in the first round.
+
+The first time, the guy was determined.
+
+He's going to do this.
+
+And I forget all that went into that.
+
+But I thought that was a fascinating thing, that the feeling of determination can make or break a visit home to see your family with knowledge of Bowen Theory in your head.
+
+It takes a determination to change.
+
+
+
+[01:11:05]
+
+
+The doctors had gotten lucky.
+
+They had inadvertently implanted the electrode in a single tiny node of the complex Salience network.
+
+Next one.
+
+When they moved the electrode a few millimeters one way or the other, the effect did not occur.
+
+But when it was planted just right, the patient reported an urgent sense of the need to act or to persevere.
+
+The doctors looked...
+
+for the node in a second patient and found it in the same anatomical position.
+
+I don't know about you guys, but to pinpoint these kind of emotional feeling states in us and exactly in the brain where this is all coming from for any of these things, it's extraordinary.
+
+The salient network is reflected by its multiple nodes and their wealth of connections to other parts of the brain.
+
+It engages in dialogue with both the executive control network and other executive areas of the frontal lobe, as well as sub-cortical parts of the brain that are involved in producing physiological reactions, ultimately feeling reactions.
+
+
+
+[01:12:19]
+
+
+As a result, it is formed by both what we think and what we feel, Bowen 101, right?
+
+The researchers had activated a kind of grit switch
+
+switch in the emotional Salience executive control complex.
+
+I had no idea these kind of studies were going on and how much they was learning that are fascinating to make more sense out of human behavior.
+
+So some final thoughts.
+
+When scientists have learned about determination and its opposite, apathy gives us insight into a most
+
+basic functions of our emotions.
+
+More fundamental in its effects than love or hate, happiness or sadness, or even fear and anxiety, determination is what gives us the urge to act
+
+
+
+[01:13:15]
+
+
+to reach out towards something or someone, to speak or even just to move, and the energy to see our actions through until we achieve the goal.
+
+I should have thought about this.
+
+I guess I have, I don't know, but determination being so critical to success in what you're trying to achieve.
+
+So the Stoics might have intuited but could not have explained.
+
+the Stoics, the executive network structures in our prefrontal cortex exert influence over the many subcortical structures associated with motion.
+
+I mean, not this much was known about the brain when Bowen developed this theory.
+
+I mean, enough was known to give him the intellectual system, emotional system idea, but this now is fleshing it out.
+
+
+
+[01:14:14]
+
+
+When we successfully orchestrate that, what I just read, we achieve emotional regulation.
+
+Next one.
+
+A question for Bowen theorists.
+
+We'll get back to Amy's comment.
+
+What is the impact of chronic anxiety on the processes reviewed in this presentation?
+
+Anybody who knows, love to hear it.
+
+I think that's the end.
+
+All right, we're in good shape.
+
+At least for time.
+
+I don't know about mental state.
+
+Somebody there still has their sound on if you would be kind enough to turn it off.
+
+Okay, see if this generates any thinking.
+
+
+
+[01:15:04]
+
+
+I lost my picture of Michael Kerr.
+
+Maybe that has to go down first.
+
+Say something, please.
+
+Say something, please, she said.
+
+I have my hand up.
+
+Would you like me to say something?
+
+I would love you to say something.
+
+Go ahead, Amy.
+
+Dr. Kerr, my brain made a bridge between some of the ideas you presented.
+
+I'm not sure if it's accurate.
+
+But I think Bowen theory would suggest the degree to which life energy is going into maintaining that state holding process would inhibit the degree to which energy could go into that determination function.
+
+
+
+[01:16:05]
+
+
+Okay.
+
+And that would be perhaps the role of chronic anxiety, that latent request to go back to just maintaining the homeostasis is the driver
+
+there's less available to be pursuing what you want or think you like.
+
+Interesting idea.
+
+I'll keep thinking about that one.
+
+Thank you.
+
+Where are we?
+
+Anybody else?
+
+Does anyone else wish to make a comment?
+
+Yeah, it's Dave Galloway.
+
+Number two again.
+
+Yeah.
+
+Reacher of habit.
+
+I've thought a lot about chronic anxiety because I could never for myself figure out what it actually was other than a kind of definition.
+
+And what I've been landing on these days is that I believe that in my development, my family of origin.
+
+
+
+[01:17:05]
+
+
+There was a certain level of attention and vigilance set up for what I would pay attention to and watch out for.
+
+And in my history, it's been loosely described as pleasing other.
+
+And that that...
+
+level of vigilance and orientation then ends up creating a certain level of anxiousness in me that's just there all the time as i'm constantly and this isn't fully conscious unless i really pay attention to it constantly scanning what does other want what does other want what does other want and then um the discomfort from that you know then leads to soothing behaviors like can i
+
+have the right answer?
+
+Can I please this person?
+
+Can I over-function for them?
+
+And that kind of thing.
+
+So that's how I think of it.
+
+For me, the chronic anxiety is the outcome of the emotional programming that set up a certain level of vigilance, is how I think of it.
+
+
+
+[01:18:07]
+
+
+It makes sense.
+
+And the threat would be, if you didn't do it, something wrong would be.
+
+Yeah, exactly.
+
+Yeah, because the way I think about that is you have
+
+disturbance in homeostasis to one degree or another.
+
+And then the body then reacts to restore homeostasis and activates the stress response to help deal with that.
+
+And then the stress response
+
+can become a chronic state at one level of another, which is then is experienced as chronic anxiety within the individual.
+
+That's kind of rough, but that's one way I have of thinking about it.
+
+
+
+[01:19:04]
+
+
+The stress response, I think chronic stress response is central to understanding what's going on in the body as a whole.
+
+Yes, and just very briefly, I would see it as my constant state of vigilance to see if anything has shifted.
+
+You know, that creates a stress response, as it were, right?
+
+Noticing, judging, monitoring.
+
+Gotcha, yeah.
+
+Thank you.
+
+It's time consuming.
+
+Yeah.
+
+But you got to do what you got to do, right?
+
+Yeah.
+
+Wasn't my fault.
+
+All right, Grooms.
+
+Hello, Mark.
+
+I'm not trying to throw a firecracker into things, but... Go for it.
+
+Well, I've recently been reading Lisa Feldman Barrett, whom I think you referenced, Mike, in an earlier presentation, maybe a few years ago.
+
+Probably, yeah.
+
+And she raises all kinds of problems with Paul McLean's triune brain model.
+
+
+
+[01:20:09]
+
+
+I know, I read that.
+
+Yeah, and I...
+
+It's got me thinking, okay, what are the implications for different models of brain organization on thinking about chronic anxiety, differentiation of self, and the concepts that we've been working on with Bowen's thinking for all these years?
+
+And is the model of the brain evolving with people like her and Mladenov and some of the folks you've been referencing today?
+
+Is it getting more complicated or is it getting clearer?
+
+I guess is my question.
+
+I don't know.
+
+I had the privilege, thanks to Margaret Otto organizing the meeting, to do a meeting with myself and her a couple of years ago.
+
+And I came away from the meeting thinking she was mostly addressing feelings and subjectivity, but had not included
+
+
+
+[01:21:11]
+
+
+these more fundamental origins.
+
+And then I went to her book and I forget what's in her book, but there's a lot of different theories of emotion flying around out there as I understand it.
+
+And so I just thought she's an interesting contributor.
+
+It was good to have the meeting with her.
+
+She talks about the old theory of emotions and the new theory of emotions.
+
+And I don't get it, what she's getting at there.
+
+Because like the person I fall back on heavily is Yacht Panksepp.
+
+That book of his that I read has to me been the most useful.
+
+Okay, well, thanks for your question.
+
+
+
+[01:22:05]
+
+
+hello Lana hello are you in maine i know i'm in california you're in california now okay you flew back you turn on your video miss Lana may i okay i will do that okay yes here's california
+
+it's warm here it's incredible remember that remember that painting before i've seen that yeah um well i am curious i'm very curious about this determination um aspect of what you're talking about because it makes me think a lot about uh the book pure
+
+and cancer, and how people there seem to always have that sense of determination.
+
+I haven't read all of it, but all of the people that I read about seem to have some push to go and get through this.
+
+And so I think it's just an interesting way of looking at how it looks, maybe, because it sounds like that might be a part of what it is.
+
+That's a very interesting point.
+
+
+
+[01:23:05]
+
+
+I remember, I think I saw this, you've maybe heard me quote this before.
+
+I think it was in Family Circle, one of the important medical journals, that the individual who was doing some kind of study had decided to go to the, what do they call that?
+
+It contains all the people,
+
+who have been diagnosed with cancer.
+
+Cancer registry?
+
+Cancer registry at their hospital, let's say.
+
+And then did a follow-up on whether these people were still living or not and tried to figure out what's the difference between those who seem to have beaten it and those who haven't.
+
+And there's no one answer, I guess, but the answer
+
+The critical thing seemed to be captured by the idea that two patients go to see a doctor and the doctor says, we have all these drugs we'll throw at you.
+
+
+
+[01:24:22]
+
+
+And if you just do that, we'll get it done.
+
+And
+
+The guy says, throw everything you got at me.
+
+That's what I want.
+
+I'm determined to get the best.
+
+And then the other patient came in and said, doctor, if I stay here in this hospital any longer, you guys are going to kill me.
+
+I'm determined to get out of here.
+
+What's the common denominator?
+
+Determination.
+
+I think that's what helped me so much about Rediger's book is that...
+
+just how incredibly important the mind can be in recovery in ways we don't still, I don't think fully understand.
+
+
+
+[01:25:05]
+
+
+But thanks for your comment about it.
+
+So I have another comment.
+
+Okay, Kathy Kerr and then Janice, I think.
+
+Oh, no.
+
+she's not in the queue no she is she's right behind me okay so um i'm thinking about this um issue of um chronic anxiety and adaptability um and i thought dave gallery's description of how his chronic anxiety has been tuned um
+
+And in a sense, you could call that adaptive to the Galloway family emotional system.
+
+But it might not be, from a Bowen theory perspective, it might not be long-term adaptive for Dave Galloway, which was the question he seemed to be raising.
+
+
+
+[01:26:05]
+
+
+So it made me think about how there doesn't seem to be much question.
+
+in the distinction between acute and chronic anxiety, that acute anxiety is adaptive.
+
+None of us better get up in the morning and try to move through the day without it.
+
+But what is the adaptive value of chronic anxiety, especially if it pushes organisms to regress to previous states that are not adaptive to their current situation?
+
+So that's what I was thinking about.
+
+The only thing that comes to mind for me, you may have heard me talk about this one before, I may have even put it in my book, last book, about the bee colony that I think, what's his name, Raj Gadigar studied where they were studying these colonies and then the...
+
+
+
+[01:27:06]
+
+
+And one day he started coming and was discovering that the number of bees or wasps on the colony was rapidly declining.
+
+And then on a particular day...
+
+the number had dropped by about seven or eight.
+
+And I think there were like about 40 on the colony, counting the queen.
+
+And he said, what the heck is going on here?
+
+Why are these individuals leaving?
+
+And because he had recorded...
+
+Each individual wasp or paper wasp with a color code, he could go back through his notes because he had taken careful recording of those notes and found that in the weeks prior to the individuals leaving,
+
+
+
+[01:28:11]
+
+
+that there were two warring factions, you remember this one, on the nest, which you could call, I think, a regressive phenomenon.
+
+And then they split.
+
+The next day he came, a bunch of them had disappeared and started a new nest about a mile away.
+
+I don't know how he found it.
+
+But reproductive rates had...
+
+resumed they had chosen the queen and life was much better so I just got the idea in my head that a regression can motivate I think this was part of your question or thought regression can motivate a call for action like that that can um well like when that Murray used to talk about a family with schizophrenia we go all the way until their backs were to the wall
+
+
+
+[01:29:11]
+
+
+And all the resources, financial and emotional, were being exhausted.
+
+And then finally somebody said, I can't keep doing this this way anymore.
+
+But they had to be forced against the wall to see that.
+
+But then came the determination to pull out of it.
+
+I don't know how much that relates to it.
+
+You want to comment anymore?
+
+No, I'd like to give Janice Norton a chance to have the last comment.
+
+Janice, you got the last comment.
+
+This is a very important one.
+
+So don't let us down.
+
+I am prepared.
+
+I was on this business of determination.
+
+I think that's so important.
+
+And I just finished a short paperback book called I Choose Life.
+
+by a therapist and a nine-year-old boy who survived years ago an astrocytoma brain tumor that was determined to kill him.
+
+
+
+[01:30:14]
+
+
+And it's a pretty good description I think of his determined voice comes through beautifully.
+
+And what he did, he used a lot of visualization.
+
+He relied on a lot of adults for support.
+
+and his friends.
+
+He ditched out of family therapy, told his parents to keep going.
+
+He'd had enough.
+
+I thought that was fantastic.
+
+And there's some family data in there about how maybe a nine-year-old got cancer at the point in time he did.
+
+Not a lot, but some.
+
+It was just really, and it's an interesting read.
+
+I'd love to know how that, this is like 30 years ago, how that kid is doing now, but I don't know.
+
+But the determination thing really comes through.
+
+What's the name of the book again?
+
+I Choose Life.
+
+I Choose Life.
+
+And the child's name is Garrett Porter, I believe.
+
+
+
+[01:31:05]
+
+
+And the psychologist's name might be Pat Norris.
+
+I don't know.
+
+I could have that one wrong.
+
+But I got it in paperback on Amazon.
+
+Yeah, some of these...
+
+people i think you can locate online if they've been associated with some well-known book like this one maybe or something yeah that's something i would try is because that's very interesting story the kid taking the initiative lots of initiatives yeah yeah i'm getting this from my assistant so i gotta go now
+
+Well, thanks for coming.
+
+It's good to see you all.
+
+And I hope today was useful and see you next time.
+
+Thank you, Dr. Kerr.
+
+You're welcome.
+
+Thank you.
+
+--------------------------------------------------
+
+VALIDATION REPORT
+=================
+Applied only high-confidence corrections and retained flagged items for review.
+Local LLM upgrades: 0
+Cloud fallback upgrades: 0
+Learned blocked pairs this run: 0
+Total blocked pairs in memory: 8
+
+APPLIED CORRECTIONS
+-------------------
+  - [00:09:08] saturn -> Saturn (canonical_terms_case)
+  - [00:22:05] sapiens -> Sapiens (canonical_terms_case)
+  - [00:29:05] soto -> Soto (canonical_terms_case)
+  - [00:29:05] tufts -> Tufts (canonical_terms_case)
+  - [00:29:05] proliferation -> Proliferation (canonical_terms_case)
+  - [00:34:10] proliferation -> Proliferation (canonical_terms_case)
+  - [00:35:06] proliferation -> Proliferation (canonical_terms_case)
+  - [00:36:05] proliferation -> Proliferation (canonical_terms_case)
+  - [00:37:14] proliferation -> Proliferation (canonical_terms_case)
+  - [00:37:14] proliferation -> Proliferation (canonical_terms_case)
+  - [01:07:06] salience -> Salience (canonical_terms_case)
+  - [01:07:06] salience -> Salience (canonical_terms_case)
+  - [01:08:06] salience -> Salience (canonical_terms_case)
+  - [01:09:11] salience -> Salience (canonical_terms_case)
+  - [01:09:11] ECM -> ECN (high_local_dist1_nonword_or_proper)
+  - [01:11:05] salience -> Salience (canonical_terms_case)
+  - [01:12:19] salience -> Salience (canonical_terms_case)
+  - [01:22:05] lana -> Lana (canonical_terms_case)
+  - [01:22:05] lana -> Lana (canonical_terms_case)
+
+FLAGGED ITEMS
+-------------
+  - [00:30:14] Sonichime (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [00:36:05] metazellin (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [00:56:11] Malodenau (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [00:56:11] Malodenau (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [01:16:05] Reacher (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [01:19:04] Grooms (suggestion: No suggestion; reason: no_close_term_in_terms_file)
+  - [01:25:05] gallery's (suggestion: Galley's; reason: candidate_distance_1)
+
+--------------------------------------------------
+

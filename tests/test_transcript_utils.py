@@ -1,10 +1,13 @@
 import unittest
+from unittest.mock import patch
 
 from transcript_utils import (
     extract_section,
+    load_bowen_references,
     markdown_to_html,
     normalize_text,
     parse_filename_metadata,
+    parse_scored_emphasis_output,
     strip_yaml_frontmatter,
 )
 
@@ -122,6 +125,70 @@ Some other content.
     def test_parse_filename_metadata_invalid(self):
         with self.assertRaises(ValueError):
             parse_filename_metadata("invalid-filename.txt")
+    
+    def test_parse_scored_emphasis_output_with_timestamp(self):
+        emphasis_text = """
+[Implicit - A3 - Rank: 88% | 00:12:34] Concept: The concept description
+"The quote text."
+"""
+        items = parse_scored_emphasis_output(emphasis_text)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['timestamp'], '00:12:34')
+        self.assertEqual(items[0]['concept'], 'The concept description')
+
+    def test_parse_scored_emphasis_output_no_timestamp(self):
+        emphasis_text = """
+[Explicit - B1 - Rank: 95%] Concept: Another concept
+"Another quote."
+"""
+        items = parse_scored_emphasis_output(emphasis_text)
+        self.assertEqual(len(items), 1)
+        self.assertIsNone(items[0]['timestamp'])
+
+    @patch('pathlib.Path.read_text')
+    @patch('pathlib.Path.exists')
+    def test_load_bowen_references_with_timestamp(self, mock_exists, mock_read_text):
+        mock_exists.return_value = True
+        bowen_text = """
+### Concept Name [00:12:34]
+> "The quote text."
+
+### Another Concept
+> "Another quote."
+"""
+        mock_read_text.return_value = bowen_text
+        
+        refs = load_bowen_references("any-base-name")
+        self.assertEqual(len(refs), 2)
+        self.assertEqual(refs[0], ('Concept Name', 'The quote text.', '00:12:34'))
+        self.assertEqual(refs[1], ('Another Concept', 'Another quote.', None))
+
+    @patch('transcript_utils.config')
+    @patch('pathlib.Path.exists')
+    @patch('pathlib.Path.read_text')
+    def test_load_bowen_references_path_construction(self, mock_read_text, mock_exists, mock_config):
+        """Test that the function constructs the file path correctly before trying to access it."""
+        # This test is designed to catch a NameError if the `bowen_file` variable is not defined.
+        # By mocking the config and the Path methods, we can assert that the
+        # path construction logic is called correctly.
+        
+        # Setup mock behavior. `config` is fully mocked, so `PROJECTS_DIR / a / b`
+        # produces a MagicMock (not a real Path) — the Path.exists patch does not
+        # apply to it. Drive the chained mock's own .exists() to False so the
+        # function short-circuits to [] instead of feeding a mock to re.findall.
+        mock_exists.return_value = False
+        bowen_file_mock = (
+            mock_config.PROJECTS_DIR.__truediv__.return_value.__truediv__.return_value
+        )
+        bowen_file_mock.exists.return_value = False
+
+        # Call the function
+        result = load_bowen_references("test-base-name")
+
+        # The core assertion: was the config variable used to build the path?
+        # This confirms the line that was previously missing is now present and executed.
+        self.assertTrue(mock_config.PROJECTS_DIR.__truediv__.called)
+        self.assertEqual(result, [])
 
 if __name__ == '__main__':
     unittest.main()

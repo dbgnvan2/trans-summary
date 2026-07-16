@@ -9,23 +9,303 @@ import os
 import re
 import resource
 import shutil
+import subprocess
 import threading
 import tkinter as tk
 from contextlib import redirect_stdout
 from datetime import datetime
-from tkinter import filedialog, messagebox, scrolledtext, ttk
+from difflib import SequenceMatcher
+from pathlib import Path
+from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 
 import analyze_token_usage
+import cleanup_pipeline
 import config
 import pipeline
-import cleanup_pipeline
 import transcript_config_check
 import transcript_cost_estimator
 import transcript_initial_validation
 import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
-from transcript_utils import clean_project_name
+from transcript_utils import clean_project_name, parse_filename_metadata
+from validation_learning import (
+    append_approved_terms,
+    append_validation_aliases,
+    is_weak_dictionary_pair,
+    record_validation_rejections,
+)
+
+INIT_VAL_FILTER_VERSION = "compact-v3"
+_GIT_REVISION_CACHE = None
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.5
+# Fixed pipeline execution order for the 13 selectable stages. Also drives
+# checkbox layout in setup_ui() and the run order in _run_selected_stages().
+STAGE_DEFINITIONS = [
+    ("init_val", "0. Init Val"),
+    ("format", "1. Format"),
+    ("val_headers", "2. Val Headers"),
+    ("yaml", "3. YAML"),
+    ("topics", "T. Topics"),
+    ("core", "4. Core (ST/IT/T/KT/L)"),
+    ("structured_summary", "Structured Summary"),
+    ("gen_abstract", "5. Gen Abstract"),
+    ("val_abstract", "6. Val Abstract"),
+    ("blog", "7. Blog (Lens #1)"),
+    ("overview", "7b. Overview Post"),
+    ("webpdf", "8. Full Web/PDF"),
+    ("bowen_emphasis", "Bowen + Emphasis"),
+    ("package", "Package"),
+]
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
+# {stage_key: [group, ...]} where each group is a list of
+# (producing_stage_key, artifact_suffix_attr) pairs. A group is satisfied if
+# ANY pair in it is satisfied; a stage's prerequisites are satisfied only if
+# EVERY group is satisfied. artifact_suffix_attr is a config.py attribute
+# name (e.g. "SUFFIX_FORMATTED"), resolved via _stage_artifact_path().
+STAGE_DEPENDENCIES = {
+    "init_val": [],
+    "format": [],
+    "val_headers": [[("format", "SUFFIX_FORMATTED")]],
+    "yaml": [[("format", "SUFFIX_FORMATTED")]],
+    "topics": [[("yaml", "SUFFIX_YAML")]],
+    "core": [[("yaml", "SUFFIX_YAML")]],
+    "structured_summary": [[("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")]],
+    # Abstract needs Topics only (its prompt never uses Interpretive Themes);
+    # satisfiable by the standalone `topics` stage OR `core` (both write
+    # SUFFIX_TOPICS). Spec: docs/spec_lean_abstract_2026-07-13.md#LA.5
+    "gen_abstract": [
+        [("topics", "SUFFIX_TOPICS"), ("core", "SUFFIX_TOPICS")],
+    ],
+    "val_abstract": [[("gen_abstract", "SUFFIX_ABSTRACT_GEN")]],
+    "blog": [
+        [("core", "SUFFIX_STRUCTURAL_THEMES")],
+        [("core", "SUFFIX_INTERPRETIVE_THEMES")],
+    ],
+    "overview": [
+        [("core", "SUFFIX_ABSTRACT_INIT"), ("gen_abstract", "SUFFIX_ABSTRACT_GEN")],
+        [("core", "SUFFIX_STRUCTURAL_THEMES")],
+        [("core", "SUFFIX_TOPICS")],
+        [("core", "SUFFIX_KEY_TERMS")],
+    ],
+    "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+    "bowen_emphasis": [],
+    "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+}
+
+# Spec: docs/spec_stage_selection_2026-07-12.md#SS.15
+# Human-readable label for each artifact_suffix_attr used in the pre-flight
+# blocking message (e.g. "Topics" for SUFFIX_TOPICS). Kept as data so the
+# validator's message text and any consumer of it never drift.
+ARTIFACT_LABELS = {
+    "SUFFIX_FORMATTED": "Formatted Transcript",
+    "SUFFIX_YAML": "YAML",
+    "SUFFIX_TOPICS": "Topics",
+    "SUFFIX_INTERPRETIVE_THEMES": "Interpretive Themes",
+    "SUFFIX_STRUCTURAL_THEMES": "Structural Themes",
+    "SUFFIX_KEY_TERMS": "Key Terms",
+    "SUFFIX_ABSTRACT_GEN": "Generated Abstract",
+    "SUFFIX_ABSTRACT_INIT": "Initial Abstract",
+}
+
+
+def _current_git_revision():
+    """Return the short git revision for the current repo, if available."""
+    global _GIT_REVISION_CACHE
+    if _GIT_REVISION_CACHE is not None:
+        return _GIT_REVISION_CACHE
+    try:
+        revision = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).resolve().parent,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        revision = "unknown"
+    _GIT_REVISION_CACHE = revision
+    return revision
+
+
+def _extract_compact_terms(original_text, suggested_text):
+    """Reduce a context-heavy finding to the changed lexical span."""
+    original_tokens = original_text.split()
+    suggested_tokens = suggested_text.split()
+
+    if not original_tokens or not suggested_tokens:
+        return original_text.strip(), suggested_text.strip()
+
+    matcher = SequenceMatcher(a=original_tokens, b=suggested_tokens)
+    original_changed = []
+    suggested_changed = []
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        original_changed.extend(original_tokens[i1:i2])
+        suggested_changed.extend(suggested_tokens[j1:j2])
+
+    compact_original = " ".join(original_changed).strip()
+    compact_suggested = " ".join(suggested_changed).strip()
+
+    if compact_original and compact_suggested:
+        return compact_original, compact_suggested
+
+    return original_text.strip(), suggested_text.strip()
+
+
+def _build_full_correction_text(original_text, compact_original, compact_suggested):
+    """Rebuild the full replacement string from a compact lexical edit."""
+    if not compact_original or compact_original == original_text:
+        return compact_suggested
+
+    if compact_original in original_text:
+        return original_text.replace(compact_original, compact_suggested, 1)
+
+    return compact_suggested
+
+
+def _build_context_phrase(original_text, compact_original, window_words=4):
+    """Build a short context snippet around the changed term."""
+    words = original_text.split()
+    target_words = compact_original.split()
+    if not words or not target_words:
+        return original_text.strip()
+
+    for start in range(0, len(words) - len(target_words) + 1):
+        if words[start:start + len(target_words)] == target_words:
+            snippet_start = max(0, start - window_words)
+            snippet_end = min(len(words), start + len(target_words) + window_words)
+            return " ".join(words[snippet_start:snippet_end])
+
+    return original_text.strip()
+
+
+def _is_simple_dictionary_candidate(finding, compact_original, compact_suggested):
+    """Keep only compact lexical replacements suitable for the dictionary."""
+    original_text = finding.get("original_text", "").strip()
+    suggested_text = finding.get("suggested_correction", "").strip()
+    error_type = finding.get("error_type", "")
+
+    if not original_text or not suggested_text or not compact_original or not compact_suggested:
+        return False
+
+    if _build_full_correction_text(original_text, compact_original, compact_suggested) != suggested_text:
+        return False
+
+    original_count = len(compact_original.split())
+    suggested_count = len(compact_suggested.split())
+
+    if error_type == "word_boundary":
+        return original_count <= 2 and suggested_count <= 2
+
+    return original_count == 1 and suggested_count == 1
+
+
+def _prepare_review_finding(finding):
+    """Attach compact display terms used by the simplified review dialog."""
+    original_text = finding.get("original_text", "")
+    suggested_text = finding.get("suggested_correction", "")
+
+    compact_original, compact_suggested = _extract_compact_terms(
+        original_text,
+        suggested_text,
+    )
+
+    if not _is_simple_dictionary_candidate(finding, compact_original, compact_suggested):
+        return None
+    if is_weak_dictionary_pair(compact_original, compact_suggested):
+        return None
+
+    prepared = finding.copy()
+    prepared["display_original"] = compact_original
+    prepared["display_suggested"] = compact_suggested
+    prepared["context_phrase"] = _build_context_phrase(original_text, compact_original)
+    return prepared
+
+
+def _prepare_review_findings(findings):
+    """Build the compact review list while suppressing weak and duplicate pairs."""
+    prepared_findings = []
+    seen_pairs = set()
+    omitted_count = 0
+
+    for finding in findings:
+        prepared = _prepare_review_finding(finding)
+        if not prepared:
+            omitted_count += 1
+            continue
+
+        pair_key = (
+            prepared["display_original"].strip().lower(),
+            prepared["display_suggested"].strip().lower(),
+        )
+        if pair_key in seen_pairs:
+            omitted_count += 1
+            continue
+
+        seen_pairs.add(pair_key)
+        prepared_findings.append(prepared)
+
+    return prepared_findings, omitted_count
+
+
+def _collect_validation_review_actions(item_vars):
+    """Split reviewed items into corrections, rejections, approved terms, and aliases."""
+    final_corrections = []
+    rejected_findings = []
+    approved_terms = []
+    aliases = []
+
+    for item in item_vars:
+        apply_selected = bool(item["apply"].get())
+        compact_original = item["display_original"]
+        correction_text = item["correction"].get().strip()
+        original_finding = item["original_finding"]
+        full_suggestion = _build_full_correction_text(
+            original_finding.get("original_text", ""),
+            compact_original,
+            correction_text,
+        )
+
+        if apply_selected:
+            correction = original_finding.copy()
+            correction["suggested_correction"] = full_suggestion
+            final_corrections.append(correction)
+
+            if compact_original and correction_text and compact_original != correction_text:
+                aliases.append((compact_original, correction_text))
+                approved_terms.append(correction_text)
+            continue
+
+        rejection = original_finding.copy()
+        rejection["suggested_correction"] = full_suggestion
+        rejected_findings.append(rejection)
+
+    return final_corrections, rejected_findings, approved_terms, aliases
+
+
+def _find_existing_validation_versions(file_path):
+    """Return existing vN files for a selected base transcript."""
+    if not file_path:
+        return []
+
+    stem = file_path.stem
+    if re.search(r"_v\d+$", stem) or stem.endswith("_validated"):
+        return []
+
+    parent = file_path.parent
+    suffix = file_path.suffix
+    versions = []
+    for candidate in parent.glob(f"{stem}_v*{suffix}"):
+        match = re.search(rf"^{re.escape(stem)}_v(\d+)$", candidate.stem)
+        if match:
+            versions.append((int(match.group(1)), candidate))
+
+    versions.sort(key=lambda item: item[0])
+    return [path for _, path in versions]
 
 
 class GuiLoggerAdapter:
@@ -44,6 +324,12 @@ class GuiLoggerAdapter:
     def error(self, msg, *args, **kwargs):
         text = str(msg) % args if args else str(msg)
         prefix = "" if text.strip().startswith("❌") else "❌ "
+        
+        if kwargs.get("exc_info"):
+            import traceback
+            exc_text = traceback.format_exc()
+            text += f"\n{exc_text}"
+
         self.gui.log(f"{prefix}{text}")
 
     def debug(self, msg, *args, **kwargs):
@@ -57,10 +343,10 @@ class ValidationReviewDialog(tk.Toplevel):
 
     def __init__(self, parent, findings, apply_callback):
         super().__init__(parent)
-        self.title("Review Transcript Corrections")
+        self.title(f"Review Transcript Corrections [{INIT_VAL_FILTER_VERSION}]")
         self.geometry("1000x700")
         self.apply_callback = apply_callback
-        self.findings = findings
+        self.findings, self.skipped_findings = _prepare_review_findings(findings)
 
         # Main container
         main_frame = ttk.Frame(self)
@@ -69,10 +355,29 @@ class ValidationReviewDialog(tk.Toplevel):
         # Instructions
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(header_frame, text=f"Found {len(findings)} potential errors.", font=(
+        ttk.Label(header_frame, text=f"Found {len(self.findings)} dictionary candidates.", font=(
             "", 12, "bold")).pack(anchor="w")
-        ttk.Label(header_frame, text="Review items below. Uncheck to reject. Edit the 'Correction' field to modify.").pack(
+        ttk.Label(header_frame, text="Checked items create dictionary entries in the form Wrong >>> Correct. Uncheck only the few you want to reject.").pack(
             anchor="w")
+        ttk.Label(
+            header_frame,
+            text=f"Filter build: {INIT_VAL_FILTER_VERSION} | Terms file: {config.VALIDATION_APPROVED_TERMS_PATH}",
+            wraplength=940,
+        ).pack(anchor="w")
+        if self.skipped_findings:
+            ttk.Label(
+                header_frame,
+                text=f"Omitted {self.skipped_findings} broad or non-lexical suggestions.",
+            ).pack(anchor="w")
+
+        columns_frame = ttk.Frame(main_frame)
+        columns_frame.pack(fill=tk.X, pady=(0, 4))
+        ttk.Label(columns_frame, text="", width=4).grid(row=0, column=0, sticky="w")
+        ttk.Label(columns_frame, text="Type", width=14).grid(row=0, column=1, sticky="w")
+        ttk.Label(columns_frame, text="Wrong", width=16).grid(row=0, column=2, sticky="w")
+        ttk.Label(columns_frame, text="", width=4).grid(row=0, column=3, sticky="w")
+        ttk.Label(columns_frame, text="Correct", width=16).grid(row=0, column=4, sticky="w")
+        ttk.Label(columns_frame, text="Context phrase").grid(row=0, column=5, sticky="w", padx=(8, 0))
 
         # Scrollable Canvas for items
         canvas_frame = ttk.Frame(main_frame)
@@ -102,7 +407,7 @@ class ValidationReviewDialog(tk.Toplevel):
         # Populate items
         self.item_vars = []
 
-        for i, finding in enumerate(findings):
+        for i, finding in enumerate(self.findings):
             self._create_item_row(i, finding)
 
         # Buttons
@@ -120,64 +425,59 @@ class ValidationReviewDialog(tk.Toplevel):
         """Handle mouse wheel scrolling for the canvas."""
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
 
-    def _create_item_row(self, index, finding):
-        frame = ttk.LabelFrame(
-            self.scrollable_frame, text=f"Issue #{index+1}: {finding.get('error_type', 'Unknown')}")
-        frame.pack(fill=tk.X, expand=True, padx=5, pady=5)
+    def _create_item_row(self, index, prepared):
+        frame = ttk.Frame(self.scrollable_frame)
+        frame.pack(fill=tk.X, expand=True, padx=5, pady=2)
+        frame.columnconfigure(5, weight=1)
 
-        # Grid layout for the row
-        frame.columnconfigure(1, weight=1)
-
-        # Original
-        ttk.Label(frame, text="Original:", font=("", 10, "bold")).grid(
-            row=0, column=0, sticky="nw", padx=5, pady=2)
-        ttk.Label(frame, text=f"\"{finding.get('original_text', '')}\"", wraplength=800).grid(
-            row=0, column=1, sticky="w", padx=5, pady=2)
-
-        # Reasoning
-        ttk.Label(frame, text="Reasoning:", font=("", 10, "bold")).grid(
-            row=1, column=0, sticky="nw", padx=5, pady=2)
-        ttk.Label(frame, text=finding.get('reasoning', ''), wraplength=800).grid(
-            row=1, column=1, sticky="w", padx=5, pady=2)
-
-        # Correction (Editable)
-        ttk.Label(frame, text="Correction:", font=("", 10, "bold")).grid(
-            row=2, column=0, sticky="nw", padx=5, pady=2)
-
-        correction_var = tk.StringVar(
-            value=finding.get('suggested_correction', ''))
-        entry = ttk.Entry(frame, textvariable=correction_var, width=80)
-        entry.grid(row=2, column=1, sticky="w", padx=5, pady=2)
-
-        # Checkbox
         apply_var = tk.BooleanVar(value=True)
-        chk = ttk.Checkbutton(
-            frame, text="Apply this correction", variable=apply_var)
-        chk.grid(row=3, column=0, columnspan=2, sticky="w", padx=5, pady=5)
+        ttk.Checkbutton(frame, variable=apply_var).grid(
+            row=0, column=0, sticky="w", padx=(0, 8)
+        )
+        ttk.Label(
+            frame,
+            text=f"{index + 1}. {prepared.get('error_type', 'unknown')}",
+            width=14,
+        ).grid(row=0, column=1, sticky="w", padx=(0, 8))
+        ttk.Label(
+            frame,
+            text=prepared.get("display_original", ""),
+            width=16,
+        ).grid(row=0, column=2, sticky="w", padx=(0, 8))
+        ttk.Label(frame, text=">>>").grid(row=0, column=3, sticky="w", padx=(0, 8))
+
+        correction_var = tk.StringVar(value=prepared.get("display_suggested", ""))
+        ttk.Entry(frame, textvariable=correction_var, width=24).grid(
+            row=0, column=4, sticky="w"
+        )
+        ttk.Label(
+            frame,
+            text=prepared.get("context_phrase", ""),
+            wraplength=380,
+        ).grid(
+            row=0,
+            column=5,
+            sticky="w",
+            padx=(8, 0),
+        )
 
         self.item_vars.append({
             'apply': apply_var,
             'correction': correction_var,
-            'original_finding': finding
+            'display_original': prepared.get("display_original", ""),
+            'original_finding': prepared,
         })
 
     def on_apply(self, finalize=False):
-        final_corrections = []
-        for item in self.item_vars:
-            if item['apply'].get():
-                # Create a correction object based on the edited text
-                correction = item['original_finding'].copy()
-                correction['suggested_correction'] = item['correction'].get()
-                final_corrections.append(correction)
-
-        self.apply_callback(final_corrections, finalize)
+        actions = _collect_validation_review_actions(self.item_vars)
+        self.apply_callback(*actions, finalize)
         self.destroy()
 
 
 class TranscriptProcessorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Transcript Processor")
+        self.root.title(f"Transcript Processor [{_current_git_revision()} {INIT_VAL_FILTER_VERSION}]")
         self.root.geometry("900x950")
 
         self.selected_file = None
@@ -187,7 +487,14 @@ class TranscriptProcessorGUI:
 
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
-        self.include_init_val_do_all = tk.BooleanVar(value=False)
+        self.make_dir_default_var = tk.BooleanVar(value=False)
+        self.include_emphasis_core = tk.BooleanVar(value=True)
+        self.include_bowen_core = tk.BooleanVar(value=True)
+        self.selected_file_label_var = tk.StringVar(value="No file selected.")
+
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.8
+        self.stage_vars = {key: tk.BooleanVar(value=False) for key, _ in STAGE_DEFINITIONS}
+        self.active_selection_var = tk.StringVar(value="(none)")
 
         # ADDED: StringVars for model selection
         self.model_vars = {
@@ -195,10 +502,20 @@ class TranscriptProcessorGUI:
             "AUX_MODEL": tk.StringVar(value=config.settings.AUX_MODEL),
             "FORMATTING_MODEL": tk.StringVar(value=config.settings.FORMATTING_MODEL),
         }
+        self.terms_file_var = tk.StringVar()
 
         self.setup_ui()
         self.update_dir_label()
+        self.update_terms_file_label()
         self.refresh_file_list()
+        self.update_button_states()
+        self._apply_default_stage_selection()
+        self.log(
+            "GUI started: commit=%s filter=%s default_terms=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+        )
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -207,49 +524,29 @@ class TranscriptProcessorGUI:
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(0, weight=1)
         
-        # Configure row weights for resizing
-        # Row 1 (File List): Expand slightly (weight 1)
-        main_frame.rowconfigure(1, weight=1)
-        # Row 4 (Log): Expand significantly (weight 3)
-        main_frame.rowconfigure(4, weight=3)
-        # Other rows (0, 2, 3, 5, 6, 7) have default weight 0 (fixed height)
+        # Only the PanedWindow row grows with the window
+        main_frame.rowconfigure(2, weight=1)
 
-        # Directory selection
+        # Row 0: Directory selection
         dir_frame = ttk.Frame(main_frame)
         dir_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        self.dir_label = ttk.Label(dir_frame, text="Transcripts Directory: ")
+        self.dir_label = ttk.Label(dir_frame, text="Source Directory: ")
         self.dir_label.pack(side=tk.LEFT, padx=(0, 10))
         dir_btn = ttk.Button(dir_frame, text="Set Directory",
                              command=self.select_transcripts_directory)
         dir_btn.pack(side=tk.LEFT)
+        self.make_default_chk = ttk.Checkbutton(
+            dir_frame, text="Make Default", variable=self.make_dir_default_var
+        )
+        self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Button(dir_frame, text="Folder Defaults...", command=self.open_folder_defaults_dialog).pack(
+            side=tk.LEFT, padx=(10, 0)
+        )
 
-        # File selection
-        file_frame = ttk.LabelFrame(
-            main_frame, text="Select Source File", padding="10")
-        file_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        file_frame.columnconfigure(0, weight=1)
-
-        list_frame = ttk.Frame(file_frame)
-        list_frame.grid(row=0, column=0, columnspan=2,
-                        sticky=(tk.W, tk.E, tk.N, tk.S))
-        list_frame.columnconfigure(0, weight=1)
-        scrollbar = ttk.Scrollbar(list_frame)
-        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.file_listbox = tk.Listbox(
-            list_frame, height=6, yscrollcommand=scrollbar.set)
-        self.file_listbox.grid(
-            row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        scrollbar.config(command=self.file_listbox.yview)
-        self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
-
-        refresh_btn = ttk.Button(
-            file_frame, text="Refresh List", command=self.refresh_file_list)
-        refresh_btn.grid(row=1, column=0, pady=(5, 0), sticky=tk.W)
-
-        # Model Selection Frame - ADDED
+        # Row 1: Model Selection (fixed height, above the resizable panes)
         model_selection_frame = ttk.LabelFrame(main_frame, text="Model Selection", padding="10")
-        model_selection_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        model_selection_frame.columnconfigure(1, weight=1) # Give the combobox column weight
+        model_selection_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        model_selection_frame.columnconfigure(1, weight=1)
 
         all_model_names = config.settings.get_all_model_names()
 
@@ -294,122 +591,154 @@ class TranscriptProcessorGUI:
         ttk.Radiobutton(val_frame, text="V2 (Chunked/Safe)", variable=self.validation_mode_var, value="v2").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(val_frame, text="V1 (Legacy)", variable=self.validation_mode_var, value="v1").pack(side=tk.LEFT, padx=5)
 
+        terms_frame = ttk.Frame(model_selection_frame)
+        terms_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
+        terms_frame.columnconfigure(1, weight=1)
+        ttk.Label(terms_frame, text="Terms File:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(terms_frame, textvariable=self.terms_file_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
+        ttk.Button(terms_frame, text="Choose...", command=self.select_validation_terms_file).grid(
+            row=0, column=2, sticky=tk.E, padx=(8, 4)
+        )
+        ttk.Button(terms_frame, text="Default", command=self.reset_validation_terms_file).grid(
+            row=0, column=3, sticky=tk.E
+        )
 
-        # Status and Log
-        # Shifted row for these frames
-        status_frame = ttk.LabelFrame(
-            main_frame, text="File Status", padding="10")
-        status_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 2 to 3
+        # Row 2: PanedWindow — all three text panes are drag-resizable
+        paned = ttk.PanedWindow(main_frame, orient=tk.VERTICAL)
+        paned.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+
+        # Pane 1: Source File List
+        file_outer_frame = ttk.LabelFrame(paned, text="Select Source File", padding="10")
+        file_outer_frame.rowconfigure(1, weight=1)
+        file_outer_frame.columnconfigure(0, weight=1)
+        paned.add(file_outer_frame, weight=1)
+
+        file_header = ttk.Frame(file_outer_frame)
+        file_header.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        file_header.columnconfigure(0, weight=1)
+
+        refresh_btn = ttk.Button(file_header, text="Refresh List", command=self.refresh_file_list)
+        refresh_btn.pack(side=tk.RIGHT, anchor=tk.NE)
+
+        list_frame = ttk.Frame(file_outer_frame)
+        list_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.rowconfigure(0, weight=1)
+        list_frame.columnconfigure(0, weight=1)
+
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.file_listbox = tk.Listbox(list_frame, height=6, yscrollcommand=scrollbar.set)
+        self.file_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        scrollbar.config(command=self.file_listbox.yview)
+        self.file_listbox.bind('<<ListboxSelect>>', self.on_file_select)
+
+        # Pane 2: File Status
+        status_frame = ttk.LabelFrame(paned, text="File Status", padding="10")
         status_frame.columnconfigure(0, weight=1)
-        self.status_text = tk.Text(
-            status_frame, height=10, wrap=tk.WORD, font=('Courier', 10))
-        self.status_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        status_frame.rowconfigure(1, weight=1)
+        paned.add(status_frame, weight=1)
 
-        log_frame = ttk.LabelFrame(
-            main_frame, text="Processing Log", padding="10")
-        log_frame.grid(row=4, column=0, sticky=(
-            tk.W, tk.E, tk.N, tk.S), pady=(0, 10)) # MODIFIED row from 3 to 4
+        status_top_frame = ttk.Frame(status_frame)
+        status_top_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        status_top_frame.columnconfigure(0, weight=1)
+
+        self.selected_file_status_label = ttk.Label(status_top_frame, textvariable=self.selected_file_label_var, font=('sans', 10, 'bold'))
+        self.selected_file_status_label.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+
+        status_refresh_btn = ttk.Button(status_top_frame, text="Refresh", command=self.check_file_status)
+        status_refresh_btn.grid(row=0, column=1, sticky=tk.NE)
+
+        self.status_text = tk.Text(status_frame, height=8, wrap=tk.WORD, font=('Courier', 10))
+        self.status_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Pane 3: Processing Log
+        log_frame = ttk.LabelFrame(paned, text="Processing Log", padding="10")
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
-        self.log_text = scrolledtext.ScrolledText(
-            log_frame, wrap=tk.WORD, font=('Courier', 9))
+        paned.add(log_frame, weight=2)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, font=('Courier', 9))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+        # Row 3: Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10)) # MODIFIED row from 4 to 5
+        self.progress.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
-        # Action Buttons
+        # Row 4: Stage Selection Checkboxes
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.7
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E)) # MODIFIED row from 5 to 6
+        button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E))
 
-        # Row 1 (buttons remain in button_frame)
-        self.init_val_btn = ttk.Button(
-            button_frame, text="0. Init Val", command=self.do_initial_validation, state=tk.DISABLED)
-        self.init_val_btn.grid(row=0, column=0, padx=(0, 5), pady=2)
+        STAGE_COLUMNS = 5
+        self.stage_checkbuttons = {}
+        for idx, (key, label) in enumerate(STAGE_DEFINITIONS):
+            row, col = divmod(idx, STAGE_COLUMNS)
+            chk = ttk.Checkbutton(button_frame, text=label, variable=self.stage_vars[key])
+            chk.grid(row=row, column=col, padx=(0, 5), pady=2, sticky=tk.W)
+            self.stage_checkbuttons[key] = chk
 
-        self.format_btn = ttk.Button(
-            button_frame, text="1. Format", command=self.do_format_validate, state=tk.DISABLED)
-        self.format_btn.grid(row=0, column=1, padx=(0, 5), pady=2)
+        modifier_row = (len(STAGE_DEFINITIONS) - 1) // STAGE_COLUMNS + 1
 
-        self.headers_btn = ttk.Button(
-            button_frame, text="2. Val Headers", command=self.do_validate_headers, state=tk.DISABLED)
-        self.headers_btn.grid(row=0, column=2, padx=(0, 5), pady=2)
+        self.core_emphasis_chk = ttk.Checkbutton(
+            button_frame,
+            text="Include Emphasis in Core",
+            variable=self.include_emphasis_core,
+        )
+        self.core_emphasis_chk.grid(row=modifier_row, column=0, padx=(0, 5), pady=2, sticky=tk.W)
 
-        self.yaml_btn = ttk.Button(
-            button_frame, text="3. YAML", command=self.do_add_yaml, state=tk.DISABLED)
-        self.yaml_btn.grid(row=0, column=3, padx=(0, 5), pady=2)
+        self.core_bowen_chk = ttk.Checkbutton(
+            button_frame,
+            text="Include Bowen in Core",
+            variable=self.include_bowen_core,
+        )
+        self.core_bowen_chk.grid(row=modifier_row, column=1, padx=(0, 5), pady=2, sticky=tk.W)
 
-        self.summary_btn = ttk.Button(
-            button_frame, text="4. Core (ST/IT/T/KT/L/BR/EM)", command=self.do_summaries, state=tk.DISABLED)
-        self.summary_btn.grid(row=0, column=4, padx=(0, 5), pady=2)
-
+        # Utility buttons row
+        utility_row = modifier_row + 1
         self.cost_btn = ttk.Button(
             button_frame, text="Est. Cost", command=self.do_estimate_cost, state=tk.DISABLED)
-        self.cost_btn.grid(row=0, column=5, padx=(0, 5), pady=2)
-
-        # Row 2
-        self.gen_abstract_btn = ttk.Button(
-            button_frame, text="5. Gen Abstract", command=self.do_generate_structured_abstract, state=tk.DISABLED)
-        self.gen_abstract_btn.grid(row=1, column=2, padx=(0, 5), pady=2)
-
-        self.abstracts_btn = ttk.Button(
-            button_frame, text="6. Val Abstract", command=self.do_validate_abstracts, state=tk.DISABLED)
-        self.abstracts_btn.grid(row=1, column=3, padx=(0, 5), pady=2)
+        self.cost_btn.grid(row=utility_row, column=0, padx=(0, 5), pady=2)
 
         self.config_btn = ttk.Button(
             button_frame, text="Config Check", command=self.do_config_check)
-        self.config_btn.grid(row=1, column=4, padx=(0, 5), pady=2)
-
-        # Row 3
-        self.blog_btn = ttk.Button(
-            button_frame, text="7. Blog (Lens #1)", command=self.do_generate_blog, state=tk.DISABLED)
-        self.blog_btn.grid(row=2, column=0, padx=(0, 5), pady=2)
-
-        self.webpdf_btn = ttk.Button(
-            button_frame, text="8. Full Web/PDF", command=self.do_generate_web_pdf, state=tk.DISABLED)
-        self.webpdf_btn.grid(row=2, column=1, padx=(0, 5), pady=2)
-
-        self.emphasis_btn = ttk.Button(
-            button_frame, text="Emphasis", command=self.do_extract_emphasis, state=tk.DISABLED)
-        self.emphasis_btn.grid(row=2, column=2, padx=(0, 5), pady=2)
-
-        self.package_btn = ttk.Button(
-            button_frame, text="Package", command=self.do_package, state=tk.DISABLED)
-        self.package_btn.grid(row=2, column=3, padx=(0, 5), pady=2)
+        self.config_btn.grid(row=utility_row, column=1, padx=(0, 5), pady=2)
 
         self.clean_logs_btn = ttk.Button(
             button_frame, text="Clean Logs...", command=self.do_clean_logs)
-        self.clean_logs_btn.grid(row=2, column=4, padx=(0, 5), pady=2)
+        self.clean_logs_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=2, column=5, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
 
-        self.do_all_btn = ttk.Button(
-            button_frame, text="▶ DO ALL STEPS", command=self.do_all_steps, state=tk.DISABLED)
-        self.do_all_btn.grid(row=0, column=6, rowspan=3,
-                             padx=(10, 5), sticky=(tk.N, tk.S))
-
-        self.do_all_init_val_chk = ttk.Checkbutton(
-            button_frame,
-            text="Init Val in Do All (Auto)",
-            variable=self.include_init_val_do_all
-        )
-        self.do_all_init_val_chk.grid(row=3, column=6, padx=(10, 5), pady=2, sticky=tk.W)
-
-        # Row 3 (Maintenance)
         self.cleanup_btn = ttk.Button(
             button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
-        self.cleanup_btn.grid(row=3, column=0, padx=(0, 5), pady=2)
+        self.cleanup_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
+
+        # Row 5: Run Selected / Manage Selections
+        # Spec: docs/spec_stage_selection_2026-07-12.md#SS.9
+        run_frame = ttk.Frame(main_frame)
+        run_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(8, 0))
+
+        self.run_selected_btn = ttk.Button(
+            run_frame, text="▶ Run Selected", command=self.do_run_selected, state=tk.DISABLED)
+        self.run_selected_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.manage_selections_btn = ttk.Button(
+            run_frame, text="Manage Selections...", command=self.open_selection_manager_dialog)
+        self.manage_selections_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        ttk.Label(run_frame, text="Active selection:").pack(side=tk.LEFT, padx=(10, 5))
+        ttk.Label(run_frame, textvariable=self.active_selection_var).pack(side=tk.LEFT)
 
         self.status_label = ttk.Label(
             main_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.W) # MODIFIED row from 7 to 8
+        self.status_label.grid(row=6, column=0, pady=(5, 0), sticky=tk.W)
 
         # Memory Usage Label
         self.memory_label = ttk.Label(
             main_frame, text="Mem: -- MB", foreground="gray")
-        self.memory_label.grid(row=7, column=0, pady=(5, 0), sticky=tk.E)
+        self.memory_label.grid(row=6, column=0, pady=(5, 0), sticky=tk.E)
 
         # Start memory monitoring
         self.monitor_memory()
@@ -489,18 +818,161 @@ class TranscriptProcessorGUI:
 
     def select_transcripts_directory(self):
         dir_path = filedialog.askdirectory(
-            title="Select Transcripts Directory")
+            title="Select Directory Containing Source Files")
         if dir_path:
-            config.set_transcripts_base(dir_path)
+            # Set the directory for the current session
+            config.set_source_dir_and_infer_base(dir_path)
+
+            # Save or clear the default based on the checkbox
+            if self.make_dir_default_var.get():
+                config.set_default_source_dir(dir_path)
+                self.log(f"✅ Saved {dir_path} as new default source directory.")
+            else:
+                # If the user is intentionally changing directories without making it default,
+                # clear any old default that might be hanging around.
+                config.set_default_source_dir(None)
+
+            # Update UI
             self.update_dir_label()
+            self.update_terms_file_label()
             self.refresh_file_list()
+            self.log(
+                "Switched source directory to %s; Base path inferred as %s. Reset validation terms file.",
+                config.SOURCE_DIR,
+                config.TRANSCRIPTS_BASE,
+            )
 
     def update_dir_label(self):
         self.dir_label.config(
-            text=f"Transcripts Directory: {config.TRANSCRIPTS_BASE}")
+            text=f"Source Directory: {config.SOURCE_DIR}")
+
+    def open_folder_defaults_dialog(self):
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Folder Defaults")
+        dlg.resizable(True, False)
+        dlg.grab_set()
+
+        path_labels = {}
+
+        def dir_label(key):
+            val = {"source": config.SOURCE_DIR, "processed": config.PROCESSED_DIR, "projects": config.PROJECTS_DIR}[key]
+            rt_key = {"source": "default_source_dir", "processed": "default_processed_dir", "projects": "default_projects_dir"}[key]
+            suffix = " (saved)" if config.settings.runtime_settings.get(rt_key) else " (derived)"
+            return str(val) + suffix
+
+        def terms_label():
+            saved = config.settings.runtime_settings.get("validation_approved_terms_path")
+            suffix = " (saved)" if saved else " (default)"
+            return str(config.VALIDATION_APPROVED_TERMS_PATH) + suffix
+
+        def refresh_labels():
+            for key, lbl in path_labels.items():
+                lbl.config(text=terms_label() if key == "terms" else dir_label(key))
+
+        def browse(key):
+            if key == "terms":
+                chosen = filedialog.askopenfilename(
+                    title="Select Approved Terms File",
+                    initialdir=str(config.TRANSCRIPTS_BASE),
+                    filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+                    parent=dlg,
+                )
+                if not chosen:
+                    return
+                config.set_validation_approved_terms_path(chosen)
+                self.update_terms_file_label()
+            else:
+                initial = {"source": config.SOURCE_DIR, "processed": config.PROCESSED_DIR, "projects": config.PROJECTS_DIR}[key]
+                chosen = filedialog.askdirectory(
+                    title=f"Select {key.title()} Folder",
+                    initialdir=str(initial),
+                    parent=dlg,
+                )
+                if not chosen:
+                    return
+                if key == "source":
+                    config.set_source_dir_and_infer_base(chosen)
+                    config.set_default_source_dir(chosen)
+                    self.update_dir_label()
+                    self.update_terms_file_label()
+                    self.refresh_file_list()
+                elif key == "processed":
+                    config.set_default_processed_dir(chosen)
+                elif key == "projects":
+                    config.set_default_projects_dir(chosen)
+            refresh_labels()
+            self.log("Set default %s to: %s", key, chosen)
+
+        def reset(key):
+            if key == "terms":
+                config.set_validation_approved_terms_path(None)
+                self.update_terms_file_label()
+            elif key == "source":
+                config.set_default_source_dir(None)
+            elif key == "processed":
+                config.set_default_processed_dir(None)
+            elif key == "projects":
+                config.set_default_projects_dir(None)
+            refresh_labels()
+            self.log("Reset %s to default.", key)
+
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        dlg.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+
+        rows = [
+            ("Source Directory", "source"),
+            ("Processed Directory", "processed"),
+            ("Projects Directory", "projects"),
+            ("Approved Terms File", "terms"),
+        ]
+        for row_idx, (label_text, key) in enumerate(rows):
+            ttk.Label(frame, text=label_text + ":").grid(
+                row=row_idx, column=0, sticky=tk.W, padx=(0, 8), pady=4
+            )
+            text = terms_label() if key == "terms" else dir_label(key)
+            path_lbl = ttk.Label(frame, text=text, foreground="gray", wraplength=380, anchor=tk.W)
+            path_lbl.grid(row=row_idx, column=1, sticky=(tk.W, tk.E), pady=4)
+            path_labels[key] = path_lbl
+            ttk.Button(frame, text="Browse...", command=lambda k=key: browse(k)).grid(
+                row=row_idx, column=2, padx=(8, 4), pady=4
+            )
+            ttk.Button(frame, text="Reset", command=lambda k=key: reset(k)).grid(
+                row=row_idx, column=3, pady=4
+            )
+
+        ttk.Button(frame, text="Close", command=dlg.destroy).grid(
+            row=len(rows), column=0, columnspan=4, pady=(12, 0)
+        )
+
+    def update_terms_file_label(self):
+        active_path = Path(config.VALIDATION_APPROVED_TERMS_PATH)
+        if active_path == config.TRANSCRIPTS_BASE / config.VALIDATION_APPROVED_TERMS_FILENAME:
+            display = f"{active_path.name} (default)"
+        else:
+            display = active_path.name
+        self.terms_file_var.set(display)
+
+    def select_validation_terms_file(self):
+        file_path = filedialog.askopenfilename(
+            title="Select Validation Terms File",
+            initialdir=config.TRANSCRIPTS_BASE,
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+        )
+        if file_path:
+            config.set_validation_approved_terms_path(file_path)
+            self.update_terms_file_label()
+            self.log("Using validation terms file: %s", config.VALIDATION_APPROVED_TERMS_PATH)
+
+    def reset_validation_terms_file(self):
+        config.set_validation_approved_terms_path(None)
+        self.update_terms_file_label()
+        self.log("Reset validation terms file to default: %s", config.VALIDATION_APPROVED_TERMS_PATH)
 
     def refresh_file_list(self):
         self.file_listbox.delete(0, tk.END)
+        self.selected_file_label_var.set("No file selected.")
         if not config.SOURCE_DIR.exists():
             self.log("⚠️  Source directory not found: %s\n", config.SOURCE_DIR)
             return
@@ -513,12 +985,28 @@ class TranscriptProcessorGUI:
             self.file_listbox.insert(
                 tk.END, f"{file.name} ({file.stat().st_size/1024:.1f} KB)")
         self.log("Found %d source file(s)\n", len(files))
+        self.check_file_status()
 
     def on_file_select(self, event):
         selection = self.file_listbox.curselection()
         if not selection:
+            self.selected_file_label_var.set("No file selected.")
             return
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
+        self.selected_file_label_var.set(f"Status for: {filename}")
+
+        try:
+            parse_filename_metadata(filename)
+            self.log(f"✅ Filename format is valid for '{filename}'")
+        except ValueError as e:
+            self.log(f"❌ Invalid filename format: {e}")
+            messagebox.showerror("Invalid Filename", f"The selected file has an invalid name:\n\n{filename}\n\nIt must follow the pattern 'Title - Presenter - Date.ext'.\n\nPlease rename the file and refresh the list.")
+            self.selected_file = None
+            self.base_name = None
+            self.update_button_states()
+            self.status_text.delete(1.0, tk.END)
+            return
+
         self.selected_file = config.SOURCE_DIR / filename
 
         # Get base name using centralized cleaning logic
@@ -571,6 +1059,7 @@ class TranscriptProcessorGUI:
             ("Abstracts Val", project_dir /
              f"{base}{config.SUFFIX_ABSTRACT_VAL}"),
             ("Blog", project_dir / f"{base}{config.SUFFIX_BLOG}"),
+            ("Overview", project_dir / f"{base}{config.SUFFIX_OVERVIEW}"),
             ("Webpage", project_dir /
              f"{base}{config.SUFFIX_WEBPAGE}"),
             ("Simple Web", project_dir /
@@ -643,6 +1132,14 @@ class TranscriptProcessorGUI:
         name = task_name if task_name else task_function.__name__
         try:
             success = task_function(*args, **kwargs)
+            
+            # If the task is waiting for a user dialog, don't log completion.
+            if success == "WAITING_FOR_USER":
+                self.processing = False
+                self.progress.stop()
+                self.root.after(0, self.update_button_states)
+                return
+
             if success:
                 self.set_status("Task completed successfully.", "green")
                 self.log("✅ %s completed successfully.", name)
@@ -662,7 +1159,29 @@ class TranscriptProcessorGUI:
         """Run the initial validation step on the selected transcript."""
         if not self.selected_file:
             return
+        existing_versions = _find_existing_validation_versions(self.selected_file)
+        if existing_versions:
+            version_names = ", ".join(path.name for path in existing_versions[:5])
+            if len(existing_versions) > 5:
+                version_names += ", ..."
+            messagebox.showwarning(
+                "Existing Validation Versions",
+                "Move or delete the existing Init Val versions and restart from the base file.\n\n"
+                f"Found: {version_names}",
+            )
+            self.log(
+                "⚠️ Existing Init Val versions found for %s. Move or delete them and restart.",
+                self.selected_file.name,
+            )
+            return
         self.log("STEP 0: Initial Transcript Validation...")
+        self.log(
+            "Init Val runtime: commit=%s filter=%s terms=%s source=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+            self.selected_file,
+        )
         self.run_task_in_thread(self._run_initial_validation)
 
     def _run_initial_validation(self):
@@ -707,7 +1226,7 @@ class TranscriptProcessorGUI:
                 self.log("✅ No issues found.")
                 self.root.after(
                     0, lambda: self._prompt_finalize_no_issues(file_to_validate))
-                return True
+                return "WAITING_FOR_USER"
 
             self.log("⚠️ Found %d issues.", len(findings))
 
@@ -715,7 +1234,7 @@ class TranscriptProcessorGUI:
             self.log("Waiting for user review in popup dialog...")
             self.root.after(0, lambda: self.show_validation_dialog(
                 findings, file_to_validate))
-            return True
+            return "WAITING_FOR_USER"
 
         except Exception as e:
             self.log("❌ Validation failed: %s", e)
@@ -726,24 +1245,43 @@ class TranscriptProcessorGUI:
     def _prompt_finalize_no_issues(self, source_file):
         if messagebox.askyesno("Validation Complete", "No issues found. Create final validated copy?"):
             self.run_task_in_thread(
-                self._apply_validation_corrections, [], source_file, True)
+                self._apply_validation_corrections, [], [], [], [], source_file, True)
 
     def show_validation_dialog(self, findings, source_file):
-        ValidationReviewDialog(self.root, findings,
-                               lambda corrections, finalize: self._handle_validation_apply(corrections, source_file, finalize))
+        prepared_findings, omitted_count = _prepare_review_findings(findings)
 
-    def _handle_validation_apply(self, corrections, source_file, finalize):
-        if not corrections and not finalize:
+        if findings and not prepared_findings:
+            self.log(
+                "Found %d issues, but all were filtered as non-lexical suggestions.", len(
+                    findings)
+            )
+            messagebox.showinfo(
+                "Validation Notice",
+                f"Initial Validation found {len(findings)} potential issues, but all were broad, "
+                "sentence-level suggestions not suitable for simple dictionary correction.\n\n"
+                "No manual review is needed for these items."
+            )
+            self._prompt_finalize_no_issues(source_file)
+        else:
+            ValidationReviewDialog(self.root, findings,
+                                   lambda corrections, rejected, approved_terms, aliases, finalize: self._handle_validation_apply(corrections, rejected, approved_terms, aliases, source_file, finalize))
+
+    def _handle_validation_apply(self, corrections, rejected_findings, approved_terms, aliases, source_file, finalize):
+        if not corrections and not rejected_findings and not approved_terms and not aliases and not finalize:
             self.log("No corrections selected.")
             return
 
-        msg = f"Applying {len(corrections)} corrections..." if corrections else "Finalizing file..."
+        msg = (
+            f"Applying {len(corrections)} corrections..."
+            if corrections
+            else "Finalizing file..."
+        )
         self.log(msg)
 
         self.run_task_in_thread(
-            self._apply_validation_corrections, corrections, source_file, finalize)
+            self._apply_validation_corrections, corrections, rejected_findings, approved_terms, aliases, source_file, finalize)
 
-    def _apply_validation_corrections(self, corrections, source_file, finalize):
+    def _apply_validation_corrections(self, corrections, rejected_findings, approved_terms, aliases, source_file, finalize):
         # Determine output filename logic (v1, v2...)
         stem = source_file.stem
 
@@ -767,7 +1305,33 @@ class TranscriptProcessorGUI:
         output_path = source_file.parent / new_filename
         api_key = os.getenv("ANTHROPIC_API_KEY")
         mode = self.validation_mode_var.get()
-        
+
+        if rejected_findings:
+            promoted = record_validation_rejections(
+                rejected_findings, logger=self.logger
+            )
+            self.log(
+                "Recorded %d rejected finding(s) to validation memory%s.",
+                len(rejected_findings),
+                f"; promoted {promoted} blocked pair(s)" if promoted else "",
+            )
+
+        if approved_terms:
+            added = append_approved_terms(approved_terms)
+            self.log(
+                "Added %d approved term(s)/phrase(s) to %s.",
+                added,
+                config.VALIDATION_APPROVED_TERMS_FILENAME,
+            )
+
+        if aliases:
+            added_aliases = append_validation_aliases(aliases)
+            self.log(
+                "Added %d deterministic alias(es) to %s.",
+                added_aliases,
+                config.VALIDATION_APPROVED_TERMS_FILENAME,
+            )
+
         self.log("🛠️ Writing to -> %s", new_filename)
 
         if not corrections and finalize:
@@ -855,6 +1419,56 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(
             pipeline.add_yaml, self.formatted_file.name, "mp4", self.logger) # No model parameter here
 
+    def _resolve_individual_extraction_input(self):
+        """Resolve the best available input for standalone quote extraction."""
+        if not self.selected_file or not self.base_name:
+            return None, None
+
+        yaml_file = config.PROJECTS_DIR / self.base_name / f"{self.base_name}{config.SUFFIX_YAML}"
+        if yaml_file.exists():
+            return yaml_file.name, "YAML transcript"
+
+        formatted_file = config.PROJECTS_DIR / self.base_name / f"{self.base_name}{config.SUFFIX_FORMATTED}"
+        if formatted_file.exists():
+            return formatted_file.name, "formatted transcript"
+
+        if self.selected_file.exists():
+            return str(self.selected_file), "selected source text file"
+
+        return None, None
+
+    def _get_bool_var(self, attr_name, default=False):
+        """Safely read a Tk boolean variable, tolerating headless test instances."""
+        value = getattr(self, attr_name, None)
+        if value is None:
+            return default
+        if hasattr(value, "get"):
+            return bool(value.get())
+        return bool(value)
+
+    def do_extract_bowen_emphasis(self):
+        """Extract Bowen references and scored emphasis together."""
+        if not self.base_name:
+            return
+
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
+
+        self.log(
+            "STEP: Extracting Bowen References + Scored Emphasis from %s...",
+            source_label,
+        )
+        self.run_task_in_thread(
+            pipeline.extract_bowen_and_emphasis,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Bowen + Emphasis Extraction",
+        )
+
     def do_summaries(self):
         """Run core extraction: abstract, structural/interpretive themes, topics, terms, lenses."""
         yaml_file = (config.PROJECTS_DIR / self.base_name /
@@ -871,7 +1485,18 @@ class TranscriptProcessorGUI:
                 messagebox.showwarning(
                     "Not Ready", "Please format and add YAML first.")
                 return
-        self.log("STEP 4: Core extraction (Abstract + ST/IT/Topics/Terms/Lenses)...")
+        extras = []
+        include_bowen = self._get_bool_var("include_bowen_core", default=True)
+        include_emphasis = self._get_bool_var("include_emphasis_core", default=True)
+        if include_bowen:
+            extras.append("Bowen")
+        if include_emphasis:
+            extras.append("Emphasis")
+        extras_text = f" + {'/'.join(extras)}" if extras else ""
+        self.log(
+            "STEP 4: Core extraction (Abstract + ST/IT/Topics/Terms/Lenses%s)...",
+            extras_text,
+        )
         self.run_task_in_thread(
             pipeline.summarize_transcript,
             f"{self.base_name}{config.SUFFIX_YAML}",
@@ -879,7 +1504,8 @@ class TranscriptProcessorGUI:
             "Family Systems",
             "General public",
             False,  # skip_extracts_summary
-            False,  # skip_emphasis
+            not include_emphasis,
+            not include_bowen,
             True,   # skip_blog
             logger=self.logger,
             task_name="Core Extraction",
@@ -898,9 +1524,35 @@ class TranscriptProcessorGUI:
             "General public",
             True,   # skip_extracts_summary
             True,   # skip_emphasis
+            True,   # skip_bowen
             False,  # skip_blog
             logger=self.logger,
             task_name="Blog Post (Top Lens)",
+        )
+
+    def do_generate_overview(self):
+        """Generate a GEO-optimized overview post from upstream artifacts.
+
+        Purpose: Trigger summarize_transcript with skip_overview=False only.
+        Spec:    docs/implementation_plan_2026-05-13.md#OV.7
+        Tests:   tests/test_overview_post.py
+        """
+        if not self.base_name:
+            return
+        self.log("STEP 7b: Generating Overview Post (GEO)...")
+        self.run_task_in_thread(
+            pipeline.summarize_transcript,
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            True,   # skip_blog
+            False,  # skip_overview
+            logger=self.logger,
+            task_name="Overview Post (GEO)",
         )
 
     def do_estimate_cost(self):
@@ -941,18 +1593,40 @@ class TranscriptProcessorGUI:
         if not self.base_name:
             return
 
-        # Determine input file (prefer YAML version)
-        input_file = f"{self.base_name}{config.SUFFIX_YAML}"
-        if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
-            input_file = f"{self.base_name}{config.SUFFIX_FORMATTED}"
-            if not (config.PROJECTS_DIR / self.base_name / input_file).exists():
-                messagebox.showwarning(
-                    "Not Ready", "Please format the transcript first.")
-                return
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
 
-        self.log("STEP: Extracting Scored Emphasis...")
+        self.log("STEP: Extracting Scored Emphasis from %s...", source_label)
         self.run_task_in_thread(
-            pipeline.extract_scored_emphasis, input_file, config.settings.DEFAULT_MODEL, self.logger) # MODIFIED
+            pipeline.extract_scored_emphasis,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Emphasis Extraction",
+        )
+
+    def do_extract_bowen(self):
+        """Extract Bowen references from the transcript."""
+        if not self.base_name:
+            return
+
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            messagebox.showwarning(
+                "Not Ready", "Please select a transcript file first.")
+            return
+
+        self.log("STEP: Extracting Bowen References from %s...", source_label)
+        self.run_task_in_thread(
+            pipeline.extract_bowen_references_from_transcript,
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+            task_name="Bowen Extraction",
+        )
 
     def do_generate_structured_abstract(self):
         """Generate a structured abstract from the transcript."""
@@ -960,7 +1634,7 @@ class TranscriptProcessorGUI:
             return
         self.log("STEP 5: Generating Structured Abstract...")
         self.run_task_in_thread(
-            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL)  # Use Sonnet for abstracts
+            pipeline.generate_structured_abstract, self.base_name, self.logger, model=config.settings.AUX_MODEL)
 
     def do_validate_abstracts(self):
         """Validate the generated abstract for coverage."""
@@ -969,7 +1643,7 @@ class TranscriptProcessorGUI:
         self.log("STEP 6: Validating Abstracts (Coverage Check)...")
         # Using the new validation pipeline
         self.run_task_in_thread(
-            pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
+            pipeline.validate_abstract_coverage, self.base_name, self.logger, model=config.settings.DEFAULT_MODEL) # MODIFIED
 
     def do_generate_web_pdf(self):
         """Generate Webpage and PDF artifacts."""
@@ -1069,112 +1743,426 @@ class TranscriptProcessorGUI:
         """Permanently delete log files and token usage CSV."""
         return pipeline.delete_logs(logger=self.logger)
 
-    def do_all_steps(self):
-        """Run the entire processing pipeline sequentially."""
+    # ------------------------------------------------------------------
+    # Stage-selection execution (Spec: docs/spec_stage_selection_2026-07-12.md)
+    # ------------------------------------------------------------------
+
+    def _stage_artifact_path(self, artifact_suffix_attr):
+        """Resolve the on-disk path for a stage's produced artifact.
+
+        Purpose: Single shared path-builder used by both the pre-flight
+                 dependency validator and the _run_stage_* wrappers, so the
+                 validator's notion of "does this artifact exist" can never
+                 drift from where a stage actually reads/writes it.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.14
+        """
+        suffix = getattr(config, artifact_suffix_attr)
+        return config.PROJECTS_DIR / self.base_name / f"{self.base_name}{suffix}"
+
+    def _validate_stage_dependencies(self, selected_keys):
+        """Check every selected stage's prerequisite groups.
+
+        Purpose: Synchronous pre-flight check that blocks a doomed run
+                 before the confirmation dialog / background thread starts.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.14
+
+        Returns a list of (stage_label, [missing_group_description, ...])
+        for every selected stage with at least one unmet dependency group,
+        in STAGE_DEFINITIONS order. A group is satisfied if ANY pair in it
+        is satisfied (producing stage also selected, or its artifact exists
+        on disk right now); a stage is satisfied only if EVERY group is.
+        """
+        unmet = []
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            missing_descriptions = []
+            for group in STAGE_DEPENDENCIES.get(key, []):
+                group_satisfied = False
+                for producing_stage, artifact_suffix_attr in group:
+                    if producing_stage in selected_keys:
+                        group_satisfied = True
+                        break
+                    if self._stage_artifact_path(artifact_suffix_attr).exists():
+                        group_satisfied = True
+                        break
+                if not group_satisfied:
+                    labels = [
+                        f'"{ARTIFACT_LABELS.get(attr, attr)}"'
+                        for _, attr in group
+                    ]
+                    missing_descriptions.append(" or ".join(labels))
+            if missing_descriptions:
+                unmet.append((label, missing_descriptions))
+        return unmet
+
+    def _format_preflight_message(self, unmet):
+        """Build the exact SS.15 blocking message body from unmet records."""
+        lines = ["The following selected stage(s) are missing required prior output:"]
+        for stage_label, missing_descriptions in unmet:
+            joined = " and ".join(missing_descriptions)
+            lines.append(f"  • {stage_label} needs {joined} to have run first")
+        lines.append(
+            "Check the required stage(s) above, or run them in an earlier session, then retry."
+        )
+        return "\n".join(lines)
+
+    def do_run_selected(self):
+        """Guarded entry point: runs exactly the checked stages, in order.
+
+        Purpose: Data-driven replacement for the old hardcoded do_all_steps.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.10
+        """
         if not self.selected_file:
             return
         if self.processing:
             self.log("⚠️ Pipeline is already running.")
             return
 
-        run_init_val = self.include_init_val_do_all.get()
-
-        # Enforce validation unless auto Init Val is requested
-        if not run_init_val and "_validated" not in self.selected_file.name:
-            messagebox.showwarning("Validation Required",
-                                   "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.")
+        selected_keys = [key for key, _ in STAGE_DEFINITIONS if self.stage_vars[key].get()]
+        if not selected_keys:
+            messagebox.showwarning("No Stages Selected", "Please check at least one stage to run.")
             return
 
+        unmet = self._validate_stage_dependencies(selected_keys)
+        if unmet:
+            messagebox.showwarning("Missing Prerequisites", self._format_preflight_message(unmet))
+            return
+
+        if "init_val" not in selected_keys and "_validated" not in self.selected_file.name:
+            messagebox.showwarning(
+                "Validation Required",
+                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.",
+            )
+            return
+
+        selected_labels = [label for key, label in STAGE_DEFINITIONS if key in selected_keys]
         confirm_text = (
-            "This will run the entire pipeline from start to finish.\n\n"
-            "Init Val in Do All: {}\n"
-            "(If enabled, all suggested corrections are auto-applied and finalized.)\n\n"
-            "Continue?"
-        ).format("Enabled" if run_init_val else "Disabled")
+            "This will run the following selected stage(s):\n\n"
+            + "\n".join(f"  • {label}" for label in selected_labels)
+            + "\n\nContinue?"
+        )
         if not messagebox.askyesno("Confirm", confirm_text):
             return
-        self.log("▶ STARTING FULL PIPELINE EXECUTION...")
-        self.run_task_in_thread(self._run_all_steps)
 
-    def _run_all_steps(self):
+        self.log("▶ STARTING SELECTED STAGES EXECUTION...")
+        self.run_task_in_thread(self._run_selected_stages, selected_keys)
+
+    def _run_selected_stages(self, selected_keys):
+        """Run every selected stage in STAGE_DEFINITIONS order, halting on first failure.
+
+        Purpose: Data-driven replacement for the old hardcoded _run_all_steps.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.11
+        """
         start_time = datetime.now()
 
-        # Optional Step -1: Initial Validation (Auto approve/apply)
-        if self.include_init_val_do_all.get():
-            self.log("\n--- STEP -1: Initial Validation (Auto) ---")
-            if not self._run_initial_validation_auto():
-                return False
-
-        # Step 0: Cost Estimate (informational)
+        # Unconditional cost estimate first (informational, same as old _run_all_steps).
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
             self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
 
-        # Step 1: Format & Validate
-        self.log("\n--- STEP 1: Formatting ---")
-        # Use config.settings.FORMATTING_MODEL
-        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
-            return False
-        self.log("--- STEP 1a: Format Validation ---")
-        if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
-            self.log("❌ Format validation failed.")
-            return False
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            self.log("\n--- %s ---", label)
+            if not self.stage_runners[key]():
+                self.log("❌ %s failed. Halting run.", label)
+                return False
 
-        # Step 1b: Header Validation
-        self.log("\n--- STEP 1b: Header Validation ---")
-        # Use config.settings.AUX_MODEL
-        if not self._run_header_validation(): # Calls _run_header_validation, which uses AUX_MODEL
-            self.log("⚠️ Header validation failed or found issues.")
-
-        # Step 2: Add YAML
-        self.log("\n--- STEP 2: Adding YAML ---")
-        if not pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger):
-            return False
-
-        # Step 3: Core Extraction (ST/IT/Topics/Terms/Lenses/Bowen/Emphasis + internal validation)
-        self.log("\n--- STEP 3: Core Extraction ---")
-        # Core extraction only; blog runs as separate step from validated Lens #1.
-        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.settings.DEFAULT_MODEL, # MODIFIED
-                                             "Family Systems", "General public",
-                                             False, False, True, logger=self.logger):
-            return False
-
-        # Step 4: Generate Abstract
-        self.log("\n--- STEP 4: Generate Structured Abstract ---")
-        if not pipeline.generate_structured_abstract(self.base_name, self.logger, model=config.settings.DEFAULT_MODEL):  # Use Sonnet for abstracts
-            self.log("⚠️ Abstract generation failed or skipped.")
-
-        # Step 5: Validate Abstracts
-        self.log("\n--- STEP 5: Validating Abstracts ---")
-        pipeline.validate_abstract_coverage(self.base_name, self.logger, model=config.settings.AUX_MODEL) # MODIFIED
-
-        # Step 6: Reserved (separate validation happens inside extraction + abstract validation above)
-
-        # Step 7: Blog from validated lens #1
-        self.log("\n--- STEP 7: Blog (Lens #1) ---")
-        if not pipeline.summarize_transcript(f"{self.base_name}{config.SUFFIX_YAML}",
-                                             config.settings.DEFAULT_MODEL,
-                                             "Family Systems", "General public",
-                                             True, True, False, logger=self.logger):
-            return False
-
-        # Step 8: Full Webpage & PDF
-        self.log("\n--- STEP 8: Full Web & PDF ---")
-        if not self._run_web_pdf_generation():
-            return False
-
-        # Step 9: Package
-        self.log("\n--- STEP 9: Packaging ---")
-        pipeline.package_transcript(self.base_name, self.logger)
-
-        # Post-run Token Usage Report
         self.log("\n--- Token Usage Report ---")
-        self.log(analyze_token_usage.generate_usage_report(
-            since_timestamp=start_time))
+        self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
-        self.log("\n✅ FULL PIPELINE COMPLETE!")
+        self.log("\n✅ SELECTED STAGES COMPLETE!")
         return True
+
+    def _run_stage_yaml(self):
+        """Runner for the 'yaml' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.add_yaml(self.formatted_file.name, "mp4", self.logger)
+
+    def _run_stage_topics(self):
+        """Runner for the standalone 'topics' stage.
+
+        Spec:  docs/spec_lean_abstract_2026-07-13.md#LA.3
+        Tests: tests/test_lean_abstract.py::test_la3_topics_stage_registered
+        """
+        self.log("Generating Topics (standalone)...")
+        return pipeline.generate_topics(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+        )
+
+    def _run_stage_core(self):
+        """Runner for the 'core' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        include_bowen = self._get_bool_var("include_bowen_core", default=True)
+        include_emphasis = self._get_bool_var("include_emphasis_core", default=True)
+        extras = []
+        if include_bowen:
+            extras.append("Bowen")
+        if include_emphasis:
+            extras.append("Emphasis")
+        extras_text = f" + {'/'.join(extras)}" if extras else ""
+        self.log("Core Extraction%s...", extras_text)
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            False,  # skip_extracts_summary
+            not include_emphasis,
+            not include_bowen,
+            True,   # skip_blog
+            logger=self.logger,
+        )
+
+    def _run_stage_structured_summary(self):
+        """Runner for the 'structured_summary' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.generate_structured_summary(
+            self.base_name, logger=self.logger, model=config.settings.AUX_MODEL
+        )
+
+    def _run_stage_gen_abstract(self):
+        """Runner for the 'gen_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.generate_structured_abstract(
+            self.base_name, self.logger, model=config.settings.AUX_MODEL
+        )
+
+    def _run_stage_val_abstract(self):
+        """Runner for the 'val_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.validate_abstract_coverage(
+            self.base_name, self.logger, model=config.settings.DEFAULT_MODEL
+        )
+
+    def _run_stage_blog(self):
+        """Runner for the 'blog' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            False,  # skip_blog
+            logger=self.logger,
+        )
+
+    def _run_stage_overview(self):
+        """Runner for the 'overview' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.summarize_transcript(
+            f"{self.base_name}{config.SUFFIX_YAML}",
+            config.settings.DEFAULT_MODEL,
+            "Family Systems",
+            "General public",
+            True,   # skip_extracts_summary
+            True,   # skip_emphasis
+            True,   # skip_bowen
+            True,   # skip_blog
+            False,  # skip_overview
+            logger=self.logger,
+        )
+
+    def _run_stage_bowen_emphasis(self):
+        """Runner for the 'bowen_emphasis' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        input_file, source_label = self._resolve_individual_extraction_input()
+        if not input_file:
+            self.log("❌ Bowen + Emphasis: no valid input file found.")
+            return False
+        self.log(
+            "Extracting Bowen References + Scored Emphasis from %s...", source_label
+        )
+        return pipeline.extract_bowen_and_emphasis(
+            input_file,
+            config.settings.DEFAULT_MODEL,
+            self.logger,
+        )
+
+    def _run_stage_package(self):
+        """Runner for the 'package' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        return pipeline.package_transcript(self.base_name, self.logger)
+
+    @property
+    def stage_runners(self):
+        """Map every STAGE_DEFINITIONS key to its runner (bound method).
+
+        Purpose: Provide the stage-key → runner mapping. Implemented as a
+                 property (not an __init__ dict) so it is reachable on a
+                 headlessly-constructed instance without a Tk mainloop; a
+                 setter stores an override so tests can inject mock runners.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.12
+        Tests:   tests/test_ts_gui_run_all.py::test_stage_runners_cover_all_keys
+        """
+        override = getattr(self, "_stage_runners_override", None)
+        if override is not None:
+            return override
+        return {
+            "init_val": self._run_initial_validation_auto,
+            "format": self._run_format_and_validate,
+            "val_headers": self._run_header_validation,
+            "yaml": self._run_stage_yaml,
+            "topics": self._run_stage_topics,
+            "core": self._run_stage_core,
+            "structured_summary": self._run_stage_structured_summary,
+            "gen_abstract": self._run_stage_gen_abstract,
+            "val_abstract": self._run_stage_val_abstract,
+            "blog": self._run_stage_blog,
+            "overview": self._run_stage_overview,
+            "webpdf": self._run_web_pdf_generation,
+            "bowen_emphasis": self._run_stage_bowen_emphasis,
+            "package": self._run_stage_package,
+        }
+
+    @stage_runners.setter
+    def stage_runners(self, value):
+        self._stage_runners_override = value
+
+    def _apply_stage_selection(self, name):
+        """Load a saved stage selection into the checkboxes and core modifiers.
+
+        Purpose: Apply a saved/default selection; unknown stage keys in the
+                 saved data (e.g. from a stale/renamed stage) are ignored
+                 rather than raising, so a partially-stale selection still
+                 loads whatever keys remain valid.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.13
+        """
+        selection = config.get_stage_selections().get(name)
+        if not selection:
+            return
+        saved_stages = set(selection.get("stages", []))
+        known_keys = {key for key, _ in STAGE_DEFINITIONS}
+        # P2: surface (don't silently drop) any saved stage key that no longer
+        # exists in STAGE_DEFINITIONS (e.g. a stage renamed/removed in a later
+        # release). The valid keys still load; the unknown ones are reported.
+        unknown_keys = saved_stages - known_keys
+        if unknown_keys:
+            self.log(
+                "⚠️ Selection '%s' references %d unknown stage(s), skipped: %s",
+                name,
+                len(unknown_keys),
+                ", ".join(sorted(unknown_keys)),
+            )
+        for key, _ in STAGE_DEFINITIONS:
+            self.stage_vars[key].set(key in saved_stages)
+        self.include_bowen_core.set(selection.get("include_bowen_core", True))
+        self.include_emphasis_core.set(selection.get("include_emphasis_core", True))
+        self.active_selection_var.set(name)
+
+    def _apply_default_stage_selection(self):
+        """Pre-tick the default saved selection at startup; never runs the pipeline.
+
+        Spec: docs/spec_stage_selection_2026-07-12.md#SS.20
+        """
+        default_name = config.get_default_stage_selection()
+        if not default_name:
+            return
+        if default_name not in config.get_stage_selections():
+            return
+        self._apply_stage_selection(default_name)
+
+    def open_selection_manager_dialog(self):
+        """Manage saved stage selections: load, save, set/clear default, delete.
+
+        Spec: docs/spec_stage_selection_2026-07-12.md#SS.18
+        """
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Manage Selections")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        dlg.columnconfigure(0, weight=1)
+        dlg.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
+
+        listbox = tk.Listbox(frame, height=10)
+        listbox.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 8))
+
+        def refresh_list():
+            listbox.delete(0, tk.END)
+            default_name = config.get_default_stage_selection()
+            for name in sorted(config.get_stage_selections().keys()):
+                prefix = "★ " if name == default_name else ""
+                listbox.insert(tk.END, f"{prefix}{name}")
+
+        def selected_name():
+            selection = listbox.curselection()
+            if not selection:
+                return None
+            text = listbox.get(selection[0])
+            return text[2:] if text.startswith("★ ") else text
+
+        def do_load():
+            name = selected_name()
+            if not name:
+                return
+            self._apply_stage_selection(name)
+            self.log("Loaded stage selection '%s'.", name)
+
+        def do_save_as():
+            name = simpledialog.askstring("Save Current As", "Selection name:", parent=dlg)
+            if not name:
+                return
+            if name in config.get_stage_selections():
+                if not messagebox.askyesno(
+                    "Overwrite?",
+                    f"A selection named '{name}' already exists. Overwrite it?",
+                    parent=dlg,
+                ):
+                    return
+            selected_keys = [key for key, _ in STAGE_DEFINITIONS if self.stage_vars[key].get()]
+            config.save_stage_selection(
+                name,
+                selected_keys,
+                include_bowen_core=self.include_bowen_core.get(),
+                include_emphasis_core=self.include_emphasis_core.get(),
+            )
+            self.active_selection_var.set(name)
+            refresh_list()
+            self.log("Saved stage selection '%s'.", name)
+
+        def do_set_default():
+            name = selected_name()
+            if not name:
+                return
+            config.set_default_stage_selection(name)
+            refresh_list()
+            self.log("Set '%s' as default stage selection.", name)
+
+        def do_clear_default():
+            config.set_default_stage_selection(None)
+            refresh_list()
+            self.log("Cleared default stage selection.")
+
+        def do_delete():
+            name = selected_name()
+            if not name:
+                return
+            if not messagebox.askyesno(
+                "Confirm Delete", f"Delete saved selection '{name}'?", parent=dlg
+            ):
+                return
+            config.delete_stage_selection(name)
+            refresh_list()
+            self.log("Deleted stage selection '%s'.", name)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        ttk.Button(btn_frame, text="Load", command=do_load).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Save Current As...", command=do_save_as).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Set as Default", command=do_set_default).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Clear Default", command=do_clear_default).pack(
+            side=tk.LEFT, padx=(0, 5)
+        )
+        ttk.Button(btn_frame, text="Delete", command=do_delete).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btn_frame, text="Close", command=dlg.destroy).pack(side=tk.RIGHT)
+
+        refresh_list()
 
     def _run_initial_validation_auto(self):
         """Run Init Val without dialogs; auto-apply all findings into a finalized _validated file."""
@@ -1183,7 +2171,27 @@ class TranscriptProcessorGUI:
             self.log("❌ Error: ANTHROPIC_API_KEY not found.")
             return False
 
+        existing_versions = _find_existing_validation_versions(self.selected_file)
+        if existing_versions:
+            version_names = ", ".join(path.name for path in existing_versions[:5])
+            if len(existing_versions) > 5:
+                version_names += ", ..."
+            self.log(
+                "❌ Existing Init Val versions found for %s. Move or delete them and restart from the base file. Found: %s",
+                self.selected_file.name,
+                version_names,
+            )
+            return False
+
         mode = self.validation_mode_var.get()
+        self.log(
+            "Init Val runtime: commit=%s filter=%s terms=%s source=%s mode=%s",
+            _current_git_revision(),
+            INIT_VAL_FILTER_VERSION,
+            config.VALIDATION_APPROVED_TERMS_PATH,
+            self.selected_file,
+            mode,
+        )
         try:
             findings = []
             file_to_validate = self.selected_file
@@ -1229,25 +2237,24 @@ class TranscriptProcessorGUI:
             return False
 
     def update_button_states(self):
+        """Enable/disable every stage checkbox and action button.
+
+        Purpose: Extend the enable/disable rule to every stage checkbox and
+                 run_selected_btn; "Manage Selections..." stays always
+                 enabled.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.19
+        """
         state = tk.NORMAL if not self.processing and self.selected_file else tk.DISABLED
-        self.init_val_btn.config(state=state)
-        self.format_btn.config(state=state)
-        self.headers_btn.config(state=state)
-        self.yaml_btn.config(state=state)
-        self.summary_btn.config(state=state)
-        self.blog_btn.config(state=state)
-        self.gen_abstract_btn.config(state=state)
-        self.abstracts_btn.config(state=state)
-        self.webpdf_btn.config(state=state)
-        self.emphasis_btn.config(state=state)
+        for chk in self.stage_checkbuttons.values():
+            chk.config(state=state)
+        self.run_selected_btn.config(state=state)
+        # Manage Selections is always enabled (independent of file selection).
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
         # Config check button is always enabled
-        self.package_btn.config(state=state)
-        self.do_all_btn.config(
-            state=tk.NORMAL if self.selected_file else tk.DISABLED)
-        self.do_all_init_val_chk.config(state=state)
-        
+        self.core_emphasis_chk.config(state=state)
+        self.core_bowen_chk.config(state=state)
+
         # ADDED: Update state of model comboboxes
         model_cb_state = "readonly" if not self.processing else tk.DISABLED
         self.default_model_cb.config(state=model_cb_state)

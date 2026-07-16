@@ -107,7 +107,9 @@ def check_model_availability():
         print(f"Checking model: {model:<30} ... ", end="", flush=True)
         try:
             client.messages.create(
-                model=model, max_tokens=1, messages=[{"role": "user", "content": "Hi"}]
+                model=model,
+                max_tokens=config.MAX_TOKENS_MODEL_PROBE,
+                messages=[{"role": "user", "content": "Hi"}],
             )
             print("✅ Available")
         except anthropic.NotFoundError:

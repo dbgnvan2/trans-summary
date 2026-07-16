@@ -1,11 +1,15 @@
 from summary_pipeline import parse_topics_with_details, parse_themes
+from transcript_utils import is_scaffolding_theme_name
 import sys
 import os
+from pathlib import Path
 from unittest.mock import patch
 import pytest
 
 # Ensure project root is in path
 sys.path.append(os.getcwd())
+
+FIXTURES = Path(__file__).parent / "tests" / "fixtures"
 
 
 @pytest.fixture
@@ -83,47 +87,33 @@ Description.
     assert len(topics) == 0, "Should filter out topics < 5%"
 
 
-def test_parse_themes_standard():
-    """Test parsing of standard numbered themes."""
-    markdown = """
-1. **Theme One**: Description one.
-*Source Sections: 1, 2*
-
-2. **Theme Two**: Description two.
-*Source Sections: 3*
-"""
-    themes = parse_themes(markdown)
-    assert len(themes) == 2
-    assert themes[0]['name'] == "Theme One"
-    assert themes[0]['sections'] == "1, 2"
-    assert themes[1]['name'] == "Theme Two"
-
-
-def test_parse_themes_variations():
-    """Test parsing of themes with formatting variations."""
-    markdown = """
-1. Theme No Bold: Description.
-- Source Sections: 1
-
-2. **Theme Separator**: Description
-   Source Sections: 2, 3
-"""
-    themes = parse_themes(markdown)
-    assert len(themes) == 2
-    assert themes[0]['name'] == "Theme No Bold"
-    assert themes[0]['sections'] == "1"
-    assert themes[1]['name'] == "Theme Separator"
-    assert themes[1]['sections'] == "2, 3"
+# The theme tests below run against the REAL producer format on real fixtures.
+# The prior synthetic tests asserted LEGACY fallback formats the extraction never
+# writes (`### Theme Header`, `N. **Theme**:`) — `test_parse_themes_header_format`
+# specifically certified the A1 `###`-as-theme bug (capturing scaffolding as a
+# theme). They passed only via dead fallback paths and masked a re-drift
+# (TEST_VALIDITY_REPORT §3 / TODO A1–A3); replaced with real-artifact tests.
+def test_parse_themes_real_structural_format():
+    """parse_themes reads the REAL bold-numbered `**N. Title**` structural format
+    (3 themes on the real KCFC file) via the preferred path — not scaffolding."""
+    text = (FIXTURES / "kcfc_structural-themes.md").read_text(encoding="utf-8")
+    themes = parse_themes(text)
+    assert len(themes) == 3, [t["name"] for t in themes]
+    assert not any(is_scaffolding_theme_name(t["name"]) for t in themes)
+    assert "Over-Functioning" in themes[0]["name"]
 
 
-def test_parse_themes_header_format():
-    """Test parsing of themes using the new ### header format."""
-    markdown = """
-### Theme Header
-Description.
-*Source Sections: 1-5*
-"""
-    themes = parse_themes(markdown)
-    assert len(themes) == 1
-    assert themes[0]['name'] == "Theme Header"
-    assert themes[0]['sections'] == "1-5"
+def test_parse_themes_real_interpretive_format():
+    """The same real path parses all 7 interpretive themes — the A2 regression
+    (7 collapsed to 2 scaffolding blobs) must not recur."""
+    text = (FIXTURES / "kcfc_interpretive-themes.md").read_text(encoding="utf-8")
+    themes = parse_themes(text)
+    assert len(themes) == 7, [t["name"] for t in themes]
+    assert not any(is_scaffolding_theme_name(t["name"]) for t in themes)
+
+
+def test_parse_themes_empty_on_scaffolding_only():
+    """A scaffolding-only input yields ZERO themes (never captures a section header
+    like '### Structural Themes (3 total)' as a theme — the A1 bug)."""
+    scaffolding = "## Structural Themes (3 total)\n\n---\n\n### Summary Paragraph\nx\n"
+    assert parse_themes(scaffolding) == []

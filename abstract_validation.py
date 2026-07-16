@@ -19,10 +19,61 @@ Usage:
 
 import re
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from typing import Optional
 
 import config
 from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
+
+
+def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
+    """
+    Return multi-word proper names in the abstract that are NOT grounded in the
+    source transcript.
+
+    A name is grounded when at least one of its significant tokens (length >=
+    ``config.ABSTRACT_NAME_TOKEN_MIN_LEN``) fuzzy-matches some token in the
+    source. Fuzzy matching (ratio >= ``config.ABSTRACT_NAME_FUZZY_MIN``) spares
+    ASR spelling normalizations (e.g. "Bertoloso" -> "Bertolaso") while still
+    catching a fabricated name whose tokens appear nowhere in the source. Matches
+    Latin-accented names ("José García") as well as ASCII.
+
+    KNOWN GAPS (this is a lexical check — a real fix is the semantic judge, M2):
+    it only detects a MULTI-WORD Title-Case shape, so a single-word surname
+    ("Malorni" alone), an ALL-CAPS acronym/org ("ACME"), initials ("J. Ewing"),
+    and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
+    (multi-word); adjacent fabrication shapes remain uncovered.
+    """
+    # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
+    name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
+    source_tokens = {
+        t for t in re.findall(r"[a-zà-öø-ÿ]+", transcript.lower())
+        if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+    }
+
+    def _grounded(token: str) -> bool:
+        low = token.lower()
+        if low in source_tokens:
+            return True
+        return any(
+            SequenceMatcher(None, low, s).ratio() >= config.ABSTRACT_NAME_FUZZY_MIN
+            for s in source_tokens
+            if abs(len(s) - len(low)) <= 2
+        )
+
+    ungrounded: list[str] = []
+    seen: set[str] = set()
+    for name in re.findall(rf"\b{name_word}(?:\s+{name_word})+\b", abstract):
+        if name in seen:
+            continue
+        seen.add(name)
+        sig_tokens = [
+            t for t in name.split()
+            if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+        ]
+        if sig_tokens and not any(_grounded(t) for t in sig_tokens):
+            ungrounded.append(name)
+    return ungrounded
 
 QA_OPTIONAL_THRESHOLD = 15
 QA_REQUIRED_THRESHOLD = 30
@@ -230,17 +281,33 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
         )
 
     # Purpose coverage
-    if (
+    if abstract_input.opening_purpose == config.PURPOSE_EXTRACTION_FAILED:
+        # A10/P1: purpose extraction failed transiently. We cannot confirm the
+        # abstract covers the purpose, so keep the check REQUIRED and uncoverable
+        # (no keywords) — validation must NOT silently pass on an unverified purpose.
+        items.append(
+            CoverageItem(
+                category="purpose",
+                label="Speaker's stated purpose (extraction FAILED - retry, unverified)",
+                required=True,
+                keywords=[],
+                source_text=abstract_input.opening_purpose,
+            )
+        )
+    elif (
         abstract_input.opening_purpose
         and abstract_input.opening_purpose != "Not explicitly stated"
     ):
         purpose_keywords = extract_keywords(abstract_input.opening_purpose)
 
+        # A genuine "manually insert" absence (speaker stated no purpose) is optional.
+        is_required = "manually insert" not in abstract_input.opening_purpose
+
         items.append(
             CoverageItem(
                 category="purpose",
                 label="Speaker's stated purpose",
-                required=True,
+                required=is_required,
                 keywords=purpose_keywords[:6],
                 source_text=abstract_input.opening_purpose,
             )
@@ -307,7 +374,11 @@ def check_keyword_coverage(
     total_keywords = len(item.keywords)
 
     if total_keywords == 0:
-        return True, "high"  # No keywords to check
+        # No keywords to ground on — DO NOT auto-pass (A11/P7). Return low
+        # confidence (not covered) so the item is eligible for the LLM rescue pass
+        # / human review rather than silently satisfied OR hard-failed with no
+        # recovery (a short/stopword topic name legitimately yields no keywords).
+        return False, "low"
 
     match_ratio = match_count / total_keywords
 
@@ -338,8 +409,21 @@ def validate_abstract_coverage(
     """
     items = generate_coverage_items(abstract_input)
 
+    # A12: match keywords against the abstract BODY, not a leading `# Abstract`
+    # header/label the model may have emitted.
+    abstract = _strip_leading_scaffolding(abstract)
+
     # First pass: keyword matching
     for item in items:
+        if item.source_text == config.PURPOSE_EXTRACTION_FAILED:
+            # A10: purpose extraction failed transiently. Cannot verify coverage,
+            # and the sentinel is meaningless to keyword/LLM checks. Mark
+            # hard-uncovered with a DISTINCT confidence so it (a) never auto-passes
+            # and (b) is excluded from the LLM rescue pass below (reserved for
+            # genuinely low-confidence content items — A11).
+            item.covered = False
+            item.confidence = "extraction_failed"
+            continue
         covered, confidence = check_keyword_coverage(abstract, item)
         item.covered = covered
         item.confidence = confidence
@@ -364,7 +448,20 @@ def validate_abstract_coverage(
     required_covered = sum(1 for item in required_items if item.covered)
     optional_covered = sum(1 for item in optional_items if item.covered)
 
-    passed = all(item.covered for item in required_items)
+    if required_items:
+        passed = all(item.covered for item in required_items)
+    else:
+        # No required coverage items could be derived — upstream topics/themes/
+        # purpose/conclusion are missing or format-drifted. `all([]) == True` would
+        # report a clean pass on a validation that checked NOTHING, so fail closed
+        # (A9/P19). Sibling of the summary-coverage guard.
+        passed = False
+        if logger:
+            logger.warning(
+                "validate_abstract_coverage: zero required coverage items derived "
+                "from abstract_input — upstream extraction missing/drifted; refusing "
+                "to report PASS (A9)."
+            )
 
     # Generate human review checklist for failures or low confidence
     needs_review = [
@@ -421,12 +518,6 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
         .replace("{{items_text}}", items_text)
     )
 
-    # Encourage concise verifier output to reduce token usage.
-    prompt += (
-        "\n\nRespond in plain text with exactly one line per item in order, "
-        "using only YES or NO."
-    )
-
     requested_max_tokens = max(512, 80 * len(items) + 64)
     max_tokens = cap_max_tokens_for_model(model, requested_max_tokens, logger=logger)
 
@@ -440,6 +531,7 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
             max_tokens=max_tokens,
             temperature=0.0,  # Strict for validation
             logger=logger,
+            min_length=2,
         )
     except Exception as e:
         if logger:
@@ -613,13 +705,34 @@ def validate_and_report(
     return coverage["passed"], "\n".join(report_lines)
 
 
+def _strip_leading_scaffolding(text: str) -> str:
+    """Remove leading YAML front matter and markdown heading/bold-label lines the
+    model sometimes emits despite the prompt's "no headers" instruction (e.g. a
+    leading ``# Abstract``), so they aren't counted as abstract body (A12).
+    """
+    t = (text or "").strip()
+    if t.startswith("---"):
+        end = t.find("\n---", 3)
+        if end != -1:
+            t = t[end + 4:].lstrip()
+    lines = t.split("\n")
+    while lines and (
+        not lines[0].strip()
+        or re.match(r"^\s*#{1,6}\s+", lines[0])          # markdown heading
+        or re.match(r"^\s*\*\*[^*\n]+\*\*\s*$", lines[0])  # bold-only label line
+    ):
+        lines.pop(0)
+    return "\n".join(lines).strip()
+
+
 def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     """
     Structural validation (from original validate_abstract).
     """
     issues = []
     warnings = []
-    word_count = len(abstract.split())
+    # A12: count the abstract BODY, not a forbidden leading `# Abstract` header.
+    word_count = len(_strip_leading_scaffolding(abstract).split())
 
     # Allow 20% tolerance - Now a WARNING
     min_words = int(target_word_count * 0.8)
