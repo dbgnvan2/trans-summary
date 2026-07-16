@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Automated transcript summarization and processing pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "jsonschema>=4.26.0",
+]
 
 [dependency-groups]
 dev = [

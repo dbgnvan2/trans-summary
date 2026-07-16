@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trans-summary/schemas/abstract_input.schema.json",
+  "title": "Abstract generation input",
+  "version": "1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "artifact", "topics", "themes", "opening_purpose",
+               "closing_conclusion", "qa_percentage", "qa_topics", "target_word_count"],
+  "properties": {
+    "version": {"const": "1"},
+    "artifact": {"const": "abstract_input"},
+    "metadata": {"type": "object"},
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "percentage", "sections"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "percentage": {"type": "integer", "minimum": 0, "maximum": 100},
+          "sections": {"type": "string"}
+        }
+      }
+    },
+    "themes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "description"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "description": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "opening_purpose": {"type": "string"},
+    "closing_conclusion": {"type": "string"},
+    "qa_percentage": {"type": "integer", "minimum": 0, "maximum": 100},
+    "qa_topics": {"type": "array", "items": {"type": "string"}},
+    "target_word_count": {"type": "integer", "minimum": 0}
+  }
+}

@@ -1276,53 +1276,63 @@ def load_bowen_references(base_name: str) -> list:
     bowen_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BOWEN}"
     if bowen_file.exists():
         content = bowen_file.read_text(encoding='utf-8')
-        content = strip_yaml_frontmatter(content)
-
-        # ONE pattern with an OPTIONAL timestamp, so a file that MIXES timestamped
-        # and non-timestamped references parses every entry. (The previous
-        # strict-then-lenient loop tried the with-timestamp pattern first and
-        # broke as soon as it matched anything, silently dropping every
-        # timestamp-less reference in a mixed file.)
-        pattern = re.compile(
-            r'###\s+([^\n\[]+?)(?:\s+\[(\d{2}:\d{2}:\d{2})\])?\s*\n>\s+"([^"]+)"'
-        )
-        refs = [
-            (concept.strip(), quote.strip(), timestamp or None)
-            for concept, timestamp, quote in pattern.findall(content)
-        ]
-
-        # Dedupe by normalized quote text: the model sometimes emits the SAME
-        # quote under two different concept headers, which inflates any
-        # "N references" count and double-highlights the same span. Keep the
-        # first occurrence and MERGE the later concept label(s) into it (the
-        # highlighter shows a "; "-joined label), so no concept association is
-        # lost — then surface the merge (P2) rather than silently collapsing.
-        seen: dict[str, int] = {}
-        deduped: list[tuple] = []
-        merged = []
-        for concept, quote, timestamp in refs:
-            key = normalize_text(quote, aggressive=True)
-            if key in seen:
-                idx = seen[key]
-                c0, q0, t0 = deduped[idx]
-                labels = [x.strip() for x in c0.split(";") if x.strip()]
-                if concept and concept not in labels:
-                    deduped[idx] = ("; ".join(labels + [concept]), q0, t0)
-                merged.append(concept)
-                continue
-            seen[key] = len(deduped)
-            deduped.append((concept, quote, timestamp))
-        if merged:
-            logging.getLogger('bowen_references').warning(
-                "Merged %d duplicate Bowen reference(s) sharing a quote already "
-                "listed under another concept: %s",
-                len(merged), "; ".join(merged),
-            )
-
+        deduped = parse_bowen_references_text(content)
         if deduped:
             return deduped
 
     return []
+
+
+def parse_bowen_references_text(content: str) -> list:
+    """Parse the Bowen-references markdown into ``[(concept, quote, timestamp)]``.
+
+    The single canonical text-level parser for the bowen boundary — the file
+    loader (``load_bowen_references``) and the M3 schema codec both delegate here
+    so there is exactly ONE implementation of the format contract (P19).
+    """
+    content = strip_yaml_frontmatter(content)
+
+    # ONE pattern with an OPTIONAL timestamp, so a file that MIXES timestamped
+    # and non-timestamped references parses every entry. (The previous
+    # strict-then-lenient loop tried the with-timestamp pattern first and
+    # broke as soon as it matched anything, silently dropping every
+    # timestamp-less reference in a mixed file.)
+    pattern = re.compile(
+        r'###\s+([^\n\[]+?)(?:\s+\[(\d{2}:\d{2}:\d{2})\])?\s*\n>\s+"([^"]+)"'
+    )
+    refs = [
+        (concept.strip(), quote.strip(), timestamp or None)
+        for concept, timestamp, quote in pattern.findall(content)
+    ]
+
+    # Dedupe by normalized quote text: the model sometimes emits the SAME
+    # quote under two different concept headers, which inflates any
+    # "N references" count and double-highlights the same span. Keep the
+    # first occurrence and MERGE the later concept label(s) into it (the
+    # highlighter shows a "; "-joined label), so no concept association is
+    # lost — then surface the merge (P2) rather than silently collapsing.
+    seen: dict[str, int] = {}
+    deduped: list[tuple] = []
+    merged = []
+    for concept, quote, timestamp in refs:
+        key = normalize_text(quote, aggressive=True)
+        if key in seen:
+            idx = seen[key]
+            c0, q0, t0 = deduped[idx]
+            labels = [x.strip() for x in c0.split(";") if x.strip()]
+            if concept and concept not in labels:
+                deduped[idx] = ("; ".join(labels + [concept]), q0, t0)
+            merged.append(concept)
+            continue
+        seen[key] = len(deduped)
+        deduped.append((concept, quote, timestamp))
+    if merged:
+        logging.getLogger('bowen_references').warning(
+            "Merged %d duplicate Bowen reference(s) sharing a quote already "
+            "listed under another concept: %s",
+            len(merged), "; ".join(merged),
+        )
+    return deduped
 
 
 def extract_emphasis_items(content: str) -> list:

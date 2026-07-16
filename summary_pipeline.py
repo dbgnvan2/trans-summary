@@ -149,40 +149,52 @@ def calculate_word_allocations(
 # === Extraction Parsing ===
 
 
-def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dict]:
-    """Parse Topics section and extract key points from transcript using robust block parsing."""
-    topics = []
+def parse_topics_structure(topics_markdown: str) -> list[dict]:
+    """Parse the topics markdown into the structural fields it literally carries:
+    ``[{name, percentage, sections, description}]`` in document order.
 
+    The single canonical text-level parser for the topics boundary contract (no
+    transcript needed). ``parse_topics_with_details`` delegates here and then
+    applies the ``>=5%`` business filter + enriches with transcript-derived
+    ``key_points``; the M3 schema codec uses this directly so there is ONE
+    implementation of the on-disk format (P19).
+
+    This is a *faithful* parser: it returns EVERY topic block the artifact
+    carries, including sub-5% ones. The 5% cut is a downstream editorial choice,
+    not part of the format contract — keeping it out here means the JSON contract
+    represents the artifact exactly (no silent drop, P2) and an all-sub-5% file
+    isn't mislabeled as format drift by the codec's zero-from-non-empty guard.
+    """
     # Regex matches: ### Name \n Description \n Metadata line
     # Matches format: *_(~25% of transcript; Sections 1-5)_*
     # Robust pattern handling spaces, brackets, and various separators
     pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
-    matches = re.findall(pattern, topics_markdown, re.DOTALL)
+    structured = []
+    for match in re.findall(pattern, topics_markdown, re.DOTALL):
+        structured.append(
+            {
+                "name": match[0].strip(),
+                "percentage": int(match[2]),
+                "sections": match[3].strip(),
+                "description": match[1].strip(),
+            }
+        )
+    return structured
 
-    for match in matches:
-        name = match[0].strip()
-        description = match[1].strip()
-        percentage = int(match[2])
-        sections = match[3].strip()
 
-        if percentage >= 5:
-            # Clean up description if it has leading/trailing markdown wrapper lines that regex captured
-            # (The regex is greedy on description, so it might capture trailing newlines/spacers)
-            description = description.strip()
-
-            # Extract key points from the description and transcript sections
-            key_points = extract_key_points(description, sections, transcript)
-
-            topics.append(
-                {
-                    "name": name,
-                    "percentage": percentage,
-                    "sections": sections,
-                    "description": description,
-                    "key_points": key_points,
-                }
-            )
+def parse_topics_with_details(topics_markdown: str, transcript: str) -> list[dict]:
+    """Parse Topics section and extract key points from transcript using robust block parsing."""
+    topics = []
+    for topic in parse_topics_structure(topics_markdown):
+        # Editorial filter: drop trivial (<5%) topics from the enriched view.
+        if topic["percentage"] < 5:
+            continue
+        # Extract key points from the description and transcript sections
+        key_points = extract_key_points(
+            topic["description"], topic["sections"], transcript
+        )
+        topics.append({**topic, "key_points": key_points})
 
     # Sort by percentage descending
     topics.sort(key=lambda t: t["percentage"], reverse=True)
