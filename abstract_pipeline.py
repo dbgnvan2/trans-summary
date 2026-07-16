@@ -75,6 +75,23 @@ class AbstractInput:
         }
         return json.dumps(data, indent=2)
 
+    def to_contract_dict(self) -> dict:
+        """Schema-shaped dict for the abstract_input boundary contract (M3).
+        Same payload as ``to_json`` plus the ``version``/``artifact`` envelope
+        the schema pins."""
+        return {
+            "version": "1",
+            "artifact": "abstract_input",
+            "metadata": self.metadata,
+            "topics": [asdict(t) for t in self.topics],
+            "themes": [asdict(t) for t in self.themes],
+            "opening_purpose": self.opening_purpose,
+            "closing_conclusion": self.closing_conclusion,
+            "qa_percentage": self.qa_percentage,
+            "qa_topics": self.qa_topics,
+            "target_word_count": self.target_word_count,
+        }
+
 
 def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     """
@@ -402,7 +419,7 @@ def prepare_abstract_input(
     section_count = count_sections(transcript)
     qa_percentage, qa_topics = calculate_qa_percentage(transcript)
 
-    return AbstractInput(
+    abstract_input = AbstractInput(
         metadata=metadata,
         topics=parse_topics_from_extraction(topics_markdown),
         themes=parse_themes_from_extraction(themes_markdown),
@@ -413,6 +430,14 @@ def prepare_abstract_input(
         qa_topics=qa_topics,
         target_word_count=target_word_count,
     )
+    # M3.B — producer self-validation: the assembled input must conform to the
+    # abstract_input schema before it drives a (costly) generation call. A malformed
+    # input (e.g. a topic parsed with an empty name, an out-of-range percentage) is
+    # a fail-closed SchemaError, not a garbage abstract generated from bad input.
+    import artifact_contracts as ac
+
+    ac.validate("abstract_input", abstract_input.to_contract_dict())
+    return abstract_input
 
 
 # === API Integration ===

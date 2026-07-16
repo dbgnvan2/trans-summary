@@ -52,7 +52,33 @@ throughout.
   assertion, and the delete-on-drift → leave-for-gate inversion fix (a HIGH
   finding — the producer's delete was silencing the very drift the gate blocks on).
 
-Suite: 525 passed / 14 skipped / 5 xfailed / 0 failed.
+**M3b — remaining boundaries wired (emphasis, key-terms, topics, themes,
+abstract-input).**
+- **One producer seam:** emphasis, topics, key-terms, and both themes all save
+  through `_save_summary`, so `_self_validate_saved_summary` self-checks every one
+  (re-read via codec → sidecar on success; on drift leave the file for the gate,
+  invalidate stale sidecar, log; never delete). Non-codec types (blog/overview)
+  are a no-op.
+- **Themes migration shim reads BOTH real formats:** `**N. Title**` (current) and
+  legacy `### N. Title` (H3-numbered, 2010-era runs) — a drive sweep found the H3
+  format on a real structural-themes file that the bold-only parser returned zero
+  for (P19). Verified 0 false-reject across every structural + interpretive
+  artifact on the drive before gating themes.
+- **Gate `_CONTRACT_ARTIFACTS`** extended to all 5 markdown boundaries (bowen,
+  emphasis, key-terms, topics, both themes) — each a hard blocker on drift, each
+  backed by a real-fixture round-trip/migration test.
+- **abstract-input** (assembled `AbstractInput`, not saved markdown): producer
+  self-validation in `prepare_abstract_input` via `to_contract_dict()` +
+  `ac.validate` — a malformed input (empty topic name, out-of-range %) is a
+  fail-closed `SchemaError` before the costly generation call (both callers catch
+  it → stage returns False). Verified a real assembly validates (no false close).
+- **Deliberate fail-closed decision (learning-qa F1):** the emphasis raw-response
+  fallback (0 items from a >500-char response = drift) is saved under the canonical
+  suffix ON PURPOSE so the gate BLOCKs — better than a silent absence; documented
+  in-code. Two adjacent, non-M3 issues (emphasis content-rejected raw fallback;
+  a whitespace-only topic-name edge) flagged in TODO, not silently fixed.
+
+Suite: 540 passed / 14 skipped / 5 xfailed / 0 failed.
 
 Spec: docs/spec_unattended_robustness_2026-07-15.md#M3 (M3.A, M3.B, M3.C, M3.D)
 

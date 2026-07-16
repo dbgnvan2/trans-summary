@@ -22,6 +22,22 @@ Remaining boundaries stage one at a time behind the migration shim.
   first unattended re-publish of that (and any same-era) run will false-BLOCK
   (AC M3.D.1 requires legacy real artifacts to migrate). bowen/key-terms/topics/
   emphasis/interpretive-themes are all clean across the 6 real projects checked.
+- **Emphasis all-items-content-rejected raw fallback (adjacent, not fixed).**
+  `extract_scored_emphasis` (`extraction_pipeline.py:727`) does
+  `final_content = "\n\n".join(lines) if validated_items else response` — when
+  items parse but ALL fail `validate_emphasis_item` (content grounding), it saves
+  the RAW model response, so content-rejected items get written (and now pass the
+  M3 *format* self-check → a sidecar of rejected items). This is a pre-existing
+  *content*-validation gap orthogonal to M3's format contract (the codec judges
+  shape, not grounding); flagged per rule 10, not fixed here. Fix: on zero
+  validated items, write a header-only/empty artifact (or fail) rather than the
+  raw response.
+- **Abstract-input strategy-1 topic name edge (very low prob).** `parse_topics_from_extraction`
+  (`abstract_pipeline.py:108`) `name = match[0].strip()` on a `###\s+([^\n]+)`
+  capture could strip to `""` on a whitespace-only header → `minLength:1` schema
+  violation → fail-closed block. Real-data risk is negligible (names are non-empty
+  in practice) but it's the one input-shaped path to a false block; a `name` filter
+  in the parser would close it.
 - **JSON sidecar is write-only so far.** `write_json_sidecar` emits `<base> -
   <artifact>.json` but no consumer reads it yet (gate + renderers still re-parse
   the `.md`). Durable provenance today; make a consumer prefer the validated

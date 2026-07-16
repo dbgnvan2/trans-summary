@@ -256,6 +256,14 @@ def check_entity_consistency(base_name: str, logger=None) -> Verdict:
 # (schema-key, path-suffix, extra parse args).
 _CONTRACT_ARTIFACTS: list = [
     ("bowen", config.SUFFIX_BOWEN, ()),
+    ("emphasis", config.SUFFIX_EMPHASIS_SCORED, ()),
+    ("key_terms", config.SUFFIX_KEY_TERMS, ()),
+    ("topics", config.SUFFIX_TOPICS, ()),
+    # themes: the codec migration shim now reads BOTH the `**N.**` and legacy
+    # `### N.` real formats (verified 0 false-reject across every structural +
+    # interpretive artifact on the drive), so both are safe as hard blockers.
+    ("themes", config.SUFFIX_STRUCTURAL_THEMES, ("structural",)),
+    ("themes", config.SUFFIX_INTERPRETIVE_THEMES, ("interpretive",)),
 ]
 
 

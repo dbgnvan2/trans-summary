@@ -106,7 +106,10 @@ def test_m4c_blocker_scoped_to_abstract_not_synthesized_headings(cloned_run):
     ab = proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}"
     ab.write_text(ab.read_text().replace("Luciano Malorni", "Michael Kerr"))  # clean abstract
     themes = proj / f"{base}{config.SUFFIX_STRUCTURAL_THEMES}"
-    themes.write_text("## Structural Themes\n\n### Role Absorption\nA synthesized theme title.\n")
+    # valid themes format (so artifact_contracts passes) carrying a Title-Case
+    # concept ('Role Absorption') that the entity blocker must NOT fire on.
+    themes.write_text("## Structural Themes\n\n**1. Role Absorption**\n"
+                      "**Description:** A synthesized theme about role absorption.\n")
     v = rg.check_entity_grounding(base, logging.getLogger("t"))
     assert v.status is Status.PASS, v.detail
     assert rg.run_gate(base, logging.getLogger("t")).decision is not Decision.BLOCK
@@ -222,6 +225,27 @@ def test_m3c2_all_headers_no_body_bowen_blocks(cloned_run):
     bowen.write_text("## Bowen References\n\n### Concept A\n\n### Concept B\n")
     v = rg.check_artifact_contracts(base, logging.getLogger("t"))
     assert v.status is Status.ERROR
+
+
+@pytest.mark.parametrize("suffix_attr,garbage", [
+    ("SUFFIX_EMPHASIS_SCORED", "## Emphasis\n\nprose with no bracketed score header at all\n"),
+    ("SUFFIX_KEY_TERMS", "## Key Terms\n\n### Some Term\n"),  # H3 item, no definition body
+    ("SUFFIX_TOPICS", "## Topics\n\n### A Topic\nDesc but no percentage/sections line.\n"),
+])
+def test_m3c2_drifted_boundary_blocks(cloned_run, suffix_attr, garbage):
+    """Each wired boundary (emphasis, key-terms, topics) hard-BLOCKs on drift."""
+    base, proj = cloned_run
+    (proj / f"{base}{getattr(config, suffix_attr)}").write_text(garbage)
+    v = rg.check_artifact_contracts(base, logging.getLogger("t"))
+    assert v.status is Status.ERROR
+    assert any(p["artifact"] in {"emphasis", "key_terms", "topics"} for p in v.items)
+
+
+def test_m3c_all_wired_boundaries_pass_on_real_run(real_run):
+    """The real, well-formed artifacts (bowen/emphasis/key-terms present; topics
+    absent -> skipped) all conform -> PASS, no false drift."""
+    v = rg.check_artifact_contracts(real_run, logging.getLogger("t"))
+    assert v.status is Status.PASS
 
 
 def test_m3c_empty_bowen_is_not_drift(cloned_run):

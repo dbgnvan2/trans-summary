@@ -557,6 +557,44 @@ def _filter_bowen_references_semantically(
         return refs
 
 
+# M3.B — codec-backed summary artifacts. summary_type -> (schema key, parse args).
+# Types absent here (blog, overview) have no structured contract and are skipped.
+_CODEC_FOR_SUMMARY_TYPE = {
+    "emphasis-scored": ("emphasis", ()),
+    "topics": ("topics", ()),
+    "key-terms": ("key_terms", ()),
+    "structural-themes": ("themes", ("structural",)),
+    "interpretive-themes": ("themes", ("interpretive",)),
+}
+
+
+def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
+    """M3.B producer self-check for codec-backed artifacts: re-read the just-saved
+    file through the schema codec and, on success, write the JSON sidecar. On
+    drift, LEAVE the file on disk for the release gate to BLOCK on (deleting would
+    invert a loud, publish-blocking gate ERROR into a silent drop — see LEARNINGS),
+    invalidate any stale sidecar so the two can't disagree, and log loudly. Never
+    raises — the gate is the single blocker; this only surfaces + records."""
+    entry = _CODEC_FOR_SUMMARY_TYPE.get(summary_type)
+    if entry is None:
+        return
+    import artifact_contracts as ac
+
+    key, args = entry
+    logger = setup_logging("artifact_contracts")
+    try:
+        obj = ac.codec(key).parse_markdown(
+            output_path.read_text(encoding="utf-8"), *args
+        )
+        ac.write_json_sidecar(output_path, key, obj)
+    except ac.SchemaError as e:
+        logger.error(
+            "%s artifact failed schema self-check — leaving it on disk for the "
+            "release gate to BLOCK (P19/U4); invalidating stale sidecar. %s", key, e
+        )
+        ac.json_sidecar_path(output_path).unlink(missing_ok=True)
+
+
 def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
     """Save summary output."""
     stem = clean_project_name(Path(original_filename).stem)
@@ -574,6 +612,7 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         project_dir.mkdir(parents=True, exist_ok=True)
         output_path = project_dir / output_filename
         output_path.write_text(content, encoding="utf-8")
+        _self_validate_saved_summary(output_path, summary_type)
         return output_path
 
     suffix = f" - {summary_type}.md"
@@ -596,6 +635,7 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
     project_dir.mkdir(parents=True, exist_ok=True)
     output_path = project_dir / output_filename
     output_path.write_text(content, encoding="utf-8")
+    _self_validate_saved_summary(output_path, summary_type)
     return output_path
 
 
@@ -643,9 +683,17 @@ def extract_scored_emphasis(
         items = parse_scored_emphasis_output(response)
         logger.info("Parsed %d scored emphasis item(s) from model response.", len(items))
         if not items and len(response) > 500:
+            # A >500-char response that parses to ZERO scored items is format drift
+            # (the model emitted prose / a wrong shape), not a legitimate empty. We
+            # save it under the canonical suffix ON PURPOSE: the M3 self-check +
+            # release gate then see a non-conforming emphasis artifact and BLOCK the
+            # publish (U4, deliberate) — better than a silent absence. The saved raw
+            # is also the operator's inspection copy. (This return False already
+            # failed the stage; the gate is the publish-level backstop.)
             output_path = _save_summary(response, formatted_filename, "emphasis-scored")
             logger.warning(
-                "Parsed 0 scored emphasis items despite substantial response; saved raw response to: %s",
+                "Parsed 0 scored emphasis items despite substantial response; saved raw "
+                "response to %s — the release gate will BLOCK publish on this drift.",
                 output_path,
             )
             return False

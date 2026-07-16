@@ -1210,27 +1210,44 @@ def _extract_theme_description(block: str) -> str:
     ).strip()
 
 
-def parse_bold_numbered_theme_blocks(text: str) -> list:
-    """Parse the real theme format — ``**N. Title**`` blocks each followed by a
-    ``**Description:**`` field (plus other ``**Field:**`` metadata).
+# Body-end lookahead for a `**N. Title**` theme block: the next bold-numbered
+# theme, ANY markdown heading (H1–H6 — the trailing `### Summary Paragraph`
+# scaffold and any future level), or end-of-text.
+_BOLD_THEME_RE = (
+    r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)"
+    r"(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n#{1,6}\s+)|\Z)"
+)
+# Legacy real format (e.g. 2025-02-prompt runs): `### N. Title` H3+ headings. A
+# block ends at the next H3+ numbered theme, a SHALLOWER `#`/`##` section header
+# (not a deeper one, which is in-block scaffolding), or end-of-text. The `**Field:**`
+# metadata lines are NOT headings, so they stay inside the block.
+_H3_THEME_RE = (
+    r"(?:^|\n)#{3,6}\s+(\d+)\.\s+(.+?)\n(.*?)"
+    r"(?=(?:\n#{3,6}\s+\d+\.\s+)|(?:\n#{1,2}\s+)|\Z)"
+)
 
-    Returns a list of ``(name, description)`` tuples for every genuine theme, in
-    document order. Returns ``[]`` when the text has no bold-numbered theme
-    headings, so callers can fall back to legacy formats; an empty result from
-    *non-empty* input is contract drift the caller should surface loudly (P19).
-    """
+
+def parse_bold_numbered_theme_blocks(text: str) -> list:
+    """Parse the real theme formats into ``(name, description)`` tuples in document
+    order. Handles BOTH producer formats seen in real runs: ``**N. Title**``
+    (current) and the legacy ``### N. Title`` (H3-numbered) blocks — each followed
+    by a ``**Description:**`` field. The bold format is tried first; the H3 format
+    is a fallback only when it finds nothing (a file uses one format consistently),
+    so a bold-format file can't be mis-parsed by the fallback.
+
+    Returns ``[]`` when the text has neither format, so callers can fall back to
+    other legacy shapes; an empty result from *non-empty* input is contract drift
+    the caller should surface loudly (P19). Migrating both formats is required by
+    AC M3.D.1 (a real 2010-interview structural-themes file used ``### N.``)."""
+    themes = _theme_blocks(text, _BOLD_THEME_RE)
+    if not themes:
+        themes = _theme_blocks(text, _H3_THEME_RE)
+    return themes
+
+
+def _theme_blocks(text: str, pattern: str) -> list:
     themes = []
-    # A description ends at: the next `**N. Title**` theme, ANY markdown heading
-    # (H1–H6 — the trailing `### Summary Paragraph` scaffold and any future
-    # heading level), or end-of-text. `#{1,6}` (not `#{2,3}`) so a stray H1/H4
-    # scaffold after the last theme can't be swallowed into its description.
-    block_iter = re.finditer(
-        r"(?:^|\n)\*\*(\d+)\.\s+(.+?)\*\*\s*\n(.*?)"
-        r"(?=(?:\n\*\*\d+\.\s+.+?\*\*\s*\n)|(?:\n#{1,6}\s+)|\Z)",
-        text,
-        re.DOTALL,
-    )
-    for match in block_iter:
+    for match in re.finditer(pattern, text, re.DOTALL):
         name = match.group(2).strip()
         block = match.group(3).strip()
         if is_scaffolding_theme_name(name) or not block:

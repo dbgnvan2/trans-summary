@@ -20,6 +20,7 @@ WHERE_ROOTS = (
 )
 WR_BASE = "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid"
 SOCIETAL = FIXTURES / "societal_emotional"
+MONIKA = FIXTURES / "monika_h3_themes"  # legacy `### N.` (H3-numbered) theme format
 
 
 def _wr(suffix: str) -> str:
@@ -39,6 +40,11 @@ REAL_SAMPLES = {
     "themes_interpretive": (
         lambda: (SOCIETAL / "interpretive-themes.md").read_text(encoding="utf-8"),
         ("interpretive",),
+    ),
+    # legacy H3-numbered (`### N.`) real format — must migrate too (AC M3.D.1)
+    "themes_h3_structural": (
+        lambda: (MONIKA / "structural-themes.md").read_text(encoding="utf-8"),
+        ("structural",),
     ),
 }
 
@@ -157,6 +163,20 @@ def test_header_only_artifact_is_benign_empty():
         assert codec("bowen").parse_markdown(md)["items"] == []
 
 
+def test_themes_migrates_both_bold_and_h3_numbered_formats():
+    """AC M3.D.1: BOTH real theme formats migrate — `**N.**` (current) and the
+    legacy `### N.` (H3-numbered, 2010-interview run). A file uses one format; the
+    codec must read whichever it is, or an old run false-BLOCKs once themes gate."""
+    h3 = codec("themes").parse_markdown(
+        (MONIKA / "structural-themes.md").read_text(encoding="utf-8"), "structural")
+    bold = codec("themes").parse_markdown(
+        (SOCIETAL / "structural-themes.md").read_text(encoding="utf-8"), "structural")
+    assert h3["items"] and bold["items"]
+    # H3 file's numbers/names came from `### N. Title`, not positional guessing
+    assert h3["items"][0]["number"] == 1
+    assert "Emotional Process" in h3["items"][0]["name"]
+
+
 def test_all_headers_no_body_is_drift_not_empty():
     """An all-headers-no-body artifact (### item headers whose quote bodies were
     dropped entirely) is DRIFT, not a benign empty — H3+ item headers imply
@@ -199,7 +219,78 @@ def test_m3b1_empty_by_design_run_skips_item_check(tmp_path):
     assert ac.verify_saved_artifact(md, "bowen")["items"] == []
 
 
+# ---------------------------------------------------------- M3.B (_save_summary self-check)
+def test_m3b_save_summary_writes_sidecar_for_codec_types(tmp_path, monkeypatch):
+    """A codec-backed summary type (key-terms) gets a JSON sidecar on valid save."""
+    import config
+    import extraction_pipeline as ep
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    content = "## Key Terms\n\n### Differentiation\nA real definition of the term.\n"
+    out = ep._save_summary(content, "MyProj - formatted.md", "key-terms")
+    assert ac.json_sidecar_path(out).exists()
+    obj = codec("key_terms").from_json(ac.json_sidecar_path(out).read_text())
+    assert obj["items"][0]["term"] == "Differentiation"
+
+
+def test_m3b_save_summary_drift_leaves_file_no_sidecar(tmp_path, monkeypatch):
+    """On drift the summary file is LEFT on disk (for the gate to BLOCK), and no
+    sidecar is written — the producer must not delete the evidence."""
+    import config
+    import extraction_pipeline as ep
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    drift = "## Key Terms\n\n### Orphan Term\n"  # H3 item, no definition body -> drift
+    out = ep._save_summary(drift, "MyProj - formatted.md", "key-terms")
+    assert out.exists()  # left on disk for the gate
+    assert not ac.json_sidecar_path(out).exists()
+
+
+def test_m3b_save_summary_non_codec_type_is_noop(tmp_path, monkeypatch):
+    """A non-codec type (overview) saves normally with no sidecar and no error."""
+    import config
+    import extraction_pipeline as ep
+
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    out = ep._save_summary("Some overview prose.", "MyProj - formatted.md", "overview")
+    assert out.exists() and not ac.json_sidecar_path(out).exists()
+
+
 # --------------------------------------------------------------------------- schema enforcement
+# --------------------------------------------------------------------------- abstract_input
+def test_abstract_input_valid_object_validates():
+    from abstract_pipeline import AbstractInput, Theme, Topic
+
+    ai = AbstractInput(
+        metadata={"speaker": "Kerr"}, topics=[Topic("Differentiation", 40, "1-3")],
+        themes=[Theme("A theme", "its description")], opening_purpose="p",
+        closing_conclusion="c", qa_percentage=10, qa_topics=["q"], target_word_count=250)
+    out = ac.validate("abstract_input", ai.to_contract_dict())
+    assert out["artifact"] == "abstract_input"
+
+
+def test_abstract_input_empty_topic_name_fails_closed():
+    """A malformed assembled input (empty topic name) is a fail-closed SchemaError
+    at the producer — it never drives a generation call (M3.B)."""
+    from abstract_pipeline import AbstractInput, Topic
+
+    ai = AbstractInput(
+        metadata={}, topics=[Topic("", 40, "1-3")], themes=[], opening_purpose="",
+        closing_conclusion="", qa_percentage=0, qa_topics=[], target_word_count=250)
+    with pytest.raises(SchemaError):
+        ac.validate("abstract_input", ai.to_contract_dict())
+
+
+def test_abstract_input_percentage_out_of_range_fails_closed():
+    from abstract_pipeline import AbstractInput, Topic
+
+    ai = AbstractInput(
+        metadata={}, topics=[Topic("T", 250, "1")], themes=[], opening_purpose="",
+        closing_conclusion="", qa_percentage=0, qa_topics=[], target_word_count=250)
+    with pytest.raises(SchemaError):
+        ac.validate("abstract_input", ai.to_contract_dict())
+
+
 def test_validate_rejects_out_of_enum_type():
     bad = {"version": "1", "artifact": "emphasis",
            "items": [{"type": "Bogus", "category": "A1", "score": 90,
