@@ -130,9 +130,18 @@ report: `TEST_VALIDITY_REPORT.md`. Harness: `mut_harness.py`.
   (`test_f1_keyterms_real_run_tiers_pinned`: EXACT==8 / FAIL==2 on the real run).
   A new LOCAL def-grounding floor (`KEY_TERMS_DEF_LOCAL_MIN`) closes the
   swapped-definition false-pass and is pinned by `test_f1_keyterms_swapped_definition_not_exact`.
-- **Remaining low mutation scores.** Even after Step 1, `summary_validation` (28%) and
-  `validation_pipeline` (27%) leave the medium-tier coverage branch (`match_count>=1 or
-  ratio>=0.2`), word-allocation math, and `check_proportionality` internals untested.
+- **Remaining low mutation scores — ✅ largely addressed 2026-07-15.**
+  `summary_validation.check_keyword_coverage` + `check_proportionality` mutation score
+  raised 44%→71% (on those two functions) by pinning the previously-untested logic:
+  the medium tier (`match_count>=1`), the count-vs-ratio high boundary, the
+  section-vs-total proportionality terms, the dynamic-tolerance tiers (Closing<50=2.5 /
+  <100=0.5 / 100–200=0.4), and the per-section divide-by-zero guard
+  (`tests/test_validator_logic_hardening.py`). Residual survivors are editorial
+  tolerance-tier *constants* at exact integer boundaries (50/100/200) and redundant
+  ratio alternatives masked by the count path — low correctness value. `validation_pipeline`
+  key-term/topic validators were hardened in Step 2 (`test_validator_gate_hardening.py`,
+  real-artifact tiers); a deeper mutation pass there is a slow follow-up (mut_harness runs
+  the full suite per mutant).
 - ~~**False-green synthetic format tests.**~~ ✅ FIXED 2026-07-15.
   `test_summary_pipeline_parsing.py` theme tests repointed to REAL fixtures
   (kcfc structural=3 / interpretive=7, scaffolding-only→0); the `### header`-as-theme
@@ -333,10 +342,10 @@ with a reason; these need a product call, not a test edit.
 - **Config settings don't reload across `ProjectSettings` instances.** A new
   instance does not pick up a persisted `default_source_dir`. Real gap; fixing it
   is a config-wide change. xfail: `test_config_validation.py::test_runtime_settings_persistence`.
-- **Bowen integration tests certify the abandoned `> **Label:**` format.** Repoint
-  them at a real-format fixture or delete (the live format is covered by
-  `test_theme_parsing_contract` + `tests/fixtures/where_roots/`). Tracked under M6.C.
-  xfail: `test_bowen_references_integration.py` (2 tests).
+- ~~**Bowen integration tests certify the abandoned `> **Label:**` format.**~~
+  ✅ FIXED 2026-07-15: repointed to the real consumer `parse_bowen_references_text`
+  (the saved `### Concept\n> "quote"` format), un-xfailed, now passing; removed from
+  `test_code_health.py::KNOWN_REDS`.
 - **6 vacuous (assertion-free) tests still on the allowlist.** `test_exception_fix.py`
   (×4) and `test_validation_headless.py` (×2) verify nothing (TEST_VALIDITY_REPORT §3).
   The M6.B gate (`quality_gates.find_vacuous_tests`) now blocks *new* ones and

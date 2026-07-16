@@ -35,8 +35,8 @@ KNOWN_REDS = [
     ("test_config_validation.py", "test_runtime_settings_persistence"),
     ("tests/test_header_validation_token_limits.py", "test_validate_batch_caps_tokens_for_haiku"),
     ("tests/test_header_validation_token_limits.py", "test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown"),
-    ("tests/test_bowen_references_integration.py", "test_bowen_references_generation_and_extraction"),
-    ("tests/test_bowen_references_integration.py", "test_bowen_references_fallback_to_primary_when_filter_invalid"),
+    # The 2 bowen integration tests were repointed to the real consumer
+    # (parse_bowen_references_text) and un-xfailed 2026-07-15 — no longer red.
 ]
 
 

@@ -128,6 +128,115 @@ def test_summary_keyword_empty_is_low_not_autocovered():
     assert covered is False and conf == "low", "empty keywords must not auto-cover (A11)"
 
 
+def test_summary_keyword_one_of_many_is_medium():
+    """Exactly 1 match of 10 keywords: count 1 (< threshold 2), ratio 0.1 (< 0.4 and
+    < 0.2) -> the MEDIUM tier via `match_count >= 1`. Pins the previously-untested
+    medium branch AND the count>=2 high boundary (2->high, 1->medium)."""
+    item = _sv_item(["alpha"] + [f"kw{i}" for i in range(9)])  # 10 keywords
+    covered, conf = summary_validation.check_keyword_coverage("only alpha here", item)
+    assert covered is True and conf == "medium"
+
+
+def test_summary_keyword_count_at_threshold_with_low_ratio_is_high():
+    """2 matches of 10 keywords: ratio 0.2 (< 0.4) so the ratio path can't rescue it —
+    only the `match_count >= threshold(2)` path yields high. Pins the threshold value
+    and the `>=` boundary (which the ratio OR-branch otherwise masks)."""
+    item = _sv_item(["alpha", "beta"] + [f"kw{i}" for i in range(8)])  # 10 keywords
+    covered, conf = summary_validation.check_keyword_coverage("alpha and beta here", item)
+    assert covered is True and conf == "high"
+
+
+# ---------------------------------------------------------------------------
+# summary_validation.check_proportionality — section vs total tolerance logic
+# ---------------------------------------------------------------------------
+
+def _prop_input(target, op, body, cl):
+    return SimpleNamespace(
+        target_word_count=target,
+        opening=SimpleNamespace(word_allocation=op),
+        body=SimpleNamespace(word_allocation=body),
+        closing=SimpleNamespace(word_allocation=cl),
+    )
+
+
+def _summary(op, body, cl):
+    para = lambda n: " ".join(["w"] * n)  # noqa: E731
+    return f"{para(op)}\n\n{para(body)}\n\n{para(cl)}"
+
+
+def test_proportionality_ok_when_sections_match_allocations():
+    r = summary_validation.check_proportionality(
+        _summary(50, 300, 50), _prop_input(400, 50, 300, 50))
+    assert all(s["within_tolerance"] for s in r["sections"])
+    assert r["proportionality_ok"] is True
+
+
+def test_proportionality_fails_when_a_section_is_far_over():
+    """Body 600 vs allocation 300 = 100% deviation > 30% tol -> section fails ->
+    proportionality_ok False (pins the per-section `all(within_tolerance)` term)."""
+    r = summary_validation.check_proportionality(
+        _summary(50, 600, 50), _prop_input(700, 50, 300, 50))
+    body = next(s for s in r["sections"] if s["name"] == "Body (total)")
+    assert body["within_tolerance"] is False
+    assert r["proportionality_ok"] is False
+
+
+def test_proportionality_fails_on_total_deviation_even_if_sections_ok():
+    """Sections match their allocations (within tol) but the total (400) is far from
+    the target (250) -> total_deviation 0.6 > 0.3 -> not ok. Pins the
+    `total_deviation <= tolerance` term of the AND (distinct from the section term)."""
+    r = summary_validation.check_proportionality(
+        _summary(50, 300, 50), _prop_input(250, 50, 300, 50))
+    assert all(s["within_tolerance"] for s in r["sections"])
+    assert r["total_deviation"] > 0.3
+    assert r["proportionality_ok"] is False
+
+
+def test_proportionality_closing_under_50_gets_generous_tolerance():
+    """A Closing section allocated < 50 words gets a 250% tolerance: alloc 30, actual
+    90 = 200% deviation is still within. Pins the Closing-<50 special-case tier
+    (any other <100 section would only get 50% and would FAIL at that deviation)."""
+    r = summary_validation.check_proportionality(
+        _summary(50, 300, 90), _prop_input(440, 50, 300, 30))
+    closing = next(s for s in r["sections"] if s["name"] == "Closing")
+    assert closing["expected"] == 30 and closing["actual"] == 90
+    assert closing["within_tolerance"] is True
+
+
+def test_proportionality_midsize_section_uses_040_tolerance():
+    """A 100–200-word section gets 40% tolerance: body alloc 150, actual 220 =
+    46.7% deviation FAILS (a <100 section would get 50% and pass). Pins the
+    mid-size tier (0.4) and its 200 upper bound."""
+    r = summary_validation.check_proportionality(
+        _summary(50, 220, 50), _prop_input(320, 50, 150, 50))
+    body = next(s for s in r["sections"] if s["name"] == "Body (total)")
+    assert abs(body["deviation"] - (70 / 150)) < 0.001
+    assert body["within_tolerance"] is False
+
+
+def test_proportionality_small_section_uses_050_tolerance():
+    """A <100-word (non-Closing) section gets 50% tolerance: opening alloc 60, actual
+    89 = 48.3% deviation is within (would FAIL under the 40% mid-size tier). Pins the
+    <100 tier (0.5) distinct from the 0.4 tier."""
+    r = summary_validation.check_proportionality(
+        _summary(89, 300, 50), _prop_input(439, 60, 300, 50))
+    opening = next(s for s in r["sections"] if s["name"] == "Opening")
+    assert opening["expected"] == 60 and opening["actual"] == 89
+    assert opening["within_tolerance"] is True  # 0.483 <= 0.5, but > 0.4
+
+
+def test_proportionality_zero_allocation_does_not_divide_by_zero():
+    """A section with a 0-word allocation must NOT crash: deviation is 0 (guarded),
+    the section is within tolerance. Pins the `expected > 0 else 0` divide-by-zero
+    guard on every section."""
+    r = summary_validation.check_proportionality(
+        _summary(40, 300, 50), _prop_input(390, 0, 300, 50))  # opening alloc 0
+    opening = next(s for s in r["sections"] if s["name"] == "Opening")
+    assert opening["expected"] == 0
+    assert opening["deviation"] == 0
+    assert opening["within_tolerance"] is True
+
+
 # ---------------------------------------------------------------------------
 # abstract_validation.generate_coverage_items — thresholds & first-theme rule
 # ---------------------------------------------------------------------------
