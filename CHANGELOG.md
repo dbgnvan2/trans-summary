@@ -35,21 +35,29 @@ calibration clears its precision/recall bars — so the gate is unaffected until
 - Two `learning-qa` passes applied: short-concrete-claim coverage hole (F1),
   pass-on-empty when nothing judged (F2), and gold-set precision-stress cases (F3).
 
-**Status:** code + gold set + gate + offline tests complete and green; **NOT armed.**
-The isolated-gold M2.B.1 calibration PASSED (recall/precision 1.0, key resolved via
-the shared `~/.config/llm/keys.json` store), but a **real-full-artifact smoke test
-showed the judge would false-BLOCK real runs** — a P10 test-validity gap (the gold
-set of isolated clean claims never exercised the real extraction path). Response:
-kept it disabled, scoped it to prose summaries (dropped THEMES — interpretive by
-design), hardened `extract_claims` (skip scaffolding/meta via
-`config.FAITHFULNESS_SKIP_LINE_LABELS`, strip enumerators) and loosened the prompt.
-Added `transcript_utils.resolve_anthropic_key` (env → shared keys file) so
-calibration/live runs work without exporting the key, plus a per-content judge memo
-and a conftest guard forcing the judge off in the suite. Remaining before arming:
-real-artifact gold cases, label-precision tuning, structured description-only theme
-path (TODO.md, LEARNINGS.md). Coverage: docs/spec_coverage_m2_2026-07-15.md.
+**Status:** ARMED (`FAITHFULNESS_JUDGE_ENABLED = True`, policy: Hard BLOCK, prose
+only). An isolated-gold calibration first passed but a real-full-artifact smoke test
+caught that it would false-BLOCK — a P10 test-validity gap (LEARNINGS.md). Fixed the
+right way: scoped to PROSE (themes dropped — interpretive by design), hardened
+`extract_claims` (skip scaffolding/meta via `config.FAITHFULNESS_SKIP_LINE_LABELS`,
+strip enumerators), tuned the prompt to distinguish a fabricated concrete specific
+(BLOCK) from a thematic generalization (entailed), and **re-calibrated on REAL full
+artifacts** (the P10 fix). Real-artifact calibration (2026-07-15, `claude-sonnet-4-6`):
+claim-level gold recall/precision 1.0; the 3 real abstracts judged correctly —
+`roots_bowen` PASS, `where_roots` FAIL naming the real `Luciano Malorni` fabrication,
+`dave_g` FAIL on a genuine over-reach; an injected fabrication caught; end-to-end gate
+smoke test BLOCKs the Malorni run. `transcript_utils.resolve_anthropic_key` (env →
+shared `~/.config/llm/keys.json`) supplies the key; a per-content judge memo dedupes
+the per-publish gate calls; a root-conftest guard forces the judge OFF in the unit
+suite (enabled path exercised with a mocked judge). A learning-qa arming review then
+caught a recall hole (the loosened prompt could pass an invented stance with no proper
+noun) — tightened the prompt to flag invented assertions/causal-claims too, added
+adversarial gold cases (us6/us7 invented-stance, no proper noun — both now caught),
+verified verdict stability (3/3 runs), and PINNED `FAITHFULNESS_JUDGE_MODEL` to the
+calibrated version (not `DEFAULT_MODEL`) so a model bump can't silently un-calibrate
+the armed judge (P6). Coverage: docs/spec_coverage_m2_2026-07-15.md.
 
-Suite: 564 passed / 15 skipped / 5 xfailed / 0 failed (calibration skipped).
+Suite: 564 passed / 15 skipped / 5 xfailed / 0 failed (live calibration opt-in only).
 
 Spec: docs/spec_unattended_robustness_2026-07-15.md#M2 (M2.A, M2.B, M2.C)
 

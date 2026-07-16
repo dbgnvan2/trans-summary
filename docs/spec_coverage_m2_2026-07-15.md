@@ -4,15 +4,13 @@ Spec: [`spec_unattended_robustness_2026-07-15.md`](spec_unattended_robustness_20
 Scope (confirmed 2026-07-15): all narrative artifacts (abstract, summary, overview,
 blog, themes); Sonnet judge; full build incl. live calibration.
 
-**Status:** code + gold set + gate wiring + offline tests complete; the judge is
-**disabled** (`config.FAITHFULNESS_JUDGE_ENABLED = False`). The isolated-gold
-calibration (M2.B.1) PASSED perfectly, **but a real-full-artifact smoke test
-(2026-07-15) showed the judge would false-BLOCK real runs** — so it is NOT armed.
-This is a P10 test-validity finding (LEARNINGS.md): the gold set of isolated clean
-claims never exercised the real extraction path (themes scaffolding/metadata,
-full-abstract synthesis). Scope narrowed to prose summaries (themes dropped —
-interpretive by design). Remaining before arming: real-artifact gold cases,
-label-precision tuning, a structured description-only path for themes — see TODO.md.
+**Status:** ARMED (`FAITHFULNESS_JUDGE_ENABLED = True`; policy: Hard BLOCK; prose
+artifacts only). An isolated-gold calibration first passed but a real-full-artifact
+smoke test caught it would false-BLOCK (a P10 test-validity finding, LEARNINGS.md);
+the judge was then scoped to prose, hardened (scaffolding-skipping extraction, a
+prompt that separates fabricated specifics from thematic generalization), and
+**re-calibrated on REAL full artifacts**. Themes remain excluded (interpretive by
+design); a structured description-only theme path is future work (TODO.md).
 
 ## Acceptance criteria → tests
 
@@ -22,7 +20,7 @@ label-precision tuning, a structured description-only path for themes — see TO
 | **M2.A.1** | On a fixture with a known fabrication, returns FAIL naming that sentence | ✅ done | `::test_m2a1_fabricated_claim_flagged` (Luciano-Malorni-shaped injected claim) |
 | **M2.A.2** | On the clean real artifact, returns PASS (no false FAIL) | ✅ done | `::test_m2a2_clean_artifact_passes` |
 | **M2.B** | Curated gold set pins the judge's threshold | ✅ built | `tests/fixtures/faithfulness_gold/gold.json` (21 real-source cases); `::test_gold_set_is_balanced_and_sources_exist` |
-| **M2.B.1** | Judge precision/recall on the gold set ≥ threshold (recall ≥0.9 on contradicted+unsupported) | ✅ **PASSED** | `test_faithfulness_calibration.py::test_m2b1_judge_meets_gold_thresholds` — 2026-07-15, model `claude-sonnet-4-6`, 29-case gold set (3 real sources): **recall 1.0, precision 1.0, accuracy 1.0** (tp=13, fp=0, fn=0, tn=16). Every fabrication caught incl. real `Luciano Malorni`; all 6 summary-inference precision-stress cases correctly PASSED. Key resolved via the global shared keys file. |
+| **M2.B.1** | Judge precision/recall on the gold set ≥ threshold (recall ≥0.9 on contradicted+unsupported) | ✅ **PASSED** | `test_faithfulness_calibration.py::test_m2b1_judge_meets_gold_thresholds` — claim-level gold (29 cases, 3 real sources): **recall 1.0, precision 1.0**. PLUS the P10 fix — real FULL artifacts through the production path: `::test_m2b1_real_abstract_artifacts_judged_correctly` (roots_bowen PASS; where_roots FAIL→`Malorni`; dave_g FAIL→over-reach) and `::test_m2b1_injected_fabrication_in_real_abstract_is_caught`. 2026-07-15, `claude-sonnet-4-6`, key via the shared keys file. |
 | **M2.C** | Judge fails closed — its own error → ERROR (blocks), never PASS | ✅ done | `::test_m2c1_judge_error_is_error_not_pass`, `::test_m2c_unparseable_judge_response_is_error`; gate: `test_release_gate.py::test_m2c_faithfulness_no_apikey_is_error_blocks` |
 | **M2.C.1** | Judge exception → ERROR verdict | ✅ done | `::test_m2c1_judge_error_is_error_not_pass` |
 

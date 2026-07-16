@@ -441,23 +441,22 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
 # hallucination the lexical checks can't. Gated behind an enable flag (strict mode)
 # until calibrated on the gold set; when enabled, an unentailed claim FAILs and the
 # judge's own error is ERROR (both blocking per U2 — see GATE_BLOCKING_CHECKS).
-# DISABLED — NOT yet safe to arm. The M2.B.1 gold-set calibration passed
-# (recall/precision 1.0 on 29 ISOLATED curated claims), but a real-full-artifact
-# smoke test (2026-07-15) showed the judge would false-BLOCK real faithful runs:
-#   * claim extraction over the themes artifacts pulls in SCAFFOLDING — bare theme
-#     numbers ("1."), the "Document: …" title line, and metadata fields like
-#     "Coverage / role: ~55-60%" — and the judge (correctly) calls those unsupported;
-#   * on a full abstract it over-flags legitimate summary-level synthesis
-#     ("a recurring pattern she terms the nubbin of self") as contradicted.
-# Root cause is a P10 test-validity gap: the gold set of clean isolated sentences
-# never exercised the real extraction path. Before arming: (a) themes-aware claim
-# extraction (judge descriptions only, skip scaffolding/metadata) or drop themes
-# from FAITHFULNESS_ARTIFACT_SUFFIXES; (b) add REAL-FULL-ARTIFACT gold cases;
-# (c) tune the prompt for synthesis tolerance. See LEARNINGS.md + TODO.md.
-FAITHFULNESS_JUDGE_ENABLED = False
-# Judge model: the project's Sonnet (accuracy over cost — a missed hallucination is
-# expensive). Config, not a magic constant, so it can be repointed centrally.
-FAITHFULNESS_JUDGE_MODEL = DEFAULT_MODEL
+# ARMED 2026-07-15. Calibrated on REAL prose artifacts (not just isolated claims —
+# the P10 fix): claim-level gold recall/precision 1.0; the 3 real abstracts judged
+# correctly (roots_bowen PASS; where_roots FAIL naming the real 'Luciano Malorni'
+# fabrication; dave_g FAIL on a genuine over-reach); an injected fabrication caught.
+# Scoped to PROSE only (themes excluded — interpretive by design). Policy: Hard BLOCK
+# (user-elected) — any unentailed claim OR a judge error blocks publish (fail-closed).
+# The unit suite forces this OFF via a conftest autouse fixture (deterministic +
+# offline); the enabled path is exercised with a mocked judge. Requires a resolvable
+# Anthropic key (env or the shared ~/.config/llm/keys.json store).
+FAITHFULNESS_JUDGE_ENABLED = True
+# Judge model: PINNED to the explicit version the judge was CALIBRATED on — NOT
+# aliased to DEFAULT_MODEL. A central DEFAULT_MODEL bump must not silently move the
+# armed judge onto an un-recalibrated model (P6: the arming decision trusts a
+# calibration artifact tied to this exact model). When changing it, re-run
+# tests/test_faithfulness_calibration.py and confirm the bars still pass.
+FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete

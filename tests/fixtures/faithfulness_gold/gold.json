@@ -96,6 +96,13 @@
      "note": "source: Ptolemy did epicycle refinements; COPERNICUS restored heliocentrism"},
     {"id": "rb_u1", "source": "roots_bowen", "label": "unsupported",
      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation.",
-     "note": "no such study, date, or institution in the source"}
+     "note": "no such study, date, or institution in the source"},
+
+    {"id": "us6", "source": "dave_g", "label": "unsupported",
+     "claim": "The presenter attributes the client's recovery primarily to psychiatric medication.",
+     "note": "ADVERSARIAL — invented causal claim with NO proper noun (the recall-hole class). Source attributes recovery to community college / self-direction, never to medication."},
+    {"id": "us7", "source": "where_roots", "label": "unsupported",
+     "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience.",
+     "note": "ADVERSARIAL — invented stance, no proper noun. Source is explicitly tentative (answers remain incomplete)."}
   ]
 }

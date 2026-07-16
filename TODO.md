@@ -6,36 +6,46 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
-## M2 faithfulness judge — NOT yet armable (2026-07-15)
+## M2 faithfulness judge — ARMED (2026-07-15), follow-ups
 
-Built and offline-green, **disabled**. The isolated-gold calibration passed
-perfectly (recall/precision 1.0) but a **real-full-artifact smoke test showed it
-would false-BLOCK real runs** (see LEARNINGS.md — a P10 test-validity gap). Do NOT
-arm until the below are done and a real-artifact smoke test passes clean.
-
-Remaining work before arming:
-1. **Real-artifact gold cases.** Rebuild the gold set from claims extracted by
-   `extract_claims` on REAL abstract/summary/overview/blog files (not hand-picked
-   isolated sentences), so calibration exercises the production extraction path.
-2. **Label-precision tuning.** The judge over-flags legitimate summary synthesis
-   and mislabels "unsupported" vs "contradicted" (dave_g abstract: "recurring
-   pattern … nubbin of self" → contradicted). Tune `_JUDGE_INSTRUCTIONS` and
-   re-measure precision on real abstracts; decide BLOCK vs WARN for borderline
-   over-synthesis.
-3. **Themes need a structured path.** Themes were dropped from
-   `FAITHFULNESS_ARTIFACT_SUFFIXES` (interpretive by design). To judge a theme,
-   extract its DESCRIPTION only (via the M3 themes codec) and judge that — not the
-   raw markdown (titles/metadata/interpretation false-flag).
-4. Re-run `tests/test_faithfulness_calibration.py` on the rebuilt gold set; smoke-test
-   the enabled gate on a real project; only then flip `FAITHFULNESS_JUDGE_ENABLED = True`.
-
-Key access: `transcript_utils.resolve_anthropic_key()` reads env then the shared
-`~/.config/llm/keys.json` (global-api-config store), so calibration/live runs work
-without exporting the key. Calibration command:
+**ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, Hard BLOCK, prose only). Calibrated
+on REAL full artifacts after an isolated-gold calibration was caught as a P10 gap
+(LEARNINGS.md). Re-run the calibration any time with:
 ```
-RUN_FAITHFULNESS_CALIBRATION=1 ANTHROPIC_API_KEY=… \
+RUN_FAITHFULNESS_CALIBRATION=1 \
   PYTHONPATH=$PWD .venv/bin/python -m pytest tests/test_faithfulness_calibration.py -q -s
 ```
+(Key auto-resolves from the shared `~/.config/llm/keys.json` via
+`transcript_utils.resolve_anthropic_key()`.)
+
+Follow-ups (not blockers) — incl. learning-qa arming-review findings:
+1. **Themes coverage.** Themes are excluded (interpretive by design). To cover them,
+   judge the DESCRIPTION field only, via the M3 themes codec — not the raw markdown.
+2. **Living gold set.** Add every escaped hallucination found in production to
+   `tests/fixtures/faithfulness_gold/gold.json`; re-run the calibration on any prompt
+   or threshold change (spec §M2 flags the judge's semantic quality as curated-eval,
+   not a unit test). The set now includes adversarial invented-stance cases (us6/us7)
+   — the "no proper noun" recall class that the prompt tightening now catches.
+3. **Judge model is PINNED** (`FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"`, not
+   aliased to DEFAULT_MODEL) so a generation-model bump can't silently move the armed
+   judge onto an un-recalibrated model (P6). Changing it requires a re-calibration.
+4. **Key precondition (verify in the publish env).** Armed → every publish ERROR→BLOCKs
+   if no Anthropic key resolves. The key is NOT in `.env`; it resolves from the shared
+   `~/.config/llm/keys.json`. Confirm that file is present wherever the gate actually
+   runs, or publishes block uniformly (correct fail-closed, but a hard runtime coupling).
+5. **judged==0 → ERROR** is a correct pass-on-empty guard: a run with none of the
+   prose artifacts blocks. Verified the abstract is always emitted (it's in
+   `GATE_REQUIRED_ARTIFACT_SUFFIXES` + scanned by entity_grounding), so a real
+   publishable run always has ≥1 prose artifact — no false-BLOCK class here.
+6. **Test-guard hardening (low).** The suite's offline safety is the root-conftest
+   force-off; the enabled-path tests must ALSO mock the judge. A future enabled-path
+   test that forgets to mock could make a live call on a dev machine where the shared
+   keys file resolves. Consider an autouse net that makes any unmocked judge call in a
+   non-calibration test fail loudly (tricky — must not break the mocked-enabled tests).
+7. **Cost/latency.** When armed, each publish judges the prose artifacts via Sonnet
+   (deduped per-content by the gate memo). If per-publish cost matters, consider a
+   single orchestrator-level gate call instead of the per-entry-point `publish_allowed`.
+8. **`summary_pipeline` proportionality WARN** and other pre-existing items below.
 - **Consider native structured output (L4).** The judge parses a JSON array via
   robust regex + fail-closed guard. A tool-use / structured-output call would be
   more robust than free-text JSON; not required (unparseable → ERROR, never silent),

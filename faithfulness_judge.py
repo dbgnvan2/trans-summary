@@ -182,16 +182,36 @@ that is faithful, not a fabrication.
 source (a wrong name, date, number, relationship, or outcome — the source says X, \
 the claim says not-X). A broader generalization or interpretation is NOT a \
 contradiction; only a factual clash is.
-- "unsupported": the claim introduces a specific concrete fact (a named person, \
-place, date, quantity, cited study, or attribution) that is NOT present in and NOT \
-derivable from the source. This is the hallucination case — a fabricated specific, \
-not a high-level interpretation.
+- "unsupported": the claim asserts something the source neither states nor supports. \
+This is the hallucination case, and it has TWO forms: (i) a fabricated concrete \
+specific (a named person, place, date, quantity, or cited study absent from the \
+source), AND (ii) an invented claim of substance — a specific conclusion, stance, \
+recommendation, causal claim, or attribution — that has NO basis in the source (the \
+source is silent on it, and it does not follow from what the source does say). Form \
+(ii) counts even when the claim contains no proper noun.
 
 Judge ONLY against the source; do not use outside knowledge. Default to "entailed" \
 for thematic summaries, interpretations, and reasonable inferences that fairly \
-reflect the source. Reserve "contradicted" for a direct factual clash and \
-"unsupported" for a concrete fabricated specific. When genuinely unsure, prefer \
-"entailed" — the check exists to catch clear fabrications, not to police wording.
+reflect the source. Reserve "contradicted" for a direct factual clash.
+
+The distinction that matters — apply this test:
+- A summary that generalizes, groups, frames, or CONNECTS material whose elements \
+are each present in the source is "entailed" — faithful abstraction, not \
+fabrication. In particular, a claim that connects or relates two things is \
+"entailed" when BOTH things appear in the source, EVEN IF the source never states \
+the connection in those words (e.g. "connects this history to Bowen theory by \
+introducing the DOS equation" is entailed when the history, Bowen theory, and the \
+DOS equation are all in the source). Reasonable inference from grounded material is \
+faithful.
+- "unsupported" is for a claim whose core element or assertion is ABSENT from the \
+source entirely — an invented fact, a cited study, or a specific conclusion / stance \
+/ causal claim the source never makes and that does not follow from what it says \
+(e.g. "attributes recovery to medication" when medication appears nowhere in the \
+source). This holds even when the claim names no specific entity.
+
+When unsure whether the source supports a claim built from grounded elements, prefer \
+"entailed". Reserve "unsupported" for a claim introducing substance the source does \
+not contain, and "contradicted" for a direct factual clash.
 
 Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]
