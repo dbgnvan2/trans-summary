@@ -261,6 +261,18 @@ def test_m1b2_blocked_run_writes_no_bundle(cloned_run):
     assert (proj / f"{base}{config.SUFFIX_PUBLISH_BLOCKED}").exists()
 
 
+def test_f5_publish_guard_writes_manifest_tied_to_decision(cloned_run):
+    """A gated publish leaves a run-manifest reflecting the decision that gated
+    (not a separate later gate run)."""
+    base, proj = cloned_run
+    assert rg.publish_allowed(base, logging.getLogger("t")) is False  # BLOCK (Malorni)
+    manifest_path = proj / f"{base}{config.SUFFIX_RUN_MANIFEST}"
+    assert manifest_path.exists()
+    m = json.loads(manifest_path.read_text())
+    assert m["publish_decision"] == "BLOCK"
+    assert m["gate"]["blockers"], "the blocking verdict must be recorded in the manifest"
+
+
 def test_m1b2_publish_allowed_reflects_gate(cloned_run):
     base, proj = cloned_run
     marker = proj / f"{base}{config.SUFFIX_PUBLISH_BLOCKED}"

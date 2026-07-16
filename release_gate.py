@@ -402,14 +402,26 @@ def _quarantine_stale_bundle(base_name: str, logger=None) -> list:
 def publish_allowed(base_name: str, logger=None) -> bool:
     """Publish-path guard (M1.B.2): run the gate; on BLOCK drop a marker, move any
     stale bundle aside, and return False so the caller writes NO bundle. On allow,
-    clear a stale marker. Lightweight (no manifest) — call ``gate_and_report``
-    once for the manifest."""
+    clear a stale marker. Writes the run manifest tied to THIS decision (F5), so a
+    gated publish always leaves a manifest reflecting the decision that gated —
+    not a separate, later gate run.
+
+    Note: each publish entry point (webpage/pdf/package) calls this, so the gate
+    runs a few times per publish; the gate is deterministic on the same input
+    artifacts, so the decision is identical. The manifest is a snapshot at gate
+    time — bundle files written *after* the guard aren't all captured; a single
+    orchestrator-level ``gate_and_report`` call (future wiring) would be exact."""
+    from datetime import datetime
+
     decision = run_gate(base_name, logger)
-    _update_block_marker(base_name, decision)
+    generated_at = datetime.now().isoformat(timespec="seconds")
+    _update_block_marker(base_name, decision, generated_at)
     if decision.decision is Decision.BLOCK:
         _quarantine_stale_bundle(base_name, logger)
         if logger:
             logger.error("Release gate BLOCKED publication of %s — skipping bundle.", base_name)
+    # After any quarantine, so the recorded artifact state matches what remains.
+    write_manifest(base_name, decision, generated_at, logger)
     return decision.allowed
 
 

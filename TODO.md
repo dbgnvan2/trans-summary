@@ -200,16 +200,15 @@ its findings were fixed except these two, kept as honest limitations:
   "Luciano Malorni" (multi-word). Broadening to single-word/acronym would flag
   every capitalized word — the real fix is the semantic judge (M2, deferred). U2
   is therefore only met for the multi-word subset (already stated in the spec).
-- **F5 — the run manifest is not wired into the live publish path.** The M7
-  manifest is produced by `release_gate.gate_and_report` / the `release_gate.py`
-  CLI, but the GUI/CLI publish flow calls `publish_allowed` (marker only, no
-  manifest). So a normal publish leaves a PUBLISH-BLOCKED marker on BLOCK but no
-  manifest, and a manifest produced later reflects a *second* gate run (TOCTOU).
-  Also each publish runs the gate 3× (webpage/pdf/package) independently. Wire a
-  single `gate_and_report` call into the pipeline orchestrator (once, after all
-  artifacts exist, before publish) and have the guards read that decision — a
-  task for when the orchestration layer (M?) is touched. Core safety (BLOCK -> no
-  bundle, stale bundle quarantined) does not depend on the manifest.
+- **F5 — manifest/publish-decision precision (largely addressed).** `publish_allowed`
+  now writes the run manifest tied to THE decision that gated (fixed: a normal
+  publish always leaves a manifest, no separate second gate run). Residual: each
+  publish entry point (webpage/pdf/package) still runs the gate independently
+  (deterministic, so the decision is identical) and the manifest is a gate-time
+  snapshot — bundle files written *after* the guard aren't all captured. A single
+  orchestrator-level `gate_and_report` call (once, after all artifacts exist,
+  before publish) would make it exact + run the gate once; do it when the
+  pipeline orchestration layer is next touched.
 
 ## Phase 0 (unattended-robustness spec) — product decisions surfaced
 
