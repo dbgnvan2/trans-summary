@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-15 (unattended-robustness — M2: faithfulness judge)
+
+Claim-level semantic faithfulness for NARRATIVE artifacts (U2) — catches a fluent
+hallucination the lexical checks can't (the class that let 'Luciano Malorni' ship).
+Scope (confirmed): all narrative artifacts (abstract/summary/overview/blog/themes),
+Sonnet judge, full build incl. live calibration. **The judge is disabled by default**
+(`config.FAITHFULNESS_JUDGE_ENABLED = False`) and ships only once the live M2.B.1
+calibration clears its precision/recall bars — so the gate is unaffected until armed.
+
+- **`faithfulness_judge.py`:** `extract_claims` (deterministic sentence-level,
+  abbreviation-aware, keeps short *concrete* claims so a terse fabrication isn't
+  dropped unjudged); `judge_artifact` — ONE batched Sonnet call scoring every claim
+  {entailed | contradicted | unsupported}, any non-entailed → FAIL naming the
+  sentence. Hardened via `call_claude_with_retry` (timeout+retry+backoff, P5).
+  Fails closed (M2.C): missing source / API error / unparseable response / a claim
+  with no verdict → ERROR, never a silent PASS (P1/P14). `binary_faithfulness_metrics`
+  scores precision/recall on the dangerous (contradicted+unsupported) class.
+- **`release_gate.check_faithfulness`:** judges `config.FAITHFULNESS_ARTIFACT_SUFFIXES`;
+  FAIL/ERROR → BLOCK (`faithfulness` in `GATE_BLOCKING_CHECKS`, U2). A PASS no-op while
+  disabled. "Nothing judged" is not "all faithful" — no narrative artifact present → ERROR.
+- **Gold set `tests/fixtures/faithfulness_gold/gold.json`:** 25 curated (claim, source,
+  label) cases against REAL sources (`dave_g_test2`, `where_roots`), labels verified
+  against the source (P6) — 14 entailed (incl. 6 summary-level-inference precision-stress
+  cases), 6 contradicted, 5 unsupported (incl. the real `Luciano Malorni` fabrication).
+- **Tests:** offline (mocked, zero spend) cover claim extraction, the fail-closed
+  parse contract, aggregation (M2.A.1 fabricated→FAIL / M2.A.2 clean→PASS / M2.C
+  error→ERROR), metrics, and gate wiring. Live calibration
+  (`test_faithfulness_calibration.py`, M2.B.1) is gated behind
+  `RUN_FAITHFULNESS_CALIBRATION=1` + `ANTHROPIC_API_KEY` so it never spends on a
+  normal run. Judge core logic 84% mutation-killed (fail-closed paths pinned).
+- Two `learning-qa` passes applied: short-concrete-claim coverage hole (F1),
+  pass-on-empty when nothing judged (F2), and gold-set precision-stress cases (F3).
+
+**Status:** code + gold set + gate + offline tests complete and green; the live
+M2.B.1 calibration is **blocked pending an `ANTHROPIC_API_KEY`** in the run
+environment (none present here — not fabricating results). Coverage:
+docs/spec_coverage_m2_2026-07-15.md.
+
+Suite: 562 passed / 15 skipped / 5 xfailed / 0 failed (calibration skipped).
+
+Spec: docs/spec_unattended_robustness_2026-07-15.md#M2 (M2.A, M2.B, M2.C)
+
 ## [Unreleased] - 2026-07-15 (unattended-robustness — M3: schema contracts)
 
 Kill the P19 producer/consumer format-drift *class* (U4). Every structured

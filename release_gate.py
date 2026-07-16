@@ -292,6 +292,66 @@ def check_artifact_contracts(base_name: str, logger=None) -> Verdict:
                    "all structured artifacts conform to their schema")
 
 
+# --------------------------------------------------------------------------- M2
+def check_faithfulness(base_name: str, logger=None) -> Verdict:
+    """Claim-level semantic faithfulness of the NARRATIVE artifacts (M2). Each
+    artifact's claims must be entailed by the source; a contradicted/unsupported
+    claim -> FAIL (fluent hallucination). The judge fails closed: no source / no
+    API key / judge error -> ERROR (blocks). Disabled by default until the M2.B
+    gold-set calibration clears thresholds (`config.FAITHFULNESS_JUDGE_ENABLED`),
+    in which state it is a PASS no-op so the deterministic gate is unaffected."""
+    if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
+        return Verdict("faithfulness", Status.PASS,
+                       "faithfulness judge disabled (awaiting M2.B calibration)")
+    import os
+
+    import faithfulness_judge as fjudge
+
+    transcript = _load_source_transcript(base_name)
+    if not transcript or not transcript.strip():
+        return Verdict("faithfulness", Status.ERROR,
+                       "source transcript missing or empty — cannot verify faithfulness")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        return Verdict("faithfulness", Status.ERROR,
+                       "no ANTHROPIC_API_KEY — cannot run faithfulness judge (fail closed)")
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    proj = config.PROJECTS_DIR / base_name
+    fails, errors = [], []
+    judged = 0
+    for suffix in config.FAITHFULNESS_ARTIFACT_SUFFIXES:
+        path = proj / f"{base_name}{suffix}"
+        if not path.exists():
+            continue
+        judged += 1
+        result = fjudge.judge_artifact(
+            path.read_text(encoding="utf-8"), transcript, client, logger=logger)
+        art = suffix.strip(" -")
+        if result.status == fjudge.FAIL:
+            fails.append({"artifact": art, "detail": result.detail,
+                          "unfaithful": [c.claim for c in result.unfaithful]})
+        elif result.status == fjudge.ERROR:
+            errors.append({"artifact": art, "detail": result.detail})
+    if judged == 0:
+        # "nothing to judge" is NOT "all faithful": a run with no narrative artifact
+        # present cannot silently clear the faithfulness gate (P7 pass-on-empty).
+        return Verdict("faithfulness", Status.ERROR,
+                       "no narrative artifact present to verify faithfulness")
+    if fails:
+        # include any co-occurring ERRORs in items so the manifest isn't lossy.
+        return Verdict("faithfulness", Status.FAIL,
+                       f"{len(fails)} of {judged} artifact(s) contain unentailed claims",
+                       items=fails + errors)
+    if errors:
+        return Verdict("faithfulness", Status.ERROR,
+                       f"{len(errors)} of {judged} artifact(s) could not be verified",
+                       items=errors)
+    return Verdict("faithfulness", Status.PASS,
+                   f"all narrative claims entailed by source ({judged} artifact(s) judged)")
+
+
 def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     """WARN (named) if a required artifact is missing or empty — publishing an
     incomplete bundle unattended is a silent drop (P2/M5.B). Advisory by policy;
@@ -317,6 +377,7 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
 DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
+    ("faithfulness", check_faithfulness),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
     ("timestamp_citations", check_timestamp_citations),

@@ -392,7 +392,11 @@ PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, 
 #   its schema is producer/consumer format drift (P19). U4 requires drift to be a
 #   HARD error, not a silent zero, so it blocks — a legitimately-empty artifact
 #   validates as an empty object and does not trip it.
-GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts"}
+#   faithfulness (M2, added 2026-07-15): an unentailed claim in a narrative artifact
+#   is a fluent hallucination (U2). Blocks when enabled; a PASS no-op while
+#   FAITHFULNESS_JUDGE_ENABLED is False (awaiting M2.B calibration), so it does not
+#   affect the deterministic gate until turned on.
+GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
@@ -429,6 +433,36 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
     SUFFIX_INTERPRETIVE_THEMES,
     SUFFIX_KEY_TERMS,
 ]
+
+# ============================================================================
+# M2 — SEMANTIC FAITHFULNESS JUDGE (spec_unattended_robustness_2026-07-15.md §M2)
+# ============================================================================
+# Claim-level entailment check for NARRATIVE artifacts — catches a fluent
+# hallucination the lexical checks can't. Gated behind an enable flag (strict mode)
+# until calibrated on the gold set; when enabled, an unentailed claim FAILs and the
+# judge's own error is ERROR (both blocking per U2 — see GATE_BLOCKING_CHECKS).
+FAITHFULNESS_JUDGE_ENABLED = False  # flip on once M2.B calibration clears thresholds
+# Judge model: the project's Sonnet (accuracy over cost — a missed hallucination is
+# expensive). Config, not a magic constant, so it can be repointed centrally.
+FAITHFULNESS_JUDGE_MODEL = DEFAULT_MODEL
+FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
+# A claim shorter than this carries no verifiable assertion (heading fragments,
+# stray tokens) and is skipped by claim extraction.
+FAITHFULNESS_MIN_CLAIM_CHARS = 25
+# Narrative artifacts the judge audits (prose that can carry a fluent hallucination).
+FAITHFULNESS_ARTIFACT_SUFFIXES = [
+    SUFFIX_ABSTRACT_GEN,
+    SUFFIX_SUMMARY_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
+    SUFFIX_STRUCTURAL_THEMES,
+    SUFFIX_INTERPRETIVE_THEMES,
+]
+# M2.B gold-set gate: the judge ships only if it clears these on the curated set.
+# Recall on the dangerous class (contradicted+unsupported) is the load-bearing bar —
+# the judge must almost never wave a fabrication through.
+FAITHFULNESS_MIN_RECALL_UNFAITHFUL = 0.90
+FAITHFULNESS_MIN_PRECISION_UNFAITHFUL = 0.70
 
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a

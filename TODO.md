@@ -6,6 +6,32 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## M2 faithfulness judge — arm it (2026-07-15)
+
+Built and offline-green, **disabled by default** until calibrated. To arm:
+
+1. **Run live calibration (M2.B.1)** — needs an Anthropic key (absent in this env):
+   ```
+   RUN_FAITHFULNESS_CALIBRATION=1 ANTHROPIC_API_KEY=… \
+     PYTHONPATH=$PWD .venv/bin/python -m pytest tests/test_faithfulness_calibration.py -q -s
+   ```
+   Prints a per-case truth-vs-prediction table + metrics. Must clear recall ≥0.90
+   and precision ≥0.70 on the dangerous (contradicted+unsupported) class.
+2. If it clears, flip `config.FAITHFULNESS_JUDGE_ENABLED = True` to arm the gate.
+   If it misses, tune the judge prompt (`faithfulness_judge._JUDGE_INSTRUCTIONS`)
+   / thresholds and re-run. The gold set is the living calibration artifact — add
+   every escaped hallucination found in production.
+- **Consider native structured output (L4).** The judge parses a JSON array via
+  robust regex + fail-closed guard. A tool-use / structured-output call would be
+  more robust than free-text JSON; not required (unparseable → ERROR, never silent),
+  but a future hardening.
+- **Long-source token budget (P9).** The judge sends the full transcript + all
+  claims in one call (no truncation, correct for grounding). A very long transcript
+  could exceed context → API error → ERROR (fail closed). Fine for now; revisit if
+  real runs hit it (batch by section, or a retrieval step).
+
+---
+
 ## M3 schema contracts — staging follow-ups (2026-07-15)
 
 Codec layer (`artifact_contracts.py`) + bowen boundary landed (M3a, M3b-bowen).
