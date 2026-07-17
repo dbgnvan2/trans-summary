@@ -153,6 +153,33 @@ def test_f2_accented_name_detected(real_run):
     assert "José García" in find_ungrounded_names("Work by José García and Kent Berridge.", source)
 
 
+def test_leading_abstract_heading_not_treated_as_name():
+    """Regression: a leading '# Abstract' heading + capitalized first word must
+    NOT be extracted as the proper name 'Abstract\\n\\nIn' (that caused a false
+    entity_grounding BLOCK). Scaffolding is stripped and names can't span a
+    newline."""
+    from abstract_validation import find_ungrounded_names
+    source = "in this webinar the presenter discusses bowen theory at length"
+    abstract = "# Abstract\n\nIn this webinar the presenter discusses Bowen theory."
+    names = find_ungrounded_names(abstract, source)
+    assert not any("Abstract" in n for n in names)
+    assert not any("\n" in n for n in names)  # no name spans a newline
+
+
+def test_titlecase_words_across_paragraph_break_not_one_name():
+    from abstract_validation import find_ungrounded_names
+    # "Foo" ends a paragraph, "Bar" starts the next -> not a single name "Foo Bar"
+    names = find_ungrounded_names("Alpha discusses Foo.\n\nBar was also noted.", "alpha foo bar")
+    assert "Foo\n\nBar" not in names and "Foo Bar" not in names
+
+
+def test_real_fabricated_name_still_caught_after_fix():
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses clinical work and family systems"
+    assert "Luciano Malorni" in find_ungrounded_names(
+        "# Abstract\n\nThe work of Luciano Malorni is central.", source)
+
+
 # --------------------------------------------------------------- M4.A verbatim quotes
 def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS

@@ -44,6 +44,10 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
     (multi-word); adjacent fabrication shapes remain uncovered.
     """
+    # Ignore any leading scaffolding the model emits ("# Abstract", bold label),
+    # so the heading word isn't treated as a proper name (it caused a false
+    # BLOCK: "# Abstract\n\nIn ..." matched as the name "Abstract In").
+    abstract = _strip_leading_scaffolding(abstract)
     # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
     name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
     source_tokens = {
@@ -63,7 +67,10 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
 
     ungrounded: list[str] = []
     seen: set[str] = set()
-    for name in re.findall(rf"\b{name_word}(?:\s+{name_word})+\b", abstract):
+    # Use [ \t]+ (not \s+) between name words: a real multi-word proper name is
+    # on ONE line, so a match must never span a newline/paragraph break (that is
+    # what produced the bogus "Abstract\n\nIn" name and a false publish BLOCK).
+    for name in re.findall(rf"\b{name_word}(?:[ \t]+{name_word})+\b", abstract):
         if name in seen:
             continue
         seen.add(name)
