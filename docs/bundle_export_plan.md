@@ -44,11 +44,11 @@ Both formats derive from the **same combined-MD builder**, so they never drift.
 
 ## Default sections (from user's example; adjustable in config)
 
-1. YAML transcript (`SUFFIX_YAML`) — heading "Transcript"
+1. Transcript — Formatted **or** YAML (`SUFFIX_FORMATTED` / `SUFFIX_YAML`, first present) — heading "Transcript (Format/YAML)"
 2. Topics (`SUFFIX_TOPICS`) — heading "Topics"
 3. Emphasis, scored (`SUFFIX_EMPHASIS_SCORED`) — heading "Emphasis"
 4. Bowen References (`SUFFIX_BOWEN`) — heading "Bowen References"
-5. Summary (`SUFFIX_SUMMARY_GEN`) — heading "Summary"
+5. Abstract (`SUFFIX_ABSTRACT_GEN`) — heading "Abstract"
 
 Themes / key terms / abstract available as opt-in config entries. Order mirrors the
 existing run-manifest ordering (`_MANIFEST_SUFFIXES`, release_gate.py).

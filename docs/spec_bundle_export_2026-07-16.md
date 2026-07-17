@@ -16,7 +16,7 @@ both formats derive from the same combined Markdown. Google Doc export deferred.
 | ID | Criterion | Test |
 |---|---|---|
 | BE.1 | `export_bundle(base_name, fmt="docx"\|"pdf"\|"both", logger=None) -> bool` returns True only if every requested format was produced. An invalid `fmt` returns False before any work (and before the gate). | `tests/test_bundle_export.py::test_be_invalid_fmt_rejected_before_gate` |
-| BE.2 | `_build_combined_markdown` concatenates the `config.BUNDLE_SECTIONS` in configured order, each under its heading, with YAML frontmatter stripped. Sections/order/headings live in config (editorial data, not code). | `::test_be2_combines_sections_in_config_order` |
+| BE.2 | `_build_combined_markdown` concatenates the `config.BUNDLE_SECTIONS` in configured order, each under its heading. Each section names a `key`, `heading`, and `suffix_attrs` (an ordered candidate list — the first artifact that exists AND is non-empty is used, so the transcript is the Formatted **or** YAML file, whichever is present). Sections/order/headings live in config (editorial data, not code). | `::test_be2_combines_sections_in_config_order` |
 | BE.3 | A missing OPTIONAL section is skipped and surfaced, not silently dropped: `export_bundle` logs "N of M included" and names the skipped section (P2). A section artifact that exists but strips to empty is content drift (P19): excluded (not shipped blank) and surfaced via `empty_present`; an empty REQUIRED section is fatal. Frontmatter is stripped only where declared (`strip_frontmatter`), so a `---…---` divider in another section body is preserved. | `::test_be3_missing_optional_surfaced_not_silent`, `::test_be3_export_logs_n_of_m`, `::test_be3_present_but_empty_section_excluded_not_shipped_blank`, `::test_be3_present_but_empty_required_is_fatal` |
 | BE.4 | A missing REQUIRED section (or no sections found at all) is an honest failure: returns False and renders nothing. | `::test_be4_missing_required_aborts_before_render`, `::test_be4_all_missing_returns_false` |
 | BE.5 | Fails closed on a release-gate BLOCK — no bundle produced (parity with `generate_pdf`/`package_transcript`). Bundle artifacts are in `PUBLISHED_BUNDLE_SUFFIXES`, so a later BLOCK quarantines a stale bundle (F4). | `::test_be5_fails_closed_on_block` |
@@ -45,8 +45,9 @@ does not force-include it there.
 - `SUFFIX_BUNDLE_DOCX = " - bundle.docx"`, `SUFFIX_BUNDLE_PDF = " - bundle.pdf"`
   (distinct from the designed `.pdf`/`.html` so the plain-concat bundle never
   clobbers them); both added to `PUBLISHED_BUNDLE_SUFFIXES`.
-- `BUNDLE_SECTIONS`: ordered `[{suffix_attr, heading, required}]`. Default:
-  Transcript (YAML, required) → Topics → Emphasis → Bowen References → Summary.
+- `BUNDLE_SECTIONS`: ordered `[{key, heading, suffix_attrs, required, strip_frontmatter?}]`.
+  Default: Transcript (Format **or** YAML, required) → Topics → Emphasis →
+  Bowen References → Abstract.
 
 ## Adjacent (not fixed, per rule #10)
 

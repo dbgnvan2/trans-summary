@@ -2250,13 +2250,13 @@ class TranscriptProcessorGUI:
             self.base_name, fmt=config.BUNDLE_DEFAULT_FORMAT, logger=self.logger
         )
 
-    def _run_bundle_export(self, selected_attrs, fmt):
+    def _run_bundle_export(self, selected_keys, fmt):
         """Generate a bundle from a user-selected subset of sections + format on
         a background thread (post-run dialog). Spec: spec_bundle_export#BE.9."""
         if not self.base_name:
             messagebox.showwarning("No Run Selected", "Select or run a transcript first.")
             return
-        sections = [s for s in config.BUNDLE_SECTIONS if s["suffix_attr"] in selected_attrs]
+        sections = [s for s in config.BUNDLE_SECTIONS if s["key"] in selected_keys]
         if not sections:
             messagebox.showwarning("No Sections", "Select at least one section to include.")
             return
@@ -2282,7 +2282,7 @@ class TranscriptProcessorGUI:
         section_vars = {}
         for i, section in enumerate(config.BUNDLE_SECTIONS):
             var = tk.BooleanVar(value=True)
-            section_vars[section["suffix_attr"]] = var
+            section_vars[section["key"]] = var
             ttk.Checkbutton(frame, text=section["heading"], variable=var).grid(
                 row=i + 1, column=0, columnspan=2, sticky=tk.W)
 
@@ -2295,7 +2295,7 @@ class TranscriptProcessorGUI:
             ttk.Radiobutton(fmt_frame, text=f.upper(), variable=fmt_var, value=f).pack(side=tk.LEFT)
 
         def generate():
-            selected = [attr for attr, v in section_vars.items() if v.get()]
+            selected = [key for key, v in section_vars.items() if v.get()]
             dlg.destroy()
             self._run_bundle_export(selected, fmt_var.get())
 

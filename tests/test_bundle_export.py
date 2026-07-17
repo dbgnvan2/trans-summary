@@ -13,7 +13,10 @@ import ts_gui
 
 
 BASE = "Sample Title - Author - 2025-01-01"
-SECTION_ATTRS = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS]
+# Every candidate suffix attr across all sections (transcript has two).
+SECTION_ATTRS = [a for s in config.BUNDLE_SECTIONS for a in s["suffix_attrs"]]
+# The suffix each section resolves to when all candidates are present (the first).
+FIRST_ATTRS = [s["suffix_attrs"][0] for s in config.BUNDLE_SECTIONS]
 HEADINGS = [s["heading"] for s in config.BUNDLE_SECTIONS]
 
 
@@ -37,7 +40,7 @@ def test_be2_combines_sections_in_config_order(tmp_path, monkeypatch):
     assert positions == sorted(positions), "sections not in configured order"
     assert included == HEADINGS
     assert missing_req == [] and missing_opt == [] and empty == []
-    for attr in SECTION_ATTRS:
+    for attr in FIRST_ATTRS:  # each section resolves to its first candidate
         assert f"body-of-{attr}" in md
 
 
@@ -45,7 +48,7 @@ def test_be2_combines_sections_in_config_order(tmp_path, monkeypatch):
 
 def test_be3_missing_optional_surfaced_not_silent(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
-    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if s["heading"] != "Topics"]
+    attrs = [a for s in config.BUNDLE_SECTIONS if s["key"] != "topics" for a in s["suffix_attrs"]]
     _make_project(tmp_path, attrs)
     md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(BASE)
 
@@ -75,7 +78,10 @@ def test_be3_present_but_empty_required_is_fatal(tmp_path, monkeypatch):
     missing_required), not shipped blank."""
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     proj = _make_project(tmp_path, SECTION_ATTRS)
-    (proj / f"{BASE}{config.SUFFIX_YAML}").write_text("---\nTitle: x\n---\n", encoding="utf-8")  # frontmatter only -> empty body
+    # both transcript candidates present-but-empty -> the required section resolves
+    # to nothing and aborts.
+    (proj / f"{BASE}{config.SUFFIX_FORMATTED}").write_text("   \n", encoding="utf-8")
+    (proj / f"{BASE}{config.SUFFIX_YAML}").write_text("---\nTitle: x\n---\n", encoding="utf-8")
     with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
          patch("bundle_export._render_pdf_weasyprint") as mpdf, \
          patch("bundle_export._render_docx_pandoc") as mdocx:
@@ -87,8 +93,9 @@ def test_be3_present_but_empty_required_is_fatal(tmp_path, monkeypatch):
 
 def test_be3_export_logs_n_of_m(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
-    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if s["heading"] != "Topics"]
+    attrs = [a for s in config.BUNDLE_SECTIONS if s["key"] != "topics" for a in s["suffix_attrs"]]
     _make_project(tmp_path, attrs)
+    n_included = len(config.BUNDLE_SECTIONS) - 1  # all sections except Topics
     logger = MagicMock()
     with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
          patch("bundle_export._render_pdf_weasyprint", return_value=True), \
@@ -96,7 +103,7 @@ def test_be3_export_logs_n_of_m(tmp_path, monkeypatch):
         bundle_export.export_bundle(BASE, fmt="both", logger=logger)
     logged = " ".join(str(c.args[0]) % tuple(c.args[1:]) if len(c.args) > 1 else str(c.args[0])
                        for c in logger.info.call_args_list if c.args)
-    assert f"{len(attrs)} of {len(config.BUNDLE_SECTIONS)} included" in logged
+    assert f"{n_included} of {len(config.BUNDLE_SECTIONS)} included" in logged
     assert "Topics" in logged  # the skipped optional is named
 
 
@@ -104,8 +111,8 @@ def test_be3_export_logs_n_of_m(tmp_path, monkeypatch):
 
 def test_be4_missing_required_aborts_before_render(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
-    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if not s["required"]]
-    _make_project(tmp_path, attrs)  # required YAML absent
+    attrs = [a for s in config.BUNDLE_SECTIONS if not s["required"] for a in s["suffix_attrs"]]
+    _make_project(tmp_path, attrs)  # required transcript absent
     with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
          patch("bundle_export._render_pdf_weasyprint") as mpdf, \
          patch("bundle_export._render_docx_pandoc") as mdocx:
@@ -217,11 +224,11 @@ def test_be8_cli_resolve_base_name_strips_suffixes():
 def test_be9_build_markdown_honors_section_subset(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     _make_project(tmp_path, SECTION_ATTRS)
-    subset = [s for s in config.BUNDLE_SECTIONS if s["heading"] in ("Transcript", "Bowen References")]
+    subset = [s for s in config.BUNDLE_SECTIONS if s["key"] in ("transcript", "bowen")]
     md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(
         BASE, sections=subset
     )
-    assert included == ["Transcript", "Bowen References"]
+    assert included == ["Transcript (Format/YAML)", "Bowen References"]
     assert "# Topics" not in md and "# Emphasis" not in md
 
 
@@ -232,7 +239,7 @@ def test_be9_run_bundle_export_builds_subset_and_threads():
     gui.log = MagicMock()
     gui.run_task_in_thread = MagicMock()
 
-    gui._run_bundle_export(["SUFFIX_YAML", "SUFFIX_BOWEN"], "pdf")
+    gui._run_bundle_export(["transcript", "bowen"], "pdf")
 
     gui.run_task_in_thread.assert_called_once()
     args = gui.run_task_in_thread.call_args.args
@@ -240,7 +247,7 @@ def test_be9_run_bundle_export_builds_subset_and_threads():
     assert args[1] == BASE            # base_name
     assert args[2] == "pdf"           # fmt
     passed_sections = args[3]
-    assert [s["suffix_attr"] for s in passed_sections] == ["SUFFIX_YAML", "SUFFIX_BOWEN"]
+    assert [s["key"] for s in passed_sections] == ["transcript", "bowen"]
 
 
 def test_be9_run_bundle_export_no_sections_warns():

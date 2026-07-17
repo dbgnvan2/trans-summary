@@ -47,23 +47,32 @@ def _build_combined_markdown(base_name, sections=None, logger=None):
     parts = [f"# {base_name}\n"]
     included, missing_required, missing_optional, empty_present = [], [], [], []
     for section in sections:
-        suffix = getattr(config, section["suffix_attr"])
         heading = section["heading"]
         required = bool(section.get("required"))
-        path = proj / f"{base_name}{suffix}"
-        if not path.exists():
-            (missing_required if required else missing_optional).append(heading)
+        # Use the first candidate artifact that exists AND has content (P19:
+        # present-but-empty is not content). "Format or YAML" for the transcript.
+        chosen_text, any_existed = None, False
+        for attr in section["suffix_attrs"]:
+            path = proj / f"{base_name}{getattr(config, attr)}"
+            if not path.exists():
+                continue
+            any_existed = True
+            text = path.read_text(encoding="utf-8")
+            if section.get("strip_frontmatter"):
+                text = strip_yaml_frontmatter(text)
+            text = text.strip()
+            if text:
+                chosen_text = text
+                break
+        if chosen_text is None:
+            if any_existed:
+                empty_present.append(heading)
+                if required:
+                    missing_required.append(heading)
+            else:
+                (missing_required if required else missing_optional).append(heading)
             continue
-        text = path.read_text(encoding="utf-8")
-        if section.get("strip_frontmatter"):
-            text = strip_yaml_frontmatter(text)
-        text = text.strip()
-        if not text:
-            empty_present.append(heading)
-            if required:
-                missing_required.append(heading)
-            continue
-        parts.append(f"\n\n# {heading}\n\n{text}\n")
+        parts.append(f"\n\n# {heading}\n\n{chosen_text}\n")
         included.append(heading)
     return "\n".join(parts), included, missing_required, missing_optional, empty_present
 

@@ -433,15 +433,23 @@ PUBLISHED_BUNDLE_SUFFIXES = [
 # set/order/titles are editable without touching the exporter. `required`
 # sections that are absent make the bundle fail; optional ones are skipped with
 # an "N of M" log line (P2).
+# Each section has a stable `key` (used as the dialog checkbox id), a `heading`,
+# and `suffix_attrs`: an ordered candidate list -- the first artifact that exists
+# AND is non-empty is used (so the transcript is the Formatted OR YAML file,
+# whichever is present). strip_frontmatter is set only where a candidate carries
+# YAML frontmatter (harmless on the formatted file, which has none).
 BUNDLE_SECTIONS = [
-    # strip_frontmatter only on the YAML transcript (the sole artifact carrying
-    # YAML frontmatter); stripping elsewhere could eat a leading `---...---`
-    # divider in a section body (P19).
-    {"suffix_attr": "SUFFIX_YAML", "heading": "Transcript", "required": True, "strip_frontmatter": True},
-    {"suffix_attr": "SUFFIX_TOPICS", "heading": "Topics", "required": False},
-    {"suffix_attr": "SUFFIX_EMPHASIS_SCORED", "heading": "Emphasis", "required": False},
-    {"suffix_attr": "SUFFIX_BOWEN", "heading": "Bowen References", "required": False},
-    {"suffix_attr": "SUFFIX_SUMMARY_GEN", "heading": "Summary", "required": False},
+    {"key": "transcript", "heading": "Transcript (Format/YAML)",
+     "suffix_attrs": ["SUFFIX_FORMATTED", "SUFFIX_YAML"],
+     "required": True, "strip_frontmatter": True},
+    {"key": "topics", "heading": "Topics",
+     "suffix_attrs": ["SUFFIX_TOPICS"], "required": False},
+    {"key": "emphasis", "heading": "Emphasis",
+     "suffix_attrs": ["SUFFIX_EMPHASIS_SCORED"], "required": False},
+    {"key": "bowen", "heading": "Bowen References",
+     "suffix_attrs": ["SUFFIX_BOWEN"], "required": False},
+    {"key": "abstract", "heading": "Abstract",
+     "suffix_attrs": ["SUFFIX_ABSTRACT_GEN"], "required": False},
 ]
 # Default format for the bundle run-stage and the post-run dialog's initial
 # selection. "pdf" works out of the box (WeasyPrint); "docx" needs pandoc.
