@@ -15,6 +15,13 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Multi-Format Output**: Generates Abstracts, Blog Posts (from top-ranked Lens #1), GEO-optimized Overview Posts, full HTML webpages, and PDFs
 - **Dual Interface**: Operate via a comprehensive GUI or specialized CLI scripts
 
+### GUI workflow & bundle export (NEW - 2026-07-16)
+- **MD-collection Bundle (DOC/PDF)**: Package a run's Markdown artifacts (Transcript, Topics, Emphasis, Bowen References, Abstract) into a single **PDF** and/or **DOCX**. Available two ways — a **"Bundle (DOC/PDF)" pipeline stage** (all sections, during a run) and a post-run **"Create Bundle…" dialog** to pick sections + format. PDF renders via WeasyPrint; DOCX via pandoc. Sections/order live in `config.BUNDLE_SECTIONS`. CLI: `python transcript_bundle.py "<base name>" --format pdf|docx|both`. Spec: `docs/spec_bundle_export_2026-07-16.md`.
+- **Selective re-run**: Check only the stages you want to (re)generate; unchecked stages are bypassed and their existing outputs reused as inputs (e.g. re-run just Bowen + Emphasis). A run-start "Run plan" logs generate-vs-regenerate per stage. Spec: `docs/spec_selective_rerun_2026-07-16.md`.
+- **Source-folder favorites**: "Make Default" saves the current source folder as the auto-loaded default **and** adds it to a favorites list in the Folder Defaults dialog for quick switching. Spec: `docs/spec_folder_defaults_2026-07-16.md`.
+- **Status bar**: The bottom bar tracks the current major step during a run (`Step i/N: <stage>`) and shows a specific final message. Spec: `docs/spec_status_bar_2026-07-16.md`.
+- **Advisory validation**: A failed abstract-coverage check no longer halts the whole pipeline — it's advisory (parity with header validation), so independent downstream stages still complete. Publish is still governed by the release gate.
+
 ### Reliability & Quality (NEW - 2026-01-10)
 - **Configuration Validation**: Comprehensive startup validation for 70+ config values with auto-fix capability
 - **Secure by Design**: Path traversal protection, input sanitization, XSS prevention
@@ -41,6 +48,8 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
     ```
 
     _Note: `weasyprint` may require additional system libraries (e.g., Pango, Cairo) depending on your OS._
+
+    _Optional: **pandoc** is required only for **DOCX** bundle export (`brew install pandoc` / apt `pandoc`). PDF bundles work without it; a DOCX request without pandoc reports the missing binary cleanly._
 
 3.  **Configuration**:
     Create a `.env` file in the project root:

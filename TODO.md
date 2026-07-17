@@ -6,6 +6,32 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-16 — bundle export / GUI follow-ups (deferred, not blockers)
+
+Flagged during the bundle-export + selective-re-run work (see CHANGELOG
+2026-07-16). None block the shipped features.
+
+1. **`package_transcript` doesn't include the bundle or the individual MD files.**
+   The `.zip` packages the rendered webpage/PDF + transcript, not the new
+   `- bundle.pdf` / `- bundle.docx` or the per-stage `.md` files. Decide whether
+   the zip should include the bundle. (Adjacent issue, rule #10 — flagged, not
+   changed.)
+2. **Google Doc export deferred.** The plan was PDF + DOCX now, Google Doc later
+   (upload the generated `.docx` to Drive, which auto-converts). Not built — needs
+   Drive OAuth. See `docs/bundle_export_plan.md`.
+3. **Live pandoc DOCX path is integration-only (untested in CI).** Unit tests mock
+   `subprocess.run`; the real pandoc invocation was smoke-tested locally
+   (pandoc 3.10) but has no automated coverage. The committed
+   `templates/styles/bundle-reference.docx` can drift from
+   `scripts/gen_bundle_reference_docx.py` after a pandoc upgrade — re-run the
+   generator to refresh (BE.11).
+4. **`webpdf` still fail-closes before `package`.** Bowen/Emphasis were moved
+   ahead of the publish-gated stages, but a release-gate BLOCK on `webpdf` will
+   still halt `package`/`bundle` if they're selected after it. Acceptable
+   (those are publish artifacts), noted for awareness.
+
+---
+
 ## M2 faithfulness judge — ARMED (2026-07-15), follow-ups
 
 **ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, Hard BLOCK, prose only). Calibrated

@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-16 (GUI: bundle export, selective re-run, folder favorites, status bar)
+
+**MD-collection bundle export (DOC/PDF).** New `bundle_export.py` + CLI
+`transcript_bundle.py`: package a run's per-stage Markdown (Transcript [Format
+or YAML], Topics, Emphasis, Bowen References, Abstract) into one PDF and/or DOCX
+(plain concatenation, section headers). PDF via WeasyPrint, DOCX via pandoc
+(`--reference-doc` for reduced heading sizes; `scripts/gen_bundle_reference_docx.py`).
+Exposed as a `bundle` pipeline stage (all sections) and a post-run "Create
+Bundle…" dialog (pick sections + format). Fail-closed on a release-gate BLOCK;
+bundle suffixes join `PUBLISHED_BUNDLE_SUFFIXES` (F4 quarantine). Sections are
+config-driven (`config.BUNDLE_SECTIONS`, `BUNDLE_DEFAULT_FORMAT='pdf'`).
+Spec: `docs/spec_bundle_export_2026-07-16.md` (BE.1–BE.11).
+
+**Selective re-run.** Check only the stages to (re)generate; unchecked stages
+are bypassed and their on-disk outputs reused. Init-Val guard scoped to `format`;
+`bowen_emphasis` now requires formatted/yaml (can't run on the raw transcript);
+`STAGE_OUTPUTS` producer map + run-start "Run plan" log.
+Spec: `docs/spec_selective_rerun_2026-07-16.md` (SR.1–SR.6). Reordered
+`bowen_emphasis` before the publish-gated web/pdf & package stages.
+
+**Val Abstract advisory.** A failed abstract-coverage check no longer halts the
+run (parity with header validation), so independent downstream stages
+(Bowen/Emphasis, blog, web/pdf) still complete; publish still gated. This fixed a
+real run that stopped after Val Abstract and never produced Bowen/Emphasis.
+
+**Source-folder favorites + Make Default fix.** "Make Default" now persists the
+current source dir in any order (was only read while picking a folder) and adds
+it to a favorites list (the auto-load default is always a favorite); the Folder
+Defaults dialog gains a favorites listbox (Load/Remove).
+Spec: `docs/spec_folder_defaults_2026-07-16.md` (FD.1–FD.5).
+
+**Status bar.** The bottom bar tracks the current major step during a run and
+shows a specific final message (`set_final_status`). Spec:
+`docs/spec_status_bar_2026-07-16.md` (SB.1).
+
+Full suite: 634 passed. Each change ran through the `learning-qa` failure-pattern
+review; findings fixed in-session.
+
 ## [Unreleased] - 2026-07-15 (theme GROUNDING judge + test-validity follow-ups)
 
 **Theme grounding judge (ARMED).** Themes were excluded from the faithfulness judge
