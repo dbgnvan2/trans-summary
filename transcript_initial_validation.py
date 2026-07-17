@@ -220,15 +220,19 @@ class TranscriptValidator:
                 # Try fuzzy matching from transcript_utils
                 start, end, ratio = transcript_utils.find_text_in_content(
                     original, content)
-                # Increased threshold to 0.90 for safety
-                if start is not None and ratio >= 0.90:
+                # Increased threshold to 0.90 for safety, AND verify the located
+                # span actually matches the original before overwriting — a
+                # mis-located fuzzy span must never corrupt good text (parity with
+                # v2 apply_corrections_safe).
+                if (start is not None and ratio >= 0.90
+                        and transcript_utils.span_matches_original(content[start:end], original)):
                     self.logger.info("Fuzzy match found (ratio %.2f). Applying correction.",
                                      ratio)
                     # Reconstruct content: before + replacement + after
                     content = content[:start] + replacement + content[end:]
                     applied_count += 1
                 else:
-                    self.logger.error("Skipping correction: '%s' not found in text.",
+                    self.logger.error("Skipping correction: '%s' not found / span mismatch.",
                                       original)
 
             elif count == 1:

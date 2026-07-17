@@ -1770,6 +1770,26 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     return (None, None, 0)
 
 
+def span_matches_original(span_text: str, original: str) -> bool:
+    """True if a target span closely matches a correction's original_text.
+
+    Guards the destructive replacements in the Init Val validators (v1/v2): a
+    mis-located fuzzy span (find_text_in_content can return a wrong span — it
+    locates by first-prefix occurrence / normalized-word indices, so its offsets
+    can point at unrelated text) is caught here and the correction is skipped
+    rather than overwriting good text. Compares on normalized text so the
+    whitespace/case/punctuation differences that made the exact match miss don't
+    matter; a genuinely mis-located span falls below the threshold.
+    """
+    a = normalize_text(span_text)
+    b = normalize_text(original)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return SequenceMatcher(None, a, b).ratio() >= config.VALIDATION_MIN_APPLY_SIMILARITY
+
+
 def delete_logs(logger=None) -> bool:
     """Permanently delete log files and token usage CSV."""
     if logger is None:

@@ -9,7 +9,6 @@ import logging
 import os
 import re
 from datetime import datetime
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -94,25 +93,6 @@ class ValidationMetrics:
         logger.info(f"Corrections: Found={summary['total_corrections_found']}, Applied={summary['total_corrections_applied']}")
         logger.info(f"Hallucinations: {summary['hallucinations_detected']}")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-
-def _span_matches_original(span_text: str, original: str) -> bool:
-    """True if a target span closely matches the correction's original_text.
-
-    Guards the destructive replacement in apply_corrections_safe: exact/multi
-    matches satisfy this trivially (the span IS the original), while a mis-located
-    fuzzy span (find_text_in_content can return a wrong span — first-prefix
-    occurrence + len(needle)) is caught here and the correction is skipped rather
-    than overwriting unrelated text. Compares on normalized text so whitespace/
-    case/punctuation differences (the reason exact match missed) don't matter.
-    """
-    a = transcript_utils.normalize_text(span_text)
-    b = transcript_utils.normalize_text(original)
-    if not a or not b:
-        return False
-    if a == b:
-        return True
-    return SequenceMatcher(None, a, b).ratio() >= config.VALIDATION_MIN_APPLY_SIMILARITY
 
 
 class TranscriptValidatorV2:
@@ -450,7 +430,7 @@ class TranscriptValidatorV2:
         # spans are still intact when checked.
         for start, end, repl_text, original in valid_replacements:
             span = final_content[start:end]
-            if not _span_matches_original(span, original):
+            if not transcript_utils.span_matches_original(span, original):
                 msg = (f"Skipped mis-located replacement (span does not match "
                        f"original): '{original[:30]}...'")
                 skipped_reasons.append(msg)
