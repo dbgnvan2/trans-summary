@@ -568,6 +568,23 @@ _CODEC_FOR_SUMMARY_TYPE = {
 }
 
 
+_ARTIFACT_CONTRACTS_LOGGER = None
+
+
+def _artifact_contracts_logger():
+    """One cached ``artifact_contracts`` logger per process.
+
+    Self-validation runs on EVERY saved artifact, so calling ``setup_logging()``
+    each time spawned a fresh timestamped log file and a console "Logging
+    initialized" line per save — cluttering the terminal and the logs/ folder.
+    Create it once and reuse it.
+    """
+    global _ARTIFACT_CONTRACTS_LOGGER
+    if _ARTIFACT_CONTRACTS_LOGGER is None:
+        _ARTIFACT_CONTRACTS_LOGGER = setup_logging("artifact_contracts")
+    return _ARTIFACT_CONTRACTS_LOGGER
+
+
 def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
     """M3.B producer self-check for codec-backed artifacts: re-read the just-saved
     file through the schema codec and, on success, write the JSON sidecar. On
@@ -581,7 +598,7 @@ def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
     import artifact_contracts as ac
 
     key, args = entry
-    logger = setup_logging("artifact_contracts")
+    logger = _artifact_contracts_logger()  # cached: one log file per process, not per save
     try:
         obj = ac.codec(key).parse_markdown(
             output_path.read_text(encoding="utf-8"), *args
