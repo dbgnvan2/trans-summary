@@ -54,8 +54,12 @@ STAGE_DEFINITIONS = [
     ("val_abstract", "6. Val Abstract"),
     ("blog", "7. Blog (Lens #1)"),
     ("overview", "7b. Overview Post"),
-    ("webpdf", "8. Full Web/PDF"),
+    # bowen_emphasis runs BEFORE webpdf: (1) web/pdf fail-closes on a release-gate
+    # BLOCK, and halting there must not skip this independent extraction; (2)
+    # generate_pdf/generate_webpage highlight Bowen/Emphasis, so extracting first
+    # means the rendered artifacts reflect the current run. Spec: SR.6
     ("bowen_emphasis", "Bowen + Emphasis"),
+    ("webpdf", "8. Full Web/PDF"),
     ("package", "Package"),
 ]
 

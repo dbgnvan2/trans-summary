@@ -73,10 +73,19 @@ def test_stage_definitions_order():
     expected_keys = [
         "init_val", "format", "val_headers", "yaml", "topics", "core",
         "structured_summary", "gen_abstract", "val_abstract", "blog",
-        "overview", "webpdf", "bowen_emphasis", "package",
+        "overview", "bowen_emphasis", "webpdf", "package",
     ]
     assert [key for key, _ in ts_gui.STAGE_DEFINITIONS] == expected_keys
     assert len(ts_gui.STAGE_DEFINITIONS) == 14
+
+
+def test_bowen_emphasis_runs_before_webpdf_and_package():
+    """SR.6: independent Bowen/Emphasis extraction must precede the
+    publish-gated web/pdf and package stages, so a release-gate BLOCK (which
+    fail-closes web/pdf to False and halts the run) can't skip the extraction."""
+    keys = [key for key, _ in ts_gui.STAGE_DEFINITIONS]
+    assert keys.index("bowen_emphasis") < keys.index("webpdf")
+    assert keys.index("bowen_emphasis") < keys.index("package")
 
 
 # ===========================================================================
