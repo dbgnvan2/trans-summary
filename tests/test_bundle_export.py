@@ -291,6 +291,53 @@ def test_be9_dialog_builds_section_and_format_controls():
     assert "_run_bundle_export" in src
 
 
+# --- BE.12: Abstract first, on its own page (page break) --------------------
+
+def test_be12_abstract_first_with_page_break_marker(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    md, included, *_ = bundle_export._build_combined_markdown(BASE)
+    assert included[0] == "Abstract"                       # abstract is first
+    assert md.index("## Abstract") < md.index("## Transcript")
+    # page-break marker sits between the abstract and the next section
+    assert bundle_export._PAGEBREAK_MARK in md
+    assert (md.index("## Abstract")
+            < md.index(bundle_export._PAGEBREAK_MARK)
+            < md.index("## Transcript"))
+
+
+def test_be12_pdf_translates_page_break(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    weasy = pytest.importorskip("weasyprint")
+    captured = {}
+
+    class FakeHTML:
+        def __init__(self, string=None):
+            captured["html"] = string
+
+        def write_pdf(self, path):
+            pass
+
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch.object(weasy, "HTML", FakeHTML):
+        bundle_export.export_bundle(BASE, fmt="pdf")
+    assert "break-after:page" in captured["html"]
+    assert bundle_export._PAGEBREAK_MARK not in captured["html"]  # marker translated, not leaked
+
+
+def test_be12_docx_translates_page_break(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    fake = MagicMock(returncode=0, stderr="")
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export.subprocess.run", return_value=fake) as mrun:
+        bundle_export.export_bundle(BASE, fmt="docx")
+    pandoc_input = mrun.call_args.kwargs.get("input")
+    assert "openxml" in pandoc_input and 'w:type="page"' in pandoc_input
+    assert bundle_export._PAGEBREAK_MARK not in pandoc_input
+
+
 # --- BE.10: bundle run-stage uses the default format ------------------------
 
 def test_be10_run_stage_bundle_uses_default_format():

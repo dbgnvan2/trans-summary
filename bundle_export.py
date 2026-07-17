@@ -31,6 +31,14 @@ from transcript_utils import (
 # External-call hardening (P5): bound the pandoc subprocess.
 PANDOC_TIMEOUT_SECONDS = 120
 
+# Neutral page-break marker inserted by the builder; each renderer translates it
+# to its own construct (CSS break for PDF, raw OpenXML for DOCX).
+_PAGEBREAK_MARK = "[[[BUNDLE_PAGEBREAK]]]"
+_PAGEBREAK_HTML = '<div style="break-after:page"></div>'
+_PAGEBREAK_OPENXML = (
+    '\n\n```{=openxml}\n<w:p><w:r><w:br w:type="page"/></w:r></w:p>\n```\n\n'
+)
+
 # Bundle PDF heading sizes (main = h1 title, section = h2). Reduced ~15-20% from
 # the browser defaults for a more compact document. Edit here to retune.
 BUNDLE_PDF_CSS = """
@@ -93,6 +101,9 @@ def _build_combined_markdown(base_name, sections=None, logger=None):
         # the bundle CSS / DOCX reference doc size h1 (main) and h2 (section).
         parts.append(f"\n\n## {heading}\n\n{chosen_text}\n")
         included.append(heading)
+        # e.g. the Abstract: keep it on its own page (page break after it).
+        if section.get("page_break_after"):
+            parts.append(f"\n\n{_PAGEBREAK_MARK}\n\n")
     return "\n".join(parts), included, missing_required, missing_optional, empty_present
 
 
@@ -107,7 +118,12 @@ def _render_pdf_weasyprint(markdown_text, output_path, logger):
         )
         return False
     try:
-        html_body = markdown_to_html(markdown_text)
+        md = markdown_text.replace(_PAGEBREAK_MARK, _PAGEBREAK_HTML)
+        html_body = markdown_to_html(md)
+        # If the markdown renderer HTML-escaped the raw div, restore it.
+        html_body = html_body.replace(
+            _PAGEBREAK_HTML.replace("<", "&lt;").replace(">", "&gt;"), _PAGEBREAK_HTML
+        )
         html_doc = (
             "<html><head><meta charset='utf-8'>"
             f"<style>{BUNDLE_PDF_CSS}</style></head><body>"
@@ -129,10 +145,11 @@ def _render_docx_pandoc(markdown_text, output_path, logger):
     if _BUNDLE_REFERENCE_DOCX.exists():
         cmd += ["--reference-doc", str(_BUNDLE_REFERENCE_DOCX)]  # reduced heading sizes
     cmd += ["-o", str(output_path)]
+    md = markdown_text.replace(_PAGEBREAK_MARK, _PAGEBREAK_OPENXML)
     try:
         proc = subprocess.run(
             cmd,
-            input=markdown_text,
+            input=md,
             text=True,
             capture_output=True,
             timeout=PANDOC_TIMEOUT_SECONDS,
