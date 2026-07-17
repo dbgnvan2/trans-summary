@@ -145,6 +145,26 @@ def test_be5_fails_closed_on_block(tmp_path, monkeypatch):
     mdocx.assert_not_called()
 
 
+def test_be_partial_success_returns_false_but_logs_written_format(tmp_path, monkeypatch):
+    """F2: fmt='both' where PDF renders but DOCX fails returns False (not every
+    requested format produced) yet logs the partial success so the written PDF
+    isn't presented as a total failure."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    logger = MagicMock()
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export._render_pdf_weasyprint", return_value=True), \
+         patch("bundle_export._render_docx_pandoc", return_value=False):
+        ok = bundle_export.export_bundle(BASE, fmt="both", logger=logger)
+    assert ok is False
+    warned = " ".join(
+        str(c.args[0]) % tuple(c.args[1:]) if len(c.args) > 1 else str(c.args[0])
+        for c in logger.warning.call_args_list if c.args
+    )
+    assert "partial success" in warned.lower()
+    assert "PDF" in warned and "DOCX" in warned
+
+
 def test_be_invalid_fmt_rejected_before_gate(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     with patch("bundle_export.release_gate.publish_allowed", return_value=True) as mgate:

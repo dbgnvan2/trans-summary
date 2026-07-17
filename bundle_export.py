@@ -220,13 +220,24 @@ def export_bundle(base_name, fmt="both", sections=None, logger=None):
         return False
 
     proj = config.PROJECTS_DIR / base_name
-    ok = True
+    results = {}
     if fmt in ("pdf", "both"):
-        ok = _render_pdf_weasyprint(
+        results["PDF"] = _render_pdf_weasyprint(
             markdown_text, proj / f"{base_name}{config.SUFFIX_BUNDLE_PDF}", logger
-        ) and ok
+        )
     if fmt in ("docx", "both"):
-        ok = _render_docx_pandoc(
+        results["DOCX"] = _render_docx_pandoc(
             markdown_text, proj / f"{base_name}{config.SUFFIX_BUNDLE_DOCX}", logger
-        ) and ok
-    return ok
+        )
+
+    succeeded = [f for f, r in results.items() if r]
+    failed = [f for f, r in results.items() if not r]
+    # Surface partial success (P2): don't let a written artifact read as a total
+    # failure just because a sibling format failed.
+    if succeeded and failed:
+        logger.warning(
+            "Bundle partial success: %s written, %s failed.",
+            "/".join(succeeded), "/".join(failed),
+        )
+    # True only if every requested format was produced.
+    return not failed

@@ -103,6 +103,36 @@ def test_fd4_make_default_adds_to_favorites(scratch_settings, tmp_path, monkeypa
     assert config.settings.runtime_settings.get("default_source_dir") == str(src)
 
 
+def test_fd4_set_default_source_dir_adds_favorite(scratch_settings):
+    """F1: every path that sets a default keeps the invariant 'default is a
+    favorite' — set_default_source_dir adds it to the list."""
+    config.settings.runtime_settings = {}
+    config.set_default_source_dir("/tmp/some-default")
+    assert "/tmp/some-default" in config.get_source_dir_favorites()
+    assert config.settings.runtime_settings.get("default_source_dir") == "/tmp/some-default"
+    # clearing the default must not touch favorites
+    config.set_default_source_dir(None)
+    assert "/tmp/some-default" in config.get_source_dir_favorites()
+    assert "default_source_dir" not in config.settings.runtime_settings
+
+
+def test_f3_remove_default_favorite_resyncs_checkbox(scratch_settings, tmp_path, monkeypatch):
+    """F3: removing the favorite that is the current dir + default clears the
+    default and re-syncs the main-window 'Make Default' checkbox to unchecked."""
+    src = tmp_path / "d"
+    monkeypatch.setattr(config, "SOURCE_DIR", src)
+    config.settings.runtime_settings = {}
+    config.set_default_source_dir(str(src))  # default + favorite
+    gui = _gui()
+    gui.make_dir_default_var.set(True)
+
+    gui._remove_favorite_source_dir(str(src))
+
+    assert str(src) not in config.get_source_dir_favorites()
+    assert "default_source_dir" not in config.settings.runtime_settings
+    assert gui.make_dir_default_var.get() is False
+
+
 def test_fd5_config_favorites_crud(scratch_settings):
     config.settings.runtime_settings = {}
     a, b = "/tmp/folder-a", "/tmp/folder-b"

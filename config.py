@@ -134,9 +134,16 @@ class ProjectSettings:
         self._save_runtime_settings()
 
     def set_default_source_dir(self, path: Union[str, Path, None]):
-        """Save or clear the default source directory."""
+        """Save or clear the default source directory.
+
+        Invariant: the auto-load default is always present in the favorites list
+        (so it shows with a ★). Every path that sets a default goes through here,
+        so favorites can't drift from the default (FD.4)."""
         if path:
             self.runtime_settings["default_source_dir"] = str(path)
+            favs = self.runtime_settings.setdefault("source_dir_favorites", [])
+            if str(path) not in favs:
+                favs.append(str(path))
         else:
             self.runtime_settings.pop("default_source_dir", None)
         self._save_runtime_settings()

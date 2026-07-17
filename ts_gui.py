@@ -915,8 +915,9 @@ class TranscriptProcessorGUI:
         Spec: docs/spec_folder_defaults_2026-07-16.md#FD.1
         """
         if self.make_dir_default_var.get():
+            # set_default_source_dir keeps the invariant "default is a favorite"
+            # (FD.4), so no separate add is needed here.
             config.set_default_source_dir(str(config.SOURCE_DIR))
-            config.add_source_dir_favorite(str(config.SOURCE_DIR))  # FD.4: also in the list
             self.log("✅ Saved %s as default source directory (loads on next start) "
                      "and added it to Folder Defaults.", config.SOURCE_DIR)
         else:
@@ -935,6 +936,9 @@ class TranscriptProcessorGUI:
     def _remove_favorite_source_dir(self, path):
         """Remove a favorite from the Folder Defaults list. Spec: FD.5."""
         config.remove_source_dir_favorite(path)
+        # Removing the entry that was the auto-load default clears the default
+        # (config), so re-sync the main-window "Make Default" checkbox (F3).
+        self._sync_make_default_checkbox()
         self.log("Removed from Folder Defaults: %s", path)
 
     def _sync_make_default_checkbox(self):
