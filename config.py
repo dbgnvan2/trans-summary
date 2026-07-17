@@ -446,6 +446,10 @@ PUBLISHED_BUNDLE_SUFFIXES = [
 # whichever is present). strip_frontmatter is set only where a candidate carries
 # YAML frontmatter (harmless on the formatted file, which has none).
 BUNDLE_SECTIONS = [
+    # Abstract goes FIRST and on its own page (page_break_after) when present.
+    {"key": "abstract", "heading": "Abstract",
+     "suffix_attrs": ["SUFFIX_ABSTRACT_GEN"], "required": False,
+     "page_break_after": True},
     {"key": "transcript", "heading": "Transcript (Format/YAML)",
      "suffix_attrs": ["SUFFIX_FORMATTED", "SUFFIX_YAML"],
      "required": True, "strip_frontmatter": True},
@@ -455,8 +459,6 @@ BUNDLE_SECTIONS = [
      "suffix_attrs": ["SUFFIX_EMPHASIS_SCORED"], "required": False},
     {"key": "bowen", "heading": "Bowen References",
      "suffix_attrs": ["SUFFIX_BOWEN"], "required": False},
-    {"key": "abstract", "heading": "Abstract",
-     "suffix_attrs": ["SUFFIX_ABSTRACT_GEN"], "required": False},
 ]
 # Default format for the bundle run-stage and the post-run dialog's initial
 # selection. "pdf" works out of the box (WeasyPrint); "docx" needs pandoc.
@@ -721,6 +723,18 @@ MIN_ABSTRACT_VALIDATION_CHARS = 50
 # Abstract Settings
 ABSTRACT_TARGET_PERCENT = 0.03  # 3% of transcript word count
 ABSTRACT_MIN_WORDS = 150
+ABSTRACT_MAX_WORDS = 230        # target ceiling — keeps abstracts well under the hard max
+ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= as too long
+
+
+def abstract_target_word_count(transcript_words: int) -> int:
+    """Single source for the abstract target length: ABSTRACT_TARGET_PERCENT of
+    the transcript, floored at ABSTRACT_MIN_WORDS and capped at ABSTRACT_MAX_WORDS
+    so generated abstracts stay under ABSTRACT_HARD_MAX_WORDS (< 250 words)."""
+    return min(
+        max(int(transcript_words * ABSTRACT_TARGET_PERCENT), ABSTRACT_MIN_WORDS),
+        ABSTRACT_MAX_WORDS,
+    )
 
 # Summary Structure Allocations
 SUMMARY_OPENING_PCT = 0.14

@@ -1137,12 +1137,9 @@ def generate_structured_abstract(
                 "No Interpretive Themes artifact found; generating abstract from Topics + transcript only."
             )
 
-        # Calculate target word count
+        # Calculate target word count (capped so abstracts stay < 250 words)
         transcript_words = len(transcript.split())
-        target_word_count = max(
-            int(transcript_words * config.ABSTRACT_TARGET_PERCENT),
-            config.ABSTRACT_MIN_WORDS,
-        )
+        target_word_count = config.abstract_target_word_count(transcript_words)
 
         abstract_input = abstract_pipeline.prepare_abstract_input(
             metadata=metadata,

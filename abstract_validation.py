@@ -734,9 +734,11 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     # A12: count the abstract BODY, not a forbidden leading `# Abstract` header.
     word_count = len(_strip_leading_scaffolding(abstract).split())
 
-    # Allow 20% tolerance - Now a WARNING
+    # Allow 20% tolerance - Now a WARNING. The upper bound is also hard-capped
+    # below ABSTRACT_HARD_MAX_WORDS so an abstract of >= 250 words is always
+    # flagged as too long, independent of the target.
     min_words = int(target_word_count * 0.8)
-    max_words = int(target_word_count * 1.2)
+    max_words = min(int(target_word_count * 1.2), config.ABSTRACT_HARD_MAX_WORDS - 1)
 
     if word_count < min_words:
         warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")
