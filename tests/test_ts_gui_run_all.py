@@ -89,6 +89,67 @@ def test_bowen_emphasis_runs_before_webpdf_and_package():
 
 
 # ===========================================================================
+# SB.1 -- bottom status bar tracks the current major step during a run and
+# shows a specific final message (previously it only showed a generic
+# start/end message and never updated per-stage).
+# ===========================================================================
+
+def _status_gui():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    gui.logger = object()
+    gui.log = MagicMock()
+    gui.status_label = MagicMock()
+    gui.root = MagicMock()
+    return gui
+
+
+def _status_texts(gui):
+    return " ".join(
+        str(c.kwargs.get("text", "")) for c in gui.status_label.config.call_args_list
+    )
+
+
+def test_sb1_status_updates_per_step_and_final_message():
+    gui = _status_gui()
+    gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch("ts_gui.analyze_token_usage.generate_usage_report", return_value="report"):
+        ok = gui._run_selected_stages({"format", "yaml"})
+    assert ok is True
+    text = _status_texts(gui)
+    assert "Step 1/2" in text and "Step 2/2" in text   # major step tracked
+    assert "Complete" in text                            # specific final message
+
+
+def test_sb1_status_shows_failing_step():
+    gui = _status_gui()
+    gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+    gui.stage_runners["yaml"] = MagicMock(return_value=False)
+    with patch.object(gui, "_run_cost_estimation", return_value=True):
+        ok = gui._run_selected_stages({"format", "yaml"})
+    assert ok is False
+    assert "Failed at" in _status_texts(gui)
+
+
+def test_sb1_execute_task_preserves_task_final_status():
+    """A task that calls set_final_status keeps its message; _execute_task does
+    not overwrite it with the generic 'Task completed successfully.'"""
+    gui = _status_gui()
+    gui.processing = False
+    gui.progress = MagicMock()
+
+    def task():
+        gui.set_final_status("MY SPECIFIC FINAL", "green")
+        return True
+
+    gui._execute_task(task, "t")
+    text = _status_texts(gui)
+    assert "MY SPECIFIC FINAL" in text
+    assert "Task completed successfully." not in text
+
+
+# ===========================================================================
 # SS.7 / SS.9 -- checkbox + run_frame wiring (structural/source-inspection,
 # matching this repo's existing grep-based verification style; per-key
 # binding is asserted, not just a bare count, and the count is derived from

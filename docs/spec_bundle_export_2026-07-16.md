@@ -36,9 +36,9 @@ does not force-include it there.
 
 - The **real pandoc invocation** is an external-binary integration path. Unit
   tests mock `subprocess.run`; the live pandoc call is integration-only, not
-  implied-covered. pandoc must be installed (`brew install pandoc`) — it is NOT
-  currently installed on this machine, so a live DOCX run will hit BE.6's
-  "pandoc is not installed" path until it is.
+  implied-covered. pandoc **is installed** on this machine (pandoc 3.10, via
+  `brew install pandoc`) and a real `fmt="both"` export was smoke-tested to
+  produce both ` - bundle.pdf` and ` - bundle.docx` (2026-07-16).
 
 ## Config (single source)
 

@@ -1252,8 +1252,18 @@ class TranscriptProcessorGUI:
         else:
             self.root.after(0, self._apply_status, message, color)
 
+    def set_final_status(self, message, color="black"):
+        """Set a terminal status message that _execute_task will NOT overwrite
+        with its generic 'Task completed/failed' text -- so a multi-step task can
+        report a specific final message (SB.1)."""
+        self._task_set_final_status = True
+        self.set_status(message, color)
+
     def _apply_status(self, message, color="black"):
-        """Update status label safely on the Tk main thread."""
+        """Update status label safely on the Tk main thread. No-ops if the widget
+        isn't built yet (e.g. headless test instances constructed via __new__)."""
+        if getattr(self, "status_label", None) is None:
+            return
         self.status_label.config(text=message, foreground=color)
         self.root.update_idletasks()
 
@@ -1275,9 +1285,12 @@ class TranscriptProcessorGUI:
 
     def _execute_task(self, task_function, task_name, *args, **kwargs):
         name = task_name if task_name else task_function.__name__
+        # A task may set its own specific terminal message via set_final_status;
+        # if it does, don't clobber it with the generic text below (SB.1).
+        self._task_set_final_status = False
         try:
             success = task_function(*args, **kwargs)
-            
+
             # If the task is waiting for a user dialog, don't log completion.
             if success == "WAITING_FOR_USER":
                 self.processing = False
@@ -1286,10 +1299,12 @@ class TranscriptProcessorGUI:
                 return
 
             if success:
-                self.set_status("Task completed successfully.", "green")
+                if not self._task_set_final_status:
+                    self.set_status("Task completed successfully.", "green")
                 self.log("✅ %s completed successfully.", name)
             else:
-                self.set_status("Task failed.", "red")
+                if not self._task_set_final_status:
+                    self.set_status("Task failed.", "red")
                 self.log("❌ %s failed. Check logs for details.", name)
         except Exception as e:
             self.set_status(f"Error: {e}", "red")
@@ -2064,6 +2079,7 @@ class TranscriptProcessorGUI:
         start_time = datetime.now()
 
         # Unconditional cost estimate first (informational, same as old _run_all_steps).
+        self.set_status("Estimating cost…", "blue")
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
             self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
@@ -2074,11 +2090,16 @@ class TranscriptProcessorGUI:
         self.log("\n--- Run plan ---")
         self._log_selective_run_plan(selected_keys)
 
-        for key, label in STAGE_DEFINITIONS:
-            if key not in selected_keys:
-                continue
+        # Bottom status bar tracks the current major step (SB.1); the final
+        # message is set by _execute_task on completion/failure.
+        selected_labels = [l for k, l in STAGE_DEFINITIONS if k in selected_keys]
+        for idx, (key, label) in enumerate(
+            [(k, l) for k, l in STAGE_DEFINITIONS if k in selected_keys], start=1
+        ):
+            self.set_status(f"Step {idx}/{len(selected_labels)}: {label}…", "blue")
             self.log("\n--- %s ---", label)
             if not self.stage_runners[key]():
+                self.set_final_status(f"❌ Failed at: {label}", "red")
                 self.log("❌ %s failed. Halting run.", label)
                 return False
 
@@ -2086,6 +2107,9 @@ class TranscriptProcessorGUI:
         self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
         self.log("\n✅ SELECTED STAGES COMPLETE!")
+        self.set_final_status(
+            f"✅ Complete — {len(selected_labels)} stage(s): {selected_labels[-1]}", "green"
+        )
         return True
 
     def _run_stage_yaml(self):
