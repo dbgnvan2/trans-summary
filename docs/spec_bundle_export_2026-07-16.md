@@ -32,6 +32,8 @@ disk*. The post-run dialog honors explicit user selection: unchecking the
 Transcript is allowed (the user may want e.g. Topics + Summary only), so `required`
 does not force-include it there.
 
+| BE.11 | **Reduced heading sizes.** The bundle title is `#` (h1, main heading) and each section is `##` (h2, section heading). PDF sizes them via `BUNDLE_PDF_CSS` (h1 18pt, h2 14pt, h3 12pt — ~15-20% below browser defaults). DOCX uses a committed `templates/styles/bundle-reference.docx` (Heading 1 16pt, Heading 2 13pt) via pandoc `--reference-doc`; regenerate with `scripts/gen_bundle_reference_docx.py`. Missing reference doc → pandoc falls back to defaults and DOCX still renders. | `::test_be11_title_is_h1_sections_are_h2`, `::test_be11_pdf_injects_reduced_heading_css`, `::test_be11_docx_uses_reduced_heading_reference_doc`, `::test_be11_reference_docx_has_reduced_heading_sizes` |
+
 ## Not code-tested (flagged)
 
 - The **real pandoc invocation** is an external-binary integration path. Unit

@@ -15,6 +15,13 @@ from pathlib import Path
 
 import config
 import release_gate
+
+# Reference doc with reduced heading sizes for DOCX (main=Heading1, section=
+# Heading2). Regenerate with scripts/gen_bundle_reference_docx.py. Optional --
+# if absent, pandoc uses its default styles and DOCX still renders.
+_BUNDLE_REFERENCE_DOCX = (
+    Path(__file__).resolve().parent / "templates" / "styles" / "bundle-reference.docx"
+)
 from transcript_utils import (
     markdown_to_html,
     setup_logging,
@@ -23,6 +30,16 @@ from transcript_utils import (
 
 # External-call hardening (P5): bound the pandoc subprocess.
 PANDOC_TIMEOUT_SECONDS = 120
+
+# Bundle PDF heading sizes (main = h1 title, section = h2). Reduced ~15-20% from
+# the browser defaults for a more compact document. Edit here to retune.
+BUNDLE_PDF_CSS = """
+body { font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+       font-size: 11pt; line-height: 1.4; }
+h1 { font-size: 18pt; margin: 0.5em 0 0.3em; }   /* main heading (title) */
+h2 { font-size: 14pt; margin: 0.9em 0 0.3em; }   /* section heading */
+h3 { font-size: 12pt; margin: 0.7em 0 0.2em; }
+"""
 
 
 def _build_combined_markdown(base_name, sections=None, logger=None):
@@ -72,7 +89,9 @@ def _build_combined_markdown(base_name, sections=None, logger=None):
             else:
                 (missing_required if required else missing_optional).append(heading)
             continue
-        parts.append(f"\n\n# {heading}\n\n{chosen_text}\n")
+        # Section headings are h2 (## ) so they're distinct from the h1 title;
+        # the bundle CSS / DOCX reference doc size h1 (main) and h2 (section).
+        parts.append(f"\n\n## {heading}\n\n{chosen_text}\n")
         included.append(heading)
     return "\n".join(parts), included, missing_required, missing_optional, empty_present
 
@@ -90,7 +109,8 @@ def _render_pdf_weasyprint(markdown_text, output_path, logger):
     try:
         html_body = markdown_to_html(markdown_text)
         html_doc = (
-            "<html><head><meta charset='utf-8'></head><body>"
+            "<html><head><meta charset='utf-8'>"
+            f"<style>{BUNDLE_PDF_CSS}</style></head><body>"
             f"{html_body}</body></html>"
         )
         HTML(string=html_doc).write_pdf(str(output_path))
@@ -105,9 +125,13 @@ def _render_pdf_weasyprint(markdown_text, output_path, logger):
 
 def _render_docx_pandoc(markdown_text, output_path, logger):
     """Render combined Markdown -> DOCX via pandoc (hardened subprocess)."""
+    cmd = ["pandoc", "-f", "markdown", "-t", "docx"]
+    if _BUNDLE_REFERENCE_DOCX.exists():
+        cmd += ["--reference-doc", str(_BUNDLE_REFERENCE_DOCX)]  # reduced heading sizes
+    cmd += ["-o", str(output_path)]
     try:
         proc = subprocess.run(
-            ["pandoc", "-f", "markdown", "-t", "docx", "-o", str(output_path)],
+            cmd,
             input=markdown_text,
             text=True,
             capture_output=True,

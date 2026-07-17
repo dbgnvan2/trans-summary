@@ -3,6 +3,7 @@
 Spec: docs/spec_bundle_export_2026-07-16.md
 """
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -280,6 +281,62 @@ def test_be10_run_stage_bundle_uses_default_format():
         ok = gui._run_stage_bundle()
     assert ok is True
     assert mexport.call_args.kwargs.get("fmt") == config.BUNDLE_DEFAULT_FORMAT
+
+
+# --- BE.11: reduced heading sizes (main = h1, section = h2) -----------------
+
+def test_be11_title_is_h1_sections_are_h2(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    md, included, *_ = bundle_export._build_combined_markdown(BASE)
+    assert md.lstrip().startswith(f"# {BASE}")            # main title is h1
+    assert len(re.findall(r"(?m)^# ", md)) == 1           # exactly one h1
+    assert len(re.findall(r"(?m)^## ", md)) == len(included)  # each section is h2
+
+
+def test_be11_pdf_injects_reduced_heading_css(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    weasy = pytest.importorskip("weasyprint")
+    captured = {}
+
+    class FakeHTML:
+        def __init__(self, string=None):
+            captured["html"] = string
+
+        def write_pdf(self, path):
+            pass
+
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch.object(weasy, "HTML", FakeHTML):
+        ok = bundle_export.export_bundle(BASE, fmt="pdf")
+    assert ok is True
+    assert bundle_export.BUNDLE_PDF_CSS in captured["html"]
+    assert "18pt" in captured["html"] and "14pt" in captured["html"]  # h1 main, h2 section
+
+
+def test_be11_docx_uses_reduced_heading_reference_doc(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    fake = MagicMock(returncode=0, stderr="")
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export.subprocess.run", return_value=fake) as mrun:
+        bundle_export.export_bundle(BASE, fmt="docx")
+    cmd = mrun.call_args.args[0]
+    assert "--reference-doc" in cmd
+    assert bundle_export._BUNDLE_REFERENCE_DOCX.exists()
+
+
+def test_be11_reference_docx_has_reduced_heading_sizes():
+    """The committed reference doc must carry the reduced heading sizes (main=
+    Heading1 32 half-pt=16pt, section=Heading2 26 half-pt=13pt)."""
+    import zipfile
+    ref = bundle_export._BUNDLE_REFERENCE_DOCX
+    assert ref.exists()
+    xml = zipfile.ZipFile(ref).read("word/styles.xml").decode("utf-8")
+    for style_id, expected in (("Heading1", "32"), ("Heading2", "26")):
+        m = re.search(r'w:styleId="' + style_id + r'"[^>]*>(.*?)</w:style>', xml, re.S)
+        assert m and f'<w:sz w:val="{expected}"' in m.group(1)
 
 
 def test_be10_stage_outputs_bundle_tracks_default_format():
