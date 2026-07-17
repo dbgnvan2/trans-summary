@@ -1,6 +1,8 @@
 # Plan: MD-collection export to DOCX / PDF (bundle export)
 
-**Status:** APPROVED-FOR-BUILD pending final go-ahead. Task currently **ON HOLD** at user request.
+**Status:** BUILT (2026-07-16). See `docs/spec_bundle_export_2026-07-16.md` for the
+implemented acceptance criteria → tests. Module: `bundle_export.py`; CLI:
+`transcript_bundle.py`.
 
 ## Goal
 

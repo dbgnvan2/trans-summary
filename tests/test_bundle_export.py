@@ -1,0 +1,211 @@
+"""Tests for the MD-collection bundle export.
+
+Spec: docs/spec_bundle_export_2026-07-16.md
+"""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+import config
+import bundle_export
+
+
+BASE = "Sample Title - Author - 2025-01-01"
+SECTION_ATTRS = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS]
+HEADINGS = [s["heading"] for s in config.BUNDLE_SECTIONS]
+
+
+def _make_project(tmp_path, suffix_attrs, base=BASE):
+    proj = tmp_path / base
+    proj.mkdir(parents=True, exist_ok=True)
+    for attr in suffix_attrs:
+        suffix = getattr(config, attr)
+        (proj / f"{base}{suffix}").write_text(f"body-of-{attr}", encoding="utf-8")
+    return proj
+
+
+# --- BE.2: combine sections in configured order -----------------------------
+
+def test_be2_combines_sections_in_config_order(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(BASE)
+
+    positions = [md.index(f"# {h}") for h in HEADINGS]
+    assert positions == sorted(positions), "sections not in configured order"
+    assert included == HEADINGS
+    assert missing_req == [] and missing_opt == [] and empty == []
+    for attr in SECTION_ATTRS:
+        assert f"body-of-{attr}" in md
+
+
+# --- BE.3: missing OPTIONAL section surfaced, not silent (P2) ----------------
+
+def test_be3_missing_optional_surfaced_not_silent(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if s["heading"] != "Topics"]
+    _make_project(tmp_path, attrs)
+    md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(BASE)
+
+    assert "Topics" in missing_opt
+    assert "Topics" not in included
+    assert "# Topics" not in md
+    assert missing_req == [] and empty == []
+
+
+def test_be3_present_but_empty_section_excluded_not_shipped_blank(tmp_path, monkeypatch):
+    """P19: an optional artifact that exists but is empty is excluded from the
+    bundle and surfaced (empty_present), never shipped as a blank section."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    proj = _make_project(tmp_path, SECTION_ATTRS)
+    # blank out the optional Topics artifact
+    (proj / f"{BASE}{config.SUFFIX_TOPICS}").write_text("   \n\n", encoding="utf-8")
+    md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(BASE)
+
+    assert "Topics" in empty
+    assert "Topics" not in included
+    assert "# Topics" not in md
+    assert missing_req == []  # optional-empty is not fatal
+
+
+def test_be3_present_but_empty_required_is_fatal(tmp_path, monkeypatch):
+    """A REQUIRED section present-but-empty aborts the bundle (treated as
+    missing_required), not shipped blank."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    proj = _make_project(tmp_path, SECTION_ATTRS)
+    (proj / f"{BASE}{config.SUFFIX_YAML}").write_text("---\nTitle: x\n---\n", encoding="utf-8")  # frontmatter only -> empty body
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export._render_pdf_weasyprint") as mpdf, \
+         patch("bundle_export._render_docx_pandoc") as mdocx:
+        ok = bundle_export.export_bundle(BASE, fmt="both")
+    assert ok is False
+    mpdf.assert_not_called()
+    mdocx.assert_not_called()
+
+
+def test_be3_export_logs_n_of_m(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if s["heading"] != "Topics"]
+    _make_project(tmp_path, attrs)
+    logger = MagicMock()
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export._render_pdf_weasyprint", return_value=True), \
+         patch("bundle_export._render_docx_pandoc", return_value=True):
+        bundle_export.export_bundle(BASE, fmt="both", logger=logger)
+    logged = " ".join(str(c.args[0]) % tuple(c.args[1:]) if len(c.args) > 1 else str(c.args[0])
+                       for c in logger.info.call_args_list if c.args)
+    assert f"{len(attrs)} of {len(config.BUNDLE_SECTIONS)} included" in logged
+    assert "Topics" in logged  # the skipped optional is named
+
+
+# --- BE.4: missing REQUIRED section / nothing found -> honest failure --------
+
+def test_be4_missing_required_aborts_before_render(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    attrs = [s["suffix_attr"] for s in config.BUNDLE_SECTIONS if not s["required"]]
+    _make_project(tmp_path, attrs)  # required YAML absent
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export._render_pdf_weasyprint") as mpdf, \
+         patch("bundle_export._render_docx_pandoc") as mdocx:
+        ok = bundle_export.export_bundle(BASE, fmt="both")
+    assert ok is False
+    mpdf.assert_not_called()
+    mdocx.assert_not_called()
+
+
+def test_be4_all_missing_returns_false(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (tmp_path / BASE).mkdir(parents=True)
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True):
+        ok = bundle_export.export_bundle(BASE, fmt="both")
+    assert ok is False
+
+
+# --- BE.5: fail closed on a publish BLOCK -----------------------------------
+
+def test_be5_fails_closed_on_block(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    with patch("bundle_export.release_gate.publish_allowed", return_value=False), \
+         patch("bundle_export._render_pdf_weasyprint") as mpdf, \
+         patch("bundle_export._render_docx_pandoc") as mdocx:
+        ok = bundle_export.export_bundle(BASE, fmt="both")
+    assert ok is False
+    mpdf.assert_not_called()
+    mdocx.assert_not_called()
+
+
+def test_be_invalid_fmt_rejected_before_gate(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True) as mgate:
+        ok = bundle_export.export_bundle(BASE, fmt="xml")
+    assert ok is False
+    mgate.assert_not_called()
+
+
+# --- BE.6: DOCX via pandoc (hardened) ---------------------------------------
+
+def test_be6_docx_invokes_pandoc(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    fake = MagicMock(returncode=0, stderr="")
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export.subprocess.run", return_value=fake) as mrun:
+        ok = bundle_export.export_bundle(BASE, fmt="docx")
+    assert ok is True
+    cmd = mrun.call_args.args[0]
+    assert cmd[0] == "pandoc"
+    assert cmd[-1].endswith(config.SUFFIX_BUNDLE_DOCX)
+    assert mrun.call_args.kwargs.get("timeout") == bundle_export.PANDOC_TIMEOUT_SECONDS
+
+
+def test_be6_pandoc_missing_reports_error_no_partial_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export.subprocess.run", side_effect=FileNotFoundError()):
+        ok = bundle_export.export_bundle(BASE, fmt="docx")
+    assert ok is False
+    assert not (tmp_path / BASE / f"{BASE}{config.SUFFIX_BUNDLE_DOCX}").exists()
+
+
+def test_be6_pandoc_nonzero_exit_cleans_partial(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    out = tmp_path / BASE / f"{BASE}{config.SUFFIX_BUNDLE_DOCX}"
+
+    def _fake_run(*a, **k):
+        out.write_bytes(b"partial")  # pandoc wrote a partial file then failed
+        return MagicMock(returncode=1, stderr="boom")
+
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch("bundle_export.subprocess.run", side_effect=_fake_run):
+        ok = bundle_export.export_bundle(BASE, fmt="docx")
+    assert ok is False
+    assert not out.exists()  # partial removed
+
+
+# --- BE.7: PDF via WeasyPrint -----------------------------------------------
+
+def test_be7_pdf_written_via_weasyprint(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    fake_html = MagicMock()
+    weasy = pytest.importorskip("weasyprint")
+    with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
+         patch.object(weasy, "HTML", return_value=fake_html) as mHTML:
+        ok = bundle_export.export_bundle(BASE, fmt="pdf")
+    assert ok is True
+    mHTML.assert_called_once()
+    fake_html.write_pdf.assert_called_once()
+
+
+# --- BE.8: CLI base-name resolution -----------------------------------------
+
+def test_be8_cli_resolve_base_name_strips_suffixes():
+    import transcript_bundle
+    assert transcript_bundle.resolve_base_name(f"{BASE}{config.SUFFIX_YAML}") == BASE
+    assert transcript_bundle.resolve_base_name(f"{BASE}{config.SUFFIX_FORMATTED}") == BASE
+    assert transcript_bundle.resolve_base_name(f"{BASE}.txt") == BASE
+    assert transcript_bundle.resolve_base_name(BASE) == BASE

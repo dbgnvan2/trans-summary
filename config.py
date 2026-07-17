@@ -377,8 +377,34 @@ SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 SUFFIX_RUN_MANIFEST = " - run-manifest.json"
 SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
 SUFFIX_ZIP = ".zip"
+# MD-collection bundle export (docs/spec_bundle_export_2026-07-16.md). Distinct
+# from SUFFIX_PDF/SUFFIX_WEBPAGE so the plain-concatenation bundle never clobbers
+# the designed web/pdf artifacts.
+SUFFIX_BUNDLE_DOCX = " - bundle.docx"
+SUFFIX_BUNDLE_PDF = " - bundle.pdf"
 # Published bundle artifacts a BLOCK must not leave on disk as if current (M1.B.2/F4).
-PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP]
+PUBLISHED_BUNDLE_SUFFIXES = [
+    SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP,
+    SUFFIX_BUNDLE_DOCX, SUFFIX_BUNDLE_PDF,
+]
+
+# Ordered sections for the MD-collection bundle export (SR-adjacent; see
+# docs/spec_bundle_export_2026-07-16.md#BE.2). Each entry names the config
+# suffix attr of a per-run MD artifact, a human heading, and whether it is
+# required. Kept as data (editorial content in config, not code) so the section
+# set/order/titles are editable without touching the exporter. `required`
+# sections that are absent make the bundle fail; optional ones are skipped with
+# an "N of M" log line (P2).
+BUNDLE_SECTIONS = [
+    # strip_frontmatter only on the YAML transcript (the sole artifact carrying
+    # YAML frontmatter); stripping elsewhere could eat a leading `---...---`
+    # divider in a section body (P19).
+    {"suffix_attr": "SUFFIX_YAML", "heading": "Transcript", "required": True, "strip_frontmatter": True},
+    {"suffix_attr": "SUFFIX_TOPICS", "heading": "Topics", "required": False},
+    {"suffix_attr": "SUFFIX_EMPHASIS_SCORED", "heading": "Emphasis", "required": False},
+    {"suffix_attr": "SUFFIX_BOWEN", "heading": "Bowen References", "required": False},
+    {"suffix_attr": "SUFFIX_SUMMARY_GEN", "heading": "Summary", "required": False},
+]
 
 # ============================================================================
 # RELEASE GATE POLICY (M1.B — spec_unattended_robustness_2026-07-15.md)
