@@ -579,7 +579,8 @@ class TranscriptProcessorGUI:
                              command=self.select_transcripts_directory)
         dir_btn.pack(side=tk.LEFT)
         self.make_default_chk = ttk.Checkbutton(
-            dir_frame, text="Make Default", variable=self.make_dir_default_var
+            dir_frame, text="Make Default", variable=self.make_dir_default_var,
+            command=self._on_make_default_toggled,
         )
         self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
         ttk.Button(dir_frame, text="Folder Defaults...", command=self.open_folder_defaults_dialog).pack(
@@ -866,14 +867,14 @@ class TranscriptProcessorGUI:
             # Set the directory for the current session
             config.set_source_dir_and_infer_base(dir_path)
 
-            # Save or clear the default based on the checkbox
+            # If "Make Default" is already checked, persist the newly-chosen dir
+            # as the default. If it's unchecked, leave any existing default alone
+            # (changing dirs for one session must not silently wipe a saved
+            # default; the user clears it by unchecking the box or via the
+            # Folder Defaults dialog).
             if self.make_dir_default_var.get():
                 config.set_default_source_dir(dir_path)
                 self.log(f"✅ Saved {dir_path} as new default source directory.")
-            else:
-                # If the user is intentionally changing directories without making it default,
-                # clear any old default that might be hanging around.
-                config.set_default_source_dir(None)
 
             # Update UI
             self.update_dir_label()
@@ -885,9 +886,31 @@ class TranscriptProcessorGUI:
                 config.TRANSCRIPTS_BASE,
             )
 
+    def _on_make_default_toggled(self):
+        """Persist (or clear) the CURRENT source dir as the startup default when
+        the 'Make Default' box is toggled -- so checking it AFTER Set Directory
+        works, not only when checked before picking a folder.
+
+        Spec: docs/spec_folder_defaults_2026-07-16.md#FD.1
+        """
+        if self.make_dir_default_var.get():
+            config.set_default_source_dir(str(config.SOURCE_DIR))
+            self.log("✅ Saved %s as default source directory (loads on next start).",
+                     config.SOURCE_DIR)
+        else:
+            config.set_default_source_dir(None)
+            self.log("Cleared default source directory.")
+
+    def _sync_make_default_checkbox(self):
+        """Reflect whether the current source dir IS the saved startup default,
+        so the box shows the real state on load and after a dir change."""
+        saved = config.settings.runtime_settings.get("default_source_dir")
+        self.make_dir_default_var.set(bool(saved) and saved == str(config.SOURCE_DIR))
+
     def update_dir_label(self):
         self.dir_label.config(
             text=f"Source Directory: {config.SOURCE_DIR}")
+        self._sync_make_default_checkbox()
 
     def open_folder_defaults_dialog(self):
         dlg = tk.Toplevel(self.root)
