@@ -9,6 +9,7 @@ import pytest
 
 import config
 import bundle_export
+import ts_gui
 
 
 BASE = "Sample Title - Author - 2025-01-01"
@@ -209,3 +210,78 @@ def test_be8_cli_resolve_base_name_strips_suffixes():
     assert transcript_bundle.resolve_base_name(f"{BASE}{config.SUFFIX_FORMATTED}") == BASE
     assert transcript_bundle.resolve_base_name(f"{BASE}.txt") == BASE
     assert transcript_bundle.resolve_base_name(BASE) == BASE
+
+
+# --- BE.9: post-run dialog exports a user-selected subset -------------------
+
+def test_be9_build_markdown_honors_section_subset(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, SECTION_ATTRS)
+    subset = [s for s in config.BUNDLE_SECTIONS if s["heading"] in ("Transcript", "Bowen References")]
+    md, included, missing_req, missing_opt, empty = bundle_export._build_combined_markdown(
+        BASE, sections=subset
+    )
+    assert included == ["Transcript", "Bowen References"]
+    assert "# Topics" not in md and "# Emphasis" not in md
+
+
+def test_be9_run_bundle_export_builds_subset_and_threads():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE
+    gui.logger = object()
+    gui.log = MagicMock()
+    gui.run_task_in_thread = MagicMock()
+
+    gui._run_bundle_export(["SUFFIX_YAML", "SUFFIX_BOWEN"], "pdf")
+
+    gui.run_task_in_thread.assert_called_once()
+    args = gui.run_task_in_thread.call_args.args
+    assert args[0] is ts_gui.pipeline.export_bundle
+    assert args[1] == BASE            # base_name
+    assert args[2] == "pdf"           # fmt
+    passed_sections = args[3]
+    assert [s["suffix_attr"] for s in passed_sections] == ["SUFFIX_YAML", "SUFFIX_BOWEN"]
+
+
+def test_be9_run_bundle_export_no_sections_warns():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE
+    gui.logger = object()
+    gui.log = MagicMock()
+    gui.run_task_in_thread = MagicMock()
+    with patch("ts_gui.messagebox.showwarning") as mwarn:
+        gui._run_bundle_export([], "pdf")
+    mwarn.assert_called_once()
+    gui.run_task_in_thread.assert_not_called()
+
+
+def test_be9_dialog_builds_section_and_format_controls():
+    import inspect
+    src = inspect.getsource(ts_gui.TranscriptProcessorGUI.open_bundle_dialog)
+    assert "BUNDLE_SECTIONS" in src
+    assert "Radiobutton" in src and "fmt_var" in src
+    assert "_run_bundle_export" in src
+
+
+# --- BE.10: bundle run-stage uses the default format ------------------------
+
+def test_be10_run_stage_bundle_uses_default_format():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE
+    gui.logger = object()
+    with patch("ts_gui.pipeline.export_bundle", return_value=True) as mexport:
+        ok = gui._run_stage_bundle()
+    assert ok is True
+    assert mexport.call_args.kwargs.get("fmt") == config.BUNDLE_DEFAULT_FORMAT
+
+
+def test_be10_stage_outputs_bundle_tracks_default_format():
+    """P19/P4: STAGE_OUTPUTS['bundle'] is derived from BUNDLE_DEFAULT_FORMAT, so
+    the 'exists' status can't drift from what _run_stage_bundle writes."""
+    expected = {
+        "pdf": ["SUFFIX_BUNDLE_PDF"],
+        "docx": ["SUFFIX_BUNDLE_DOCX"],
+        "both": ["SUFFIX_BUNDLE_DOCX", "SUFFIX_BUNDLE_PDF"],
+    }[config.BUNDLE_DEFAULT_FORMAT]
+    assert ts_gui.STAGE_OUTPUTS["bundle"] == expected
+    assert ts_gui._bundle_output_suffix_attrs() == expected

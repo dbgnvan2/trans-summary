@@ -73,10 +73,10 @@ def test_stage_definitions_order():
     expected_keys = [
         "init_val", "format", "val_headers", "yaml", "topics", "core",
         "structured_summary", "gen_abstract", "val_abstract", "blog",
-        "overview", "bowen_emphasis", "webpdf", "package",
+        "overview", "bowen_emphasis", "webpdf", "package", "bundle",
     ]
     assert [key for key, _ in ts_gui.STAGE_DEFINITIONS] == expected_keys
-    assert len(ts_gui.STAGE_DEFINITIONS) == 14
+    assert len(ts_gui.STAGE_DEFINITIONS) == 15
 
 
 def test_bowen_emphasis_runs_before_webpdf_and_package():
@@ -145,7 +145,7 @@ def test_init_creates_stage_vars_for_every_stage():
 
 @pytest.mark.parametrize("key", [
     "yaml", "core", "structured_summary", "gen_abstract", "val_abstract",
-    "blog", "overview", "bowen_emphasis", "package",
+    "blog", "overview", "bowen_emphasis", "package", "bundle",
 ])
 def test_run_stage_wrapper_exists_for_each_new_stage(key):
     assert hasattr(ts_gui.TranscriptProcessorGUI, f"_run_stage_{key}")

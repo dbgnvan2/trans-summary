@@ -443,6 +443,9 @@ BUNDLE_SECTIONS = [
     {"suffix_attr": "SUFFIX_BOWEN", "heading": "Bowen References", "required": False},
     {"suffix_attr": "SUFFIX_SUMMARY_GEN", "heading": "Summary", "required": False},
 ]
+# Default format for the bundle run-stage and the post-run dialog's initial
+# selection. "pdf" works out of the box (WeasyPrint); "docx" needs pandoc.
+BUNDLE_DEFAULT_FORMAT = "pdf"
 
 # ============================================================================
 # RELEASE GATE POLICY (M1.B — spec_unattended_robustness_2026-07-15.md)

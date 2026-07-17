@@ -25,10 +25,13 @@ from transcript_utils import (
 PANDOC_TIMEOUT_SECONDS = 120
 
 
-def _build_combined_markdown(base_name, logger=None):
-    """Concatenate the configured per-run MD sections in order with headings.
+def _build_combined_markdown(base_name, sections=None, logger=None):
+    """Concatenate the per-run MD sections in order with headings.
 
     Spec: docs/spec_bundle_export_2026-07-16.md#BE.2
+
+    `sections` defaults to `config.BUNDLE_SECTIONS`; the post-run dialog passes a
+    user-selected subset (BE.9).
 
     Returns (markdown_text, included, missing_required, missing_optional,
     empty_present) — lists of section headings. Missing REQUIRED sections are
@@ -38,10 +41,12 @@ def _build_combined_markdown(base_name, logger=None):
     NOT shipped as a blank section — it is recorded in empty_present (and, if
     required, also in missing_required so the caller fails).
     """
+    if sections is None:
+        sections = config.BUNDLE_SECTIONS
     proj = config.PROJECTS_DIR / base_name
     parts = [f"# {base_name}\n"]
     included, missing_required, missing_optional, empty_present = [], [], [], []
-    for section in config.BUNDLE_SECTIONS:
+    for section in sections:
         suffix = getattr(config, section["suffix_attr"])
         heading = section["heading"]
         required = bool(section.get("required"))
@@ -124,16 +129,16 @@ def _render_docx_pandoc(markdown_text, output_path, logger):
     return True
 
 
-def export_bundle(base_name, fmt="both", logger=None):
+def export_bundle(base_name, fmt="both", sections=None, logger=None):
     """Export a run's MD collection to DOCX and/or PDF.
 
     Purpose: Produce a single packaged document from the per-run Markdown files.
     Spec:    docs/spec_bundle_export_2026-07-16.md#BE.1
-    Tests:   tests/test_bundle_export.py
 
     Args:
         base_name: run base name (project dir under config.PROJECTS_DIR).
         fmt: "docx" | "pdf" | "both".
+        sections: optional subset of config.BUNDLE_SECTIONS (post-run dialog).
     Returns True only if every requested format was produced. Fails closed on a
     release-gate BLOCK.
     """
@@ -145,14 +150,20 @@ def export_bundle(base_name, fmt="both", logger=None):
         logger.error("export_bundle: invalid fmt %r (expected docx|pdf|both)", fmt)
         return False
 
+    if sections is None:
+        sections = config.BUNDLE_SECTIONS
+    if not sections:
+        logger.error("export_bundle: no sections selected.")
+        return False
+
     if not release_gate.publish_allowed(base_name, logger):
         return False  # fail closed — no bundle on a BLOCK (parity with generate_pdf/package)
 
     markdown_text, included, missing_required, missing_optional, empty_present = (
-        _build_combined_markdown(base_name, logger)
+        _build_combined_markdown(base_name, sections, logger)
     )
 
-    total = len(config.BUNDLE_SECTIONS)
+    total = len(sections)
     logger.info(
         "Bundle sections: %d of %d included%s",
         len(included), total,

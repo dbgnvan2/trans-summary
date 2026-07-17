@@ -118,6 +118,7 @@ def test_stage_dependencies_matches_verified_graph():
         # requires formatted/yaml (P13: never read the raw source). Spec: SR.4
         "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
         "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+        "bundle": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     }
     assert ts_gui.STAGE_DEPENDENCIES == expected
 

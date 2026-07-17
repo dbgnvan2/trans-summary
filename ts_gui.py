@@ -61,6 +61,7 @@ STAGE_DEFINITIONS = [
     ("bowen_emphasis", "Bowen + Emphasis"),
     ("webpdf", "8. Full Web/PDF"),
     ("package", "Package"),
+    ("bundle", "Bundle (DOC/PDF)"),
 ]
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
@@ -101,6 +102,8 @@ STAGE_DEPENDENCIES = {
     # file (P13). Mirrors webpdf/package. Spec: spec_selective_rerun_2026-07-16.md#SR.4
     "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+    # Bundle needs at least the (required) YAML transcript section on disk.
+    "bundle": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
 }
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.15
@@ -117,6 +120,17 @@ ARTIFACT_LABELS = {
     "SUFFIX_ABSTRACT_GEN": "Generated Abstract",
     "SUFFIX_ABSTRACT_INIT": "Initial Abstract",
 }
+
+def _bundle_output_suffix_attrs():
+    """Config suffix attr(s) the bundle run-stage writes, derived from
+    config.BUNDLE_DEFAULT_FORMAT so STAGE_OUTPUTS['bundle'] and _run_stage_bundle
+    stay one decision (P4/P19)."""
+    return {
+        "pdf": ["SUFFIX_BUNDLE_PDF"],
+        "docx": ["SUFFIX_BUNDLE_DOCX"],
+        "both": ["SUFFIX_BUNDLE_DOCX", "SUFFIX_BUNDLE_PDF"],
+    }.get(getattr(config, "BUNDLE_DEFAULT_FORMAT", "pdf"), ["SUFFIX_BUNDLE_PDF"])
+
 
 # Spec: docs/spec_selective_rerun_2026-07-16.md#SR.1 (selective re-run)
 # {stage_key: [artifact_suffix_attr, ...]} -- the artifact(s) each stage WRITES,
@@ -151,6 +165,9 @@ STAGE_OUTPUTS = {
     "webpdf": ["SUFFIX_WEBPAGE", "SUFFIX_PDF"],
     "bowen_emphasis": ["SUFFIX_BOWEN", "SUFFIX_EMPHASIS_SCORED"],
     "package": ["SUFFIX_ZIP"],
+    # Derived from BUNDLE_DEFAULT_FORMAT (not a second literal) so the "exists"
+    # status can't drift from what _run_stage_bundle actually writes (P19/P4).
+    "bundle": _bundle_output_suffix_attrs(),
 }
 
 
@@ -771,6 +788,10 @@ class TranscriptProcessorGUI:
         self.manage_selections_btn = ttk.Button(
             run_frame, text="Manage Selections...", command=self.open_selection_manager_dialog)
         self.manage_selections_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        self.bundle_btn = ttk.Button(
+            run_frame, text="Create Bundle (DOC/PDF)...", command=self.open_bundle_dialog)
+        self.bundle_btn.pack(side=tk.LEFT, padx=(0, 5))
 
         ttk.Label(run_frame, text="Active selection:").pack(side=tk.LEFT, padx=(10, 5))
         ttk.Label(run_frame, textvariable=self.active_selection_var).pack(side=tk.LEFT)
@@ -2198,6 +2219,67 @@ class TranscriptProcessorGUI:
         """Runner for the 'package' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
         return pipeline.package_transcript(self.base_name, self.logger)
 
+    def _run_stage_bundle(self):
+        """Runner for the 'bundle' stage: export the MD collection using the
+        default format + all configured sections. Spec: spec_bundle_export#BE.10."""
+        return pipeline.export_bundle(
+            self.base_name, fmt=config.BUNDLE_DEFAULT_FORMAT, logger=self.logger
+        )
+
+    def _run_bundle_export(self, selected_attrs, fmt):
+        """Generate a bundle from a user-selected subset of sections + format on
+        a background thread (post-run dialog). Spec: spec_bundle_export#BE.9."""
+        if not self.base_name:
+            messagebox.showwarning("No Run Selected", "Select or run a transcript first.")
+            return
+        sections = [s for s in config.BUNDLE_SECTIONS if s["suffix_attr"] in selected_attrs]
+        if not sections:
+            messagebox.showwarning("No Sections", "Select at least one section to include.")
+            return
+        self.log("Creating bundle (%s) with %d section(s)...", fmt, len(sections))
+        self.run_task_in_thread(
+            pipeline.export_bundle, self.base_name, fmt, sections, self.logger
+        )
+
+    def open_bundle_dialog(self):
+        """Post-run dialog: pick which sections to include and the output format,
+        then generate. Spec: spec_bundle_export#BE.9."""
+        if not self.base_name:
+            messagebox.showwarning("No Run Selected", "Select or run a transcript first.")
+            return
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Create Bundle (DOC/PDF)")
+        dlg.grab_set()
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        ttk.Label(frame, text="Include sections:").grid(
+            row=0, column=0, columnspan=2, sticky=tk.W)
+        section_vars = {}
+        for i, section in enumerate(config.BUNDLE_SECTIONS):
+            var = tk.BooleanVar(value=True)
+            section_vars[section["suffix_attr"]] = var
+            ttk.Checkbutton(frame, text=section["heading"], variable=var).grid(
+                row=i + 1, column=0, columnspan=2, sticky=tk.W)
+
+        fmt_var = tk.StringVar(value=config.BUNDLE_DEFAULT_FORMAT)
+        fmt_row = len(config.BUNDLE_SECTIONS) + 1
+        ttk.Label(frame, text="Format:").grid(row=fmt_row, column=0, sticky=tk.W, pady=(8, 0))
+        fmt_frame = ttk.Frame(frame)
+        fmt_frame.grid(row=fmt_row, column=1, sticky=tk.W, pady=(8, 0))
+        for f in ("pdf", "docx", "both"):
+            ttk.Radiobutton(fmt_frame, text=f.upper(), variable=fmt_var, value=f).pack(side=tk.LEFT)
+
+        def generate():
+            selected = [attr for attr, v in section_vars.items() if v.get()]
+            dlg.destroy()
+            self._run_bundle_export(selected, fmt_var.get())
+
+        btns = ttk.Frame(frame)
+        btns.grid(row=fmt_row + 1, column=0, columnspan=2, pady=(12, 0))
+        ttk.Button(btns, text="Generate", command=generate).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
+
     @property
     def stage_runners(self):
         """Map every STAGE_DEFINITIONS key to its runner (bound method).
@@ -2227,6 +2309,7 @@ class TranscriptProcessorGUI:
             "webpdf": self._run_web_pdf_generation,
             "bowen_emphasis": self._run_stage_bowen_emphasis,
             "package": self._run_stage_package,
+            "bundle": self._run_stage_bundle,
         }
 
     @stage_runners.setter
@@ -2468,6 +2551,7 @@ class TranscriptProcessorGUI:
         # Manage Selections is always enabled (independent of file selection).
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
+        self.bundle_btn.config(state=state)  # launches a background export -> disable while busy
         # Config check button is always enabled
         self.core_emphasis_chk.config(state=state)
         self.core_bowen_chk.config(state=state)
