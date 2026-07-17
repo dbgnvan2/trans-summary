@@ -34,3 +34,20 @@ def test_validate_structural_under_limit_not_flagged():
     abstract = " ".join(["word"] * 220)
     result = abstract_validation.validate_structural(abstract, target_word_count=230)
     assert not any("too long" in w.lower() for w in result["warnings"])
+
+
+def test_all_abstract_target_sites_use_the_capped_helper():
+    """P5: every place that computes the abstract target must route through
+    config.abstract_target_word_count — no raw uncapped max(...) formula left
+    (regression for the missed summarize_transcript site)."""
+    import inspect
+    import extraction_pipeline
+    import validation_pipeline
+
+    for mod in (extraction_pipeline, validation_pipeline):
+        src = inspect.getsource(mod)
+        assert "abstract_target_word_count" in src
+        # the old uncapped formula must be gone from these modules
+        assert "config.ABSTRACT_TARGET_PERCENT" not in src, (
+            f"{mod.__name__} still computes the target inline instead of via the helper"
+        )

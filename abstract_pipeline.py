@@ -511,9 +511,10 @@ def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
 
     word_count = len(abstract.split())
 
-    # Allow 20% tolerance
+    # Allow 20% tolerance; hard-cap the upper bound below ABSTRACT_HARD_MAX_WORDS
+    # so >= 250 words is always flagged (parity with validate_structural, P5).
     min_words = int(target_word_count * 0.8)
-    max_words = int(target_word_count * 1.2)
+    max_words = min(int(target_word_count * 1.2), config.ABSTRACT_HARD_MAX_WORDS - 1)
 
     if word_count < min_words:
         issues.append(f"Too short: {word_count} words (minimum {min_words})")

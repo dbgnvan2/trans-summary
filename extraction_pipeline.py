@@ -1381,10 +1381,8 @@ def summarize_transcript(
             _save_summary(key_terms_output, formatted_filename, "key-terms")
 
             logger.info("PART 5: Generating Abstract...")
-            target_word_count = max(
-                int(transcript_word_count * config.ABSTRACT_TARGET_PERCENT),
-                config.ABSTRACT_MIN_WORDS,
-            )
+            # Capped so abstracts stay < 250 words (single source, P5).
+            target_word_count = config.abstract_target_word_count(transcript_word_count)
             abstract_input = abstract_pipeline.prepare_abstract_input(
                 metadata=metadata,
                 topics_markdown=topics_output,

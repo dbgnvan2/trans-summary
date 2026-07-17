@@ -71,6 +71,7 @@ def _build_combined_markdown(base_name, sections=None, logger=None):
     proj = config.PROJECTS_DIR / base_name
     parts = [f"# {base_name}\n"]
     included, missing_required, missing_optional, empty_present = [], [], [], []
+    pending_break = False  # emit a page break only when a LATER section follows
     for section in sections:
         heading = section["heading"]
         required = bool(section.get("required"))
@@ -97,13 +98,19 @@ def _build_combined_markdown(base_name, sections=None, logger=None):
             else:
                 (missing_required if required else missing_optional).append(heading)
             continue
+        # A page break from a prior page_break_after section is emitted here,
+        # just before the next included section — so a trailing break (e.g. the
+        # Abstract is the last included section) produces no blank page (F3).
+        if pending_break:
+            parts.append(f"\n\n{_PAGEBREAK_MARK}\n\n")
+            pending_break = False
         # Section headings are h2 (## ) so they're distinct from the h1 title;
         # the bundle CSS / DOCX reference doc size h1 (main) and h2 (section).
         parts.append(f"\n\n## {heading}\n\n{chosen_text}\n")
         included.append(heading)
         # e.g. the Abstract: keep it on its own page (page break after it).
         if section.get("page_break_after"):
-            parts.append(f"\n\n{_PAGEBREAK_MARK}\n\n")
+            pending_break = True
     return "\n".join(parts), included, missing_required, missing_optional, empty_present
 
 

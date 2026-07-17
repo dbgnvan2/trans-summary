@@ -306,6 +306,16 @@ def test_be12_abstract_first_with_page_break_marker(tmp_path, monkeypatch):
             < md.index("## Transcript"))
 
 
+def test_be12_no_trailing_page_break_when_break_section_is_last(tmp_path, monkeypatch):
+    """F3: a page_break_after section that ends up LAST (nothing follows) emits
+    no marker — avoids a blank trailing page."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_project(tmp_path, ["SUFFIX_ABSTRACT_GEN"])  # only the abstract present
+    md, included, *_ = bundle_export._build_combined_markdown(BASE)
+    assert included == ["Abstract"]
+    assert bundle_export._PAGEBREAK_MARK not in md
+
+
 def test_be12_pdf_translates_page_break(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     _make_project(tmp_path, SECTION_ATTRS)
