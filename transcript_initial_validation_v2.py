@@ -9,6 +9,7 @@ import logging
 import os
 import re
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -93,6 +94,25 @@ class ValidationMetrics:
         logger.info(f"Corrections: Found={summary['total_corrections_found']}, Applied={summary['total_corrections_applied']}")
         logger.info(f"Hallucinations: {summary['hallucinations_detected']}")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+
+def _span_matches_original(span_text: str, original: str) -> bool:
+    """True if a target span closely matches the correction's original_text.
+
+    Guards the destructive replacement in apply_corrections_safe: exact/multi
+    matches satisfy this trivially (the span IS the original), while a mis-located
+    fuzzy span (find_text_in_content can return a wrong span — first-prefix
+    occurrence + len(needle)) is caught here and the correction is skipped rather
+    than overwriting unrelated text. Compares on normalized text so whitespace/
+    case/punctuation differences (the reason exact match missed) don't matter.
+    """
+    a = transcript_utils.normalize_text(span_text)
+    b = transcript_utils.normalize_text(original)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return SequenceMatcher(None, a, b).ratio() >= config.VALIDATION_MIN_APPLY_SIMILARITY
 
 
 class TranscriptValidatorV2:
@@ -376,12 +396,12 @@ class TranscriptValidatorV2:
             
             if len(matches) == 1:
                 start, end = matches[0]
-                replacements.append((start, end, replacement, corr))
+                replacements.append((start, end, replacement, original))
             elif len(matches) > 1:
                 if len(original.split()) >= config.VALIDATION_MIN_UNIQUE_WORDS:
                     # Specific enough to apply to all
                     for start, end in matches:
-                        replacements.append((start, end, replacement, corr))
+                        replacements.append((start, end, replacement, original))
                 else:
                     msg = f"Skipped ambiguous: '{original[:20]}...' found {len(matches)} times, context too short."
                     skipped_reasons.append(msg)
@@ -390,7 +410,7 @@ class TranscriptValidatorV2:
                 # 0 matches - Try Fuzzy
                 start, end, ratio = transcript_utils.find_text_in_content(original, content)
                 if ratio >= config.VALIDATION_FUZZY_AUTO_APPLY:
-                     replacements.append((start, end, replacement, corr))
+                     replacements.append((start, end, replacement, original))
                 else:
                      msg = f"Skipped not found (best fuzzy {ratio:.2f}): '{original[:20]}...'"
                      skipped_reasons.append(msg)
@@ -411,19 +431,31 @@ class TranscriptValidatorV2:
         # We need to check for overlaps.
         
         valid_replacements = []
-        last_start = float('inf') 
-        
-        for start, end, repl_text, source in replacements:
+        last_start = float('inf')
+
+        for start, end, repl_text, original in replacements:
             # Since sorted reverse, current 'end' must be <= last_start to be non-overlapping
             if end <= last_start:
-                valid_replacements.append((start, end, repl_text))
+                valid_replacements.append((start, end, repl_text, original))
                 last_start = start
             else:
                  msg = f"Skipped overlapping replacement at {start}-{end}"
                  skipped_reasons.append(msg)
                  self.logger.warning(msg)
 
-        for start, end, repl_text in valid_replacements:
+        # Apply back-to-front. Verify each target span actually matches the
+        # correction's original text BEFORE overwriting it, so a mis-located span
+        # (bad fuzzy match, or a stale offset after an alias mutation) is skipped
+        # instead of corrupting good text. Back-to-front means lower-position
+        # spans are still intact when checked.
+        for start, end, repl_text, original in valid_replacements:
+            span = final_content[start:end]
+            if not _span_matches_original(span, original):
+                msg = (f"Skipped mis-located replacement (span does not match "
+                       f"original): '{original[:30]}...'")
+                skipped_reasons.append(msg)
+                self.logger.warning(msg)
+                continue
             final_content = final_content[:start] + repl_text + final_content[end:]
             applied_count += 1
             

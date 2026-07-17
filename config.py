@@ -806,6 +806,11 @@ VALIDATION_MIN_UNIQUE_WORDS = 7        # Threshold for ambiguous matches
 # Fuzzy Matching Thresholds (V2)
 VALIDATION_FUZZY_AUTO_APPLY = 0.95     # 95% similarity for auto-apply
 VALIDATION_FUZZY_REVIEW = 0.90         # 90% for manual review
+# Before a correction is written, the target span must actually match the
+# correction's original_text at least this closely (recomputed on the real span,
+# not trusting the fuzzy matcher's returned span). Below this the correction is
+# SKIPPED, not applied — a mis-located span must never overwrite good text.
+VALIDATION_MIN_APPLY_SIMILARITY = 0.90
 VALIDATION_FUZZY_REJECT = 0.85         # < 85% reject
 VALIDATION_FUZZY_HALLUCINATION = 0.85  # Hallucination detection threshold
 
