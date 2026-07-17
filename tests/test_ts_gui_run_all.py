@@ -287,6 +287,79 @@ def test_run_selected_stages_halts_on_mid_run_failure():
 
 
 # ===========================================================================
+# Val Abstract is ADVISORY -- a coverage FAIL must not halt the run and skip
+# the independent downstream stages (Bowen/Emphasis). Regression: a real run
+# halted after Val Abstract (abstract missing "Speaker's conclusion"), so
+# bowen-references.md and emphasis-scored.md were never produced.
+# Root cause: _run_stage_val_abstract returned validate_abstract_coverage()'s
+# pass/fail, and _run_selected_stages halts on the first False.
+# ===========================================================================
+
+def test_run_stage_val_abstract_advisory_does_not_halt():
+    """A failed coverage validation returns True from the runner (advisory), so
+    the halt check `if not stage_runners[key]()` cannot fire."""
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    gui.logger = object()
+    gui.log = MagicMock()
+
+    with patch("ts_gui.pipeline.validate_abstract_coverage", return_value=False) as mock_val:
+        ok = gui._run_stage_val_abstract()
+
+    assert ok is True  # advisory: does NOT halt even though validation failed
+    mock_val.assert_called_once()
+    # P2: the continuation is surfaced, not silent.
+    assert any(
+        "advisory" in str(call.args[0]).lower()
+        for call in gui.log.call_args_list
+    ), "advisory continuation was not logged"
+
+
+def test_run_stage_val_abstract_pass_does_not_log_advisory():
+    """When validation passes, the runner returns True and emits no advisory
+    warning (guards against always-warning)."""
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    gui.logger = object()
+    gui.log = MagicMock()
+
+    with patch("ts_gui.pipeline.validate_abstract_coverage", return_value=True):
+        ok = gui._run_stage_val_abstract()
+
+    assert ok is True
+    assert not any(
+        "advisory" in str(call.args[0]).lower()
+        for call in gui.log.call_args_list
+    )
+
+
+def test_run_selected_stages_continues_to_bowen_when_val_abstract_fails():
+    """End-to-end regression: with a REAL _run_stage_val_abstract whose inner
+    validation returns False, the run must continue to bowen_emphasis rather
+    than halting."""
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    gui.logger = object()
+    gui.log = MagicMock()
+
+    bowen_runner = MagicMock(return_value=True)
+    runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+    runners["val_abstract"] = gui._run_stage_val_abstract  # exercise the real runner
+    runners["bowen_emphasis"] = bowen_runner
+    gui.stage_runners = runners
+
+    selected = {"val_abstract", "bowen_emphasis"}
+
+    with patch("ts_gui.pipeline.validate_abstract_coverage", return_value=False), \
+         patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch("ts_gui.analyze_token_usage.generate_usage_report", return_value="report"):
+        ok = gui._run_selected_stages(selected)
+
+    assert ok is True
+    bowen_runner.assert_called_once()  # Bowen/Emphasis ran despite the abstract FAIL
+
+
+# ===========================================================================
 # SS.10 -- do_run_selected guard order, including a precedence test (two
 # guard conditions true simultaneously) -- isolated single-guard tests alone
 # can't prove which guard wins when more than one applies.

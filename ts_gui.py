@@ -1928,10 +1928,35 @@ class TranscriptProcessorGUI:
         )
 
     def _run_stage_val_abstract(self):
-        """Runner for the 'val_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
-        return pipeline.validate_abstract_coverage(
+        """Runner for the 'val_abstract' stage.
+
+        Advisory (parity with `_run_header_validation`): a coverage FAIL is
+        written to the report but does NOT halt the run, so downstream-independent
+        stages (Bowen/Emphasis, blog, web/pdf) still complete. The true pass/fail
+        is preserved by `validate_abstract_coverage` for the release gate and the
+        standalone Validate-Abstract action; here we only decide whether to halt.
+
+        Purpose: Run abstract-coverage validation without aborting the pipeline
+                 on a content-quality miss.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.12
+        Tests:   tests/test_ts_gui_run_all.py::test_run_stage_val_abstract_advisory_does_not_halt
+        """
+        passed = pipeline.validate_abstract_coverage(
             self.base_name, self.logger, model=config.settings.DEFAULT_MODEL
         )
+        if not passed:
+            # Surface, don't silently drop (P2): the run continues, but say so.
+            # `validate_abstract_coverage` returns False for either a content
+            # coverage miss OR a could-not-verify (missing abstract / exception,
+            # which it logs via logger.error). Don't imply "content miss" — point
+            # at both the report and the log so a real error stays discoverable
+            # (P14: an error condition must not read as an ordinary content "no").
+            self.log(
+                "⚠️ Abstract validation did not pass or could not complete — "
+                "continuing (advisory). See '%s%s' and the run log for details.",
+                self.base_name, config.SUFFIX_ABSTRACT_VAL,
+            )
+        return True
 
     def _run_stage_blog(self):
         """Runner for the 'blog' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
