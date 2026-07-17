@@ -21,9 +21,12 @@ it never reflected an already-saved default. Persistence machinery itself works:
 | FD.2 | The checkbox reflects the real saved state: `_sync_make_default_checkbox` sets it True only when the current source dir equals the saved default; called from `update_dir_label` (startup + after any dir change). | `tests/test_folder_defaults.py::test_fd2_sync_reflects_saved_state` |
 | FD.3 | Changing the session directory without "Make Default" checked no longer silently wipes an existing saved default (previously `select_transcripts_directory` called `set_default_source_dir(None)` on every non-default pick). | `tests/test_folder_defaults.py::test_fd3_non_default_pick_preserves_existing_default` |
 
-## Not built here (pending user decision)
+| FD.4 | "Make Default" ON also adds the current source dir to a saved favorites list (`source_dir_favorites`), deduped. The auto-load default (`default_source_dir`) is the ★-marked entry. | `tests/test_folder_defaults.py::test_fd4_make_default_adds_to_favorites` |
+| FD.5 | The "Folder Defaults…" dialog shows the favorites list; `_load_favorite_source_dir` switches the session to a chosen favorite (without changing which auto-loads); `_remove_favorite_source_dir` removes one (clearing the auto-load default if it was that one). | `tests/test_folder_defaults.py::test_fd5_config_favorites_crud`, `::test_fd5_remove_favorite_clears_default_if_it_was_default`, `::test_fd5_load_favorite_switches_session` |
 
-- A **multi-folder "Folder Defaults" list** (favorites the user can pick from).
-  Today's model is a single default each for source/processed/projects. Whether
-  to add a favorites list, and how it relates to the single auto-load default, is
-  an open design question raised with the user.
+## Model
+
+- `default_source_dir` (single): the folder that auto-loads on start.
+- `source_dir_favorites` (list): folders the user can quickly switch to from the
+  Folder Defaults dialog. "Make Default" writes both; unchecking clears only the
+  auto-load default (the favorite stays until removed in the dialog).

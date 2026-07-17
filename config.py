@@ -141,6 +141,29 @@ class ProjectSettings:
             self.runtime_settings.pop("default_source_dir", None)
         self._save_runtime_settings()
 
+    def get_source_dir_favorites(self):
+        """Return the saved list of favorite source directories (a copy)."""
+        return list(self.runtime_settings.get("source_dir_favorites", []))
+
+    def add_source_dir_favorite(self, path):
+        """Add a source directory to the favorites list (dedup, order-preserving)."""
+        path = str(path)
+        favs = self.runtime_settings.setdefault("source_dir_favorites", [])
+        if path not in favs:
+            favs.append(path)
+            self._save_runtime_settings()
+
+    def remove_source_dir_favorite(self, path):
+        """Remove a source directory from favorites; if it was the auto-load
+        default, clear that too so a removed favorite can't still load on start."""
+        path = str(path)
+        favs = self.runtime_settings.get("source_dir_favorites", [])
+        if path in favs:
+            favs.remove(path)
+            if self.runtime_settings.get("default_source_dir") == path:
+                self.runtime_settings.pop("default_source_dir", None)
+            self._save_runtime_settings()
+
     def set_default_processed_dir(self, path: Union[str, Path, None]):
         """Save or clear the default processed directory."""
         if path:
@@ -302,6 +325,21 @@ def set_validation_approved_terms_path(path: Union[str, Path, None]):
 def set_default_source_dir(path: Union[str, Path, None]):
     """Global function to save or clear the default source directory."""
     settings.set_default_source_dir(path)
+
+
+def get_source_dir_favorites():
+    """Global function to retrieve the favorite source directories list."""
+    return settings.get_source_dir_favorites()
+
+
+def add_source_dir_favorite(path):
+    """Global function to add a source directory to favorites."""
+    settings.add_source_dir_favorite(path)
+
+
+def remove_source_dir_favorite(path):
+    """Global function to remove a source directory from favorites."""
+    settings.remove_source_dir_favorite(path)
 
 
 def set_default_processed_dir(path: Union[str, Path, None]):

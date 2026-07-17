@@ -90,6 +90,68 @@ def test_fd2_sync_reflects_saved_state(scratch_settings, tmp_path, monkeypatch):
     assert gui.make_dir_default_var.get() is False
 
 
+def test_fd4_make_default_adds_to_favorites(scratch_settings, tmp_path, monkeypatch):
+    config.settings.runtime_settings = {}
+    src = tmp_path / "fav source"
+    monkeypatch.setattr(config, "SOURCE_DIR", src)
+    gui = _gui()
+    gui.make_dir_default_var.set(True)
+
+    gui._on_make_default_toggled()
+
+    assert str(src) in config.get_source_dir_favorites()
+    assert config.settings.runtime_settings.get("default_source_dir") == str(src)
+
+
+def test_fd5_config_favorites_crud(scratch_settings):
+    config.settings.runtime_settings = {}
+    a, b = "/tmp/folder-a", "/tmp/folder-b"
+    config.add_source_dir_favorite(a)
+    config.add_source_dir_favorite(b)
+    config.add_source_dir_favorite(a)  # dedup
+    assert config.get_source_dir_favorites() == [a, b]
+
+    config.remove_source_dir_favorite(a)
+    assert config.get_source_dir_favorites() == [b]
+
+
+def test_fd5_remove_favorite_clears_default_if_it_was_default(scratch_settings):
+    config.settings.runtime_settings = {}
+    p = "/tmp/folder-x"
+    config.add_source_dir_favorite(p)
+    config.set_default_source_dir(p)
+    assert config.settings.runtime_settings.get("default_source_dir") == p
+
+    config.remove_source_dir_favorite(p)
+    assert p not in config.get_source_dir_favorites()
+    assert "default_source_dir" not in config.settings.runtime_settings
+
+
+def test_fd5_load_favorite_switches_session(scratch_settings, tmp_path, monkeypatch):
+    fav = tmp_path / "favorite dir"
+    fav.mkdir()
+    gui = _gui()
+    gui.update_dir_label = MagicMock()
+    gui.update_terms_file_label = MagicMock()
+    gui.refresh_file_list = MagicMock()
+    called = {}
+    monkeypatch.setattr(config, "set_source_dir_and_infer_base",
+                        lambda p: called.setdefault("path", p))
+
+    gui._load_favorite_source_dir(str(fav))
+
+    assert called["path"] == str(fav)
+    gui.refresh_file_list.assert_called_once()
+
+
+def test_fd5_dialog_builds_favorites_ui():
+    import inspect
+    src = inspect.getsource(ts_gui.TranscriptProcessorGUI.open_folder_defaults_dialog)
+    assert "get_source_dir_favorites" in src
+    assert "Listbox" in src
+    assert "load_favorite" in src and "remove_favorite" in src
+
+
 def test_fd3_non_default_pick_preserves_existing_default(scratch_settings, tmp_path, monkeypatch):
     """Selecting a directory without 'Make Default' checked must not wipe an
     existing saved default (regression: the old code cleared it on every

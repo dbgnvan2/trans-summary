@@ -895,11 +895,26 @@ class TranscriptProcessorGUI:
         """
         if self.make_dir_default_var.get():
             config.set_default_source_dir(str(config.SOURCE_DIR))
-            self.log("✅ Saved %s as default source directory (loads on next start).",
-                     config.SOURCE_DIR)
+            config.add_source_dir_favorite(str(config.SOURCE_DIR))  # FD.4: also in the list
+            self.log("✅ Saved %s as default source directory (loads on next start) "
+                     "and added it to Folder Defaults.", config.SOURCE_DIR)
         else:
             config.set_default_source_dir(None)
             self.log("Cleared default source directory.")
+
+    def _load_favorite_source_dir(self, path):
+        """Switch the session to a favorite source directory (does not change
+        which one auto-loads on start). Spec: FD.5."""
+        config.set_source_dir_and_infer_base(path)
+        self.update_dir_label()
+        self.update_terms_file_label()
+        self.refresh_file_list()
+        self.log("Loaded source directory from Folder Defaults: %s", path)
+
+    def _remove_favorite_source_dir(self, path):
+        """Remove a favorite from the Folder Defaults list. Spec: FD.5."""
+        config.remove_source_dir_favorite(path)
+        self.log("Removed from Folder Defaults: %s", path)
 
     def _sync_make_default_checkbox(self):
         """Reflect whether the current source dir IS the saved startup default,
@@ -1008,8 +1023,51 @@ class TranscriptProcessorGUI:
                 row=row_idx, column=3, pady=4
             )
 
+        # --- Favorite source directories (FD.5) ---------------------------
+        fav_row = len(rows)
+        ttk.Separator(frame, orient=tk.HORIZONTAL).grid(
+            row=fav_row, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 4)
+        )
+        ttk.Label(frame, text="Source folder favorites (Make Default adds here):").grid(
+            row=fav_row + 1, column=0, columnspan=4, sticky=tk.W, pady=(0, 4)
+        )
+        fav_listbox = tk.Listbox(frame, height=5)
+        fav_listbox.grid(row=fav_row + 2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=2)
+
+        def refresh_favorites():
+            fav_listbox.delete(0, tk.END)
+            default_dir = config.settings.runtime_settings.get("default_source_dir")
+            for path in config.get_source_dir_favorites():
+                marker = "★ " if path == default_dir else "  "
+                fav_listbox.insert(tk.END, f"{marker}{path}")
+
+        def _selected_favorite():
+            sel = fav_listbox.curselection()
+            if not sel:
+                return None
+            return config.get_source_dir_favorites()[sel[0]]
+
+        def load_favorite():
+            path = _selected_favorite()
+            if path:
+                self._load_favorite_source_dir(path)
+                refresh_labels()
+
+        def remove_favorite():
+            path = _selected_favorite()
+            if path:
+                self._remove_favorite_source_dir(path)
+                refresh_favorites()
+                refresh_labels()
+
+        fav_btns = ttk.Frame(frame)
+        fav_btns.grid(row=fav_row + 2, column=3, sticky=(tk.N,), padx=(8, 0))
+        ttk.Button(fav_btns, text="Load", command=load_favorite).pack(fill=tk.X, pady=(0, 2))
+        ttk.Button(fav_btns, text="Remove", command=remove_favorite).pack(fill=tk.X)
+        refresh_favorites()
+
         ttk.Button(frame, text="Close", command=dlg.destroy).grid(
-            row=len(rows), column=0, columnspan=4, pady=(12, 0)
+            row=fav_row + 3, column=0, columnspan=4, pady=(12, 0)
         )
 
     def update_terms_file_label(self):
