@@ -1277,6 +1277,11 @@ class TranscriptProcessorGUI:
             return
         self.processing = True
         self.progress.start()
+        # Immediately clear the old status and show the task is running, so the
+        # bottom bar updates on click (not only when the task finishes). A
+        # multi-stage run overrides this with per-step status right away.
+        display = task_name or task_function.__name__.lstrip("_").replace("_", " ")
+        self.set_status(f"Running {display}…", "blue")
         self.update_button_states()
 
         thread = threading.Thread(
@@ -2266,7 +2271,8 @@ class TranscriptProcessorGUI:
             return
         self.log("Creating bundle (%s) with %d section(s)...", fmt, len(sections))
         self.run_task_in_thread(
-            pipeline.export_bundle, self.base_name, fmt, sections, self.logger
+            pipeline.export_bundle, self.base_name, fmt, sections, self.logger,
+            task_name=f"bundle export ({fmt})",
         )
 
     def open_bundle_dialog(self):

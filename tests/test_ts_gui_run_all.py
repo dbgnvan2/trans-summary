@@ -132,6 +132,41 @@ def test_sb1_status_shows_failing_step():
     assert "Failed at" in _status_texts(gui)
 
 
+def test_sb1_run_task_sets_initial_running_status():
+    """SB.1: starting a background task immediately updates the bottom bar to a
+    'Running …' status (so it clears/updates on click, e.g. Create Bundle), not
+    only when the task finishes."""
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.processing = False
+    gui.progress = MagicMock()
+    gui.set_status = MagicMock()
+    gui.update_button_states = MagicMock()
+    gui.log = MagicMock()
+    with patch("ts_gui.threading.Thread") as mThread:
+        gui.run_task_in_thread(lambda: True, task_name="bundle export (pdf)")
+    mThread.return_value.start.assert_called_once()
+    assert any(
+        "Running" in str(c.args[0]) and "bundle export" in str(c.args[0])
+        for c in gui.set_status.call_args_list
+    )
+
+
+def test_sb1_run_task_status_falls_back_to_function_name():
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.processing = False
+    gui.progress = MagicMock()
+    gui.set_status = MagicMock()
+    gui.update_button_states = MagicMock()
+    gui.log = MagicMock()
+
+    def _generate_bundle():
+        return True
+
+    with patch("ts_gui.threading.Thread"):
+        gui.run_task_in_thread(_generate_bundle)
+    assert any("generate bundle" in str(c.args[0]) for c in gui.set_status.call_args_list)
+
+
 def test_sb1_execute_task_preserves_task_final_status():
     """A task that calls set_final_status keeps its message; _execute_task does
     not overwrite it with the generic 'Task completed successfully.'"""
