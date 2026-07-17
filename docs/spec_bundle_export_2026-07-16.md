@@ -34,6 +34,8 @@ does not force-include it there.
 
 | BE.11 | **Reduced heading sizes.** The bundle title is `#` (h1, main heading) and each section is `##` (h2, section heading). PDF sizes them via `BUNDLE_PDF_CSS` (h1 18pt, h2 14pt, h3 12pt — ~15-20% below browser defaults). DOCX uses a committed `templates/styles/bundle-reference.docx` (Heading 1 16pt, Heading 2 13pt) via pandoc `--reference-doc`; regenerate with `scripts/gen_bundle_reference_docx.py`. Missing reference doc → pandoc falls back to defaults and DOCX still renders. | `::test_be11_title_is_h1_sections_are_h2`, `::test_be11_pdf_injects_reduced_heading_css`, `::test_be11_docx_uses_reduced_heading_reference_doc`, `::test_be11_reference_docx_has_reduced_heading_sizes` |
 
+| BE.12 | **Abstract first, own page.** `BUNDLE_SECTIONS` orders Abstract first with `page_break_after`. `_build_combined_markdown` emits a neutral page-break marker deferred to just before the next included section (so a `page_break_after` section that ends up last leaves no trailing blank page). `_render_pdf_weasyprint` → CSS `break-after:page`; `_render_docx_pandoc` → raw pandoc OpenXML page break. The marker never leaks to output. | `::test_be12_abstract_first_with_page_break_marker`, `::test_be12_no_trailing_page_break_when_break_section_is_last`, `::test_be12_pdf_translates_page_break`, `::test_be12_docx_translates_page_break` |
+
 ## Not code-tested (flagged)
 
 - The **real pandoc invocation** is an external-binary integration path. Unit

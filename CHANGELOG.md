@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-17 (abstract length cap + bundle abstract-first)
+
+**Abstracts capped under 250 words.** New `config.abstract_target_word_count()`
+is the single source for the target length (3% of transcript, floored at
+`ABSTRACT_MIN_WORDS=150`, capped at new `ABSTRACT_MAX_WORDS=230`) — routed through
+by all three compute sites (main `summarize_transcript` generation, standalone
+`generate_structured_abstract`, and the coverage validator), replacing duplicated
+uncapped `max(...)` formulas (P5). New `ABSTRACT_HARD_MAX_WORDS=250`;
+`validate_structural` / `validate_abstract` hard-cap their "too long" threshold
+below it, so any abstract ≥ 250 words is flagged. Prompt updated to enforce the
+limit.
+
+**Bundle: Abstract first, on its own page.** `BUNDLE_SECTIONS` reordered so the
+Abstract comes first with `page_break_after`. `_build_combined_markdown` emits a
+neutral page-break marker (deferred to just before the next included section, so
+no trailing blank page); `_render_pdf_weasyprint` translates it to CSS
+`break-after:page`, `_render_docx_pandoc` to a raw pandoc OpenXML page break.
+
+Ran through `/csdp` (learning-qa sweep found the missed primary generation site +
+two lower-severity items; all fixed). Full suite: 644 passed.
+
 ## [Unreleased] - 2026-07-16 (GUI: bundle export, selective re-run, folder favorites, status bar)
 
 **MD-collection bundle export (DOC/PDF).** New `bundle_export.py` + CLI
