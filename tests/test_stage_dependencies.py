@@ -114,7 +114,9 @@ def test_stage_dependencies_matches_verified_graph():
             [("core", "SUFFIX_KEY_TERMS")],
         ],
         "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
-        "bowen_emphasis": [],
+        # bowen_emphasis extracts from the validated derived transcript, so it
+        # requires formatted/yaml (P13: never read the raw source). Spec: SR.4
+        "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
         "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     }
     assert ts_gui.STAGE_DEPENDENCIES == expected
@@ -304,8 +306,11 @@ def test_preflight_overview_blocked_when_neither_abstract_branch_satisfied(tmp_p
     assert _label_for("overview") in message
 
 
-@pytest.mark.parametrize("key", ["init_val", "format", "bowen_emphasis"])
+@pytest.mark.parametrize("key", ["init_val", "format"])
 def test_stage_dependencies_empty_for_dependency_free_stages(key):
+    # bowen_emphasis is no longer dependency-free: it requires formatted/yaml so
+    # it can't extract from the raw transcript (P13). Its behavior is covered by
+    # test_ts_gui_run_all.py::test_selective_rerun_bowen_blocked_without_derived_artifact.
     assert ts_gui.STAGE_DEPENDENCIES[key] == []
 
 
@@ -314,14 +319,12 @@ def test_stage_dependencies_empty_for_dependency_free_stages(key):
     [
         {"init_val"},
         {"format"},
-        {"bowen_emphasis"},
-        {"init_val", "format", "bowen_emphasis"},
+        {"init_val", "format"},
     ],
 )
 def test_preflight_never_blocks_dependency_free_stages(tmp_path, checked):
-    """B.6: init_val / format / bowen_emphasis have no dependency groups and
-    must never be blocked, individually or in combination, regardless of
-    disk state."""
+    """B.6: init_val / format have no dependency groups and must never be
+    blocked, individually or in combination, regardless of disk state."""
     gui = _make_gui(tmp_path, checked_keys=checked)
 
     with patch("ts_gui.messagebox.showwarning") as mock_warn, \

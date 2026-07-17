@@ -91,7 +91,11 @@ STAGE_DEPENDENCIES = {
         [("core", "SUFFIX_KEY_TERMS")],
     ],
     "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
-    "bowen_emphasis": [],
+    # Bowen/Emphasis extract from the validated derived transcript, never the
+    # raw source. Require a formatted/yaml artifact (selected or already on
+    # disk) so a selective re-run can't run extraction on an unvalidated raw
+    # file (P13). Mirrors webpdf/package. Spec: spec_selective_rerun_2026-07-16.md#SR.4
+    "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
 }
 
@@ -108,6 +112,41 @@ ARTIFACT_LABELS = {
     "SUFFIX_KEY_TERMS": "Key Terms",
     "SUFFIX_ABSTRACT_GEN": "Generated Abstract",
     "SUFFIX_ABSTRACT_INIT": "Initial Abstract",
+}
+
+# Spec: docs/spec_selective_rerun_2026-07-16.md#SR.1 (selective re-run)
+# {stage_key: [artifact_suffix_attr, ...]} -- the artifact(s) each stage WRITES,
+# kept as data (config attr names, resolved via _stage_artifact_path) so the
+# selective-run status report reads exactly what the producer writes and can
+# never drift (P19). Used at run start to report whether a checked stage will
+# generate fresh output or REGENERATE (overwrite) existing output, and which
+# unchecked prerequisites are being reused from disk.
+#
+# "Exists" for a stage = ALL of its listed outputs are present (user's chosen
+# rule: a partially-completed stage is treated as not-done so it re-runs).
+#
+# `init_val` is intentionally absent: its product is the *_validated source
+# transcript (written next to the source, not a project-dir artifact), so it has
+# no on-disk artifact here and is always reported as "will generate".
+STAGE_OUTPUTS = {
+    "format": ["SUFFIX_FORMATTED"],
+    "val_headers": ["SUFFIX_HEADER_VAL_REPORT"],
+    "yaml": ["SUFFIX_YAML"],
+    "topics": ["SUFFIX_TOPICS"],
+    "core": [
+        "SUFFIX_STRUCTURAL_THEMES", "SUFFIX_INTERPRETIVE_THEMES",
+        "SUFFIX_TOPICS", "SUFFIX_KEY_TERMS", "SUFFIX_LENSES",
+    ],
+    "structured_summary": ["SUFFIX_SUMMARY_GEN"],
+    "gen_abstract": ["SUFFIX_ABSTRACT_GEN"],
+    "val_abstract": ["SUFFIX_ABSTRACT_VAL"],
+    "blog": ["SUFFIX_BLOG"],
+    "overview": ["SUFFIX_OVERVIEW"],
+    # The webpdf stage runner writes only .html + .pdf; the simple webpage is a
+    # separate standalone tool and is not produced here (P19: match the writer).
+    "webpdf": ["SUFFIX_WEBPAGE", "SUFFIX_PDF"],
+    "bowen_emphasis": ["SUFFIX_BOWEN", "SUFFIX_EMPHASIS_SCORED"],
+    "package": ["SUFFIX_ZIP"],
 }
 
 
@@ -1759,6 +1798,55 @@ class TranscriptProcessorGUI:
         suffix = getattr(config, artifact_suffix_attr)
         return config.PROJECTS_DIR / self.base_name / f"{self.base_name}{suffix}"
 
+    def _stage_outputs_status(self, key):
+        """Report a stage's on-disk output status for the selective-run log.
+
+        Purpose: Tell the operator whether a checked stage will generate fresh
+                 output or REGENERATE (overwrite) existing output, using the
+                 STAGE_OUTPUTS producer map so status can't drift from what the
+                 stage actually writes (P19).
+        Spec:    docs/spec_selective_rerun_2026-07-16.md#SR.2
+
+        Returns (all_present, present_attrs, missing_attrs). `all_present` is
+        True only when EVERY declared output exists (the "all present = exists"
+        rule). A stage with no declared outputs (e.g. init_val) returns
+        (False, [], []) -- always treated as "will generate".
+        """
+        attrs = STAGE_OUTPUTS.get(key, [])
+        if not attrs:
+            return (False, [], [])
+        present, missing = [], []
+        for attr in attrs:
+            if self._stage_artifact_path(attr).exists():
+                present.append(attr)
+            else:
+                missing.append(attr)
+        return (len(missing) == 0, present, missing)
+
+    def _log_selective_run_plan(self, selected_keys):
+        """Log, per checked stage, generate-vs-regenerate, plus which unchecked
+        prerequisites are reused from disk. Spec: SR.5."""
+        reused = []
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            all_present, _present, _missing = self._stage_outputs_status(key)
+            if all_present:
+                self.log("  ↻ %s — output exists, will REGENERATE (overwrite)", label)
+            else:
+                self.log("  ＋ %s — will generate", label)
+            # Prerequisites satisfied from disk (producing stage not selected).
+            for group in STAGE_DEPENDENCIES.get(key, []):
+                for producing_stage, artifact_attr in group:
+                    if producing_stage in selected_keys:
+                        continue
+                    path = self._stage_artifact_path(artifact_attr)
+                    if path.exists() and artifact_attr not in reused:
+                        reused.append(artifact_attr)
+        if reused:
+            names = ", ".join(ARTIFACT_LABELS.get(a, a) for a in reused)
+            self.log("  ↺ Reusing existing output from disk: %s", names)
+
     def _validate_stage_dependencies(self, selected_keys):
         """Check every selected stage's prerequisite groups.
 
@@ -1829,10 +1917,23 @@ class TranscriptProcessorGUI:
             messagebox.showwarning("Missing Prerequisites", self._format_preflight_message(unmet))
             return
 
-        if "init_val" not in selected_keys and "_validated" not in self.selected_file.name:
+        # Init Val is a precondition for `format`, which consumes the raw
+        # (unvalidated) transcript. A selective re-run of downstream stages
+        # instead reuses already-validated derived artifacts (formatted/yaml),
+        # enforced by each stage's own dependency preflight above
+        # (`_validate_stage_dependencies`) -- including bowen_emphasis, which now
+        # requires a formatted/yaml artifact so it can't read the raw file. So
+        # this guard need only fire for `format`, letting the user redo just
+        # particular items (e.g. Bowen/Emphasis) without re-running Init Val.
+        # Spec: spec_selective_rerun_2026-07-16.md#SR.3
+        if (
+            "format" in selected_keys
+            and "init_val" not in selected_keys
+            and "_validated" not in self.selected_file.name
+        ):
             messagebox.showwarning(
                 "Validation Required",
-                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.",
+                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running Format.",
             )
             return
 
@@ -1860,6 +1961,12 @@ class TranscriptProcessorGUI:
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
             self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
+
+        # Selective-run transparency (SR.5): before running, say which checked
+        # stages will regenerate existing output vs generate fresh, and which
+        # unchecked prerequisites are reused from disk.
+        self.log("\n--- Run plan ---")
+        self._log_selective_run_plan(selected_keys)
 
         for key, label in STAGE_DEFINITIONS:
             if key not in selected_keys:

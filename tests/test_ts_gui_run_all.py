@@ -764,3 +764,157 @@ def test_validation_terms_file_selection_persists(tmp_path, monkeypatch):
         assert "/tmp/persisted_terms.txt" in payload
     finally:
         config.set_validation_approved_terms_path(original_path)
+
+
+# ===========================================================================
+# SR.* (spec_selective_rerun_2026-07-16.md) -- Selective re-run: check only the
+# items to (re)generate; unchecked
+# stages are bypassed and their existing outputs reused as inputs. The Init-Val
+# guard is scoped to `format` (the only stage consuming the raw transcript) so
+# a downstream redo (e.g. Bowen/Emphasis) is not blocked.
+# ===========================================================================
+
+def _make_outputs(tmp_path, suffix_attrs, base_name=BASE_NAME):
+    """Create on-disk artifacts for the given config suffix attrs under the
+    project dir, returning the project dir."""
+    proj = tmp_path / base_name
+    proj.mkdir(parents=True, exist_ok=True)
+    for attr in suffix_attrs:
+        suffix = getattr(config, attr)
+        (proj / f"{base_name}{suffix}").write_text("x", encoding="utf-8")
+    return proj
+
+
+def test_stage_outputs_cover_all_keys_except_init_val():
+    """Every stage except init_val declares its output artifact(s); init_val is
+    intentionally absent (its product is the *_validated source transcript, not
+    a project-dir artifact). Every declared suffix attr must resolve on config."""
+    expected = {key for key, _ in ts_gui.STAGE_DEFINITIONS} - {"init_val"}
+    assert set(ts_gui.STAGE_OUTPUTS.keys()) == expected
+    for attrs in ts_gui.STAGE_OUTPUTS.values():
+        assert attrs, "a stage declared an empty output list"
+        for attr in attrs:
+            assert hasattr(config, attr), f"{attr} is not a config attribute"
+
+
+def test_stage_outputs_status_requires_all_present(tmp_path, monkeypatch):
+    """'exists' is True only when EVERY output of a multi-file stage is present
+    (Core writes 5 files); 4/5 present must read as not-done so it re-runs."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+
+    core_attrs = ts_gui.STAGE_OUTPUTS["core"]
+    # 4 of 5 present -> not all_present
+    _make_outputs(tmp_path, core_attrs[:-1])
+    all_present, present, missing = gui._stage_outputs_status("core")
+    assert all_present is False
+    assert len(present) == len(core_attrs) - 1
+    assert missing == [core_attrs[-1]]
+
+    # complete the set -> all_present
+    _make_outputs(tmp_path, [core_attrs[-1]])
+    all_present, _present, missing = gui._stage_outputs_status("core")
+    assert all_present is True
+    assert missing == []
+
+
+def test_stage_outputs_status_no_outputs_is_generate():
+    """init_val has no declared outputs -> always 'will generate', never exists."""
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    assert gui._stage_outputs_status("init_val") == (False, [], [])
+
+
+def test_selective_rerun_not_blocked_when_format_not_selected(tmp_path, monkeypatch):
+    """Regression: checking only Bowen+Emphasis on a non-'_validated' file must
+    proceed when the validated-derived YAML already exists on disk (format not
+    selected -> Init-Val guard does not fire; bowen's dependency is satisfied by
+    the on-disk YAML)."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    _make_outputs(tmp_path, ["SUFFIX_YAML"])  # validated-derived artifact present
+    gui = _make_full_gui(
+        tmp_path,
+        selected_file=tmp_path / f"{BASE_NAME} - yaml.md",  # no "_validated"
+        checked_keys={"bowen_emphasis"},
+    )
+    with patch("ts_gui.messagebox.askyesno", return_value=True), \
+         patch("ts_gui.messagebox.showwarning") as mock_warn, \
+         patch.object(gui, "run_task_in_thread") as mock_run:
+        gui.do_run_selected()
+    mock_run.assert_called_once()
+    mock_warn.assert_not_called()
+
+
+def test_selective_rerun_bowen_blocked_without_derived_artifact(tmp_path, monkeypatch):
+    """P13: checking only Bowen+Emphasis on a raw file with NO formatted/yaml on
+    disk must be BLOCKED -- extraction must never read the unvalidated raw
+    transcript. (Closes the hole opened by scoping the Init-Val guard to
+    `format`: bowen_emphasis now carries its own formatted/yaml preflight.)"""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    gui = _make_full_gui(
+        tmp_path,
+        selected_file=tmp_path / f"{BASE_NAME}.txt",  # raw, no derived artifacts
+        checked_keys={"bowen_emphasis"},
+    )
+    with patch("ts_gui.messagebox.askyesno", return_value=True), \
+         patch("ts_gui.messagebox.showwarning") as mock_warn, \
+         patch.object(gui, "run_task_in_thread") as mock_run:
+        gui.do_run_selected()
+    mock_run.assert_not_called()
+    mock_warn.assert_called_once()
+
+
+def test_guard_still_blocks_format_even_alongside_other_stages(tmp_path, monkeypatch):
+    """The scoped guard keys on `format` specifically: selecting format (with
+    others) on an unvalidated file still blocks."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    gui = _make_full_gui(
+        tmp_path,
+        selected_file=tmp_path / f"{BASE_NAME}.txt",  # no "_validated"
+        checked_keys={"format", "yaml"},
+    )
+    with patch("ts_gui.messagebox.askyesno", return_value=True), \
+         patch("ts_gui.messagebox.showwarning") as mock_warn, \
+         patch.object(gui, "run_task_in_thread") as mock_run:
+        gui.do_run_selected()
+    mock_run.assert_not_called()
+    mock_warn.assert_called_once()
+
+
+def test_run_plan_logs_regenerate_vs_generate(tmp_path, monkeypatch):
+    """The run-start plan distinguishes a stage whose output exists (REGENERATE)
+    from one that is absent (generate), and names reused prerequisites."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    # Bowen+Emphasis outputs already exist -> REGENERATE; also seed yaml so the
+    # reused-prerequisite line fires (bowen has no deps, so use topics which
+    # depends on yaml).
+    _make_outputs(tmp_path, ts_gui.STAGE_OUTPUTS["bowen_emphasis"])
+    _make_outputs(tmp_path, ["SUFFIX_YAML"])
+
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = BASE_NAME
+    gui.logger = object()
+    gui.log = MagicMock()
+    gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+
+    selected = {"topics", "bowen_emphasis"}  # topics absent -> generate; bowen present -> regenerate
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch("ts_gui.analyze_token_usage.generate_usage_report", return_value="report"):
+        ok = gui._run_selected_stages(selected)
+
+    assert ok is True
+
+    def _render(call):
+        if not call.args:
+            return ""
+        msg, rest = call.args[0], call.args[1:]
+        try:
+            return msg % rest if rest else str(msg)
+        except Exception:
+            return str(msg)
+
+    logged = " ".join(_render(c) for c in gui.log.call_args_list)
+    assert "REGENERATE" in logged        # bowen_emphasis outputs exist
+    assert "will generate" in logged     # topics absent
+    assert "Reusing existing output" in logged and "YAML" in logged
