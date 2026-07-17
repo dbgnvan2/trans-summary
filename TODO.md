@@ -6,6 +6,23 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-17 — faithfulness judge: re-calibrate after metadata-in-source change
+
+`release_gate.check_faithfulness` now prepends the recording metadata (title,
+presenter, date, year from the filename) to the source, so a legitimate
+metadata-derived abstract fact ("In this **2021** webinar…") is no longer judged
+as a fabricated year (it was a false publish BLOCK). Per P20, the faithfulness
+judge is ARMED and calibrated — **re-run the calibration eval** to confirm the
+metadata-augmented source doesn't shift precision/recall on the gold set:
+```
+RUN_FAITHFULNESS_CALIBRATION=1 PYTHONPATH=$PWD .venv/bin/python \
+  -m pytest tests/test_faithfulness_calibration.py -q -s
+```
+Low risk (only known catalogue facts become entailable; a fabricated name/stat
+still won't match), but the gold set should be re-verified before relying on it.
+
+---
+
 ## 2026-07-17 — Init Val fuzzy matcher (follow-up)
 
 The span-match guard (`transcript_utils.span_matches_original`) now makes Init Val

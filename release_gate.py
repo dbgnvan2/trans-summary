@@ -325,12 +325,27 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
         return Verdict("faithfulness", Status.PASS,
                        "faithfulness judge disabled (awaiting M2.B calibration)")
     import faithfulness_judge as fjudge
-    from transcript_utils import resolve_anthropic_key
+    from transcript_utils import resolve_anthropic_key, parse_filename_metadata
 
     transcript = _load_source_transcript(base_name)
     if not transcript or not transcript.strip():
         return Verdict("faithfulness", Status.ERROR,
                        "source transcript missing or empty — cannot verify faithfulness")
+    # The abstract legitimately states filename-derived metadata (title, presenter,
+    # date/year) that the generation prompt supplies — those facts are NOT spoken
+    # in the transcript but are not hallucinations. Prepend them to the source so
+    # the judge doesn't flag e.g. "In this 2021 webinar…" as fabricated. Low risk:
+    # only these known catalogue facts become entailable; a fabricated name/stat
+    # still won't match. (P20: re-run the faithfulness calibration on this change.)
+    try:
+        meta = parse_filename_metadata(base_name)
+        meta_lines = [f"{k.capitalize()}: {meta[k]}"
+                      for k in ("title", "presenter", "date", "year") if meta.get(k)]
+        if meta_lines:
+            transcript = ("Recording metadata (from the catalogue entry): "
+                          + "; ".join(meta_lines) + "\n\n" + transcript)
+    except Exception:  # metadata is best-effort; the transcript alone still verifies
+        pass
     api_key = resolve_anthropic_key()
     if not api_key:
         return Verdict("faithfulness", Status.ERROR,

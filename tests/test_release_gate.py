@@ -180,6 +180,45 @@ def test_real_fabricated_name_still_caught_after_fix():
         "# Abstract\n\nThe work of Luciano Malorni is central.", source)
 
 
+def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
+    """Metadata-derived abstract facts (year/presenter from the filename) must be
+    part of the faithfulness source, so a legitimate 'In this 2021 webinar…'
+    isn't judged as a fabricated year (which caused a false publish BLOCK)."""
+    import faithfulness_judge as fj
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "Spoken words about family systems.", encoding="utf-8")
+    suffix = config.FAITHFULNESS_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "In this 2021 webinar Jane Doe presents.", encoding="utf-8")
+
+    captured = {}
+
+    class _Res:
+        status = fj.PASS
+        detail = ""
+        unfaithful = []
+
+    def _fake_judge(fjudge, artifact_text, transcript, client, logger=None):
+        captured["source"] = transcript
+        return _Res()
+
+    monkeypatch.setattr(rg, "_judge_cached", _fake_judge)
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+
+    v = rg.check_faithfulness(base)
+    assert v.status is Status.PASS
+    assert "2021" in captured["source"]                       # year metadata
+    assert "Jane Doe" in captured["source"]                   # presenter metadata
+    assert "Spoken words about family systems" in captured["source"]  # transcript kept
+
+
 # --------------------------------------------------------------- M4.A verbatim quotes
 def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS
