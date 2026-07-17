@@ -6,6 +6,26 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-17 — Init Val fuzzy matcher (follow-up)
+
+The span-match guard (`transcript_utils.span_matches_original`) now makes Init Val
+auto-apply *safe* against mis-located spans, but it does so by **skipping** them —
+so the fuzzy-auto-apply path is largely neutralized whenever normalization changes
+offsets (double spaces, timestamps, punctuation inside the phrase). Root cause:
+`transcript_utils.find_text_in_content` computes its returned `(start, end)` from
+normalized-word indices / first-prefix occurrence, so its offsets don't map back
+to the raw text when normalization changed lengths.
+
+- **Follow-up:** fix `find_text_in_content` to return correct *raw-text* offsets
+  (e.g. re-locate the matched window in the original string), so legitimate fuzzy
+  corrections apply again while the span guard still blocks mis-locations.
+  Verified empirically 2026-07-17: `find_text_in_content("beta gamma", "beta   gamma")`
+  returns a misaligned slice, which the guard correctly skips.
+- **Adjacent (not fixed):** the multi-match branch still applies a ≥7-word
+  correction to *all* occurrences of its `original_text` — intended, but noted.
+
+---
+
 ## 2026-07-16 — bundle export / GUI follow-ups (deferred, not blockers)
 
 Flagged during the bundle-export + selective-re-run work (see CHANGELOG

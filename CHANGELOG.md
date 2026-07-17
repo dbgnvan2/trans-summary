@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-17 (Init Val corruption fix: span-match guard)
+
+**Init Val auto-apply could corrupt the validated transcript.** A correction with
+no exact match fell to the fuzzy fallback, which overwrote a span located by
+`transcript_utils.find_text_in_content` (an unreliable span — first-prefix
+occurrence / normalized-word indices) with **no check that the span actually
+contained the original text**. On a real run this rewrote a "differentiation of
+self" region into `selfhere's` plus a duplicated chunk, which then failed Format
+validation at 84% mismatch and halted the run (Format correctly refused to
+publish the corrupted transcript).
+
+Fix: new `transcript_utils.span_matches_original()` — before each destructive
+replacement, verify the target span matches the correction's `original_text`
+(normalized, ≥ `config.VALIDATION_MIN_APPLY_SIMILARITY=0.90`); skip and log
+otherwise. Applied in **both** validators — v2 `apply_corrections_safe` and v1
+`apply_corrections` (the latter still runs from the GUI in v1 mode) — so the
+corruption class is closed everywhere. Also covers stale offsets after an alias
+mutation. Fuzzy auto-apply is now conservative: a mis-located span is skipped
+(flagged for manual review) rather than applied wrongly.
+
 ## [Unreleased] - 2026-07-17 (abstract length cap + bundle abstract-first)
 
 **Abstracts capped under 250 words.** New `config.abstract_target_word_count()`
