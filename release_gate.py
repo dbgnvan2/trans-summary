@@ -121,6 +121,34 @@ def _load_source_transcript(base_name: str) -> Optional[str]:
     return None
 
 
+def _source_with_metadata(base_name: str) -> Optional[str]:
+    """The source transcript plus the recording's catalogue metadata (title,
+    presenter, date, year from the filename).
+
+    The abstract legitimately states these facts/names — the generation prompt
+    supplies them — even though they aren't spoken in the transcript (a presenter
+    rarely says their own name 'Michael Kerr'; the year comes from the filename).
+    So entity-grounding and faithfulness must treat them as part of the source,
+    or they FALSE-BLOCK publication. Low risk: only these known catalogue facts
+    become grounded/entailed; a truly fabricated name or claim still won't match.
+    (P20: re-run the faithfulness calibration on this change.)
+    """
+    transcript = _load_source_transcript(base_name)
+    if not transcript or not transcript.strip():
+        return transcript
+    try:
+        from transcript_utils import parse_filename_metadata
+        meta = parse_filename_metadata(base_name)
+        meta_lines = [f"{k.capitalize()}: {meta[k]}"
+                      for k in ("title", "presenter", "date", "year") if meta.get(k)]
+        if meta_lines:
+            return ("Recording metadata (from the catalogue entry): "
+                    + "; ".join(meta_lines) + "\n\n" + transcript)
+    except Exception:  # metadata is best-effort; the transcript alone still verifies
+        pass
+    return transcript
+
+
 def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     """FAIL if any narrative artifact contains a multi-word proper name absent
     from the source transcript (the fabricated-name class — a real run shipped
@@ -128,7 +156,9 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     Missing source -> ERROR (can't verify -> block), not a silent pass."""
     import abstract_validation
 
-    transcript = _load_source_transcript(base_name)
+    # Source includes the filename metadata so the presenter's own name / the
+    # year (which the abstract legitimately states) aren't flagged as fabricated.
+    transcript = _source_with_metadata(base_name)
     if not transcript or not transcript.strip():
         # Missing OR present-but-empty/truncated source is "cannot verify" (F6),
         # not a definitive FAIL asserting the names are fabricated. ERROR -> block.
@@ -143,11 +173,16 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
             path.read_text(encoding="utf-8"), transcript
         )
         if names:
-            offending[suffix.strip(" -")] = names
+            offending[suffix.strip(" -").removesuffix(".md")] = names
     if offending:
         flat = sorted({n for names in offending.values() for n in names})
+        arts = ", ".join(offending.keys())
+        # Actionable message naming the artifact + the unverified name(s) — renders
+        # as "entity_grounding: check failed in <artifact>: name(s) not in source:
+        # <names> — regenerate and try again".
         return Verdict("entity_grounding", Status.FAIL,
-                       f"names not found in source: {flat}",
+                       f"check failed in {arts}: name(s) not in source: "
+                       f"{', '.join(flat)} — regenerate and try again",
                        items=[{"artifact": k, "names": v} for k, v in offending.items()])
     return Verdict("entity_grounding", Status.PASS, "all proper names grounded")
 
@@ -325,27 +360,15 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
         return Verdict("faithfulness", Status.PASS,
                        "faithfulness judge disabled (awaiting M2.B calibration)")
     import faithfulness_judge as fjudge
-    from transcript_utils import resolve_anthropic_key, parse_filename_metadata
+    from transcript_utils import resolve_anthropic_key
 
-    transcript = _load_source_transcript(base_name)
+    # Source includes the filename metadata (title/presenter/date/year) so a
+    # legitimate metadata-derived fact ("In this 2021 webinar…") isn't judged as
+    # fabricated. Shared with entity_grounding via _source_with_metadata.
+    transcript = _source_with_metadata(base_name)
     if not transcript or not transcript.strip():
         return Verdict("faithfulness", Status.ERROR,
                        "source transcript missing or empty — cannot verify faithfulness")
-    # The abstract legitimately states filename-derived metadata (title, presenter,
-    # date/year) that the generation prompt supplies — those facts are NOT spoken
-    # in the transcript but are not hallucinations. Prepend them to the source so
-    # the judge doesn't flag e.g. "In this 2021 webinar…" as fabricated. Low risk:
-    # only these known catalogue facts become entailable; a fabricated name/stat
-    # still won't match. (P20: re-run the faithfulness calibration on this change.)
-    try:
-        meta = parse_filename_metadata(base_name)
-        meta_lines = [f"{k.capitalize()}: {meta[k]}"
-                      for k in ("title", "presenter", "date", "year") if meta.get(k)]
-        if meta_lines:
-            transcript = ("Recording metadata (from the catalogue entry): "
-                          + "; ".join(meta_lines) + "\n\n" + transcript)
-    except Exception:  # metadata is best-effort; the transcript alone still verifies
-        pass
     api_key = resolve_anthropic_key()
     if not api_key:
         return Verdict("faithfulness", Status.ERROR,

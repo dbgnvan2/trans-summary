@@ -180,6 +180,42 @@ def test_real_fabricated_name_still_caught_after_fix():
         "# Abstract\n\nThe work of Luciano Malorni is central.", source)
 
 
+def test_entity_grounding_presenter_name_grounded_via_metadata(tmp_path, monkeypatch):
+    """The presenter's own name (from the filename) must NOT be flagged as
+    ungrounded just because the transcript never says it — that was a false
+    entity_grounding BLOCK on 'Michael Kerr'."""
+    base = "A Talk About Systems - Michael Kerr - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems and differentiation", encoding="utf-8")
+    suffix = config.GATE_ENTITY_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "# Abstract\n\nMichael Kerr presents on family systems.", encoding="utf-8")
+    assert rg.check_entity_grounding(base).status is Status.PASS
+
+
+def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path, monkeypatch):
+    """A genuinely fabricated multi-word name (not in transcript OR metadata)
+    still FAILs, now with a clear message naming the artifact + name + action."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses systems", encoding="utf-8")
+    suffix = config.GATE_ENTITY_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "# Abstract\n\nThe work of Luciano Malorni is central.", encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.FAIL
+    assert "Luciano Malorni" in v.detail
+    assert "check failed in" in v.detail
+    assert "regenerate and try again" in v.detail.lower()
+    assert ".md" not in v.detail
+
+
 def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     """Metadata-derived abstract facts (year/presenter from the filename) must be
     part of the faithfulness source, so a legitimate 'In this 2021 webinar…'
