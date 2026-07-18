@@ -219,6 +219,41 @@ def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     assert "Spoken words about family systems" in captured["source"]  # transcript kept
 
 
+def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, monkeypatch):
+    """The BLOCKER message should read 'faithfulness: check failed in
+    <artifact> — regenerate and try again', not the cryptic
+    'N of M artifact(s) contain unentailed claims'."""
+    import faithfulness_judge as fj
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text("spoken words", encoding="utf-8")
+    suffix = config.FAITHFULNESS_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text("An unsupported claim.", encoding="utf-8")
+
+    class _Claim:
+        claim = "An unsupported claim."
+
+    class _Res:
+        status = fj.FAIL
+        detail = "..."
+        unfaithful = [_Claim()]
+
+    monkeypatch.setattr(rg, "_judge_cached", lambda *a, **k: _Res())
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+
+    v = rg.check_faithfulness(base)
+    art = suffix.strip(" -").removesuffix(".md")
+    assert v.status is Status.FAIL
+    assert f"check failed in {art}" in v.detail
+    assert "regenerate and try again" in v.detail.lower()
+    assert ".md" not in v.detail  # clean artifact name
+
+
 # --------------------------------------------------------------- M4.A verbatim quotes
 def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS

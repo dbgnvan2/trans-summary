@@ -377,8 +377,11 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
                        "no narrative artifact present to verify faithfulness")
     if fails:
         # include any co-occurring ERRORs in items so the manifest isn't lossy.
+        # Actionable message naming the artifact(s) — rendered as
+        # "faithfulness: check failed in <artifact> — regenerate and try again".
+        arts = ", ".join(f["artifact"].removesuffix(".md") for f in fails)
         return Verdict("faithfulness", Status.FAIL,
-                       f"{len(fails)} of {judged} artifact(s) contain unentailed claims",
+                       f"check failed in {arts} — regenerate and try again",
                        items=fails + errors)
     if errors:
         return Verdict("faithfulness", Status.ERROR,
