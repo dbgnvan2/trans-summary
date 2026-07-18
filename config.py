@@ -725,6 +725,10 @@ ABSTRACT_TARGET_PERCENT = 0.03  # 3% of transcript word count
 ABSTRACT_MIN_WORDS = 150
 ABSTRACT_MAX_WORDS = 230        # target ceiling — keeps abstracts well under the hard max
 ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= as too long
+# Abstract generation retries: regenerate (with corrective feedback) up to this
+# many times to get a version that passes the gate's faithfulness + entity checks
+# at generation time, instead of only discovering an unfaithful abstract at publish.
+ABSTRACT_MAX_ATTEMPTS = 3
 
 
 def abstract_target_word_count(transcript_words: int) -> int:
