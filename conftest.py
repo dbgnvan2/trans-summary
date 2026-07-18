@@ -25,6 +25,20 @@ def _isolate_logs_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOGS_DIR", tmp_path, raising=False)
     monkeypatch.setattr(config.settings, "LOGS_DIR", tmp_path, raising=False)
 
+    # Reset the cached artifact_contracts logger so it rebinds to THIS test's
+    # LOGS_DIR instead of leaking a FileHandler pointing at a prior test's
+    # torn-down tmp dir (F3).
+    try:
+        import logging as _logging
+        import extraction_pipeline as _ep
+        lg = _logging.getLogger("artifact_contracts")
+        for h in list(lg.handlers):
+            h.close()
+            lg.removeHandler(h)
+        _ep._ARTIFACT_CONTRACTS_LOGGER = None
+    except Exception:
+        pass
+
 
 @pytest.fixture(autouse=True)
 def _faithfulness_judge_offline(monkeypatch):

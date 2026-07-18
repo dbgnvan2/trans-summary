@@ -121,16 +121,32 @@ def _load_source_transcript(base_name: str) -> Optional[str]:
     return None
 
 
-def _source_with_metadata(base_name: str) -> Optional[str]:
-    """The source transcript plus the recording's catalogue metadata (title,
-    presenter, date, year from the filename).
+def _filename_metadata_values(base_name: str) -> str:
+    """The recording's catalogue metadata VALUES (title, presenter, date, year
+    from the filename) as a plain space-joined string — NO labels or framing
+    words.
 
-    The abstract legitimately states these facts/names — the generation prompt
-    supplies them — even though they aren't spoken in the transcript (a presenter
-    rarely says their own name 'Michael Kerr'; the year comes from the filename).
-    So entity-grounding and faithfulness must treat them as part of the source,
-    or they FALSE-BLOCK publication. Low risk: only these known catalogue facts
-    become grounded/entailed; a truly fabricated name or claim still won't match.
+    For LEXICAL grounding (entity_grounding). A framing sentence would make words
+    like 'recording'/'presenter'/'title' grounded source tokens, letting a
+    fabricated name that shares one of them ('Presenter Insurance') pass the hard
+    blocker (P7) — so ground on values only. The abstract legitimately states
+    these facts (the prompt supplies them) though a speaker rarely utters their
+    own name / the year, so they must count as grounded or we FALSE-BLOCK.
+    """
+    try:
+        from transcript_utils import parse_filename_metadata
+        meta = parse_filename_metadata(base_name)
+        return " ".join(str(meta[k]) for k in ("title", "presenter", "date", "year")
+                        if meta.get(k))
+    except Exception:  # best-effort; transcript alone still verifies
+        return ""
+
+
+def _source_with_metadata(base_name: str) -> Optional[str]:
+    """Transcript plus a LABELED catalogue-metadata framing block — for the LLM
+    faithfulness judge, which benefits from the labels and is not fooled by
+    framing words (unlike the lexical entity check, which must use
+    ``_filename_metadata_values``). See that function for the rationale.
     (P20: re-run the faithfulness calibration on this change.)
     """
     transcript = _load_source_transcript(base_name)
@@ -156,21 +172,24 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     Missing source -> ERROR (can't verify -> block), not a silent pass."""
     import abstract_validation
 
-    # Source includes the filename metadata so the presenter's own name / the
-    # year (which the abstract legitimately states) aren't flagged as fabricated.
-    transcript = _source_with_metadata(base_name)
+    transcript = _load_source_transcript(base_name)
     if not transcript or not transcript.strip():
         # Missing OR present-but-empty/truncated source is "cannot verify" (F6),
         # not a definitive FAIL asserting the names are fabricated. ERROR -> block.
         return Verdict("entity_grounding", Status.ERROR,
                        "source transcript missing or empty — cannot verify names")
+    # Ground against the transcript + the metadata VALUES ONLY (not a framing
+    # sentence, whose words would falsely ground names — F1/P7), so the
+    # presenter's own name / the year aren't flagged as fabricated.
+    values = _filename_metadata_values(base_name)
+    source = f"{transcript}\n{values}" if values else transcript
     offending = {}
     for suffix in config.GATE_ENTITY_ARTIFACT_SUFFIXES:
         path = config.PROJECTS_DIR / base_name / f"{base_name}{suffix}"
         if not path.exists():
             continue
         names = abstract_validation.find_ungrounded_names(
-            path.read_text(encoding="utf-8"), transcript
+            path.read_text(encoding="utf-8"), source
         )
         if names:
             offending[suffix.strip(" -").removesuffix(".md")] = names

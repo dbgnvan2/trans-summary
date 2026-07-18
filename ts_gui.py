@@ -1280,7 +1280,7 @@ class TranscriptProcessorGUI:
         # Immediately clear the old status and show the task is running, so the
         # bottom bar updates on click (not only when the task finishes). A
         # multi-stage run overrides this with per-step status right away.
-        display = task_name or task_function.__name__.lstrip("_").replace("_", " ")
+        display = task_name or getattr(task_function, "__name__", "task").lstrip("_").replace("_", " ")
         self.set_status(f"Running {display}…", "blue")
         self.update_button_states()
 

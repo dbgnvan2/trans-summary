@@ -6,6 +6,18 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-17 — entity_grounding OR-logic gap (widened by metadata grounding)
+
+`find_ungrounded_names` grounds a multi-word name if **any** significant token
+matches the source (OR-logic — a documented lexical-check limitation). Grounding
+the presenter's name via filename metadata (so 'Michael Kerr' isn't false-BLOCKed)
+means the presenter's **first name** ('michael') is now a grounded token, so a
+fabricated surname riding on it ('Michael Bowen') passes the lexical check. The
+faithfulness judge (M2) is the semantic backstop for this class. Pinned by
+`tests/test_release_gate.py::test_entity_grounding_shared_token_name_is_a_known_lexical_gap`.
+- **Follow-up (optional):** consider requiring the *surname* (last token) to be
+  grounded, or ALL tokens, if false-negatives on presenter-token names prove real.
+
 ## 2026-07-17 — faithfulness judge: re-calibrate after metadata-in-source change
 
 `release_gate.check_faithfulness` now prepends the recording metadata (title,

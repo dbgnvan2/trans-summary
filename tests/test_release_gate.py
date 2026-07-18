@@ -216,6 +216,22 @@ def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path
     assert ".md" not in v.detail
 
 
+def test_entity_grounding_shared_token_name_is_a_known_lexical_gap():
+    """KNOWN GAP (F2, documented — not fixed here): find_ungrounded_names grounds
+    a name if ANY significant token matches (OR-logic), so a fabricated surname
+    with a grounded first name (presenter 'Michael Kerr' -> 'michael' grounded)
+    passes the LEXICAL check; the faithfulness judge (M2) is the semantic backstop
+    for this class. Grounding the presenter's name via metadata widens this gap
+    for the presenter's first name. This test pins the behavior so any future
+    change to the OR-logic is deliberate."""
+    from abstract_validation import find_ungrounded_names
+    source = "the speaker discusses systems Michael Kerr"  # grounds 'michael','kerr'
+    # fabricated 'Michael Bowen' shares 'michael' -> NOT flagged by the lexical check
+    assert find_ungrounded_names("Work by Michael Bowen.", source) == []
+    # a name with NO shared token is still flagged
+    assert "Luciano Malorni" in find_ungrounded_names("Work by Luciano Malorni.", source)
+
+
 def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     """Metadata-derived abstract facts (year/presenter from the filename) must be
     part of the faithfulness source, so a legitimate 'In this 2021 webinar…'
