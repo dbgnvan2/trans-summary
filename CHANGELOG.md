@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-17 (release-gate false positives, clearer messages, log spam, GUI status)
+
+**Release gate no longer false-BLOCKs on filename metadata.** Both hard-blocking
+checks used the transcript text alone as the source, so facts the abstract
+legitimately draws from the filename were flagged as fabricated and blocked
+publication (and the bundle):
+- `entity_grounding` flagged the **presenter's own name** ("Michael Kerr") — a
+  speaker rarely utters their own name. Now grounds against the transcript + the
+  catalogue metadata **values** (`_filename_metadata_values`, values-only so
+  framing words can't falsely ground a name — sweep F1).
+- `faithfulness` flagged the **year** ("In this 2021 webinar…") as fabricated.
+  Now the judge's source includes the labeled catalogue metadata
+  (`_source_with_metadata`). P20: re-run the faithfulness calibration (TODO).
+- Also fixed a `find_ungrounded_names` bug where a leading `# Abstract` heading +
+  first word matched as the proper name "Abstract In" (strip scaffolding; names
+  can't span a newline).
+
+**Clearer, actionable gate messages.** `faithfulness`/`entity_grounding` BLOCKs
+now read "check failed in <artifact> … — regenerate and try again" (naming the
+artifact and, for entity, the offending name) instead of the cryptic
+"N of M artifact(s) contain unentailed claims" / "names not found in source: […]".
+
+**Log spam fixed.** `artifact_contracts` self-validation created a new timestamped
+log file + console "Logging initialized" line on every saved artifact; the logger
+is now cached once per process.
+
+**GUI status bar** shows "Running <task>…" the moment a background task starts
+(e.g. Create Bundle) instead of only updating on completion.
+
+Ran through `/csdp` (learning-qa sweep: F1 values-only grounding fixed; F2 OR-logic
+gap documented + pinned; F3 test-isolation; F4 __name__ guard). Full suite: 661 passed.
+
 ## [Unreleased] - 2026-07-17 (Init Val corruption fix: span-match guard)
 
 **Init Val auto-apply could corrupt the validated transcript.** A correction with
