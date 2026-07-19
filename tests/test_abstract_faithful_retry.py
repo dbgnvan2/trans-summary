@@ -121,19 +121,19 @@ def test_gate_precheck_classifies_pass_fail_unavailable(monkeypatch):
 
     # pass
     monkeypatch.setattr(rg, "check_faithfulness",
-                        lambda b, l=None: rg.Verdict("faithfulness", rg.Status.PASS, ""))
+                        lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.PASS, ""))
     monkeypatch.setattr(rg, "check_entity_grounding",
                         lambda b, l=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
     assert ep._abstract_gate_precheck("b")[0] == "pass"
 
     # fail -> issues include the specific unfaithful claim
     monkeypatch.setattr(rg, "check_faithfulness",
-                        lambda b, l=None: rg.Verdict("faithfulness", rg.Status.FAIL, "d",
+                        lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.FAIL, "d",
                                                      items=[{"unfaithful": ["claim X"]}]))
     status, issues = ep._abstract_gate_precheck("b")
     assert status == "fail" and "claim X" in issues
 
     # ERROR (no key / disabled) -> unavailable
     monkeypatch.setattr(rg, "check_faithfulness",
-                        lambda b, l=None: rg.Verdict("faithfulness", rg.Status.ERROR, "no key"))
+                        lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.ERROR, "no key"))
     assert ep._abstract_gate_precheck("b")[0] == "unavailable"

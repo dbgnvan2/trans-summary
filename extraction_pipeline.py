@@ -1115,7 +1115,12 @@ def _abstract_gate_precheck(base_name: str, logger=None):
         publish (single attempt).
     """
     import release_gate as rg
-    faith = rg.check_faithfulness(base_name, logger)
+    # Scope the GENERATION-time precheck to the abstract only — otherwise an unfaithful
+    # claim in a sibling artifact (summary/overview/blog, already on disk) would be
+    # blamed on the abstract, burning regeneration attempts on a claim the abstract
+    # cannot remove and emitting a misleading BLOCK message (review M2). The full
+    # multi-artifact faithfulness sweep stays at the publish gate.
+    faith = rg.check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
     entity = rg.check_entity_grounding(base_name, logger)
     if rg.Status.ERROR in (faith.status, entity.status):
         return "unavailable", []

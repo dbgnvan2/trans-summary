@@ -372,13 +372,18 @@ def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
     return result
 
 
-def check_faithfulness(base_name: str, logger=None) -> Verdict:
+def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = None) -> Verdict:
     """Claim-level semantic faithfulness of the NARRATIVE artifacts (M2). Each
     artifact's claims must be entailed by the source; a contradicted/unsupported
     claim -> FAIL (fluent hallucination). The judge fails closed: no source / no
     API key / judge error -> ERROR (blocks). Disabled by default until the M2.B
     gold-set calibration clears thresholds (`config.FAITHFULNESS_JUDGE_ENABLED`),
-    in which state it is a PASS no-op so the deterministic gate is unaffected."""
+    in which state it is a PASS no-op so the deterministic gate is unaffected.
+
+    ``suffixes`` limits which artifacts are judged (default: all of
+    ``config.FAITHFULNESS_ARTIFACT_SUFFIXES``). The abstract regeneration precheck
+    passes the abstract suffix ONLY, so a sibling artifact's unfaithful claim isn't
+    blamed on the abstract (review M2); the publish gate always judges the full set."""
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return Verdict("faithfulness", Status.PASS,
                        "faithfulness judge disabled (awaiting M2.B calibration)")
@@ -403,7 +408,7 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0
-    for suffix in config.FAITHFULNESS_ARTIFACT_SUFFIXES:
+    for suffix in (suffixes if suffixes is not None else config.FAITHFULNESS_ARTIFACT_SUFFIXES):
         path = proj / f"{base_name}{suffix}"
         if not path.exists():
             continue
@@ -535,8 +540,9 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     return Verdict("required_artifacts", Status.PASS, "all required artifacts present")
 
 
-# Ordered registry. entity_grounding is the only hard blocker (config policy);
-# the rest are advisory verdicts recorded in the manifest.
+# Ordered registry. Which checks are hard blockers is config policy
+# (config.GATE_BLOCKING_CHECKS — not enumerated here so this comment can't drift); the
+# rest are advisory verdicts recorded in the manifest.
 DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
