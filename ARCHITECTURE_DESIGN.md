@@ -126,7 +126,18 @@ The system is designed with a model-agnostic approach for interacting with Large
 
 -   **`transcript_utils.py`**: Contains the `call_claude_with_retry` and `validate_api_response` functions.
 -   **`model_specs.py`**: Defines model pricing and context window specifications.
--   **`config.py`**: Manages model selection constants (`DEFAULT_MODEL`, `AUX_MODEL`, `FORMATTING_MODEL`).
+-   **`config.py`**: Manages model selection constants (`DEFAULT_MODEL`, `AUX_MODEL`, `FORMATTING_MODEL`, `VALIDATION_MODEL`).
+
+### 4.3. Release Gate & Faithfulness Verification (fail-closed publication)
+
+Before any bundle (webpage / PDF / package) is written, `release_gate.py` runs a suite of publication checks and returns an aggregate `GateDecision` (`ALLOW` / `ALLOW_WITH_WARNINGS` / `BLOCK`). Publication is **fail-closed**: on `BLOCK` the generators refuse to write the bundle, and a check that raises or cannot verify becomes an `ERROR` verdict rather than a silent pass.
+
+-   **Checks** (`DEFAULT_CHECKS`): `entity_grounding`, `artifact_contracts`, `faithfulness`, `theme_grounding`, `required_artifacts`, `verbatim_quotes`, `timestamp_citations`, `entity_consistency`. Which checks are hard blockers is config policy (`config.GATE_BLOCKING_CHECKS`, `config.GATE_ERROR_BLOCKS`); the rest are advisory `WARN`s.
+-   **LLM judges** (`faithfulness_judge.py`, both Sonnet; forced OFF in the unit suite via a root-conftest fixture):
+    -   **Faithfulness judge** — a claim-level entailment check on the PROSE artifacts (abstract / summary / overview / blog). Any unentailed claim, or a judge error, blocks publication.
+    -   **Theme grounding judge** — asks whether an interpretive theme is a *reasonable grounding* in the source (not whether it is literally stated), passing legitimate interpretation while blocking themes built on fabricated subject matter.
+    Both are ARMED as Hard BLOCKs after real-artifact calibration and pinned via `config.FAITHFULNESS_JUDGE_MODEL` / `config.THEME_JUDGE_MODEL`.
+-   **Run manifest** (`build_manifest` / `write_manifest`): each gate run persists a machine-readable manifest recording the publish decision, per-check verdicts, artifact hashes, and provenance (source hash, code revision, gate policy, model IDs) so a decision is auditable.
 
 ## 5. Design Decisions and Patterns
 

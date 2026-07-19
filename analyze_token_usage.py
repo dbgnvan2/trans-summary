@@ -79,8 +79,9 @@ def generate_usage_report(since_timestamp: datetime = None) -> str:
 
     for row in rows:
         script = row["Script Name"]
-        # Header is 'Items' in transcript_utils.py for model name
-        model = row["Items"]
+        # 'Model' is the current header; fall back to the legacy 'Items' label so
+        # token_usage.csv files written before the rename still parse (review M10 / P19).
+        model = row.get("Model") or row.get("Items", "")
 
         try:
             total_input = int(row["Tokens Sent"])

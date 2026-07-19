@@ -479,6 +479,8 @@ def generate_abstract(
     prompt = prompt_template.format(
         input_json=abstract_input.to_json(),
         target_word_count=abstract_input.target_word_count,
+        hard_max_words=config.ABSTRACT_HARD_MAX_WORDS,
+        hard_max_words_minus_one=config.ABSTRACT_HARD_MAX_WORDS - 1,
     )
     if feedback_claims:
         prompt += (

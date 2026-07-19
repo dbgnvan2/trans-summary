@@ -401,8 +401,8 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
         with open(log_file, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['Timestamp', 'Script Name', 'Items',
-                                'Status', 'Cache', 'Tokens Sent', 'Tokens Response',
+                writer.writerow(['Timestamp', 'Script Name', 'Model',
+                                'Stop Reason', 'Cache', 'Tokens Sent', 'Tokens Response',
                                  'Cache Creation Tokens', 'Cache Read Tokens', 'Estimated Cost ($)'])
 
             writer.writerow([

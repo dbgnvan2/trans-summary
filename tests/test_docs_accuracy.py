@@ -32,3 +32,9 @@ def test_l3_readme_html_generator_line_count_not_stale():
     assert "650 lines" not in README, (
         "README still cites the stale 650-line count for html_generator.py (now 822)")
 
+
+def test_m4_architecture_documents_release_gate_layer():
+    arch = (ROOT / "ARCHITECTURE_DESIGN.md").read_text(encoding="utf-8")
+    assert "release_gate.py" in arch, "ARCHITECTURE_DESIGN omits the release-gate layer"
+    assert "faithfulness" in arch.lower(), "ARCHITECTURE_DESIGN omits the faithfulness judge"
+

@@ -589,6 +589,28 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_CODE_REVISION_CACHE: Optional[str] = None
+
+
+def _code_revision() -> str:
+    """Short git revision of the running code, best-effort ('unknown' if git is
+    unavailable). Only a successful lookup is cached, so a transient failure retries
+    (review M9; same cache discipline as the L9 fix)."""
+    global _CODE_REVISION_CACHE
+    if _CODE_REVISION_CACHE is not None:
+        return _CODE_REVISION_CACHE
+    try:
+        import subprocess
+        rev = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=Path(__file__).resolve().parent, text=True,
+            stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return "unknown"
+    _CODE_REVISION_CACHE = rev
+    return rev
+
+
 def build_manifest(base_name: str, decision: GateDecision, generated_at: str) -> dict:
     """Assemble the machine-readable run manifest (M7.A). ``generated_at`` is
     passed in (not sampled here) so the manifest is deterministic in tests."""
@@ -613,6 +635,13 @@ def build_manifest(base_name: str, decision: GateDecision, generated_at: str) ->
         "artifacts": artifacts,
         "provenance": {
             "source_sha256": source_sha,
+            # Stamp the code + policy that produced this decision so it can be traced
+            # back to a git revision and the exact gate policy in force (review M9).
+            "code_revision": _code_revision(),
+            "gate_policy": {
+                "blocking_checks": sorted(config.GATE_BLOCKING_CHECKS),
+                "error_blocks": config.GATE_ERROR_BLOCKS,
+            },
             "models": {
                 "default": config.DEFAULT_MODEL,
                 "aux": getattr(config, "AUX_MODEL", None),
