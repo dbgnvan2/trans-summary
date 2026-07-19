@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (21) — see CHANGELOG 2026-07-18
+### ✅ Fixed (26) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
@@ -23,9 +23,12 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
 - **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
 - **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
+- **[M4]** ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing — `ARCHITECTURE_DESIGN.md:82`
 - **[M5]** config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku — `config.py:645`
 - **[M6]** Retry/backoff policy hard-coded at use sites, not in config.py — `transcript_utils.py:560`
 - **[M8]** A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file — `release_gate.py:554`
+- **[M9]** Run manifest omits a code-version / gate-policy stamp, so a decision can't be traced to the code or policy that produced it — `release_gate.py:600`
+- **[M10]** token_usage.csv column headers mislabel the data they carry ('Items' holds the model, 'Status' holds the stop_reason) — `transcript_utils.py:399`
 - **[L1]** check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector — `release_gate.py:290`
 - **[L3]** README claims html_generator.py is 650 lines; the file is 822 — `README.md:363`
 - **[L4]** Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku — `config.py:645`
@@ -33,6 +36,8 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L6]** Prompt-caching beta header string duplicated as a magic literal — `transcript_utils.py:624`
 - **[L7]** Editorial stopword list embedded in Python source — `extraction_pipeline.py:1276`
 - **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
+- **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
+- **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
 
 ### ⏸ Deferred (8) — need a human/API decision, NOT done overnight
 
@@ -54,22 +59,13 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
 - **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
 
-### Remaining (14) — by severity
+### Remaining (9) — by severity
 
 #### Medium
 
 - **[M2] Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog)** — `extraction_pipeline.py:1118` (CONFIRMED, verify:CONFIRMED, dim=correctness)
   - Scenario: generate_structured_abstract() runs AFTER generate_structured_summary() (see legacy_pipeline_integration.py steps 4 vs 6, and summarize_transcript writes summary/blog/overview earlier). Its regeneration loop calls _abstract_gate_precheck …
   - Fix: Scope the generation-time precheck to the abstract only. Add an artifact-suffix filter argument to check_faithfulness (or a dedicated single-artifact judge call) and pass [config.SUFFIX_ABSTRACT_GEN] from _abstract_gate_precheck, mirroring how entity_grounding is already abstract-scoped. The full multi-artifact …
-- **[M4] ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing** — `ARCHITECTURE_DESIGN.md:82` (CONFIRMED, verify:CONFIRMED, dim=docs-accuracy)
-  - Scenario: The architecture doc (last touched Apr 10, 112 lines) describes the pipeline as formatting → summarization/extraction → validation → output and never mentions the fail-closed release gate or the two armed Sonnet judges. But release_gate.py …
-  - Fix: Add a section to ARCHITECTURE_DESIGN.md documenting release_gate.py and the faithfulness/theme judges (armed status, pinned FAITHFULNESS_JUDGE_MODEL/THEME_JUDGE_MODEL, fail-closed Hard-BLOCK posture, recall/precision bars in config.py:584-585 / 605-606).
-- **[M9] Run manifest omits a code-version / gate-policy stamp, so a decision can't be traced to the code or policy that produced it** — `release_gate.py:600` (CONFIRMED, verify:CONFIRMED, dim=observability)
-  - Scenario: build_manifest's `provenance` block (release_gate.py:600-607) records only model IDs and the source transcript sha256. It does NOT record the git revision of the code that ran, nor which checks were treated as blocking …
-  - Fix: Add to build_manifest provenance: the git short revision (reuse the subprocess pattern from ts_gui.py:_current_git_revision) and a snapshot of the effective gate policy (sorted GATE_BLOCKING_CHECKS and GATE_ERROR_BLOCKS). This makes the single manifest artifact self-describing for reproducibility.
-- **[M10] token_usage.csv column headers mislabel the data they carry ('Items' holds the model, 'Status' holds the stop_reason)** — `transcript_utils.py:399` (CONFIRMED, verify:CONFIRMED→low, dim=observability)
-  - Scenario: log_token_usage writes the header row ['Timestamp','Script Name','Items','Status','Cache','Tokens Sent','Tokens Response','Cache Creation Tokens','Cache Read Tokens','Estimated Cost ($)'] (line 399-401) but the data row writes [timestamp, …
-  - Fix: Rename the header cells to match the data: 'Items'->'Model', 'Status'->'Stop Reason' in transcript_utils.py:399, and update analyze_token_usage.py:83 to read row["Model"]. Add a round-trip test asserting DictReader keys map to the intended values.
 #### Low
 
 - **[L2] Split/inconsistent dev-dependency and specifier management across the three files** — `requirements.txt:10` (CONFIRMED, verify:PLAUSIBLE, dim=deps-build)
@@ -78,9 +74,6 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L8] Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution** — `transcript_utils.py:711` (CONFIRMED, verify:PLAUSIBLE, dim=observability)
   - Scenario: call_claude_with_retry derives the CSV 'Script Name' from `getattr(logger, 'name', 'unknown_script') if logger else 'unknown_script'` (transcript_utils.py:711-712). call_claude_with_retry defaults logger=None (line 561), and the coverage …
   - Fix: Either require a named logger on the cost-logging path, or have call_claude_with_retry accept an explicit `script_name` argument, or give verify_with_llm/validate_abstract_coverage a getLogger(__name__)-style fallback like the judges do, so no cost row is ever attributed to 'unknown_script'.
-- **[L10] Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift)** — `prompts/Abstract Generation Prompt v1.md:5` (CONFIRMED, verify:PLAUSIBLE, dim=prompts)
-  - Scenario: The abstract prompt embeds the length ceiling as prose: 'never more than 249 words' (line 5) and 'the abstract must be under 250 words' (line 19). The same ceiling lives in config.py:727 (ABSTRACT_HARD_MAX_WORDS = 250) which validation …
-  - Fix: Inject the hard ceiling into the prompt from config (e.g. a {hard_max_words} placeholder fed from ABSTRACT_HARD_MAX_WORDS) instead of the literal 249/250, so the prompt and the validation gate share one source of truth.
 - **[L11] `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline** — `validation_pipeline.py:75` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
   - Scenario: The template-fill helper (regex placeholder substitution + `{{insert_transcript_text_here}}` replacement) is defined character-for-character identically in extraction_pipeline.py:67 and validation_pipeline.py:75. If the placeholder syntax …
   - Fix: Hoist `_fill_prompt_template` into transcript_utils (or one module) and import it in the other.
@@ -99,9 +92,6 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L17] mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts** — `mut_harness.py:160` (SPECULATIVE, verify:PLAUSIBLE, dim=tests)
   - Scenario: run_suite runs pytest with `-x` (stop at first failure) and `timeout=120`; on TimeoutExpired it returns False, and False is defined as 'killed'. Killing mutants stop early via `-x` (fast), but a SURVIVING mutant runs the full green …
   - Fix: Treat TimeoutExpired as an inconclusive/error outcome (re-run or report separately), not as a kill. At minimum distinguish returncode!=0 (a real test failure = killed) from a timeout (unknown), and surface timeouts in the campaign result so a slow survivor can't be laundered into the score.
-- **[L18] check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR'** — `release_gate.py:500` (CONFIRMED, verify:PLAUSIBLE, dim=tests)
-  - Scenario: With THEME_JUDGE_ENABLED=True and theme_grounding a hard blocker, a run that has a source and key but neither theme artifact on disk returns Verdict PASS ('no theme artifacts present') and clears the armed gate silently. Its sibling …
-  - Fix: Add a test that runs check_theme_grounding on an enabled project with source+key but zero theme artifacts and asserts the intended verdict, and add a comment documenting why themes-absent is PASS while narrative-absent is ERROR (themes optional vs required). If themes-absent should be ERROR/WARN, align it with …
 
 ### Systemic risks (classes, not single instances)
 

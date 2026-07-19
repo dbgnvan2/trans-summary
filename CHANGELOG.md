@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 5: manifest provenance, CSV labels, docs)
+
+Fifth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M9** — the gate run manifest now stamps `code_revision` (git short rev) and `gate_policy` (blocking checks + error-blocks flag), so a publish decision is traceable to the code and policy that produced it.
+- **M10** — `token_usage.csv` header labels corrected to match the data (`Items`→`Model`, `Status`→`Stop Reason`); `analyze_token_usage` reads `Model` with a legacy `Items` fallback so pre-rename CSVs still parse.
+- **L10** — the abstract prompt's hard word limit is injected from `config.ABSTRACT_HARD_MAX_WORDS` instead of hard-coded 249/250 literals.
+- **L18** — pinned `check_theme_grounding`'s "no theme artifacts → PASS" branch with a test.
+- **M4** — `ARCHITECTURE_DESIGN.md` now documents the release-gate / faithfulness-judge / theme-judge layer and the run manifest.
+
+Offline suite: 708 passed / 21 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 4: retry/config hygiene + gate observability)
 
 Fourth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
