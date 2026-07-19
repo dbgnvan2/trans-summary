@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (adversarial code-review: top-5 fixes)
+
+Fixes from the 45-agent adversarial review (full report `docs/CODE_REVIEW_2026-07-18.md`;
+the remaining 38 findings are tracked in TODO.md). All five ship with tests.
+
+- **Stored XSS in the exported bundle (H13).** `markdown_to_html` emitted raw HTML, and its
+  output (abstract/summary/topics/themes/formatted_content — all LLM-generated from the
+  transcript) is rendered `{{ ...|safe }}` in every template, so a `<script>`/`onerror`
+  payload in a transcript executed when the shared HTML/PDF bundle was opened. It now
+  HTML-escapes the untrusted input before inserting our own markdown tags; headings/bold/
+  italic still render. `transcript_utils.py`; `tests/test_markdown_to_html_xss.py`.
+- **Faithfulness gate bypass via claim extraction (H11).** `extract_claims` stripped any
+  leading `Prefix:` (≤40 chars) before the armed judge, so a fabricated attribution
+  ("Stanford study: …") was deleted and rode through unjudged. The strip is now gated on a
+  config allowlist of generic scaffolding labels (`FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES`);
+  a non-allowlisted prefix is left in place and judged. `faithfulness_judge.py`, `config.py`;
+  `tests/test_faithfulness_judge.py`. **P20: re-run the faithfulness calibration with an API
+  key before relying on it — the extraction path changed.**
+- **Default "V2 (Safe)" initial validator failed open (H8).** A per-chunk API/parse failure
+  was caught and returned `[]`, so a dropped chunk was indistinguishable from a clean one and
+  a partially-validated transcript shipped as `*_validated`. It now raises (fail-closed) like
+  the v1 validator; a legitimate empty `[]` still parses. The GUI's `_execute_task` already
+  surfaces the error and stops the spinner. `transcript_initial_validation_v2.py`;
+  `tests/test_v2_validator_fail_closed.py`.
+- **Config import crash on corrupt settings (C1).** A valid-JSON non-object (`null`/`[]`/`5`)
+  in `runtime_settings.json` slipped past the `JSONDecodeError` guard and raised
+  `AttributeError` at module import, taking down the GUI and every pipeline stage. Now reset
+  to `{}` behind an `isinstance` guard. `config.py`;
+  `tests/test_config_runtime_settings_dirty.py`.
+- **Unbounded grounding scan (H10).** The fuzzy matcher's sliding window never early-stopped
+  on an ungrounded quote, so a hallucinated Bowen quote scanned every window (2–4× per ref) —
+  minutes of CPU on a long transcript. Added a cheap distinct-word coverage pre-filter
+  (`FUZZY_MATCH_PREFILTER_MIN_COVERAGE`, kept safely below the match threshold) that
+  short-circuits in O(haystack). `transcript_utils.py`, `config.py`;
+  `tests/test_fuzzy_grounding_prefilter.py`.
+
+Offline suite: 679 passed / 21 skipped / 3 xfailed (was 664; +15 new tests).
+
 ## [Unreleased] - 2026-07-17 (release-gate false positives, clearer messages, log spam, GUI status)
 
 **Release gate no longer false-BLOCKs on filename metadata.** Both hard-blocking

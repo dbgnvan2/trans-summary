@@ -11,7 +11,7 @@ import time
 from copy import deepcopy
 from datetime import datetime
 from difflib import SequenceMatcher
-from html import unescape
+from html import escape, unescape
 from pathlib import Path
 from typing import Any, Optional
 
@@ -79,6 +79,11 @@ def resolve_anthropic_key() -> Optional[str]:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        return None
+    # A valid-JSON non-object (null / [] / a truncated hand-edit) would raise
+    # AttributeError on .get() below — same class as review C1 (config.py). Fail to
+    # "no key found" gracefully instead (P5 class-fix).
+    if not isinstance(data, dict):
         return None
     providers = data.get("providers", data)
     if isinstance(providers, dict):
@@ -1649,6 +1654,14 @@ def markdown_to_html(text: str) -> str:
     Returns:
         HTML formatted text
     """
+    # Escape HTML in the (untrusted) transcript/LLM-generated source BEFORE adding our
+    # own tags, so a <script>/onerror payload becomes inert text instead of executing
+    # when the result is rendered with {{ ...|safe }} in the bundle templates (stored
+    # XSS; review H13). quote=False keeps prose apostrophes/quotes readable — safe here
+    # because the output lands in element content, never an attribute. Our <h1>/<strong>
+    # tags below are inserted after escaping, so they remain real markup.
+    text = escape(text, quote=False)
+
     # Handle section headings
     text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
     text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
@@ -1743,6 +1756,25 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     needle_words = needle_normalized.split()
     haystack_words = haystack_normalized.split()
     needle_len = len(needle_words)
+
+    # Grounding pre-filter (review H10 / P9): the sliding window below is
+    # O(haystack x needle) and has NO early stop when nothing matches, so an
+    # ungrounded quote scans every position — minutes of CPU on a long transcript,
+    # exactly the hallucinated input the release gate targets. A quote that shares
+    # too few of its DISTINCT words with the transcript can't plausibly reach
+    # FUZZY_MATCH_THRESHOLD, so short-circuit it in O(haystack). The threshold is kept
+    # well below FUZZY_MATCH_THRESHOLD (0.5 vs 0.85) so realistic prose matches survive.
+    # Distinct-word coverage is not a strict lower bound on the char-level ratio, so on
+    # a contrived repeated-word needle this could miss — but only in the SAFE direction
+    # (a false not-found, never a false match), and every caller treats not-found as
+    # fail-closed (skip correction / flag ungrounded / don't highlight).
+    if needle_len == 0:
+        return (None, None, 0)
+    needle_word_set = set(needle_words)
+    haystack_word_set = set(haystack_words)
+    present = sum(1 for w in needle_word_set if w in haystack_word_set)
+    if present / len(needle_word_set) < config.FUZZY_MATCH_PREFILTER_MIN_COVERAGE:
+        return (None, None, 0)
 
     best_ratio = 0
     best_pos = None

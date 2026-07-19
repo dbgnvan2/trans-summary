@@ -61,10 +61,21 @@ class ProjectSettings:
             self.runtime_settings = {}
             return
         try:
-            self.runtime_settings = json.loads(path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             self.runtime_settings = {}
             return
+
+        # A valid-JSON NON-object (null / [] / 5 / "x" — e.g. a truncated write that
+        # lands on `null`, or a hand-edit) parses cleanly but is not a settings dict.
+        # Calling .get() on it below would raise AttributeError, and because the
+        # singleton is built at module import (`settings = ProjectSettings()`), that
+        # exception escapes `import config` and takes down the GUI and every pipeline
+        # stage. Reset to {} instead of crashing (review C1 / P8 corrupt-state).
+        if not isinstance(data, dict):
+            self.runtime_settings = {}
+            return
+        self.runtime_settings = data
 
         default_source_dir = self.runtime_settings.get("default_source_dir")
         if default_source_dir and Path(default_source_dir).exists():
@@ -563,6 +574,22 @@ FAITHFULNESS_SKIP_LINE_LABELS = [
     "coverage", "coverage / role", "key evidence", "nested under structural themes",
     "nested under", "lens fuel value", "lens fuel", "status",
 ]
+# GENERIC scaffolding field-labels that legitimately PREFIX real content on a line
+# ("Description: <claim>") and should be STRIPPED so the claim itself is judged.
+# Unlike FAITHFULNESS_SKIP_LINE_LABELS (which drops the whole line), these keep the
+# remainder. ONLY generic labels that prefix a full sentence belong here — NEVER a
+# proper noun, a number, or an attribution/citation label ("reference", "source"):
+# a prefix like "Stanford study:" or "2019 report:" must NOT be stripped, or the
+# fabricated attribution rides through the armed faithfulness judge UNJUDGED (gate
+# bypass; see faithfulness_judge.extract_claims / review H11 / P7 / P20). Editorial
+# list -> config, not code (rule 9). Matched case-insensitively on the text before
+# the first colon.
+FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES = [
+    "description", "summary", "note", "notes", "overview", "context",
+    "background", "example", "explanation", "detail", "details", "point",
+    "takeaway", "rationale", "reason", "purpose", "clarification", "caveat",
+    "definition", "observation",
+]
 # Narrative artifacts the judge audits: PROSE SUMMARIES that must stay faithful to
 # the source. Themes are DELIBERATELY EXCLUDED — a real-artifact smoke test
 # (2026-07-15) showed structural/interpretive themes are interpretive BY DESIGN
@@ -760,6 +787,14 @@ TOKEN_USAGE_WARNING_THRESHOLD = 0.9
 FUZZY_MATCH_THRESHOLD = 0.85
 FUZZY_MATCH_EARLY_STOP = 0.98
 FUZZY_MATCH_PREFIX_LEN = 20
+# Cheap grounding pre-filter: fraction of a needle's distinct words that must appear
+# ANYWHERE in the haystack before the O(haystack x needle) sliding-window scan runs.
+# An ungrounded quote (hallucinated / heavily paraphrased) shares few words with the
+# transcript, so it can never reach FUZZY_MATCH_THRESHOLD anyway — this short-circuits
+# it in O(haystack) instead of scanning every window with no early stop. Kept safely
+# below FUZZY_MATCH_THRESHOLD so it can never drop a quote that would actually match
+# (review H10 / P9).
+FUZZY_MATCH_PREFILTER_MIN_COVERAGE = 0.5
 
 # Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
 # the opening words), so a quote whose first words are verbatim but whose

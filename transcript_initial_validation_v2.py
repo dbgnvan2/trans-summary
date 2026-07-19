@@ -231,24 +231,36 @@ class TranscriptValidatorV2:
             return findings
             
         except Exception as e:
+            # Fail CLOSED: a transient/API/parse failure must NOT masquerade as "no
+            # findings". Returning [] here silently drops this chunk's validation, so a
+            # partially-validated transcript ships looking clean with no failed-chunk
+            # signal — the exact fail-open the v1 validator deliberately raises on
+            # (transcript_initial_validation.py:160-169; review H8 / P1 / P2).
             self.logger.error(f"Error processing chunk {chunk['id']}: {e}")
-            return []
+            raise
 
     def _parse_json_response(self, response_text: str) -> List[Dict]:
-        """Robust JSON parsing with multiple fallback strategies."""
+        """Robust JSON parsing with multiple fallback strategies. A value that parses
+        but is NOT a JSON array (e.g. the model returned an object {}) is treated as a
+        parse FAILURE and falls through to the fail-closed raise below — never accepted
+        as findings (review H8 / P19)."""
         # Strategy 1: Strip Fences
         clean_text = re.sub(r'```json\s*|\s*```', '', response_text).strip()
-        
+
         try:
-            return json.loads(clean_text)
+            result = json.loads(clean_text)
+            if isinstance(result, list):
+                return result
         except json.JSONDecodeError:
             pass
-            
+
         # Strategy 2: Raw Decode from first '['
         try:
             start_idx = response_text.find('[')
             if start_idx != -1:
-                return json.JSONDecoder().raw_decode(response_text[start_idx:])[0]
+                result = json.JSONDecoder().raw_decode(response_text[start_idx:])[0]
+                if isinstance(result, list):
+                    return result
         except json.JSONDecodeError:
             pass
 
@@ -257,12 +269,21 @@ class TranscriptValidatorV2:
             start_idx = response_text.find('[')
             end_idx = response_text.rfind(']')
             if start_idx != -1 and end_idx != -1:
-                return json.loads(response_text[start_idx:end_idx+1])
+                result = json.loads(response_text[start_idx:end_idx+1])
+                if isinstance(result, list):
+                    return result
         except json.JSONDecodeError:
             pass
 
-        self.logger.error("Failed to parse JSON response.")
-        return []
+        # Total parse failure (all strategies exhausted) is an ERROR, not "no
+        # findings" — raise so the chunk fails closed rather than silently dropping its
+        # findings (review H8 / P2 / P19). A model that legitimately found nothing
+        # returns a valid empty array "[]", which parses via Strategy 1 above and never
+        # reaches here.
+        self.logger.error(
+            "Failed to parse JSON response (first 500 chars): %s", response_text[:500])
+        raise ValueError(
+            "V2 validator: could not parse a JSON array from the model response")
 
     def _deduplicate_findings(self, findings: List[Dict]) -> List[Dict]:
         """Deduplicate findings from overlapping chunks based on original_text + suggested_correction."""
