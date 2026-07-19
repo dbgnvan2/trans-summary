@@ -76,8 +76,10 @@ the remaining 38 findings are tracked in TODO.md). All five ship with tests.
   ("Stanford study: …") was deleted and rode through unjudged. The strip is now gated on a
   config allowlist of generic scaffolding labels (`FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES`);
   a non-allowlisted prefix is left in place and judged. `faithfulness_judge.py`, `config.py`;
-  `tests/test_faithfulness_judge.py`. **P20: re-run the faithfulness calibration with an API
-  key before relying on it — the extraction path changed.**
+  `tests/test_faithfulness_judge.py`. **P20: the extraction path changed → calibration was
+  re-run 2026-07-19 and PASSED** (gold set recall/precision 1.0; real-artifact path correct —
+  the Luciano-Malorni and "nubbin" fabrications still FAIL; theme judge 1.0/1.0). The armed
+  judge is re-validated after H11.
 - **Default "V2 (Safe)" initial validator failed open (H8).** A per-chunk API/parse failure
   was caught and returned `[]`, so a dropped chunk was indistinguishable from a clean one and
   a partially-validated transcript shipped as `*_validated`. It now raises (fail-closed) like
