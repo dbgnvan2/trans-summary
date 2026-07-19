@@ -44,6 +44,10 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
     (multi-word); adjacent fabrication shapes remain uncovered.
     """
+    # Ignore any leading scaffolding the model emits ("# Abstract", bold label),
+    # so the heading word isn't treated as a proper name (it caused a false
+    # BLOCK: "# Abstract\n\nIn ..." matched as the name "Abstract In").
+    abstract = _strip_leading_scaffolding(abstract)
     # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
     name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
     source_tokens = {
@@ -63,7 +67,10 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
 
     ungrounded: list[str] = []
     seen: set[str] = set()
-    for name in re.findall(rf"\b{name_word}(?:\s+{name_word})+\b", abstract):
+    # Use [ \t]+ (not \s+) between name words: a real multi-word proper name is
+    # on ONE line, so a match must never span a newline/paragraph break (that is
+    # what produced the bogus "Abstract\n\nIn" name and a false publish BLOCK).
+    for name in re.findall(rf"\b{name_word}(?:[ \t]+{name_word})+\b", abstract):
         if name in seen:
             continue
         seen.add(name)
@@ -734,9 +741,11 @@ def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
     # A12: count the abstract BODY, not a forbidden leading `# Abstract` header.
     word_count = len(_strip_leading_scaffolding(abstract).split())
 
-    # Allow 20% tolerance - Now a WARNING
+    # Allow 20% tolerance - Now a WARNING. The upper bound is also hard-capped
+    # below ABSTRACT_HARD_MAX_WORDS so an abstract of >= 250 words is always
+    # flagged as too long, independent of the target.
     min_words = int(target_word_count * 0.8)
-    max_words = int(target_word_count * 1.2)
+    max_words = min(int(target_word_count * 1.2), config.ABSTRACT_HARD_MAX_WORDS - 1)
 
     if word_count < min_words:
         warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")

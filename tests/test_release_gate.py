@@ -153,6 +153,159 @@ def test_f2_accented_name_detected(real_run):
     assert "José García" in find_ungrounded_names("Work by José García and Kent Berridge.", source)
 
 
+def test_leading_abstract_heading_not_treated_as_name():
+    """Regression: a leading '# Abstract' heading + capitalized first word must
+    NOT be extracted as the proper name 'Abstract\\n\\nIn' (that caused a false
+    entity_grounding BLOCK). Scaffolding is stripped and names can't span a
+    newline."""
+    from abstract_validation import find_ungrounded_names
+    source = "in this webinar the presenter discusses bowen theory at length"
+    abstract = "# Abstract\n\nIn this webinar the presenter discusses Bowen theory."
+    names = find_ungrounded_names(abstract, source)
+    assert not any("Abstract" in n for n in names)
+    assert not any("\n" in n for n in names)  # no name spans a newline
+
+
+def test_titlecase_words_across_paragraph_break_not_one_name():
+    from abstract_validation import find_ungrounded_names
+    # "Foo" ends a paragraph, "Bar" starts the next -> not a single name "Foo Bar"
+    names = find_ungrounded_names("Alpha discusses Foo.\n\nBar was also noted.", "alpha foo bar")
+    assert "Foo\n\nBar" not in names and "Foo Bar" not in names
+
+
+def test_real_fabricated_name_still_caught_after_fix():
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses clinical work and family systems"
+    assert "Luciano Malorni" in find_ungrounded_names(
+        "# Abstract\n\nThe work of Luciano Malorni is central.", source)
+
+
+def test_entity_grounding_presenter_name_grounded_via_metadata(tmp_path, monkeypatch):
+    """The presenter's own name (from the filename) must NOT be flagged as
+    ungrounded just because the transcript never says it — that was a false
+    entity_grounding BLOCK on 'Michael Kerr'."""
+    base = "A Talk About Systems - Michael Kerr - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems and differentiation", encoding="utf-8")
+    suffix = config.GATE_ENTITY_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "# Abstract\n\nMichael Kerr presents on family systems.", encoding="utf-8")
+    assert rg.check_entity_grounding(base).status is Status.PASS
+
+
+def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path, monkeypatch):
+    """A genuinely fabricated multi-word name (not in transcript OR metadata)
+    still FAILs, now with a clear message naming the artifact + name + action."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses systems", encoding="utf-8")
+    suffix = config.GATE_ENTITY_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "# Abstract\n\nThe work of Luciano Malorni is central.", encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.FAIL
+    assert "Luciano Malorni" in v.detail
+    assert "check failed in" in v.detail
+    assert "regenerate and try again" in v.detail.lower()
+    assert ".md" not in v.detail
+
+
+def test_entity_grounding_shared_token_name_is_a_known_lexical_gap():
+    """KNOWN GAP (F2, documented — not fixed here): find_ungrounded_names grounds
+    a name if ANY significant token matches (OR-logic), so a fabricated surname
+    with a grounded first name (presenter 'Michael Kerr' -> 'michael' grounded)
+    passes the LEXICAL check; the faithfulness judge (M2) is the semantic backstop
+    for this class. Grounding the presenter's name via metadata widens this gap
+    for the presenter's first name. This test pins the behavior so any future
+    change to the OR-logic is deliberate."""
+    from abstract_validation import find_ungrounded_names
+    source = "the speaker discusses systems Michael Kerr"  # grounds 'michael','kerr'
+    # fabricated 'Michael Bowen' shares 'michael' -> NOT flagged by the lexical check
+    assert find_ungrounded_names("Work by Michael Bowen.", source) == []
+    # a name with NO shared token is still flagged
+    assert "Luciano Malorni" in find_ungrounded_names("Work by Luciano Malorni.", source)
+
+
+def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
+    """Metadata-derived abstract facts (year/presenter from the filename) must be
+    part of the faithfulness source, so a legitimate 'In this 2021 webinar…'
+    isn't judged as a fabricated year (which caused a false publish BLOCK)."""
+    import faithfulness_judge as fj
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "Spoken words about family systems.", encoding="utf-8")
+    suffix = config.FAITHFULNESS_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text(
+        "In this 2021 webinar Jane Doe presents.", encoding="utf-8")
+
+    captured = {}
+
+    class _Res:
+        status = fj.PASS
+        detail = ""
+        unfaithful = []
+
+    def _fake_judge(fjudge, artifact_text, transcript, client, logger=None):
+        captured["source"] = transcript
+        return _Res()
+
+    monkeypatch.setattr(rg, "_judge_cached", _fake_judge)
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+
+    v = rg.check_faithfulness(base)
+    assert v.status is Status.PASS
+    assert "2021" in captured["source"]                       # year metadata
+    assert "Jane Doe" in captured["source"]                   # presenter metadata
+    assert "Spoken words about family systems" in captured["source"]  # transcript kept
+
+
+def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, monkeypatch):
+    """The BLOCKER message should read 'faithfulness: check failed in
+    <artifact> — regenerate and try again', not the cryptic
+    'N of M artifact(s) contain unentailed claims'."""
+    import faithfulness_judge as fj
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text("spoken words", encoding="utf-8")
+    suffix = config.FAITHFULNESS_ARTIFACT_SUFFIXES[0]
+    (proj / f"{base}{suffix}").write_text("An unsupported claim.", encoding="utf-8")
+
+    class _Claim:
+        claim = "An unsupported claim."
+
+    class _Res:
+        status = fj.FAIL
+        detail = "..."
+        unfaithful = [_Claim()]
+
+    monkeypatch.setattr(rg, "_judge_cached", lambda *a, **k: _Res())
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+
+    v = rg.check_faithfulness(base)
+    art = suffix.strip(" -").removesuffix(".md")
+    assert v.status is Status.FAIL
+    assert f"check failed in {art}" in v.detail
+    assert "regenerate and try again" in v.detail.lower()
+    assert ".md" not in v.detail  # clean artifact name
+
+
 # --------------------------------------------------------------- M4.A verbatim quotes
 def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS

@@ -459,6 +459,7 @@ def generate_abstract(
     api_client,  # Anthropic client or compatible
     model: str = config.AUX_MODEL,  # Haiku: cost-effective for abstract generation
     system: Optional[list] = None,
+    feedback_claims: Optional[list] = None,
 ) -> str:
     """
     Generate abstract via API call.
@@ -467,6 +468,9 @@ def generate_abstract(
         abstract_input: Prepared AbstractInput object
         api_client: Anthropic API client
         model: Model identifier
+        feedback_claims: On a regeneration attempt, the specific statements a
+            previous draft made that were NOT supported by the transcript — fed
+            back so the model corrects them (grounds every sentence).
 
     Returns:
         Generated abstract text
@@ -476,6 +480,14 @@ def generate_abstract(
         input_json=abstract_input.to_json(),
         target_word_count=abstract_input.target_word_count,
     )
+    if feedback_claims:
+        prompt += (
+            "\n\n---\nCORRECTION REQUIRED. A previous draft contained the following "
+            "statements that are NOT supported by the transcript. Rewrite the "
+            "abstract so that EVERY sentence is directly grounded in the source, "
+            "and do not repeat these unsupported claims:\n"
+            + "\n".join(f"- {c}" for c in feedback_claims)
+        )
 
     kwargs = {}
     if system:
@@ -511,9 +523,10 @@ def validate_abstract(abstract: str, target_word_count: int = 250) -> dict:
 
     word_count = len(abstract.split())
 
-    # Allow 20% tolerance
+    # Allow 20% tolerance; hard-cap the upper bound below ABSTRACT_HARD_MAX_WORDS
+    # so >= 250 words is always flagged (parity with validate_structural, P5).
     min_words = int(target_word_count * 0.8)
-    max_words = int(target_word_count * 1.2)
+    max_words = min(int(target_word_count * 1.2), config.ABSTRACT_HARD_MAX_WORDS - 1)
 
     if word_count < min_words:
         issues.append(f"Too short: {word_count} words (minimum {min_words})")

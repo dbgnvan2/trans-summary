@@ -376,12 +376,12 @@ class TranscriptValidatorV2:
             
             if len(matches) == 1:
                 start, end = matches[0]
-                replacements.append((start, end, replacement, corr))
+                replacements.append((start, end, replacement, original))
             elif len(matches) > 1:
                 if len(original.split()) >= config.VALIDATION_MIN_UNIQUE_WORDS:
                     # Specific enough to apply to all
                     for start, end in matches:
-                        replacements.append((start, end, replacement, corr))
+                        replacements.append((start, end, replacement, original))
                 else:
                     msg = f"Skipped ambiguous: '{original[:20]}...' found {len(matches)} times, context too short."
                     skipped_reasons.append(msg)
@@ -390,7 +390,7 @@ class TranscriptValidatorV2:
                 # 0 matches - Try Fuzzy
                 start, end, ratio = transcript_utils.find_text_in_content(original, content)
                 if ratio >= config.VALIDATION_FUZZY_AUTO_APPLY:
-                     replacements.append((start, end, replacement, corr))
+                     replacements.append((start, end, replacement, original))
                 else:
                      msg = f"Skipped not found (best fuzzy {ratio:.2f}): '{original[:20]}...'"
                      skipped_reasons.append(msg)
@@ -411,19 +411,31 @@ class TranscriptValidatorV2:
         # We need to check for overlaps.
         
         valid_replacements = []
-        last_start = float('inf') 
-        
-        for start, end, repl_text, source in replacements:
+        last_start = float('inf')
+
+        for start, end, repl_text, original in replacements:
             # Since sorted reverse, current 'end' must be <= last_start to be non-overlapping
             if end <= last_start:
-                valid_replacements.append((start, end, repl_text))
+                valid_replacements.append((start, end, repl_text, original))
                 last_start = start
             else:
                  msg = f"Skipped overlapping replacement at {start}-{end}"
                  skipped_reasons.append(msg)
                  self.logger.warning(msg)
 
-        for start, end, repl_text in valid_replacements:
+        # Apply back-to-front. Verify each target span actually matches the
+        # correction's original text BEFORE overwriting it, so a mis-located span
+        # (bad fuzzy match, or a stale offset after an alias mutation) is skipped
+        # instead of corrupting good text. Back-to-front means lower-position
+        # spans are still intact when checked.
+        for start, end, repl_text, original in valid_replacements:
+            span = final_content[start:end]
+            if not transcript_utils.span_matches_original(span, original):
+                msg = (f"Skipped mis-located replacement (span does not match "
+                       f"original): '{original[:30]}...'")
+                skipped_reasons.append(msg)
+                self.logger.warning(msg)
+                continue
             final_content = final_content[:start] + repl_text + final_content[end:]
             applied_count += 1
             

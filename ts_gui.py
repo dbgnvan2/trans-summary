@@ -54,9 +54,14 @@ STAGE_DEFINITIONS = [
     ("val_abstract", "6. Val Abstract"),
     ("blog", "7. Blog (Lens #1)"),
     ("overview", "7b. Overview Post"),
-    ("webpdf", "8. Full Web/PDF"),
+    # bowen_emphasis runs BEFORE webpdf: (1) web/pdf fail-closes on a release-gate
+    # BLOCK, and halting there must not skip this independent extraction; (2)
+    # generate_pdf/generate_webpage highlight Bowen/Emphasis, so extracting first
+    # means the rendered artifacts reflect the current run. Spec: SR.6
     ("bowen_emphasis", "Bowen + Emphasis"),
+    ("webpdf", "8. Full Web/PDF"),
     ("package", "Package"),
+    ("bundle", "Bundle (DOC/PDF)"),
 ]
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
@@ -91,8 +96,14 @@ STAGE_DEPENDENCIES = {
         [("core", "SUFFIX_KEY_TERMS")],
     ],
     "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
-    "bowen_emphasis": [],
+    # Bowen/Emphasis extract from the validated derived transcript, never the
+    # raw source. Require a formatted/yaml artifact (selected or already on
+    # disk) so a selective re-run can't run extraction on an unvalidated raw
+    # file (P13). Mirrors webpdf/package. Spec: spec_selective_rerun_2026-07-16.md#SR.4
+    "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     "package": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+    # Bundle needs at least the (required) YAML transcript section on disk.
+    "bundle": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
 }
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.15
@@ -108,6 +119,55 @@ ARTIFACT_LABELS = {
     "SUFFIX_KEY_TERMS": "Key Terms",
     "SUFFIX_ABSTRACT_GEN": "Generated Abstract",
     "SUFFIX_ABSTRACT_INIT": "Initial Abstract",
+}
+
+def _bundle_output_suffix_attrs():
+    """Config suffix attr(s) the bundle run-stage writes, derived from
+    config.BUNDLE_DEFAULT_FORMAT so STAGE_OUTPUTS['bundle'] and _run_stage_bundle
+    stay one decision (P4/P19)."""
+    return {
+        "pdf": ["SUFFIX_BUNDLE_PDF"],
+        "docx": ["SUFFIX_BUNDLE_DOCX"],
+        "both": ["SUFFIX_BUNDLE_DOCX", "SUFFIX_BUNDLE_PDF"],
+    }.get(getattr(config, "BUNDLE_DEFAULT_FORMAT", "pdf"), ["SUFFIX_BUNDLE_PDF"])
+
+
+# Spec: docs/spec_selective_rerun_2026-07-16.md#SR.1 (selective re-run)
+# {stage_key: [artifact_suffix_attr, ...]} -- the artifact(s) each stage WRITES,
+# kept as data (config attr names, resolved via _stage_artifact_path) so the
+# selective-run status report reads exactly what the producer writes and can
+# never drift (P19). Used at run start to report whether a checked stage will
+# generate fresh output or REGENERATE (overwrite) existing output, and which
+# unchecked prerequisites are being reused from disk.
+#
+# "Exists" for a stage = ALL of its listed outputs are present (user's chosen
+# rule: a partially-completed stage is treated as not-done so it re-runs).
+#
+# `init_val` is intentionally absent: its product is the *_validated source
+# transcript (written next to the source, not a project-dir artifact), so it has
+# no on-disk artifact here and is always reported as "will generate".
+STAGE_OUTPUTS = {
+    "format": ["SUFFIX_FORMATTED"],
+    "val_headers": ["SUFFIX_HEADER_VAL_REPORT"],
+    "yaml": ["SUFFIX_YAML"],
+    "topics": ["SUFFIX_TOPICS"],
+    "core": [
+        "SUFFIX_STRUCTURAL_THEMES", "SUFFIX_INTERPRETIVE_THEMES",
+        "SUFFIX_TOPICS", "SUFFIX_KEY_TERMS", "SUFFIX_LENSES",
+    ],
+    "structured_summary": ["SUFFIX_SUMMARY_GEN"],
+    "gen_abstract": ["SUFFIX_ABSTRACT_GEN"],
+    "val_abstract": ["SUFFIX_ABSTRACT_VAL"],
+    "blog": ["SUFFIX_BLOG"],
+    "overview": ["SUFFIX_OVERVIEW"],
+    # The webpdf stage runner writes only .html + .pdf; the simple webpage is a
+    # separate standalone tool and is not produced here (P19: match the writer).
+    "webpdf": ["SUFFIX_WEBPAGE", "SUFFIX_PDF"],
+    "bowen_emphasis": ["SUFFIX_BOWEN", "SUFFIX_EMPHASIS_SCORED"],
+    "package": ["SUFFIX_ZIP"],
+    # Derived from BUNDLE_DEFAULT_FORMAT (not a second literal) so the "exists"
+    # status can't drift from what _run_stage_bundle actually writes (P19/P4).
+    "bundle": _bundle_output_suffix_attrs(),
 }
 
 
@@ -536,7 +596,8 @@ class TranscriptProcessorGUI:
                              command=self.select_transcripts_directory)
         dir_btn.pack(side=tk.LEFT)
         self.make_default_chk = ttk.Checkbutton(
-            dir_frame, text="Make Default", variable=self.make_dir_default_var
+            dir_frame, text="Make Default", variable=self.make_dir_default_var,
+            command=self._on_make_default_toggled,
         )
         self.make_default_chk.pack(side=tk.LEFT, padx=(5, 0))
         ttk.Button(dir_frame, text="Folder Defaults...", command=self.open_folder_defaults_dialog).pack(
@@ -728,6 +789,10 @@ class TranscriptProcessorGUI:
             run_frame, text="Manage Selections...", command=self.open_selection_manager_dialog)
         self.manage_selections_btn.pack(side=tk.LEFT, padx=(0, 5))
 
+        self.bundle_btn = ttk.Button(
+            run_frame, text="Create Bundle (DOC/PDF)...", command=self.open_bundle_dialog)
+        self.bundle_btn.pack(side=tk.LEFT, padx=(0, 5))
+
         ttk.Label(run_frame, text="Active selection:").pack(side=tk.LEFT, padx=(10, 5))
         ttk.Label(run_frame, textvariable=self.active_selection_var).pack(side=tk.LEFT)
 
@@ -823,14 +888,14 @@ class TranscriptProcessorGUI:
             # Set the directory for the current session
             config.set_source_dir_and_infer_base(dir_path)
 
-            # Save or clear the default based on the checkbox
+            # If "Make Default" is already checked, persist the newly-chosen dir
+            # as the default. If it's unchecked, leave any existing default alone
+            # (changing dirs for one session must not silently wipe a saved
+            # default; the user clears it by unchecking the box or via the
+            # Folder Defaults dialog).
             if self.make_dir_default_var.get():
                 config.set_default_source_dir(dir_path)
                 self.log(f"✅ Saved {dir_path} as new default source directory.")
-            else:
-                # If the user is intentionally changing directories without making it default,
-                # clear any old default that might be hanging around.
-                config.set_default_source_dir(None)
 
             # Update UI
             self.update_dir_label()
@@ -842,9 +907,50 @@ class TranscriptProcessorGUI:
                 config.TRANSCRIPTS_BASE,
             )
 
+    def _on_make_default_toggled(self):
+        """Persist (or clear) the CURRENT source dir as the startup default when
+        the 'Make Default' box is toggled -- so checking it AFTER Set Directory
+        works, not only when checked before picking a folder.
+
+        Spec: docs/spec_folder_defaults_2026-07-16.md#FD.1
+        """
+        if self.make_dir_default_var.get():
+            # set_default_source_dir keeps the invariant "default is a favorite"
+            # (FD.4), so no separate add is needed here.
+            config.set_default_source_dir(str(config.SOURCE_DIR))
+            self.log("✅ Saved %s as default source directory (loads on next start) "
+                     "and added it to Folder Defaults.", config.SOURCE_DIR)
+        else:
+            config.set_default_source_dir(None)
+            self.log("Cleared default source directory.")
+
+    def _load_favorite_source_dir(self, path):
+        """Switch the session to a favorite source directory (does not change
+        which one auto-loads on start). Spec: FD.5."""
+        config.set_source_dir_and_infer_base(path)
+        self.update_dir_label()
+        self.update_terms_file_label()
+        self.refresh_file_list()
+        self.log("Loaded source directory from Folder Defaults: %s", path)
+
+    def _remove_favorite_source_dir(self, path):
+        """Remove a favorite from the Folder Defaults list. Spec: FD.5."""
+        config.remove_source_dir_favorite(path)
+        # Removing the entry that was the auto-load default clears the default
+        # (config), so re-sync the main-window "Make Default" checkbox (F3).
+        self._sync_make_default_checkbox()
+        self.log("Removed from Folder Defaults: %s", path)
+
+    def _sync_make_default_checkbox(self):
+        """Reflect whether the current source dir IS the saved startup default,
+        so the box shows the real state on load and after a dir change."""
+        saved = config.settings.runtime_settings.get("default_source_dir")
+        self.make_dir_default_var.set(bool(saved) and saved == str(config.SOURCE_DIR))
+
     def update_dir_label(self):
         self.dir_label.config(
             text=f"Source Directory: {config.SOURCE_DIR}")
+        self._sync_make_default_checkbox()
 
     def open_folder_defaults_dialog(self):
         dlg = tk.Toplevel(self.root)
@@ -942,8 +1048,51 @@ class TranscriptProcessorGUI:
                 row=row_idx, column=3, pady=4
             )
 
+        # --- Favorite source directories (FD.5) ---------------------------
+        fav_row = len(rows)
+        ttk.Separator(frame, orient=tk.HORIZONTAL).grid(
+            row=fav_row, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 4)
+        )
+        ttk.Label(frame, text="Source folder favorites (Make Default adds here):").grid(
+            row=fav_row + 1, column=0, columnspan=4, sticky=tk.W, pady=(0, 4)
+        )
+        fav_listbox = tk.Listbox(frame, height=5)
+        fav_listbox.grid(row=fav_row + 2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=2)
+
+        def refresh_favorites():
+            fav_listbox.delete(0, tk.END)
+            default_dir = config.settings.runtime_settings.get("default_source_dir")
+            for path in config.get_source_dir_favorites():
+                marker = "★ " if path == default_dir else "  "
+                fav_listbox.insert(tk.END, f"{marker}{path}")
+
+        def _selected_favorite():
+            sel = fav_listbox.curselection()
+            if not sel:
+                return None
+            return config.get_source_dir_favorites()[sel[0]]
+
+        def load_favorite():
+            path = _selected_favorite()
+            if path:
+                self._load_favorite_source_dir(path)
+                refresh_labels()
+
+        def remove_favorite():
+            path = _selected_favorite()
+            if path:
+                self._remove_favorite_source_dir(path)
+                refresh_favorites()
+                refresh_labels()
+
+        fav_btns = ttk.Frame(frame)
+        fav_btns.grid(row=fav_row + 2, column=3, sticky=(tk.N,), padx=(8, 0))
+        ttk.Button(fav_btns, text="Load", command=load_favorite).pack(fill=tk.X, pady=(0, 2))
+        ttk.Button(fav_btns, text="Remove", command=remove_favorite).pack(fill=tk.X)
+        refresh_favorites()
+
         ttk.Button(frame, text="Close", command=dlg.destroy).grid(
-            row=len(rows), column=0, columnspan=4, pady=(12, 0)
+            row=fav_row + 3, column=0, columnspan=4, pady=(12, 0)
         )
 
     def update_terms_file_label(self):
@@ -1107,8 +1256,18 @@ class TranscriptProcessorGUI:
         else:
             self.root.after(0, self._apply_status, message, color)
 
+    def set_final_status(self, message, color="black"):
+        """Set a terminal status message that _execute_task will NOT overwrite
+        with its generic 'Task completed/failed' text -- so a multi-step task can
+        report a specific final message (SB.1)."""
+        self._task_set_final_status = True
+        self.set_status(message, color)
+
     def _apply_status(self, message, color="black"):
-        """Update status label safely on the Tk main thread."""
+        """Update status label safely on the Tk main thread. No-ops if the widget
+        isn't built yet (e.g. headless test instances constructed via __new__)."""
+        if getattr(self, "status_label", None) is None:
+            return
         self.status_label.config(text=message, foreground=color)
         self.root.update_idletasks()
 
@@ -1118,6 +1277,11 @@ class TranscriptProcessorGUI:
             return
         self.processing = True
         self.progress.start()
+        # Immediately clear the old status and show the task is running, so the
+        # bottom bar updates on click (not only when the task finishes). A
+        # multi-stage run overrides this with per-step status right away.
+        display = task_name or getattr(task_function, "__name__", "task").lstrip("_").replace("_", " ")
+        self.set_status(f"Running {display}…", "blue")
         self.update_button_states()
 
         thread = threading.Thread(
@@ -1130,9 +1294,12 @@ class TranscriptProcessorGUI:
 
     def _execute_task(self, task_function, task_name, *args, **kwargs):
         name = task_name if task_name else task_function.__name__
+        # A task may set its own specific terminal message via set_final_status;
+        # if it does, don't clobber it with the generic text below (SB.1).
+        self._task_set_final_status = False
         try:
             success = task_function(*args, **kwargs)
-            
+
             # If the task is waiting for a user dialog, don't log completion.
             if success == "WAITING_FOR_USER":
                 self.processing = False
@@ -1141,10 +1308,12 @@ class TranscriptProcessorGUI:
                 return
 
             if success:
-                self.set_status("Task completed successfully.", "green")
+                if not self._task_set_final_status:
+                    self.set_status("Task completed successfully.", "green")
                 self.log("✅ %s completed successfully.", name)
             else:
-                self.set_status("Task failed.", "red")
+                if not self._task_set_final_status:
+                    self.set_status("Task failed.", "red")
                 self.log("❌ %s failed. Check logs for details.", name)
         except Exception as e:
             self.set_status(f"Error: {e}", "red")
@@ -1759,6 +1928,55 @@ class TranscriptProcessorGUI:
         suffix = getattr(config, artifact_suffix_attr)
         return config.PROJECTS_DIR / self.base_name / f"{self.base_name}{suffix}"
 
+    def _stage_outputs_status(self, key):
+        """Report a stage's on-disk output status for the selective-run log.
+
+        Purpose: Tell the operator whether a checked stage will generate fresh
+                 output or REGENERATE (overwrite) existing output, using the
+                 STAGE_OUTPUTS producer map so status can't drift from what the
+                 stage actually writes (P19).
+        Spec:    docs/spec_selective_rerun_2026-07-16.md#SR.2
+
+        Returns (all_present, present_attrs, missing_attrs). `all_present` is
+        True only when EVERY declared output exists (the "all present = exists"
+        rule). A stage with no declared outputs (e.g. init_val) returns
+        (False, [], []) -- always treated as "will generate".
+        """
+        attrs = STAGE_OUTPUTS.get(key, [])
+        if not attrs:
+            return (False, [], [])
+        present, missing = [], []
+        for attr in attrs:
+            if self._stage_artifact_path(attr).exists():
+                present.append(attr)
+            else:
+                missing.append(attr)
+        return (len(missing) == 0, present, missing)
+
+    def _log_selective_run_plan(self, selected_keys):
+        """Log, per checked stage, generate-vs-regenerate, plus which unchecked
+        prerequisites are reused from disk. Spec: SR.5."""
+        reused = []
+        for key, label in STAGE_DEFINITIONS:
+            if key not in selected_keys:
+                continue
+            all_present, _present, _missing = self._stage_outputs_status(key)
+            if all_present:
+                self.log("  ↻ %s — output exists, will REGENERATE (overwrite)", label)
+            else:
+                self.log("  ＋ %s — will generate", label)
+            # Prerequisites satisfied from disk (producing stage not selected).
+            for group in STAGE_DEPENDENCIES.get(key, []):
+                for producing_stage, artifact_attr in group:
+                    if producing_stage in selected_keys:
+                        continue
+                    path = self._stage_artifact_path(artifact_attr)
+                    if path.exists() and artifact_attr not in reused:
+                        reused.append(artifact_attr)
+        if reused:
+            names = ", ".join(ARTIFACT_LABELS.get(a, a) for a in reused)
+            self.log("  ↺ Reusing existing output from disk: %s", names)
+
     def _validate_stage_dependencies(self, selected_keys):
         """Check every selected stage's prerequisite groups.
 
@@ -1829,10 +2047,23 @@ class TranscriptProcessorGUI:
             messagebox.showwarning("Missing Prerequisites", self._format_preflight_message(unmet))
             return
 
-        if "init_val" not in selected_keys and "_validated" not in self.selected_file.name:
+        # Init Val is a precondition for `format`, which consumes the raw
+        # (unvalidated) transcript. A selective re-run of downstream stages
+        # instead reuses already-validated derived artifacts (formatted/yaml),
+        # enforced by each stage's own dependency preflight above
+        # (`_validate_stage_dependencies`) -- including bowen_emphasis, which now
+        # requires a formatted/yaml artifact so it can't read the raw file. So
+        # this guard need only fire for `format`, letting the user redo just
+        # particular items (e.g. Bowen/Emphasis) without re-running Init Val.
+        # Spec: spec_selective_rerun_2026-07-16.md#SR.3
+        if (
+            "format" in selected_keys
+            and "init_val" not in selected_keys
+            and "_validated" not in self.selected_file.name
+        ):
             messagebox.showwarning(
                 "Validation Required",
-                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running all steps.",
+                "Please run '0. Init Val' and create a final validated copy (ending in '_validated') before running Format.",
             )
             return
 
@@ -1857,15 +2088,27 @@ class TranscriptProcessorGUI:
         start_time = datetime.now()
 
         # Unconditional cost estimate first (informational, same as old _run_all_steps).
+        self.set_status("Estimating cost…", "blue")
         self.log("\n--- STEP 0: Estimating Cost ---")
         if not self._run_cost_estimation():
             self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
 
-        for key, label in STAGE_DEFINITIONS:
-            if key not in selected_keys:
-                continue
+        # Selective-run transparency (SR.5): before running, say which checked
+        # stages will regenerate existing output vs generate fresh, and which
+        # unchecked prerequisites are reused from disk.
+        self.log("\n--- Run plan ---")
+        self._log_selective_run_plan(selected_keys)
+
+        # Bottom status bar tracks the current major step (SB.1); the final
+        # message is set by _execute_task on completion/failure.
+        selected_labels = [l for k, l in STAGE_DEFINITIONS if k in selected_keys]
+        for idx, (key, label) in enumerate(
+            [(k, l) for k, l in STAGE_DEFINITIONS if k in selected_keys], start=1
+        ):
+            self.set_status(f"Step {idx}/{len(selected_labels)}: {label}…", "blue")
             self.log("\n--- %s ---", label)
             if not self.stage_runners[key]():
+                self.set_final_status(f"❌ Failed at: {label}", "red")
                 self.log("❌ %s failed. Halting run.", label)
                 return False
 
@@ -1873,6 +2116,9 @@ class TranscriptProcessorGUI:
         self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 
         self.log("\n✅ SELECTED STAGES COMPLETE!")
+        self.set_final_status(
+            f"✅ Complete — {len(selected_labels)} stage(s): {selected_labels[-1]}", "green"
+        )
         return True
 
     def _run_stage_yaml(self):
@@ -1928,10 +2174,35 @@ class TranscriptProcessorGUI:
         )
 
     def _run_stage_val_abstract(self):
-        """Runner for the 'val_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
-        return pipeline.validate_abstract_coverage(
+        """Runner for the 'val_abstract' stage.
+
+        Advisory (parity with `_run_header_validation`): a coverage FAIL is
+        written to the report but does NOT halt the run, so downstream-independent
+        stages (Bowen/Emphasis, blog, web/pdf) still complete. The true pass/fail
+        is preserved by `validate_abstract_coverage` for the release gate and the
+        standalone Validate-Abstract action; here we only decide whether to halt.
+
+        Purpose: Run abstract-coverage validation without aborting the pipeline
+                 on a content-quality miss.
+        Spec:    docs/spec_stage_selection_2026-07-12.md#SS.12
+        Tests:   tests/test_ts_gui_run_all.py::test_run_stage_val_abstract_advisory_does_not_halt
+        """
+        passed = pipeline.validate_abstract_coverage(
             self.base_name, self.logger, model=config.settings.DEFAULT_MODEL
         )
+        if not passed:
+            # Surface, don't silently drop (P2): the run continues, but say so.
+            # `validate_abstract_coverage` returns False for either a content
+            # coverage miss OR a could-not-verify (missing abstract / exception,
+            # which it logs via logger.error). Don't imply "content miss" — point
+            # at both the report and the log so a real error stays discoverable
+            # (P14: an error condition must not read as an ordinary content "no").
+            self.log(
+                "⚠️ Abstract validation did not pass or could not complete — "
+                "continuing (advisory). See '%s%s' and the run log for details.",
+                self.base_name, config.SUFFIX_ABSTRACT_VAL,
+            )
+        return True
 
     def _run_stage_blog(self):
         """Runner for the 'blog' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
@@ -1981,6 +2252,68 @@ class TranscriptProcessorGUI:
         """Runner for the 'package' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
         return pipeline.package_transcript(self.base_name, self.logger)
 
+    def _run_stage_bundle(self):
+        """Runner for the 'bundle' stage: export the MD collection using the
+        default format + all configured sections. Spec: spec_bundle_export#BE.10."""
+        return pipeline.export_bundle(
+            self.base_name, fmt=config.BUNDLE_DEFAULT_FORMAT, logger=self.logger
+        )
+
+    def _run_bundle_export(self, selected_keys, fmt):
+        """Generate a bundle from a user-selected subset of sections + format on
+        a background thread (post-run dialog). Spec: spec_bundle_export#BE.9."""
+        if not self.base_name:
+            messagebox.showwarning("No Run Selected", "Select or run a transcript first.")
+            return
+        sections = [s for s in config.BUNDLE_SECTIONS if s["key"] in selected_keys]
+        if not sections:
+            messagebox.showwarning("No Sections", "Select at least one section to include.")
+            return
+        self.log("Creating bundle (%s) with %d section(s)...", fmt, len(sections))
+        self.run_task_in_thread(
+            pipeline.export_bundle, self.base_name, fmt, sections, self.logger,
+            task_name=f"bundle export ({fmt})",
+        )
+
+    def open_bundle_dialog(self):
+        """Post-run dialog: pick which sections to include and the output format,
+        then generate. Spec: spec_bundle_export#BE.9."""
+        if not self.base_name:
+            messagebox.showwarning("No Run Selected", "Select or run a transcript first.")
+            return
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Create Bundle (DOC/PDF)")
+        dlg.grab_set()
+        frame = ttk.Frame(dlg, padding="12")
+        frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        ttk.Label(frame, text="Include sections:").grid(
+            row=0, column=0, columnspan=2, sticky=tk.W)
+        section_vars = {}
+        for i, section in enumerate(config.BUNDLE_SECTIONS):
+            var = tk.BooleanVar(value=True)
+            section_vars[section["key"]] = var
+            ttk.Checkbutton(frame, text=section["heading"], variable=var).grid(
+                row=i + 1, column=0, columnspan=2, sticky=tk.W)
+
+        fmt_var = tk.StringVar(value=config.BUNDLE_DEFAULT_FORMAT)
+        fmt_row = len(config.BUNDLE_SECTIONS) + 1
+        ttk.Label(frame, text="Format:").grid(row=fmt_row, column=0, sticky=tk.W, pady=(8, 0))
+        fmt_frame = ttk.Frame(frame)
+        fmt_frame.grid(row=fmt_row, column=1, sticky=tk.W, pady=(8, 0))
+        for f in ("pdf", "docx", "both"):
+            ttk.Radiobutton(fmt_frame, text=f.upper(), variable=fmt_var, value=f).pack(side=tk.LEFT)
+
+        def generate():
+            selected = [key for key, v in section_vars.items() if v.get()]
+            dlg.destroy()
+            self._run_bundle_export(selected, fmt_var.get())
+
+        btns = ttk.Frame(frame)
+        btns.grid(row=fmt_row + 1, column=0, columnspan=2, pady=(12, 0))
+        ttk.Button(btns, text="Generate", command=generate).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side=tk.LEFT)
+
     @property
     def stage_runners(self):
         """Map every STAGE_DEFINITIONS key to its runner (bound method).
@@ -2010,6 +2343,7 @@ class TranscriptProcessorGUI:
             "webpdf": self._run_web_pdf_generation,
             "bowen_emphasis": self._run_stage_bowen_emphasis,
             "package": self._run_stage_package,
+            "bundle": self._run_stage_bundle,
         }
 
     @stage_runners.setter
@@ -2251,6 +2585,7 @@ class TranscriptProcessorGUI:
         # Manage Selections is always enabled (independent of file selection).
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
+        self.bundle_btn.config(state=state)  # launches a background export -> disable while busy
         # Config check button is always enabled
         self.core_emphasis_chk.config(state=state)
         self.core_bowen_chk.config(state=state)

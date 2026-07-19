@@ -568,6 +568,23 @@ _CODEC_FOR_SUMMARY_TYPE = {
 }
 
 
+_ARTIFACT_CONTRACTS_LOGGER = None
+
+
+def _artifact_contracts_logger():
+    """One cached ``artifact_contracts`` logger per process.
+
+    Self-validation runs on EVERY saved artifact, so calling ``setup_logging()``
+    each time spawned a fresh timestamped log file and a console "Logging
+    initialized" line per save — cluttering the terminal and the logs/ folder.
+    Create it once and reuse it.
+    """
+    global _ARTIFACT_CONTRACTS_LOGGER
+    if _ARTIFACT_CONTRACTS_LOGGER is None:
+        _ARTIFACT_CONTRACTS_LOGGER = setup_logging("artifact_contracts")
+    return _ARTIFACT_CONTRACTS_LOGGER
+
+
 def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
     """M3.B producer self-check for codec-backed artifacts: re-read the just-saved
     file through the schema codec and, on success, write the JSON sidecar. On
@@ -581,7 +598,7 @@ def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
     import artifact_contracts as ac
 
     key, args = entry
-    logger = setup_logging("artifact_contracts")
+    logger = _artifact_contracts_logger()  # cached: one log file per process, not per save
     try:
         obj = ac.codec(key).parse_markdown(
             output_path.read_text(encoding="utf-8"), *args
@@ -1084,6 +1101,35 @@ def generate_structured_summary(
         return False
 
 
+def _abstract_gate_precheck(base_name: str, logger=None):
+    """Run the gate's faithfulness + entity-grounding checks on the just-saved
+    abstract (the SAME functions the release gate uses, so they can't drift), and
+    classify the result.
+
+    Returns (status, issues):
+      - "pass": both checks PASS -> the abstract is publishable.
+      - "fail": at least one FAILed -> `issues` holds the specific unsupported
+        claim(s) / ungrounded name(s) to feed back to the generator.
+      - "unavailable": a check ERRORed or the judge is off (no API key / disabled)
+        -> can't verify at generation time; accept and let the gate verify at
+        publish (single attempt).
+    """
+    import release_gate as rg
+    faith = rg.check_faithfulness(base_name, logger)
+    entity = rg.check_entity_grounding(base_name, logger)
+    if rg.Status.ERROR in (faith.status, entity.status):
+        return "unavailable", []
+    if rg.Status.FAIL in (faith.status, entity.status):
+        issues = []
+        for item in (faith.items or []):
+            issues.extend(item.get("unfaithful", []))
+        for item in (entity.items or []):
+            issues.extend(f"the name '{n}' does not appear in the source"
+                          for n in item.get("names", []))
+        return "fail", issues
+    return "pass", []
+
+
 def generate_structured_abstract(
     base_name: str, logger=None, transcript_system_message=None, model: str = config.AUX_MODEL
 ) -> bool:
@@ -1137,12 +1183,9 @@ def generate_structured_abstract(
                 "No Interpretive Themes artifact found; generating abstract from Topics + transcript only."
             )
 
-        # Calculate target word count
+        # Calculate target word count (capped so abstracts stay < 250 words)
         transcript_words = len(transcript.split())
-        target_word_count = max(
-            int(transcript_words * config.ABSTRACT_TARGET_PERCENT),
-            config.ABSTRACT_MIN_WORDS,
-        )
+        target_word_count = config.abstract_target_word_count(transcript_words)
 
         abstract_input = abstract_pipeline.prepare_abstract_input(
             metadata=metadata,
@@ -1165,23 +1208,55 @@ def generate_structured_abstract(
             transcript_system_message = create_system_message_with_cache(
                 transcript)
 
-        logger.info("Generating abstract via API...")
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY not set")
-
         client = anthropic.Anthropic(api_key=api_key)
-        abstract_text = abstract_pipeline.generate_abstract(
-            abstract_input, client, model=model, system=transcript_system_message
-        )
-
         output_path = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
         )
-        output_path.write_text(abstract_text, encoding="utf-8")
-        logger.info("Generated abstract saved to %s", output_path)
 
+        # Check faithfulness/grounding AT GENERATION TIME and regenerate (with
+        # corrective feedback) until it passes — so an unfaithful abstract is
+        # caught + fixed here instead of only at publish. Reuses the gate's own
+        # checks so they can't drift.
+        max_attempts = max(1, int(getattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)))
+        feedback = None
+        best_text, best_issue_count = None, None
+        for attempt in range(1, max_attempts + 1):
+            logger.info("Generating abstract via API (attempt %d/%d)...", attempt, max_attempts)
+            abstract_text = abstract_pipeline.generate_abstract(
+                abstract_input, client, model=model,
+                system=transcript_system_message, feedback_claims=feedback,
+            )
+            output_path.write_text(abstract_text, encoding="utf-8")
+
+            status, issues = _abstract_gate_precheck(base_name, logger)
+            if status == "pass":
+                logger.info("✓ Abstract passed faithfulness + grounding on attempt %d/%d. Saved to %s",
+                            attempt, max_attempts, output_path)
+                return True
+            if status == "unavailable":
+                logger.warning("Faithfulness/grounding check unavailable at generation "
+                               "(judge off or no key); keeping abstract — the release gate "
+                               "will verify it at publish. Saved to %s", output_path)
+                return True
+            # status == "fail": remember the least-bad draft, feed the issues back.
+            if best_text is None or len(issues) < best_issue_count:
+                best_text, best_issue_count = abstract_text, len(issues)
+            feedback = issues
+            logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); "
+                           "regenerating with corrective feedback. Issues: %s",
+                           attempt, max_attempts, len(issues), "; ".join(issues)[:300])
+
+        # All attempts failed — keep the least-bad draft; honest, loud status.
+        if best_text is not None:
+            output_path.write_text(best_text, encoding="utf-8")
+        logger.error("⚠️ Could not produce a fully faithful abstract after %d attempt(s); "
+                     "kept the best draft (%s unresolved issue(s)). The release gate will "
+                     "BLOCK publication until it is regenerated or edited.",
+                     max_attempts, best_issue_count)
         return True
     except Exception as e:
         logger.error("Error generating structured abstract: %s",
@@ -1384,10 +1459,8 @@ def summarize_transcript(
             _save_summary(key_terms_output, formatted_filename, "key-terms")
 
             logger.info("PART 5: Generating Abstract...")
-            target_word_count = max(
-                int(transcript_word_count * config.ABSTRACT_TARGET_PERCENT),
-                config.ABSTRACT_MIN_WORDS,
-            )
+            # Capped so abstracts stay < 250 words (single source, P5).
+            target_word_count = config.abstract_target_word_count(transcript_word_count)
             abstract_input = abstract_pipeline.prepare_abstract_input(
                 metadata=metadata,
                 topics_markdown=topics_output,

@@ -6,6 +6,81 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-17 — entity_grounding OR-logic gap (widened by metadata grounding)
+
+`find_ungrounded_names` grounds a multi-word name if **any** significant token
+matches the source (OR-logic — a documented lexical-check limitation). Grounding
+the presenter's name via filename metadata (so 'Michael Kerr' isn't false-BLOCKed)
+means the presenter's **first name** ('michael') is now a grounded token, so a
+fabricated surname riding on it ('Michael Bowen') passes the lexical check. The
+faithfulness judge (M2) is the semantic backstop for this class. Pinned by
+`tests/test_release_gate.py::test_entity_grounding_shared_token_name_is_a_known_lexical_gap`.
+- **Follow-up (optional):** consider requiring the *surname* (last token) to be
+  grounded, or ALL tokens, if false-negatives on presenter-token names prove real.
+
+## 2026-07-17 — faithfulness judge: re-calibrate after metadata-in-source change
+
+`release_gate.check_faithfulness` now prepends the recording metadata (title,
+presenter, date, year from the filename) to the source, so a legitimate
+metadata-derived abstract fact ("In this **2021** webinar…") is no longer judged
+as a fabricated year (it was a false publish BLOCK). Per P20, the faithfulness
+judge is ARMED and calibrated — **re-run the calibration eval** to confirm the
+metadata-augmented source doesn't shift precision/recall on the gold set:
+```
+RUN_FAITHFULNESS_CALIBRATION=1 PYTHONPATH=$PWD .venv/bin/python \
+  -m pytest tests/test_faithfulness_calibration.py -q -s
+```
+Low risk (only known catalogue facts become entailable; a fabricated name/stat
+still won't match), but the gold set should be re-verified before relying on it.
+
+---
+
+## 2026-07-17 — Init Val fuzzy matcher (follow-up)
+
+The span-match guard (`transcript_utils.span_matches_original`) now makes Init Val
+auto-apply *safe* against mis-located spans, but it does so by **skipping** them —
+so the fuzzy-auto-apply path is largely neutralized whenever normalization changes
+offsets (double spaces, timestamps, punctuation inside the phrase). Root cause:
+`transcript_utils.find_text_in_content` computes its returned `(start, end)` from
+normalized-word indices / first-prefix occurrence, so its offsets don't map back
+to the raw text when normalization changed lengths.
+
+- **Follow-up:** fix `find_text_in_content` to return correct *raw-text* offsets
+  (e.g. re-locate the matched window in the original string), so legitimate fuzzy
+  corrections apply again while the span guard still blocks mis-locations.
+  Verified empirically 2026-07-17: `find_text_in_content("beta gamma", "beta   gamma")`
+  returns a misaligned slice, which the guard correctly skips.
+- **Adjacent (not fixed):** the multi-match branch still applies a ≥7-word
+  correction to *all* occurrences of its `original_text` — intended, but noted.
+
+---
+
+## 2026-07-16 — bundle export / GUI follow-ups (deferred, not blockers)
+
+Flagged during the bundle-export + selective-re-run work (see CHANGELOG
+2026-07-16). None block the shipped features.
+
+1. **`package_transcript` doesn't include the bundle or the individual MD files.**
+   The `.zip` packages the rendered webpage/PDF + transcript, not the new
+   `- bundle.pdf` / `- bundle.docx` or the per-stage `.md` files. Decide whether
+   the zip should include the bundle. (Adjacent issue, rule #10 — flagged, not
+   changed.)
+2. **Google Doc export deferred.** The plan was PDF + DOCX now, Google Doc later
+   (upload the generated `.docx` to Drive, which auto-converts). Not built — needs
+   Drive OAuth. See `docs/bundle_export_plan.md`.
+3. **Live pandoc DOCX path is integration-only (untested in CI).** Unit tests mock
+   `subprocess.run`; the real pandoc invocation was smoke-tested locally
+   (pandoc 3.10) but has no automated coverage. The committed
+   `templates/styles/bundle-reference.docx` can drift from
+   `scripts/gen_bundle_reference_docx.py` after a pandoc upgrade — re-run the
+   generator to refresh (BE.11).
+4. **`webpdf` still fail-closes before `package`.** Bowen/Emphasis were moved
+   ahead of the publish-gated stages, but a release-gate BLOCK on `webpdf` will
+   still halt `package`/`bundle` if they're selected after it. Acceptable
+   (those are publish artifacts), noted for awareness.
+
+---
+
 ## M2 faithfulness judge — ARMED (2026-07-15), follow-ups
 
 **ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, Hard BLOCK, prose only). Calibrated

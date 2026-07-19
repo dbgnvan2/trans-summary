@@ -2,6 +2,117 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-17 (release-gate false positives, clearer messages, log spam, GUI status)
+
+**Release gate no longer false-BLOCKs on filename metadata.** Both hard-blocking
+checks used the transcript text alone as the source, so facts the abstract
+legitimately draws from the filename were flagged as fabricated and blocked
+publication (and the bundle):
+- `entity_grounding` flagged the **presenter's own name** ("Michael Kerr") — a
+  speaker rarely utters their own name. Now grounds against the transcript + the
+  catalogue metadata **values** (`_filename_metadata_values`, values-only so
+  framing words can't falsely ground a name — sweep F1).
+- `faithfulness` flagged the **year** ("In this 2021 webinar…") as fabricated.
+  Now the judge's source includes the labeled catalogue metadata
+  (`_source_with_metadata`). P20: re-run the faithfulness calibration (TODO).
+- Also fixed a `find_ungrounded_names` bug where a leading `# Abstract` heading +
+  first word matched as the proper name "Abstract In" (strip scaffolding; names
+  can't span a newline).
+
+**Clearer, actionable gate messages.** `faithfulness`/`entity_grounding` BLOCKs
+now read "check failed in <artifact> … — regenerate and try again" (naming the
+artifact and, for entity, the offending name) instead of the cryptic
+"N of M artifact(s) contain unentailed claims" / "names not found in source: […]".
+
+**Log spam fixed.** `artifact_contracts` self-validation created a new timestamped
+log file + console "Logging initialized" line on every saved artifact; the logger
+is now cached once per process.
+
+**GUI status bar** shows "Running <task>…" the moment a background task starts
+(e.g. Create Bundle) instead of only updating on completion.
+
+Ran through `/csdp` (learning-qa sweep: F1 values-only grounding fixed; F2 OR-logic
+gap documented + pinned; F3 test-isolation; F4 __name__ guard). Full suite: 661 passed.
+
+## [Unreleased] - 2026-07-17 (Init Val corruption fix: span-match guard)
+
+**Init Val auto-apply could corrupt the validated transcript.** A correction with
+no exact match fell to the fuzzy fallback, which overwrote a span located by
+`transcript_utils.find_text_in_content` (an unreliable span — first-prefix
+occurrence / normalized-word indices) with **no check that the span actually
+contained the original text**. On a real run this rewrote a "differentiation of
+self" region into `selfhere's` plus a duplicated chunk, which then failed Format
+validation at 84% mismatch and halted the run (Format correctly refused to
+publish the corrupted transcript).
+
+Fix: new `transcript_utils.span_matches_original()` — before each destructive
+replacement, verify the target span matches the correction's `original_text`
+(normalized, ≥ `config.VALIDATION_MIN_APPLY_SIMILARITY=0.90`); skip and log
+otherwise. Applied in **both** validators — v2 `apply_corrections_safe` and v1
+`apply_corrections` (the latter still runs from the GUI in v1 mode) — so the
+corruption class is closed everywhere. Also covers stale offsets after an alias
+mutation. Fuzzy auto-apply is now conservative: a mis-located span is skipped
+(flagged for manual review) rather than applied wrongly.
+
+## [Unreleased] - 2026-07-17 (abstract length cap + bundle abstract-first)
+
+**Abstracts capped under 250 words.** New `config.abstract_target_word_count()`
+is the single source for the target length (3% of transcript, floored at
+`ABSTRACT_MIN_WORDS=150`, capped at new `ABSTRACT_MAX_WORDS=230`) — routed through
+by all three compute sites (main `summarize_transcript` generation, standalone
+`generate_structured_abstract`, and the coverage validator), replacing duplicated
+uncapped `max(...)` formulas (P5). New `ABSTRACT_HARD_MAX_WORDS=250`;
+`validate_structural` / `validate_abstract` hard-cap their "too long" threshold
+below it, so any abstract ≥ 250 words is flagged. Prompt updated to enforce the
+limit.
+
+**Bundle: Abstract first, on its own page.** `BUNDLE_SECTIONS` reordered so the
+Abstract comes first with `page_break_after`. `_build_combined_markdown` emits a
+neutral page-break marker (deferred to just before the next included section, so
+no trailing blank page); `_render_pdf_weasyprint` translates it to CSS
+`break-after:page`, `_render_docx_pandoc` to a raw pandoc OpenXML page break.
+
+Ran through `/csdp` (learning-qa sweep found the missed primary generation site +
+two lower-severity items; all fixed). Full suite: 644 passed.
+
+## [Unreleased] - 2026-07-16 (GUI: bundle export, selective re-run, folder favorites, status bar)
+
+**MD-collection bundle export (DOC/PDF).** New `bundle_export.py` + CLI
+`transcript_bundle.py`: package a run's per-stage Markdown (Transcript [Format
+or YAML], Topics, Emphasis, Bowen References, Abstract) into one PDF and/or DOCX
+(plain concatenation, section headers). PDF via WeasyPrint, DOCX via pandoc
+(`--reference-doc` for reduced heading sizes; `scripts/gen_bundle_reference_docx.py`).
+Exposed as a `bundle` pipeline stage (all sections) and a post-run "Create
+Bundle…" dialog (pick sections + format). Fail-closed on a release-gate BLOCK;
+bundle suffixes join `PUBLISHED_BUNDLE_SUFFIXES` (F4 quarantine). Sections are
+config-driven (`config.BUNDLE_SECTIONS`, `BUNDLE_DEFAULT_FORMAT='pdf'`).
+Spec: `docs/spec_bundle_export_2026-07-16.md` (BE.1–BE.11).
+
+**Selective re-run.** Check only the stages to (re)generate; unchecked stages
+are bypassed and their on-disk outputs reused. Init-Val guard scoped to `format`;
+`bowen_emphasis` now requires formatted/yaml (can't run on the raw transcript);
+`STAGE_OUTPUTS` producer map + run-start "Run plan" log.
+Spec: `docs/spec_selective_rerun_2026-07-16.md` (SR.1–SR.6). Reordered
+`bowen_emphasis` before the publish-gated web/pdf & package stages.
+
+**Val Abstract advisory.** A failed abstract-coverage check no longer halts the
+run (parity with header validation), so independent downstream stages
+(Bowen/Emphasis, blog, web/pdf) still complete; publish still gated. This fixed a
+real run that stopped after Val Abstract and never produced Bowen/Emphasis.
+
+**Source-folder favorites + Make Default fix.** "Make Default" now persists the
+current source dir in any order (was only read while picking a folder) and adds
+it to a favorites list (the auto-load default is always a favorite); the Folder
+Defaults dialog gains a favorites listbox (Load/Remove).
+Spec: `docs/spec_folder_defaults_2026-07-16.md` (FD.1–FD.5).
+
+**Status bar.** The bottom bar tracks the current major step during a run and
+shows a specific final message (`set_final_status`). Spec:
+`docs/spec_status_bar_2026-07-16.md` (SB.1).
+
+Full suite: 634 passed. Each change ran through the `learning-qa` failure-pattern
+review; findings fixed in-session.
+
 ## [Unreleased] - 2026-07-15 (theme GROUNDING judge + test-validity follow-ups)
 
 **Theme grounding judge (ARMED).** Themes were excluded from the faithfulness judge

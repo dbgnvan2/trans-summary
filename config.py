@@ -134,12 +134,42 @@ class ProjectSettings:
         self._save_runtime_settings()
 
     def set_default_source_dir(self, path: Union[str, Path, None]):
-        """Save or clear the default source directory."""
+        """Save or clear the default source directory.
+
+        Invariant: the auto-load default is always present in the favorites list
+        (so it shows with a ★). Every path that sets a default goes through here,
+        so favorites can't drift from the default (FD.4)."""
         if path:
             self.runtime_settings["default_source_dir"] = str(path)
+            favs = self.runtime_settings.setdefault("source_dir_favorites", [])
+            if str(path) not in favs:
+                favs.append(str(path))
         else:
             self.runtime_settings.pop("default_source_dir", None)
         self._save_runtime_settings()
+
+    def get_source_dir_favorites(self):
+        """Return the saved list of favorite source directories (a copy)."""
+        return list(self.runtime_settings.get("source_dir_favorites", []))
+
+    def add_source_dir_favorite(self, path):
+        """Add a source directory to the favorites list (dedup, order-preserving)."""
+        path = str(path)
+        favs = self.runtime_settings.setdefault("source_dir_favorites", [])
+        if path not in favs:
+            favs.append(path)
+            self._save_runtime_settings()
+
+    def remove_source_dir_favorite(self, path):
+        """Remove a source directory from favorites; if it was the auto-load
+        default, clear that too so a removed favorite can't still load on start."""
+        path = str(path)
+        favs = self.runtime_settings.get("source_dir_favorites", [])
+        if path in favs:
+            favs.remove(path)
+            if self.runtime_settings.get("default_source_dir") == path:
+                self.runtime_settings.pop("default_source_dir", None)
+            self._save_runtime_settings()
 
     def set_default_processed_dir(self, path: Union[str, Path, None]):
         """Save or clear the default processed directory."""
@@ -304,6 +334,21 @@ def set_default_source_dir(path: Union[str, Path, None]):
     settings.set_default_source_dir(path)
 
 
+def get_source_dir_favorites():
+    """Global function to retrieve the favorite source directories list."""
+    return settings.get_source_dir_favorites()
+
+
+def add_source_dir_favorite(path):
+    """Global function to add a source directory to favorites."""
+    settings.add_source_dir_favorite(path)
+
+
+def remove_source_dir_favorite(path):
+    """Global function to remove a source directory from favorites."""
+    settings.remove_source_dir_favorite(path)
+
+
 def set_default_processed_dir(path: Union[str, Path, None]):
     """Global function to save or clear the default processed directory."""
     settings.set_default_processed_dir(path)
@@ -377,8 +422,47 @@ SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 SUFFIX_RUN_MANIFEST = " - run-manifest.json"
 SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
 SUFFIX_ZIP = ".zip"
+# MD-collection bundle export (docs/spec_bundle_export_2026-07-16.md). Distinct
+# from SUFFIX_PDF/SUFFIX_WEBPAGE so the plain-concatenation bundle never clobbers
+# the designed web/pdf artifacts.
+SUFFIX_BUNDLE_DOCX = " - bundle.docx"
+SUFFIX_BUNDLE_PDF = " - bundle.pdf"
 # Published bundle artifacts a BLOCK must not leave on disk as if current (M1.B.2/F4).
-PUBLISHED_BUNDLE_SUFFIXES = [SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP]
+PUBLISHED_BUNDLE_SUFFIXES = [
+    SUFFIX_WEBPAGE, SUFFIX_WEBPAGE_SIMPLE, SUFFIX_PDF, SUFFIX_ZIP,
+    SUFFIX_BUNDLE_DOCX, SUFFIX_BUNDLE_PDF,
+]
+
+# Ordered sections for the MD-collection bundle export (SR-adjacent; see
+# docs/spec_bundle_export_2026-07-16.md#BE.2). Each entry names the config
+# suffix attr of a per-run MD artifact, a human heading, and whether it is
+# required. Kept as data (editorial content in config, not code) so the section
+# set/order/titles are editable without touching the exporter. `required`
+# sections that are absent make the bundle fail; optional ones are skipped with
+# an "N of M" log line (P2).
+# Each section has a stable `key` (used as the dialog checkbox id), a `heading`,
+# and `suffix_attrs`: an ordered candidate list -- the first artifact that exists
+# AND is non-empty is used (so the transcript is the Formatted OR YAML file,
+# whichever is present). strip_frontmatter is set only where a candidate carries
+# YAML frontmatter (harmless on the formatted file, which has none).
+BUNDLE_SECTIONS = [
+    # Abstract goes FIRST and on its own page (page_break_after) when present.
+    {"key": "abstract", "heading": "Abstract",
+     "suffix_attrs": ["SUFFIX_ABSTRACT_GEN"], "required": False,
+     "page_break_after": True},
+    {"key": "transcript", "heading": "Transcript (Format/YAML)",
+     "suffix_attrs": ["SUFFIX_FORMATTED", "SUFFIX_YAML"],
+     "required": True, "strip_frontmatter": True},
+    {"key": "topics", "heading": "Topics",
+     "suffix_attrs": ["SUFFIX_TOPICS"], "required": False},
+    {"key": "emphasis", "heading": "Emphasis",
+     "suffix_attrs": ["SUFFIX_EMPHASIS_SCORED"], "required": False},
+    {"key": "bowen", "heading": "Bowen References",
+     "suffix_attrs": ["SUFFIX_BOWEN"], "required": False},
+]
+# Default format for the bundle run-stage and the post-run dialog's initial
+# selection. "pdf" works out of the box (WeasyPrint); "docx" needs pandoc.
+BUNDLE_DEFAULT_FORMAT = "pdf"
 
 # ============================================================================
 # RELEASE GATE POLICY (M1.B — spec_unattended_robustness_2026-07-15.md)
@@ -639,6 +723,22 @@ MIN_ABSTRACT_VALIDATION_CHARS = 50
 # Abstract Settings
 ABSTRACT_TARGET_PERCENT = 0.03  # 3% of transcript word count
 ABSTRACT_MIN_WORDS = 150
+ABSTRACT_MAX_WORDS = 230        # target ceiling — keeps abstracts well under the hard max
+ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= as too long
+# Abstract generation retries: regenerate (with corrective feedback) up to this
+# many times to get a version that passes the gate's faithfulness + entity checks
+# at generation time, instead of only discovering an unfaithful abstract at publish.
+ABSTRACT_MAX_ATTEMPTS = 3
+
+
+def abstract_target_word_count(transcript_words: int) -> int:
+    """Single source for the abstract target length: ABSTRACT_TARGET_PERCENT of
+    the transcript, floored at ABSTRACT_MIN_WORDS and capped at ABSTRACT_MAX_WORDS
+    so generated abstracts stay under ABSTRACT_HARD_MAX_WORDS (< 250 words)."""
+    return min(
+        max(int(transcript_words * ABSTRACT_TARGET_PERCENT), ABSTRACT_MIN_WORDS),
+        ABSTRACT_MAX_WORDS,
+    )
 
 # Summary Structure Allocations
 SUMMARY_OPENING_PCT = 0.14
@@ -710,6 +810,11 @@ VALIDATION_MIN_UNIQUE_WORDS = 7        # Threshold for ambiguous matches
 # Fuzzy Matching Thresholds (V2)
 VALIDATION_FUZZY_AUTO_APPLY = 0.95     # 95% similarity for auto-apply
 VALIDATION_FUZZY_REVIEW = 0.90         # 90% for manual review
+# Before a correction is written, the target span must actually match the
+# correction's original_text at least this closely (recomputed on the real span,
+# not trusting the fuzzy matcher's returned span). Below this the correction is
+# SKIPPED, not applied — a mis-located span must never overwrite good text.
+VALIDATION_MIN_APPLY_SIMILARITY = 0.90
 VALIDATION_FUZZY_REJECT = 0.85         # < 85% reject
 VALIDATION_FUZZY_HALLUCINATION = 0.85  # Hallucination detection threshold
 

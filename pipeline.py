@@ -24,6 +24,7 @@ from html_generator import (
     generate_simple_webpage,
     generate_webpage,
 )
+from bundle_export import export_bundle
 from packaging_pipeline import package_transcript
 from transcript_utils import delete_logs, setup_logging
 from validation_pipeline import (
@@ -56,6 +57,7 @@ __all__ = [
     "generate_simple_webpage",
     "generate_webpage",
     "package_transcript",
+    "export_bundle",
     "delete_logs",
     "setup_logging",
 ]

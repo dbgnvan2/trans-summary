@@ -755,10 +755,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         )
 
         transcript_words = len(transcript.split())
-        target_word_count = max(
-            int(transcript_words * config.ABSTRACT_TARGET_PERCENT),
-            config.ABSTRACT_MIN_WORDS,
-        )
+        target_word_count = config.abstract_target_word_count(transcript_words)
 
         abstract_input = abstract_pipeline.prepare_abstract_input(
             metadata=metadata,

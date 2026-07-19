@@ -121,6 +121,50 @@ def _load_source_transcript(base_name: str) -> Optional[str]:
     return None
 
 
+def _filename_metadata_values(base_name: str) -> str:
+    """The recording's catalogue metadata VALUES (title, presenter, date, year
+    from the filename) as a plain space-joined string — NO labels or framing
+    words.
+
+    For LEXICAL grounding (entity_grounding). A framing sentence would make words
+    like 'recording'/'presenter'/'title' grounded source tokens, letting a
+    fabricated name that shares one of them ('Presenter Insurance') pass the hard
+    blocker (P7) — so ground on values only. The abstract legitimately states
+    these facts (the prompt supplies them) though a speaker rarely utters their
+    own name / the year, so they must count as grounded or we FALSE-BLOCK.
+    """
+    try:
+        from transcript_utils import parse_filename_metadata
+        meta = parse_filename_metadata(base_name)
+        return " ".join(str(meta[k]) for k in ("title", "presenter", "date", "year")
+                        if meta.get(k))
+    except Exception:  # best-effort; transcript alone still verifies
+        return ""
+
+
+def _source_with_metadata(base_name: str) -> Optional[str]:
+    """Transcript plus a LABELED catalogue-metadata framing block — for the LLM
+    faithfulness judge, which benefits from the labels and is not fooled by
+    framing words (unlike the lexical entity check, which must use
+    ``_filename_metadata_values``). See that function for the rationale.
+    (P20: re-run the faithfulness calibration on this change.)
+    """
+    transcript = _load_source_transcript(base_name)
+    if not transcript or not transcript.strip():
+        return transcript
+    try:
+        from transcript_utils import parse_filename_metadata
+        meta = parse_filename_metadata(base_name)
+        meta_lines = [f"{k.capitalize()}: {meta[k]}"
+                      for k in ("title", "presenter", "date", "year") if meta.get(k)]
+        if meta_lines:
+            return ("Recording metadata (from the catalogue entry): "
+                    + "; ".join(meta_lines) + "\n\n" + transcript)
+    except Exception:  # metadata is best-effort; the transcript alone still verifies
+        pass
+    return transcript
+
+
 def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     """FAIL if any narrative artifact contains a multi-word proper name absent
     from the source transcript (the fabricated-name class — a real run shipped
@@ -134,20 +178,30 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
         # not a definitive FAIL asserting the names are fabricated. ERROR -> block.
         return Verdict("entity_grounding", Status.ERROR,
                        "source transcript missing or empty — cannot verify names")
+    # Ground against the transcript + the metadata VALUES ONLY (not a framing
+    # sentence, whose words would falsely ground names — F1/P7), so the
+    # presenter's own name / the year aren't flagged as fabricated.
+    values = _filename_metadata_values(base_name)
+    source = f"{transcript}\n{values}" if values else transcript
     offending = {}
     for suffix in config.GATE_ENTITY_ARTIFACT_SUFFIXES:
         path = config.PROJECTS_DIR / base_name / f"{base_name}{suffix}"
         if not path.exists():
             continue
         names = abstract_validation.find_ungrounded_names(
-            path.read_text(encoding="utf-8"), transcript
+            path.read_text(encoding="utf-8"), source
         )
         if names:
-            offending[suffix.strip(" -")] = names
+            offending[suffix.strip(" -").removesuffix(".md")] = names
     if offending:
         flat = sorted({n for names in offending.values() for n in names})
+        arts = ", ".join(offending.keys())
+        # Actionable message naming the artifact + the unverified name(s) — renders
+        # as "entity_grounding: check failed in <artifact>: name(s) not in source:
+        # <names> — regenerate and try again".
         return Verdict("entity_grounding", Status.FAIL,
-                       f"names not found in source: {flat}",
+                       f"check failed in {arts}: name(s) not in source: "
+                       f"{', '.join(flat)} — regenerate and try again",
                        items=[{"artifact": k, "names": v} for k, v in offending.items()])
     return Verdict("entity_grounding", Status.PASS, "all proper names grounded")
 
@@ -327,7 +381,10 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
     import faithfulness_judge as fjudge
     from transcript_utils import resolve_anthropic_key
 
-    transcript = _load_source_transcript(base_name)
+    # Source includes the filename metadata (title/presenter/date/year) so a
+    # legitimate metadata-derived fact ("In this 2021 webinar…") isn't judged as
+    # fabricated. Shared with entity_grounding via _source_with_metadata.
+    transcript = _source_with_metadata(base_name)
     if not transcript or not transcript.strip():
         return Verdict("faithfulness", Status.ERROR,
                        "source transcript missing or empty — cannot verify faithfulness")
@@ -362,8 +419,11 @@ def check_faithfulness(base_name: str, logger=None) -> Verdict:
                        "no narrative artifact present to verify faithfulness")
     if fails:
         # include any co-occurring ERRORs in items so the manifest isn't lossy.
+        # Actionable message naming the artifact(s) — rendered as
+        # "faithfulness: check failed in <artifact> — regenerate and try again".
+        arts = ", ".join(f["artifact"].removesuffix(".md") for f in fails)
         return Verdict("faithfulness", Status.FAIL,
-                       f"{len(fails)} of {judged} artifact(s) contain unentailed claims",
+                       f"check failed in {arts} — regenerate and try again",
                        items=fails + errors)
     if errors:
         return Verdict("faithfulness", Status.ERROR,
