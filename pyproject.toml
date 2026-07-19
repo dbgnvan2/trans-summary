@@ -4,12 +4,25 @@ version = "0.1.0"
 description = "Automated transcript summarization and processing pipeline."
 readme = "README.md"
 requires-python = ">=3.11"
+# Runtime dependencies — the single source of truth so `pip install .` yields a
+# working install. Kept in sync with requirements.txt (which pins exact versions
+# for reproducible CI/dev installs); these are the compatible floors (review H4).
 dependencies = [
+    "anthropic>=0.75.0",
+    "beautifulsoup4>=4.12.3",
     "jsonschema>=4.26.0",
+    "Jinja2>=3.1.4",
+    "markdown-it-py>=3.0.0",
+    "pdfminer.six>=20250506",
+    "python-dotenv>=1.0.1",
+    "tiktoken>=0.8.0",
+    "weasyprint>=67.0",
 ]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.3.3",
+    "PyYAML>=6.0.2",  # imported by tests/test_overview_post.py
     "ruff>=0.14.10",
 ]
 

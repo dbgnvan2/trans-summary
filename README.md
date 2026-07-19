@@ -123,7 +123,7 @@ Formatting preflight warnings now refer to the transcript `context budget` rathe
 
 Scored emphasis parsing now supports both the older bracketed format and the newer plain-text format, for example `Explicit - A14 - Rank: 96% | Concept: ...`, so saved emphasis files continue to validate and highlight correctly.
 
-`Run All` is now fail-closed for validation gates. If format validation, header validation, abstract generation, or abstract coverage validation fails, the workflow stops instead of continuing into later artifact generation.
+`Run All` is now fail-closed for validation gates. If format validation, header validation, or abstract generation fails, the workflow stops instead of continuing into later artifact generation. (Abstract coverage validation is **advisory** — it warns but does not halt the run.)
 
 ### Initial Validation Learning
 
@@ -209,7 +209,7 @@ trans-summary/
 Global settings are managed in `config.py`. You can adjust:
 
 - **Directories**: Default locations for inputs/outputs
-- **Models**: Default Claude models (currently `DEFAULT_MODEL` = `claude-sonnet-4-20250514`, `AUX_MODEL` = `claude-3-5-haiku-20241022`, `FORMATTING_MODEL` = `claude-3-7-sonnet-20250219`)
+- **Models**: Default Claude models — `config.py` is the authoritative source. Currently `DEFAULT_MODEL` = `claude-sonnet-4-6`; `AUX_MODEL`, `FORMATTING_MODEL`, and `VALIDATION_MODEL` = `claude-haiku-4-5-20251001`
 - **Token Limits**: Safety limits for API calls
 - **Validation Thresholds**: Strictness of fuzzy matching and coverage checks
 

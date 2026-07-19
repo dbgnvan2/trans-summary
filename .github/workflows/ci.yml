@@ -10,10 +10,10 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  # M6 — strict test-validity gate. Unlike `build` below (kept lenient for the
-  # legacy 3.8-3.10 matrix), this job FAILS on a red suite: the suite is green
+  # M6 — strict test-validity gate. FAILS on a red suite: the suite is green
   # (5 known reds are xfail-annotated) and the vacuity/mutation-config/no-shadow
-  # guards run here too.
+  # guards run here too. The `build` job below also runs strict, across the
+  # supported 3.11/3.12 matrix (matches pyproject requires-python >= 3.11).
   quality-gates:
     runs-on: ubuntu-latest
     steps:
@@ -51,7 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+        # Quoted so YAML doesn't read 3.10 as the float 3.1. Matches
+        # requires-python >= 3.11; 3.12 is the primary dev/runtime version.
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout
@@ -65,19 +67,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt || true; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Syntax check (compile all .py)
         run: python -m compileall .
 
-      - name: Run tests (if pytest available)
-        run: |
-          if python - <<'PY'
-import importlib.util
-print(importlib.util.find_spec('pytest') is not None)
-PY
-          then
-            pytest -q || true
-          else
-            echo "pytest not installed; skipping tests"
-          fi
+      - name: Run tests
+        run: pytest -q

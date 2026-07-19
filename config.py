@@ -9,8 +9,10 @@ to maintain backward compatibility while enabling safer state management.
 """
 
 import json
+import logging
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import List, Union
 
@@ -62,7 +64,9 @@ class ProjectSettings:
             return
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as e:
+            logging.getLogger(__name__).warning(
+                "runtime_settings.json unreadable (%s) — resetting to empty settings", e)
             self.runtime_settings = {}
             return
 
@@ -73,6 +77,9 @@ class ProjectSettings:
         # exception escapes `import config` and takes down the GUI and every pipeline
         # stage. Reset to {} instead of crashing (review C1 / P8 corrupt-state).
         if not isinstance(data, dict):
+            logging.getLogger(__name__).warning(
+                "runtime_settings.json is not a JSON object (got %s) — resetting to empty settings",
+                type(data).__name__)
             self.runtime_settings = {}
             return
         self.runtime_settings = data
@@ -94,10 +101,29 @@ class ProjectSettings:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
 
     def _save_runtime_settings(self):
-        """Persist the current runtime settings dictionary to a file."""
+        """Persist the current runtime settings dictionary to a file, ATOMICALLY.
+
+        Write to a temp file in the same directory, then os.replace() it over the
+        target — os.replace is atomic on POSIX and Windows, so a crash / disk-full /
+        concurrent write can never leave a half-written file that the loader would then
+        discard as corrupt, zeroing the user's settings (review H3 / P8). A leftover
+        temp file from a failed write is cleaned up rather than left behind.
+        """
         path = self._runtime_settings_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self.runtime_settings, indent=2, sort_keys=True), encoding="utf-8")
+        data = json.dumps(self.runtime_settings, indent=2, sort_keys=True)
+        # uuid in the temp name so two concurrent saves (across processes OR threads)
+        # never collide on the same temp file (review sweep #3a).
+        tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp.write_text(data, encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
 
 
     def _update_derived_paths(self):
