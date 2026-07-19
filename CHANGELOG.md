@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 4: retry/config hygiene + gate observability)
+
+Fourth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M6** — retry policy (`MAX_RETRIES`, `RETRY_BACKOFF_BASE`) promoted from hard-coded literals in `call_claude_with_retry` to `config.py`.
+- **M8** — the release gate's summary log now reports error/warn counts and emits a per-check `UNVERIFIED` line for a non-blocking "could-not-verify" ERROR, so it can't ship silently inside `ALLOW_WITH_WARNINGS`.
+- **L1** — `check_entity_consistency` name regex uses `[ \t]+` (not `\s+`), so it no longer joins proper names across a newline and fabricates near-duplicate clashes (now consistent with the `find_ungrounded_names` hard blocker).
+- **L5** — added `ProjectSettings.set_validation_model()` and included `VALIDATION_MODEL` in the model-global refresh, mirroring its three siblings.
+- **L7** — lens-title stopword list moved from `extraction_pipeline` source into `config.LENS_STOPWORDS` (editorial vocabulary → config).
+
+Offline suite: 703 passed / 21 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 3: emphasis parse + config/doc hygiene)
 
 Third batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).

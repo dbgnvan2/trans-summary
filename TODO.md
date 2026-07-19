@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (16) — see CHANGELOG 2026-07-18
+### ✅ Fixed (21) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
@@ -24,9 +24,14 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
 - **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
 - **[M5]** config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku — `config.py:645`
+- **[M6]** Retry/backoff policy hard-coded at use sites, not in config.py — `transcript_utils.py:560`
+- **[M8]** A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file — `release_gate.py:554`
+- **[L1]** check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector — `release_gate.py:290`
 - **[L3]** README claims html_generator.py is 650 lines; the file is 822 — `README.md:363`
 - **[L4]** Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku — `config.py:645`
+- **[L5]** VALIDATION_MODEL lacks a setter and is not refreshed like its siblings — `config.py:47`
 - **[L6]** Prompt-caching beta header string duplicated as a magic literal — `transcript_utils.py:624`
+- **[L7]** Editorial stopword list embedded in Python source — `extraction_pipeline.py:1276`
 - **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
 
 ### ⏸ Deferred (8) — need a human/API decision, NOT done overnight
@@ -49,7 +54,7 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
 - **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
 
-### Remaining (19) — by severity
+### Remaining (14) — by severity
 
 #### Medium
 
@@ -59,12 +64,6 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[M4] ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing** — `ARCHITECTURE_DESIGN.md:82` (CONFIRMED, verify:CONFIRMED, dim=docs-accuracy)
   - Scenario: The architecture doc (last touched Apr 10, 112 lines) describes the pipeline as formatting → summarization/extraction → validation → output and never mentions the fail-closed release gate or the two armed Sonnet judges. But release_gate.py …
   - Fix: Add a section to ARCHITECTURE_DESIGN.md documenting release_gate.py and the faithfulness/theme judges (armed status, pinned FAITHFULNESS_JUDGE_MODEL/THEME_JUDGE_MODEL, fail-closed Hard-BLOCK posture, recall/precision bars in config.py:584-585 / 605-606).
-- **[M6] Retry/backoff policy hard-coded at use sites, not in config.py** — `transcript_utils.py:560` (CONFIRMED, verify:CONFIRMED→low, dim=maintainability-config)
-  - Scenario: config.py centralizes timeouts, token caps, temperatures and thresholds, but the retry policy of call_claude_with_retry is entirely inline magic constants: max_retries=3 (L560), exponential backoff `2 ** attempt` (L776, L794, L823), …
-  - Fix: Promote MAX_RETRIES, RETRY_BACKOFF_BASE, TIMEOUT_ESCALATION_FACTOR, RETRY_FALLBACK_TIMEOUT (referencing TIMEOUT_SUMMARY), and DEFAULT_MIN_RESPONSE_CHARS into config.py and reference them at these sites.
-- **[M8] A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file** — `release_gate.py:554` (CONFIRMED, verify:CONFIRMED→low, dim=observability)
-  - Scenario: An advisory check not in GATE_BLOCKING_CHECKS (required_artifacts / verbatim_quotes / timestamp_citations / entity_consistency — see DEFAULT_CHECKS at release_gate.py:536-545) raises. `_safe` (line 95-104) converts it to a Status.ERROR …
-  - Fix: In run_gate's summary log line (release_gate.py:554) also emit counts of ERROR and WARN verdicts (e.g. '... N verdict(s), E error(s), W warn(s), B blocker(s)') and log each advisory ERROR verdict at WARNING level alongside the blocker loop at line 556-557. Consider a distinct Decision value (e.g. …
 - **[M9] Run manifest omits a code-version / gate-policy stamp, so a decision can't be traced to the code or policy that produced it** — `release_gate.py:600` (CONFIRMED, verify:CONFIRMED, dim=observability)
   - Scenario: build_manifest's `provenance` block (release_gate.py:600-607) records only model IDs and the source transcript sha256. It does NOT record the git revision of the code that ran, nor which checks were treated as blocking …
   - Fix: Add to build_manifest provenance: the git short revision (reuse the subprocess pattern from ts_gui.py:_current_git_revision) and a snapshot of the effective gate policy (sorted GATE_BLOCKING_CHECKS and GATE_ERROR_BLOCKS). This makes the single manifest artifact self-describing for reproducibility.
@@ -73,18 +72,9 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Fix: Rename the header cells to match the data: 'Items'->'Model', 'Status'->'Stop Reason' in transcript_utils.py:399, and update analyze_token_usage.py:83 to read row["Model"]. Add a round-trip test asserting DictReader keys map to the intended values.
 #### Low
 
-- **[L1] check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector** — `release_gate.py:290` (CONFIRMED, verify:PLAUSIBLE, dim=correctness)
-  - Scenario: check_entity_consistency extracts names with re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", ...). Because \s+ matches newlines, two capitalized tokens on adjacent lines are fused into one bogus multi-word 'name'. Verified: input …
-  - Fix: Use [ \t]+ instead of \s+ between name words in the regex at release_gate.py:290, matching the deliberate choice in abstract_validation.find_ungrounded_names (abstract_validation.py:73).
 - **[L2] Split/inconsistent dev-dependency and specifier management across the three files** — `requirements.txt:10` (CONFIRMED, verify:PLAUSIBLE, dim=deps-build)
   - Scenario: pytest==8.3.3 (a test-only tool) is pinned in requirements.txt (the runtime deps file), while the other dev tool ruff lives in pyproject [dependency-groups].dev — two different homes for dev deps. pyproject uses a floating lower bound …
   - Fix: Consolidate dev deps (pytest + ruff) into pyproject [dependency-groups].dev, keep requirements.txt to runtime-only (or generate it), and add a ruff lint step to quality-gates so the declared dev tooling is actually run.
-- **[L5] VALIDATION_MODEL lacks a setter and is not refreshed like its siblings** — `config.py:47` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
-  - Scenario: DEFAULT_MODEL, AUX_MODEL and FORMATTING_MODEL each have a set_* method (L234-253) and are re-exported/refreshed as module globals in set_transcripts_base (L302-311), but VALIDATION_MODEL (set at L47, validated at L1007/L1012) has neither: …
-  - Fix: Add ProjectSettings.set_validation_model() mirroring the other three, and include VALIDATION_MODEL in the module-level refresh, or document explicitly that it is intentionally fixed.
-- **[L7] Editorial stopword list embedded in Python source** — `extraction_pipeline.py:1276` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
-  - Scenario: _LENS_STOPWORDS (L1276-1281) is a hand-curated 40+ word vocabulary list — including content-specific additions 'keeps'/'keep' — used by lens-title grounding (_top_lens_is_grounded, L1284). Per project rule 9 (editorial content belongs in …
-  - Fix: Move the stopword set to config.py (or a YAML vocab file) alongside the other editorial lists already centralized there (THEME_SCAFFOLDING_LABELS, FAITHFULNESS_SKIP_LINE_LABELS).
 - **[L8] Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution** — `transcript_utils.py:711` (CONFIRMED, verify:PLAUSIBLE, dim=observability)
   - Scenario: call_claude_with_retry derives the CSV 'Script Name' from `getattr(logger, 'name', 'unknown_script') if logger else 'unknown_script'` (transcript_utils.py:711-712). call_claude_with_retry defaults logger=None (line 561), and the coverage …
   - Fix: Either require a named logger on the cost-logging path, or have call_claude_with_retry accept an explicit `script_name` argument, or give verify_with_llm/validate_abstract_coverage a getLogger(__name__)-style fallback like the judges do, so no cost row is ever attributed to 'unknown_script'.
