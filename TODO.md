@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (30) — see CHANGELOG 2026-07-18
+### ✅ Fixed (33) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
@@ -33,17 +33,20 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[M8]** A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file — `release_gate.py:554`
 - **[M9]** Run manifest omits a code-version / gate-policy stamp, so a decision can't be traced to the code or policy that produced it — `release_gate.py:600`
 - **[M10]** token_usage.csv column headers mislabel the data they carry ('Items' holds the model, 'Status' holds the stop_reason) — `transcript_utils.py:399`
+- **[M11]** Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item) — `transcript_utils.py:1729`
 - **[L1]** check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector — `release_gate.py:290`
 - **[L3]** README claims html_generator.py is 650 lines; the file is 822 — `README.md:363`
 - **[L4]** Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku — `config.py:645`
 - **[L5]** VALIDATION_MODEL lacks a setter and is not refreshed like its siblings — `config.py:47`
 - **[L6]** Prompt-caching beta header string duplicated as a magic literal — `transcript_utils.py:624`
 - **[L7]** Editorial stopword list embedded in Python source — `extraction_pipeline.py:1276`
+- **[L8]** Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution — `transcript_utils.py:711`
 - **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
 - **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
+- **[L16]** base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap) — `html_generator.py:679`
 - **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
 
-### ⏸ Deferred (13) — need a human/API decision, NOT done overnight
+### ⏸ Deferred (10) — need a human/API decision, NOT done overnight
 
 - **[H9]** God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool — `extraction_pipeline.py:1354`
   - Why deferred: refactor the 462-line summarize_transcript — large structural change; wants human review
@@ -51,12 +54,8 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: cross-process settings lock (flock) — portability + design; low impact (lost update, not corruption; H3 already prevents corruption)
 - **[M7]** God-function: validate_configuration is 414 lines of linear validation — `config.py:890`
   - Why deferred: refactor the 414-line validate_configuration — large, same class as H9
-- **[M11]** Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item) — `transcript_utils.py:1729`
-  - Why deferred: pre-normalize the transcript once per stage — matcher signature change touches all callers
 - **[L2]** Split/inconsistent dev-dependency and specifier management across the three files — `requirements.txt:10`
   - Why deferred: dev-dep consolidation — pytest + PyYAML already moved to the pyproject dev group; the remainder (ruff-only tidy, keep requirements.txt runtime-only) is cosmetic
-- **[L8]** Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution — `transcript_utils.py:711`
-  - Why deferred: cost 'unknown_script' attribution — needs a script_name param threaded through call_claude_with_retry's callers (or a required-logger contract); signature change across call sites
 - **[L11]** `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline — `validation_pipeline.py:75`
   - Why deferred: _fill_prompt_template dedup — the two copies have DIVERGED (on the model arg); merging is a judgment call about which behavior is canonical
 - **[L12]** Two orphaned top-level unittest files are dead code (superseded by tests/) — `legacy_initial_validation_logic.py:13`
@@ -67,8 +66,6 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: load_prompt dedup across 5 pipeline modules — a mistake breaks prompt loading pipeline-wide
 - **[L15]** Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py — `transcript_process.py:32`
   - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
-- **[L16]** base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap) — `html_generator.py:679`
-  - Why deferred: sanitize base_name in output paths — silently sanitizing risks mismatching existing artifact filenames; needs the assert-equals-or-warn variant + a decision
 - **[L17]** mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts — `mut_harness.py:160`
   - Why deferred: mut_harness scores a suite TIMEOUT as 'killed' — changing kill/survive semantics affects the M6.A CI mutation gate; debatable (a hung mutant arguably IS caught)
 - **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 8: perf, cost attribution, path guard)
+
+- **M11** — `find_text_in_content` accepts a pre-normalized haystack; the Bowen grounding loop normalizes the transcript ONCE instead of re-normalizing it on each of its ~2 calls per ref (P9). Identical results.
+- **L8** — `call_claude_with_retry` accepts an explicit `script_name` for cost attribution; the `unknown_script` fallback now warns instead of silently losing per-stage attribution (P2).
+- **L16** — a shared `transcript_utils.base_name_is_safe()` guards all FOUR publish entry points (`generate_webpage` / `generate_simple_webpage` / `generate_pdf` / `package_transcript`) against a path-traversal `base_name` before any path build.
+
+Offline suite: 724 passed / 21 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 7: judge layer — caching, cross-process memo, model pin)
 
 Judge-layer batch from the adversarial review, calibration-verified with a live key.
