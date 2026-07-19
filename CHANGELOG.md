@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 9: L2 doc + L15 decision)
+
+- **L2** — documented the intentional `requirements.txt` (pinned CI/dev install, runtime + test tools) vs `pyproject.toml` (package metadata + dev group) split.
+- **L15** — decision: **KEEP** the standalone CLI (`transcript_process` / `transcript_extract_*` / `transcript_summarize`). It's cross-referenced across those modules and covered by `tests/test_validator_gate_hardening.py`, so it's a supported, tested entry point — not dead code.
+
+This closes the safely-automatable review work: **34 of 43 findings fixed**, L15 resolved (keep). The remaining 8 are refactors of working code / judgment calls, deferred with per-item recommendations in `TODO.md` for a human decision.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 8: perf, cost attribution, path guard)
 
 - **M11** — `find_text_in_content` accepts a pre-normalized haystack; the Bowen grounding loop normalizes the transcript ONCE instead of re-normalizing it on each of its ~2 calls per ref (P9). Identical results.
