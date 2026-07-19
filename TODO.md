@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (26) — see CHANGELOG 2026-07-18
+### ✅ Fixed (27) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
@@ -22,6 +22,7 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[H10]** O(items × transcript) fuzzy grounding scan blows up to minutes on a long transcript with ungrounded quotes — `extraction_pipeline.py:828`
 - **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
 - **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
+- **[M2]** Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog) — `extraction_pipeline.py:1118`
 - **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
 - **[M4]** ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing — `ARCHITECTURE_DESIGN.md:82`
 - **[M5]** config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku — `config.py:645`
@@ -39,7 +40,7 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
 - **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
 
-### ⏸ Deferred (8) — need a human/API decision, NOT done overnight
+### ⏸ Deferred (16) — need a human/API decision, NOT done overnight
 
 - **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
   - Why deferred: judge prompt-caching restructures the ARMED judge's input → needs P20 re-calibration (API key)
@@ -55,43 +56,28 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: refactor the 414-line validate_configuration — large, same class as H9
 - **[M11]** Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item) — `transcript_utils.py:1729`
   - Why deferred: pre-normalize the transcript once per stage — matcher signature change touches all callers
+- **[L2]** Split/inconsistent dev-dependency and specifier management across the three files — `requirements.txt:10`
+  - Why deferred: dev-dep consolidation — pytest + PyYAML already moved to the pyproject dev group; the remainder (ruff-only tidy, keep requirements.txt runtime-only) is cosmetic
+- **[L8]** Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution — `transcript_utils.py:711`
+  - Why deferred: cost 'unknown_script' attribution — needs a script_name param threaded through call_claude_with_retry's callers (or a required-logger contract); signature change across call sites
+- **[L11]** `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline — `validation_pipeline.py:75`
+  - Why deferred: _fill_prompt_template dedup — the two copies have DIVERGED (on the model arg); merging is a judgment call about which behavior is canonical
+- **[L12]** Two orphaned top-level unittest files are dead code (superseded by tests/) — `legacy_initial_validation_logic.py:13`
+  - Why deferred: delete legacy_initial_validation_logic.py — it's an UNCOLLECTED unittest for the live V1 validator; decide whether to port its V1-parsing cases to tests/ before deleting
+- **[L13]** Validator-dispatch (v1/v2 select + get_latest_version + validate + apply) copy-pasted across three ts_gui methods — `ts_gui.py:2533`
+  - Why deferred: validator-dispatch dedup across 3 ts_gui methods — a GUI refactor with real blast radius; wants human review
+- **[L14]** Five near-identical `load_prompt()` functions differing only by a config filename constant — `summary_pipeline.py:736`
+  - Why deferred: load_prompt dedup across 5 pipeline modules — a mistake breaks prompt loading pipeline-wide
 - **[L15]** Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py — `transcript_process.py:32`
   - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
+- **[L16]** base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap) — `html_generator.py:679`
+  - Why deferred: sanitize base_name in output paths — silently sanitizing risks mismatching existing artifact filenames; needs the assert-equals-or-warn variant + a decision
+- **[L17]** mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts — `mut_harness.py:160`
+  - Why deferred: mut_harness scores a suite TIMEOUT as 'killed' — changing kill/survive semantics affects the M6.A CI mutation gate; debatable (a hung mutant arguably IS caught)
 - **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
 
-### Remaining (9) — by severity
+### Remaining (0) — by severity
 
-#### Medium
-
-- **[M2] Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog)** — `extraction_pipeline.py:1118` (CONFIRMED, verify:CONFIRMED, dim=correctness)
-  - Scenario: generate_structured_abstract() runs AFTER generate_structured_summary() (see legacy_pipeline_integration.py steps 4 vs 6, and summarize_transcript writes summary/blog/overview earlier). Its regeneration loop calls _abstract_gate_precheck …
-  - Fix: Scope the generation-time precheck to the abstract only. Add an artifact-suffix filter argument to check_faithfulness (or a dedicated single-artifact judge call) and pass [config.SUFFIX_ABSTRACT_GEN] from _abstract_gate_precheck, mirroring how entity_grounding is already abstract-scoped. The full multi-artifact …
-#### Low
-
-- **[L2] Split/inconsistent dev-dependency and specifier management across the three files** — `requirements.txt:10` (CONFIRMED, verify:PLAUSIBLE, dim=deps-build)
-  - Scenario: pytest==8.3.3 (a test-only tool) is pinned in requirements.txt (the runtime deps file), while the other dev tool ruff lives in pyproject [dependency-groups].dev — two different homes for dev deps. pyproject uses a floating lower bound …
-  - Fix: Consolidate dev deps (pytest + ruff) into pyproject [dependency-groups].dev, keep requirements.txt to runtime-only (or generate it), and add a ruff lint step to quality-gates so the declared dev tooling is actually run.
-- **[L8] Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution** — `transcript_utils.py:711` (CONFIRMED, verify:PLAUSIBLE, dim=observability)
-  - Scenario: call_claude_with_retry derives the CSV 'Script Name' from `getattr(logger, 'name', 'unknown_script') if logger else 'unknown_script'` (transcript_utils.py:711-712). call_claude_with_retry defaults logger=None (line 561), and the coverage …
-  - Fix: Either require a named logger on the cost-logging path, or have call_claude_with_retry accept an explicit `script_name` argument, or give verify_with_llm/validate_abstract_coverage a getLogger(__name__)-style fallback like the judges do, so no cost row is ever attributed to 'unknown_script'.
-- **[L11] `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline** — `validation_pipeline.py:75` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
-  - Scenario: The template-fill helper (regex placeholder substitution + `{{insert_transcript_text_here}}` replacement) is defined character-for-character identically in extraction_pipeline.py:67 and validation_pipeline.py:75. If the placeholder syntax …
-  - Fix: Hoist `_fill_prompt_template` into transcript_utils (or one module) and import it in the other.
-- **[L12] Two orphaned top-level unittest files are dead code (superseded by tests/)** — `legacy_initial_validation_logic.py:13` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
-  - Scenario: legacy_initial_validation_logic.py and legacy_pipeline_integration.py are full unittest.TestCase files sitting at repo root. They are imported by nothing (grep for both module names returns zero importers) and are NOT collected by default …
-  - Fix: Delete both files (their coverage lives under tests/). If any case is unique, port it into the tests/ equivalent.
-- **[L13] Validator-dispatch (v1/v2 select + get_latest_version + validate + apply) copy-pasted across three ts_gui methods** — `ts_gui.py:2533` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
-  - Scenario: The mode='v2' vs 'v1' branch that instantiates TranscriptValidatorV2/TranscriptValidator, calls get_latest_version, then validate/validate_chunked and apply_corrections(_safe) is duplicated in three methods: _run_initial_validation …
-  - Fix: Extract one helper `_make_validator(mode)` / `_run_validation(mode, file, model)` and call it from all three sites so the model argument and dispatch stay consistent.
-- **[L14] Five near-identical `load_prompt()` functions differing only by a config filename constant** — `summary_pipeline.py:736` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
-  - Scenario: `load_prompt()` is independently defined with an identical body (build PROMPTS_DIR/<CONST>, raise FileNotFoundError if missing, read_text) in summary_pipeline.py:736, abstract_pipeline.py:446, formatting_pipeline.py:86, …
-  - Fix: Add `load_prompt(filename: str) -> str` to transcript_utils and pass the per-module constant.
-- **[L16] base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap)** — `html_generator.py:679` (SPECULATIVE, verify:PLAUSIBLE, dim=security)
-  - Scenario: generate_webpage/generate_simple_webpage/generate_pdf (html_generator.py:678-680,733-735,786-788) and package_transcript (packaging_pipeline.py:25,61) build output paths as `config.PROJECTS_DIR / base_name / f"{base_name}{SUFFIX}"` using …
-  - Fix: Run base_name through sanitize_filename() (or assert it equals its sanitized form) at the top of each generate_*/package_* entry point before constructing PROJECTS_DIR paths, so path safety does not depend on every caller remembering to pass a bare stem.
-- **[L17] mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts** — `mut_harness.py:160` (SPECULATIVE, verify:PLAUSIBLE, dim=tests)
-  - Scenario: run_suite runs pytest with `-x` (stop at first failure) and `timeout=120`; on TimeoutExpired it returns False, and False is defined as 'killed'. Killing mutants stop early via `-x` (fast), but a SURVIVING mutant runs the full green …
-  - Fix: Treat TimeoutExpired as an inconclusive/error outcome (re-run or report separately), not as a kill. At minimum distinguish returncode!=0 (a real test failure = killed) from a timeout (unknown), and surface timeouts in the campaign result so a slow survivor can't be laundered into the score.
 
 ### Systemic risks (classes, not single instances)
 

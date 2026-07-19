@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 6: abstract-regen scope)
+
+Sixth (final autonomous) batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M2** — the abstract regeneration precheck judges the abstract ONLY (new optional `suffixes` param on `check_faithfulness`), so a sibling artifact's unfaithful claim no longer misblames the abstract and burns regeneration attempts. The publish gate still judges the full narrative set (default).
+- Follow-ups: stopped enumerating the hard blockers in an in-code comment (it had drifted twice) — it now references `config.GATE_BLOCKING_CHECKS`; added a legacy-CSV consumer test for the M10 reader fallback.
+
+Offline suite: 711 passed / 21 skipped / 3 xfailed.
+
+**Autonomous pass complete: 27 of 43 review findings fixed across 6 independently-reviewed batches** (test count 664 → 711). The remaining 16 are deferred in `TODO.md` — each needs a human/API decision (judge re-calibration, an architectural refactor, or a judgment call).
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 5: manifest provenance, CSV labels, docs)
 
 Fifth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
