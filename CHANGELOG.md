@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 7: judge layer — caching, cross-process memo, model pin)
+
+Judge-layer batch from the adversarial review, calibration-verified with a live key.
+
+- **H1** — the faithfulness + theme judges now split their prompt into a cached [instructions + SOURCE] block and a per-call [claims/themes] tail, so the transcript is reused across the 4–6 judge calls per publish (the model sees identical text). Live calibration re-passed 1.0/1.0; cache-hit confirmed (call 2 `cache_read=4295`).
+- **H2** — cross-process judge memo: both armed judges now persist verdicts to a disk cache keyed on (artifact-sha, source-sha, model, **judge-logic-version**) so the CLI's per-subprocess publish steps don't re-run the judge. The logic version hashes prompt + extraction config + `JUDGE_LOGIC_VERSION`, so a stricter judge can never serve a laxer cached PASS (fail-open guard). ERROR never cached (P1); corrupt→empty (P8); atomic write.
+- **H12** — `claude-sonnet-4-6` has no published dated snapshot, so the "PINNED" comment was corrected to disclose the residual server-side-resolution risk, and `tests/test_judge_model_pin.py` now fails on any silent change to a judge-model constant (forcing re-calibration).
+
+Offline suite green; live calibration re-passed (gold + real-artifact + theme, 1.0/1.0).
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 6: abstract-regen scope)
 
 Sixth (final autonomous) batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).

@@ -10,9 +10,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (27) — see CHANGELOG 2026-07-18
+### ✅ Fixed (30) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
+- **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
+- **[H2]** Process-lifetime judge memo is defeated by the CLI orchestrator's subprocess-per-publish-step model — gate + armed judges run 4x/publish — `release_gate.py:354`
 - **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
 - **[H4]** pyproject.toml under-declares runtime deps: only jsonschema listed, so `pip install .` yields a broken install — `pyproject.toml:7`
 - **[H5]** CI build matrix (3.8/3.9/3.10) contradicts requires-python>=3.11 AND the code's real >=3.10 floor; failures masked by `|| true` so it can never fail — `.github/workflows/ci.yml:56`
@@ -21,6 +23,7 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[H8]** Default 'V2 (Safe)' initial validator swallows transient API/parse failures and silently drops a chunk's findings (fail-open) — `transcript_initial_validation_v2.py:233`
 - **[H10]** O(items × transcript) fuzzy grounding scan blows up to minutes on a long transcript with ungrounded quotes — `extraction_pipeline.py:828`
 - **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
+- **[H12]** Faithfulness and theme judge models are floating aliases, NOT date-pinned snapshots — comment claims 'PINNED' but the value has no date suffix (P20/P6) — `config.py:548`
 - **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
 - **[M2]** Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog) — `extraction_pipeline.py:1118`
 - **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
@@ -40,16 +43,10 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
 - **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
 
-### ⏸ Deferred (16) — need a human/API decision, NOT done overnight
+### ⏸ Deferred (13) — need a human/API decision, NOT done overnight
 
-- **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
-  - Why deferred: judge prompt-caching restructures the ARMED judge's input → needs P20 re-calibration (API key)
-- **[H2]** Process-lifetime judge memo is defeated by the CLI orchestrator's subprocess-per-publish-step model — gate + armed judges run 4x/publish — `release_gate.py:354`
-  - Why deferred: persist the judge memo across subprocesses — architectural; needs a design decision
 - **[H9]** God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool — `extraction_pipeline.py:1354`
   - Why deferred: refactor the 462-line summarize_transcript — large structural change; wants human review
-- **[H12]** Faithfulness and theme judge models are floating aliases, NOT date-pinned snapshots — comment claims 'PINNED' but the value has no date suffix (P20/P6) — `config.py:548`
-  - Why deferred: pin judge models to a dated snapshot — needs the real snapshot ID; a wrong pin breaks the judge
 - **[M1]** Cross-process last-writer-wins read-modify-write on runtime_settings.json — `config.py:85`
   - Why deferred: cross-process settings lock (flock) — portability + design; low impact (lost update, not corruption; H3 already prevents corruption)
 - **[M7]** God-function: validate_configuration is 414 lines of linear validation — `config.py:890`
