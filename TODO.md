@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (10) — see CHANGELOG 2026-07-18
+### ✅ Fixed (16) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
@@ -22,6 +22,12 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[H10]** O(items × transcript) fuzzy grounding scan blows up to minutes on a long transcript with ungrounded quotes — `extraction_pipeline.py:828`
 - **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
 - **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
+- **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
+- **[M5]** config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku — `config.py:645`
+- **[L3]** README claims html_generator.py is 650 lines; the file is 822 — `README.md:363`
+- **[L4]** Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku — `config.py:645`
+- **[L6]** Prompt-caching beta header string duplicated as a magic literal — `transcript_utils.py:624`
+- **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
 
 ### ⏸ Deferred (8) — need a human/API decision, NOT done overnight
 
@@ -43,22 +49,16 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
 - **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
 
-### Remaining (25) — by severity
+### Remaining (19) — by severity
 
 #### Medium
 
 - **[M2] Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog)** — `extraction_pipeline.py:1118` (CONFIRMED, verify:CONFIRMED, dim=correctness)
   - Scenario: generate_structured_abstract() runs AFTER generate_structured_summary() (see legacy_pipeline_integration.py steps 4 vs 6, and summarize_transcript writes summary/blog/overview earlier). Its regeneration loop calls _abstract_gate_precheck …
   - Fix: Scope the generation-time precheck to the abstract only. Add an artifact-suffix filter argument to check_faithfulness (or a dedicated single-artifact judge call) and pass [config.SUFFIX_ABSTRACT_GEN] from _abstract_gate_precheck, mirroring how entity_grounding is already abstract-scoped. The full multi-artifact …
-- **[M3] Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign** — `transcript_utils.py:1499` (CONFIRMED, verify:CONFIRMED→low, dim=correctness)
-  - Scenario: parse_scored_emphasis_output header pattern 1 captures the score with the class [^\]%\n]+, which INCLUDES the pipe character, and the '%' is optional (%?). For the real, %-terminated format ([Explicit - A2 - Rank: 92% | 00:04:09]) the '%' …
-  - Fix: Exclude '|' from the score character class (e.g. (?P<score>[^\]%|\n]+)) in both header_patterns, or parse/strip the optional '| HH:MM:SS' timestamp before the score. Add a round-trip test with a %-less, timestamped header asserting the correct score and preserved timestamp.
 - **[M4] ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing** — `ARCHITECTURE_DESIGN.md:82` (CONFIRMED, verify:CONFIRMED, dim=docs-accuracy)
   - Scenario: The architecture doc (last touched Apr 10, 112 lines) describes the pipeline as formatting → summarization/extraction → validation → output and never mentions the fail-closed release gate or the two armed Sonnet judges. But release_gate.py …
   - Fix: Add a section to ARCHITECTURE_DESIGN.md documenting release_gate.py and the faithfulness/theme judges (armed status, pinned FAITHFULNESS_JUDGE_MODEL/THEME_JUDGE_MODEL, fail-closed Hard-BLOCK posture, recall/precision bars in config.py:584-585 / 605-606).
-- **[M5] config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku** — `config.py:645` (CONFIRMED, verify:CONFIRMED→low, dim=docs-accuracy)
-  - Scenario: config.py:643-645 documents the model defaults inline: '# Defaults: DEFAULT_MODEL = claude-sonnet-4-6 / AUX_MODEL = claude-haiku-4-5-20251001 / FORMATTING_MODEL = claude-sonnet-4-6'. The FORMATTING line is wrong — config.py:46 sets …
-  - Fix: Change config.py:645 to 'FORMATTING_MODEL = claude-haiku-4-5-20251001' to match config.py:46.
 - **[M6] Retry/backoff policy hard-coded at use sites, not in config.py** — `transcript_utils.py:560` (CONFIRMED, verify:CONFIRMED→low, dim=maintainability-config)
   - Scenario: config.py centralizes timeouts, token caps, temperatures and thresholds, but the retry policy of call_claude_with_retry is entirely inline magic constants: max_retries=3 (L560), exponential backoff `2 ** attempt` (L776, L794, L823), …
   - Fix: Promote MAX_RETRIES, RETRY_BACKOFF_BASE, TIMEOUT_ESCALATION_FACTOR, RETRY_FALLBACK_TIMEOUT (referencing TIMEOUT_SUMMARY), and DEFAULT_MIN_RESPONSE_CHARS into config.py and reference them at these sites.
@@ -79,27 +79,15 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L2] Split/inconsistent dev-dependency and specifier management across the three files** — `requirements.txt:10` (CONFIRMED, verify:PLAUSIBLE, dim=deps-build)
   - Scenario: pytest==8.3.3 (a test-only tool) is pinned in requirements.txt (the runtime deps file), while the other dev tool ruff lives in pyproject [dependency-groups].dev — two different homes for dev deps. pyproject uses a floating lower bound …
   - Fix: Consolidate dev deps (pytest + ruff) into pyproject [dependency-groups].dev, keep requirements.txt to runtime-only (or generate it), and add a ruff lint step to quality-gates so the declared dev tooling is actually run.
-- **[L3] README claims html_generator.py is 650 lines; the file is 822** — `README.md:363` (CONFIRMED, verify:PLAUSIBLE, dim=docs-accuracy)
-  - Scenario: README:363 labels the architecture box 'html_generator.py (650 lines)' and README:381 boasts '59% code reduction ... (1,584 → 650 lines)'. The file is now 822 lines (wc -l). The '650' figure and the derived 59%-reduction claim are stale — …
-  - Fix: Update README.md:363 and :381 to the current line count (822) or drop the specific line-count claim, which will keep drifting.
-- **[L4] Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku** — `config.py:645` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
-  - Scenario: The defaults comment block at L642-645 states `FORMATTING_MODEL = "claude-sonnet-4-6"`, but the actual assignment at L46 is `self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"` (comment there correctly says Haiku suffices). A developer or …
-  - Fix: Update the L645 comment to claude-haiku-4-5, or delete the redundant defaults comment block entirely since the assignments at L44-47 are the source of truth.
 - **[L5] VALIDATION_MODEL lacks a setter and is not refreshed like its siblings** — `config.py:47` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
   - Scenario: DEFAULT_MODEL, AUX_MODEL and FORMATTING_MODEL each have a set_* method (L234-253) and are re-exported/refreshed as module globals in set_transcripts_base (L302-311), but VALIDATION_MODEL (set at L47, validated at L1007/L1012) has neither: …
   - Fix: Add ProjectSettings.set_validation_model() mirroring the other three, and include VALIDATION_MODEL in the module-level refresh, or document explicitly that it is intentionally fixed.
-- **[L6] Prompt-caching beta header string duplicated as a magic literal** — `transcript_utils.py:624` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
-  - Scenario: The literal `{"anthropic-beta": "prompt-caching-2024-07-31"}` is hard-coded at both the streaming (L624) and non-streaming (L634) call sites. When Anthropic graduates or renames the beta flag, an editor must find and change both copies; …
-  - Fix: Define a single ANTHROPIC_BETA_HEADERS constant in config.py and reference it at both call sites.
 - **[L7] Editorial stopword list embedded in Python source** — `extraction_pipeline.py:1276` (CONFIRMED, verify:PLAUSIBLE, dim=maintainability-config)
   - Scenario: _LENS_STOPWORDS (L1276-1281) is a hand-curated 40+ word vocabulary list — including content-specific additions 'keeps'/'keep' — used by lens-title grounding (_top_lens_is_grounded, L1284). Per project rule 9 (editorial content belongs in …
   - Fix: Move the stopword set to config.py (or a YAML vocab file) alongside the other editorial lists already centralized there (THEME_SCAFFOLDING_LABELS, FAITHFULNESS_SKIP_LINE_LABELS).
 - **[L8] Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution** — `transcript_utils.py:711` (CONFIRMED, verify:PLAUSIBLE, dim=observability)
   - Scenario: call_claude_with_retry derives the CSV 'Script Name' from `getattr(logger, 'name', 'unknown_script') if logger else 'unknown_script'` (transcript_utils.py:711-712). call_claude_with_retry defaults logger=None (line 561), and the coverage …
   - Fix: Either require a named logger on the cost-logging path, or have call_claude_with_retry accept an explicit `script_name` argument, or give verify_with_llm/validate_abstract_coverage a getLogger(__name__)-style fallback like the judges do, so no cost row is ever attributed to 'unknown_script'.
-- **[L9] Git revision is cached as 'unknown' for the whole session after a single git failure** — `ts_gui.py:186` (CONFIRMED, verify:PLAUSIBLE, dim=observability)
-  - Scenario: _current_git_revision caches into module-level _GIT_REVISION_CACHE on first call (ts_gui.py:177-188). If the first `git rev-parse` fails for any transient/environmental reason (git not on PATH at launch, cwd not yet a repo, permission …
-  - Fix: Do not cache the failure sentinel: only memoize a successful revision, and re-attempt on 'unknown' (or drop the cache entirely — the subprocess is cheap and called rarely).
 - **[L10] Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift)** — `prompts/Abstract Generation Prompt v1.md:5` (CONFIRMED, verify:PLAUSIBLE, dim=prompts)
   - Scenario: The abstract prompt embeds the length ceiling as prose: 'never more than 249 words' (line 5) and 'the abstract must be under 250 words' (line 19). The same ceiling lives in config.py:727 (ABSTRACT_HARD_MAX_WORDS = 250) which validation …
   - Fix: Inject the hard ceiling into the prompt from config (e.g. a {hard_max_words} placeholder fed from ABSTRACT_HARD_MAX_WORDS) instead of the literal 249/250, so the prompt and the validation gate share one source of truth.

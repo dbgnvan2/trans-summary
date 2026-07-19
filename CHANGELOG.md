@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 3: emphasis parse + config/doc hygiene)
+
+Third batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M3** — scored-emphasis parser: pattern-1 score class now excludes `|`, so a `%`-less header carrying a timestamp (`[... Rank: 92 | 00:04:09]`) parses `score=92, timestamp=00:04:09` instead of averaging the digits to `26` and dropping the timestamp.
+- **M5/L4** — removed the drifted inline "Defaults:" model-ID comment in `config.py` (`__init__` is the source of truth).
+- **L3** — README `html_generator.py` line count 650 → 822 (48%, not 59%, reduction).
+- **L6** — `"prompt-caching-2024-07-31"` beta header hoisted to `config.ANTHROPIC_CACHE_BETA_HEADER` (single source of truth).
+- **L9** — `_current_git_revision` no longer caches a git failure as `unknown` for the whole session; it retries on the next call.
+
+Offline suite: 696 passed / 21 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 2: H3-H7 + CI/deps hygiene)
 
 Second batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
