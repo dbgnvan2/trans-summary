@@ -184,7 +184,9 @@ def _current_git_revision():
             stderr=subprocess.DEVNULL,
         ).strip()
     except Exception:
-        revision = "unknown"
+        # Do NOT cache the failure — a transient git hiccup shouldn't pin the whole
+        # session to "unknown"; retry on the next call (review L9 / P1).
+        return "unknown"
     _GIT_REVISION_CACHE = revision
     return revision
 

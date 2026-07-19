@@ -692,10 +692,10 @@ VALIDATION_MEMORY_FILENAME = "validation_memory.json"
 VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
 VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 
-# Model variables moved into ProjectSettings and exposed as globals
-# Defaults: DEFAULT_MODEL = "claude-sonnet-4-6"
-#           AUX_MODEL = "claude-haiku-4-5-20251001"
-#           FORMATTING_MODEL = "claude-sonnet-4-6"
+# Model variables live on ProjectSettings (DEFAULT_MODEL / AUX_MODEL /
+# FORMATTING_MODEL / VALIDATION_MODEL, set in __init__) and are proxied as module
+# globals. See __init__ for the current default values — they are NOT duplicated
+# here (the old inline "Defaults:" list had drifted from the code; review M5/L4).
 
 # Default Summary Word Count
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
@@ -821,6 +821,10 @@ FUZZY_MATCH_PREFIX_LEN = 20
 # below FUZZY_MATCH_THRESHOLD so it can never drop a quote that would actually match
 # (review H10 / P9).
 FUZZY_MATCH_PREFILTER_MIN_COVERAGE = 0.5
+
+# Anthropic beta header for prompt caching — single source of truth for the value
+# duplicated across transcript_utils call sites (review L6 / P4).
+ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
 
 # Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
 # the opening words), so a quote whose first words are verbatim but whose

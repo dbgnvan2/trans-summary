@@ -626,7 +626,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
                     **call_kwargs
                 ) as stream_manager:
                     message = stream_manager.get_final_message()
@@ -636,7 +636,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
                     **call_kwargs
                 )
 
@@ -1501,7 +1501,7 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     header_patterns = [
         re.compile(
             r'^\s*(?:[-*>]+\s+)?(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*'
-            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%|\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
             r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
             re.MULTILINE,
         ),

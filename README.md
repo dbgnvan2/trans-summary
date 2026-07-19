@@ -360,7 +360,7 @@ The HTML generation system uses Jinja2 templates for clean separation of logic a
 
 **Architecture:**
 ```
-html_generator.py (650 lines)
+html_generator.py (822 lines)
   ├─ Template setup & CSS loading
   ├─ Helper functions (metadata formatting)
   ├─ Highlighting logic (word matching, entity handling)
@@ -378,7 +378,7 @@ templates/
 ```
 
 **Benefits:**
-- 59% code reduction in Python file (1,584 → 650 lines)
+- 48% code reduction in Python file (1,584 → 822 lines)
 - Designers can modify HTML/CSS without touching Python
 - Template inheritance reduces duplication
 - Auto-escaping prevents XSS attacks

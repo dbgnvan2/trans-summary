@@ -26,3 +26,9 @@ def test_h6_readme_has_no_stale_model_ids():
 def test_h7_readme_does_not_claim_abstract_coverage_halts():
     assert "abstract coverage validation fails, the workflow stops" not in README, (
         "README still claims abstract-coverage failure halts Run All (it is advisory)")
+
+
+def test_l3_readme_html_generator_line_count_not_stale():
+    assert "650 lines" not in README, (
+        "README still cites the stale 650-line count for html_generator.py (now 822)")
+
