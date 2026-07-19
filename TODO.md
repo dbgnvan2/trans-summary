@@ -6,47 +6,47 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
-## 2026-07-18 — Adversarial code-review findings (top 5 fixed; rest tracked here)
+## 2026-07-18 — Adversarial code-review findings
 
-Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). **Top 5 FIXED this session** (tests + CHANGELOG): C1 config-import crash, H8 v2 validator fail-open, H10 grounding-scan blow-up, H11 faithfulness gate bypass, H13 stored XSS.
+Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-Remaining findings below, by severity. `verify:` is the independent verification verdict — `→X` means it re-rated the finder's severity. `CONFIRMED` = a concrete trigger was traced; `PLAUSIBLE` = real smell, no confirmed trigger.
+### ✅ Fixed (10) — see CHANGELOG 2026-07-18
 
-### High
+- **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
+- **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
+- **[H4]** pyproject.toml under-declares runtime deps: only jsonschema listed, so `pip install .` yields a broken install — `pyproject.toml:7`
+- **[H5]** CI build matrix (3.8/3.9/3.10) contradicts requires-python>=3.11 AND the code's real >=3.10 floor; failures masked by `|| true` so it can never fail — `.github/workflows/ci.yml:56`
+- **[H6]** README lists all three default model IDs, none of which match config.py — `README.md:211`
+- **[H7]** README says abstract-coverage failure halts 'Run All' — code made it advisory (contradicts README line 23 too) — `README.md:126`
+- **[H8]** Default 'V2 (Safe)' initial validator swallows transient API/parse failures and silently drops a chunk's findings (fail-open) — `transcript_initial_validation_v2.py:233`
+- **[H10]** O(items × transcript) fuzzy grounding scan blows up to minutes on a long transcript with ungrounded quotes — `extraction_pipeline.py:828`
+- **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
+- **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
 
-- **[H1] Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste** — `faithfulness_judge.py:228` (CONFIRMED, verify:CONFIRMED, dim=caching-cost)
-  - Scenario: With the judges ARMED (config.FAITHFULNESS_JUDGE_ENABLED=True, THEME_JUDGE_ENABLED=True), a single release_gate.run_gate() makes 6 Sonnet judge calls per run — 4 narrative (abstract/summary/overview/blog via check_faithfulness) + 2 theme …
-  - Fix: Put the transcript in a cached system message shared across all judge calls (create_system_message_with_cache(source) passed as system=), and move only the small per-artifact claims into the user message — so the transcript prefix is written once and cache-READ for the remaining 5 calls. ARITHMETIC (assumptions …
-- **[H2] Process-lifetime judge memo is defeated by the CLI orchestrator's subprocess-per-publish-step model — gate + armed judges run 4x/publish** — `release_gate.py:354` (CONFIRMED, verify:CONFIRMED→medium, dim=caching-cost)
-  - Scenario: _FAITHFULNESS_CACHE and _THEME_JUDGE_CACHE (release_gate.py:354/442) are module-level, process-lifetime dicts. The CLI batch orchestrator transcript_process.py runs each publish step as a SEPARATE `subprocess.run([PYTHON, script])` …
-  - Fix: Wire a single orchestrator-level gate (gate_and_report) once per publish and pass the ALLOW decision to the individual webpage/pdf/package writers, OR persist the judge memo to disk keyed on (artifact-sha, source-sha) so it survives subprocess boundaries. Cost note: Anthropic's server-side ephemeral cache (5-min TTL, …
-- **[H3] Non-atomic write + silent {} reset loses ALL persisted settings on a partial write** — `config.py:89` (CONFIRMED, verify:CONFIRMED→low, dim=concurrency-state)
-  - Scenario: _save_runtime_settings writes with `path.write_text(json.dumps(...))` (config.py:89) — no temp-file+os.replace, no fsync, no lock. If the process is killed / crashes / hits disk-full mid-write, or two writers interleave, the file is left …
-  - Fix: Write atomically: dump to `path.with_suffix('.json.tmp')`, fsync, then `os.replace(tmp, path)` so a partial write can never replace the good file. When _load falls into the JSONDecodeError branch, log a WARNING (and ideally back up the corrupt file) rather than silently zeroing state.
-- **[H4] pyproject.toml under-declares runtime deps: only jsonschema listed, so `pip install .` yields a broken install** — `pyproject.toml:7` (CONFIRMED, verify:CONFIRMED→medium, dim=deps-build)
-  - Scenario: pyproject `dependencies = ["jsonschema>=4.26.0"]` is the ONLY declared runtime dep, yet requirements.txt lists 9 real runtime deps (anthropic, beautifulsoup4, Jinja2, markdown-it-py, pdfminer.six, weasyprint, tiktoken, python-dotenv). The …
-  - Fix: Make pyproject the single source of truth: move the full runtime dep set from requirements.txt into [project].dependencies (or generate requirements.txt from pyproject). At minimum add anthropic, Jinja2, weasyprint, beautifulsoup4, tiktoken, pdfminer.six, markdown-it-py, python-dotenv so `pip install .` produces a …
-- **[H5] CI build matrix (3.8/3.9/3.10) contradicts requires-python>=3.11 AND the code's real >=3.10 floor; failures masked by `|| true` so it can never fail** — `.github/workflows/ci.yml:56` (CONFIRMED, verify:CONFIRMED→low, dim=deps-build)
-  - Scenario: The `build` job matrix declares python-version [3.8, 3.9, 3.10, 3.11], but (a) pyproject requires-python is `>=3.11` and ruff target-version is py311, and (b) the code actually requires >=3.10: extraction_pipeline.py:667 `transcript_text: …
-  - Fix: Drop 3.8/3.9/3.10 from the build matrix to match requires-python>=3.11 (or lower the floor and add `from __future__ import annotations`). Remove the `|| true` guards so import/test failures actually fail CI; keep compileall as an additional check, not the only gating one.
-- **[H6] README lists all three default model IDs, none of which match config.py** — `README.md:211` (CONFIRMED, verify:CONFIRMED, dim=docs-accuracy)
-  - Scenario: A reader who wants to know which models the pipeline runs consults README §Configuration line 211 and is told `DEFAULT_MODEL = claude-sonnet-4-20250514`, `AUX_MODEL = claude-3-5-haiku-20241022`, `FORMATTING_MODEL = …
-  - Fix: Update README.md:211 to the actual config.py:44-47 defaults (sonnet-4-6 / haiku-4-5 / haiku-4-5), and add VALIDATION_MODEL. Better: reference config.py as the single source of truth instead of duplicating the literals.
-- **[H7] README says abstract-coverage failure halts 'Run All' — code made it advisory (contradicts README line 23 too)** — `README.md:126` (CONFIRMED, verify:CONFIRMED→medium, dim=docs-accuracy)
-  - Scenario: README:126 states: 'If format validation, header validation, abstract generation, or abstract coverage validation fails, the workflow stops instead of continuing.' A user whose abstract-coverage check FAILs expects the run to abort. It …
-  - Fix: Remove 'abstract coverage validation' from the halt list in README.md:126 to match the advisory behavior in ts_gui.py:2179-2202 / validation_pipeline.py:691 and the corrected statement at README.md:23.
-- **[H9] God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool** — `extraction_pipeline.py:1354` (CONFIRMED, verify:CONFIRMED→medium, dim=maintainability-config)
-  - Scenario: summarize_transcript (L1354-1815, 462 lines, 11 parameters) orchestrates lens generation, back-validation/regeneration retry loops (L1517+), abstract capping, structured summary, blog, and overview in a single body wrapped in one …
-  - Fix: Extract each stage (lenses+validation loop, abstract, structured summary, blog, overview) into its own function returning a typed result (stage name + ok/err), and have summarize_transcript compose them and aggregate results instead of a single bool. Narrow the outer try/except so per-stage failures are attributable.
-- **[H12] Faithfulness and theme judge models are floating aliases, NOT date-pinned snapshots — comment claims 'PINNED' but the value has no date suffix (P20/P6)** — `config.py:548` (CONFIRMED, verify:PLAUSIBLE→low, dim=prompts)
-  - Scenario: FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6" (config.py:548) and THEME_JUDGE_MODEL = "claude-sonnet-4-6" (config.py:598) carry no dated snapshot suffix, unlike every sibling model constant that IS pinned …
-  - Fix: Pin both judge constants to the dated snapshot the gold set was calibrated on (e.g. 'claude-sonnet-4-6-YYYYMMDD'), matching the AUX_MODEL convention, and add a startup/CI assertion that the judge model string contains a date suffix so a future edit back to a bare alias fails loudly.
+### ⏸ Deferred (8) — need a human/API decision, NOT done overnight
 
-### Medium
+- **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
+  - Why deferred: judge prompt-caching restructures the ARMED judge's input → needs P20 re-calibration (API key)
+- **[H2]** Process-lifetime judge memo is defeated by the CLI orchestrator's subprocess-per-publish-step model — gate + armed judges run 4x/publish — `release_gate.py:354`
+  - Why deferred: persist the judge memo across subprocesses — architectural; needs a design decision
+- **[H9]** God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool — `extraction_pipeline.py:1354`
+  - Why deferred: refactor the 462-line summarize_transcript — large structural change; wants human review
+- **[H12]** Faithfulness and theme judge models are floating aliases, NOT date-pinned snapshots — comment claims 'PINNED' but the value has no date suffix (P20/P6) — `config.py:548`
+  - Why deferred: pin judge models to a dated snapshot — needs the real snapshot ID; a wrong pin breaks the judge
+- **[M1]** Cross-process last-writer-wins read-modify-write on runtime_settings.json — `config.py:85`
+  - Why deferred: cross-process settings lock (flock) — portability + design; low impact (lost update, not corruption; H3 already prevents corruption)
+- **[M7]** God-function: validate_configuration is 414 lines of linear validation — `config.py:890`
+  - Why deferred: refactor the 414-line validate_configuration — large, same class as H9
+- **[M11]** Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item) — `transcript_utils.py:1729`
+  - Why deferred: pre-normalize the transcript once per stage — matcher signature change touches all callers
+- **[L15]** Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py — `transcript_process.py:32`
+  - Why deferred: confirm/remove the standalone CLI pipeline — needs a decision on whether it's still supported
+- **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
 
-- **[M1] Cross-process last-writer-wins read-modify-write on runtime_settings.json** — `config.py:85` (CONFIRMED, verify:CONFIRMED→low, dim=concurrency-state)
-  - Scenario: Each process loads the entire settings dict into memory once at startup (config.py:57-67) and every setter (set_default_source_dir, add_source_dir_favorite, save_stage_selection, etc.) mutates that in-memory copy and rewrites the WHOLE …
-  - Fix: Serialize writes with a file lock (e.g. an flock/portalocker around a read-modify-write), or re-read the on-disk file immediately before mutating-and-writing so concurrent additions from other processes are preserved rather than clobbered.
+### Remaining (25) — by severity
+
+#### Medium
+
 - **[M2] Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog)** — `extraction_pipeline.py:1118` (CONFIRMED, verify:CONFIRMED, dim=correctness)
   - Scenario: generate_structured_abstract() runs AFTER generate_structured_summary() (see legacy_pipeline_integration.py steps 4 vs 6, and summarize_transcript writes summary/blog/overview earlier). Its regeneration loop calls _abstract_gate_precheck …
   - Fix: Scope the generation-time precheck to the abstract only. Add an artifact-suffix filter argument to check_faithfulness (or a dedicated single-artifact judge call) and pass [config.SUFFIX_ABSTRACT_GEN] from _abstract_gate_precheck, mirroring how entity_grounding is already abstract-scoped. The full multi-artifact …
@@ -62,9 +62,6 @@ Remaining findings below, by severity. `verify:` is the independent verification
 - **[M6] Retry/backoff policy hard-coded at use sites, not in config.py** — `transcript_utils.py:560` (CONFIRMED, verify:CONFIRMED→low, dim=maintainability-config)
   - Scenario: config.py centralizes timeouts, token caps, temperatures and thresholds, but the retry policy of call_claude_with_retry is entirely inline magic constants: max_retries=3 (L560), exponential backoff `2 ** attempt` (L776, L794, L823), …
   - Fix: Promote MAX_RETRIES, RETRY_BACKOFF_BASE, TIMEOUT_ESCALATION_FACTOR, RETRY_FALLBACK_TIMEOUT (referencing TIMEOUT_SUMMARY), and DEFAULT_MIN_RESPONSE_CHARS into config.py and reference them at these sites.
-- **[M7] God-function: validate_configuration is 414 lines of linear validation** — `config.py:890` (CONFIRMED, verify:CONFIRMED→low, dim=maintainability-config)
-  - Scenario: validate_configuration (L890-1303, 414 lines) hand-maintains parallel dicts for token limits, temperatures, timeouts, percentages, word counts, char counts, prompt files, and confidence sets. Every new config constant must be manually …
-  - Fix: Drive validation from a declarative table (name -> constraint type) or introspect module-level constants by naming convention (MAX_TOKENS_*, TIMEOUT_*, TEMP_*, *_PCT), so adding a constant auto-enrolls it. Split the directory/model/numeric/prompt/consistency sections into helper functions.
 - **[M8] A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file** — `release_gate.py:554` (CONFIRMED, verify:CONFIRMED→low, dim=observability)
   - Scenario: An advisory check not in GATE_BLOCKING_CHECKS (required_artifacts / verbatim_quotes / timestamp_citations / entity_consistency — see DEFAULT_CHECKS at release_gate.py:536-545) raises. `_safe` (line 95-104) converts it to a Status.ERROR …
   - Fix: In run_gate's summary log line (release_gate.py:554) also emit counts of ERROR and WARN verdicts (e.g. '... N verdict(s), E error(s), W warn(s), B blocker(s)') and log each advisory ERROR verdict at WARNING level alongside the blocker loop at line 556-557. Consider a distinct Decision value (e.g. …
@@ -74,11 +71,7 @@ Remaining findings below, by severity. `verify:` is the independent verification
 - **[M10] token_usage.csv column headers mislabel the data they carry ('Items' holds the model, 'Status' holds the stop_reason)** — `transcript_utils.py:399` (CONFIRMED, verify:CONFIRMED→low, dim=observability)
   - Scenario: log_token_usage writes the header row ['Timestamp','Script Name','Items','Status','Cache','Tokens Sent','Tokens Response','Cache Creation Tokens','Cache Read Tokens','Estimated Cost ($)'] (line 399-401) but the data row writes [timestamp, …
   - Fix: Rename the header cells to match the data: 'Items'->'Model', 'Status'->'Stop Reason' in transcript_utils.py:399, and update analyze_token_usage.py:83 to read row["Model"]. Add a round-trip test asserting DictReader keys map to the intended values.
-- **[M11] Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item)** — `transcript_utils.py:1729` (CONFIRMED, verify:CONFIRMED→low, dim=performance-scale)
-  - Scenario: find_text_in_content calls normalize_text(haystack, aggressive=...) on line 1729 on EVERY invocation, and it is invoked once (emphasis) to three times (Bowen: compact + full + timestamp) per extracted item inside per-item loops …
-  - Fix: Normalize the transcript ONCE per extraction stage and pass the pre-normalized haystack (and its word list) into the matcher, or add an lru_cache keyed on the haystack identity. Both the aggressive and non-aggressive normalized forms can be computed once before the item loop.
-
-### Low
+#### Low
 
 - **[L1] check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector** — `release_gate.py:290` (CONFIRMED, verify:PLAUSIBLE, dim=correctness)
   - Scenario: check_entity_consistency extracts names with re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b", ...). Because \s+ matches newlines, two capitalized tokens on adjacent lines are fused into one bogus multi-word 'name'. Verified: input …
@@ -122,9 +115,6 @@ Remaining findings below, by severity. `verify:` is the independent verification
 - **[L14] Five near-identical `load_prompt()` functions differing only by a config filename constant** — `summary_pipeline.py:736` (CONFIRMED, verify:PLAUSIBLE, dim=redundant-dead)
   - Scenario: `load_prompt()` is independently defined with an identical body (build PROMPTS_DIR/<CONST>, raise FileNotFoundError if missing, read_text) in summary_pipeline.py:736, abstract_pipeline.py:446, formatting_pipeline.py:86, …
   - Fix: Add `load_prompt(filename: str) -> str` to transcript_utils and pass the per-module constant.
-- **[L15] Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py** — `transcript_process.py:32` (SPECULATIVE, verify:PLAUSIBLE, dim=redundant-dead)
-  - Scenario: transcript_process.py orchestrates a subprocess-based pipeline (SUMMARIZE_SCRIPT = transcript_summarize.py, plus transcript_extract_bowen/emphasis/terms) that duplicates the summarization/extraction now implemented in …
-  - Fix: Confirm whether the CLI path is still supported; if not, remove transcript_process.py/transcript_summarize.py/transcript_extract_* or document them as the sole supported CLI and delete the duplicated logic from whichever is dead.
 - **[L16] base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap)** — `html_generator.py:679` (SPECULATIVE, verify:PLAUSIBLE, dim=security)
   - Scenario: generate_webpage/generate_simple_webpage/generate_pdf (html_generator.py:678-680,733-735,786-788) and package_transcript (packaging_pipeline.py:25,61) build output paths as `config.PROJECTS_DIR / base_name / f"{base_name}{SUFFIX}"` using …
   - Fix: Run base_name through sanitize_filename() (or assert it equals its sanitized form) at the top of each generate_*/package_* entry point before constructing PROJECTS_DIR paths, so path safety does not depend on every caller remembering to pass a bare stem.
@@ -141,17 +131,16 @@ Remaining findings below, by severity. `verify:` is the independent verification
 2. **Duplicated source-of-truth that drifts silently (P4/P19)** — Load-bearing values are copy-pasted instead of referenced, and the copies have already diverged: model IDs are wrong in README (all three) and in the config.py:645 'Defaults' comment; the abstract prompt hardcodes 249/250 vs config.ABSTRACT_HARD_MAX_WORDS; retry/backoff constants and a 900.0 timeout duplicate TIMEOUT_SUMMARY inline; token_usage.csv headers mislabel their columns; runtime deps …
 3. **The LLM-judge fail-closed core has real-path and scoping holes (P20/P7)** — The armed judges are trusted as hard blockers but the plumbing around them is under-exercised on the production path: destructive claim extraction removes fabrications before judging (false PASS), the abstract regeneration precheck runs the full multi-artifact faithfulness sweep instead of abstract-only scope (false BLOCK + wasted attempts + misblame), the judge models are floating aliases rather …
 
-### Refuted during verification (recorded for transparency — no action)
+### Refuted during verification (no action)
 
-- The release-gate judges (and all extraction/generation prompts) embed untrusted transcript text with spoofable text delimiters and no prompt-injection guard (`faithfulness_judge.py:224`, filed medium) — The structural observation (no injection guard, spoofable text delimiters, no "SOURCE is data" clause) is factually accurate, but the concrete failure scenario does not occur. (1) The "pre-supplied …
-- Generation-time faithfulness precheck re-judges ALL narrative artifacts, then the publish gate (separate process) judges them again (`extraction_pipeline.py:1118`, filed medium) — The finding's central mechanism does not hold up against the code. (1) There is NO "separate publish subprocess with an empty memo." Publishing runs through `pipeline.generate_webpage`/`generate_pdf` …
-- Mutation gate excludes the two fail-closed safety modules it exists to protect (release_gate.py, faithfulness_judge.py) (`quality_gates.py:78`, filed medium) — No wrong behavior occurs. MUTATION_GATE (quality_gates.py:78) is by design a small, explicitly-curated list; the accompanying comment states verbatim "Kept small and fast: the audit's bug-prone …
-- The gold-set calibration that is the sole basis for arming both judges as Hard BLOCKs is live-API-only; no offline test guards calibration-invalidating drift (P20) (`tests/test_faithfulness_calibration.py:29`, filed medium) — The finding's structural facts are correct (both judges ENABLED and in GATE_BLOCKING_CHECKS per config.py 542/597/487; the three precision/recall calibration tests are skipif-gated on …
-- Duplicated `_load_formatted_transcript` in two live pipeline modules (drift risk) (`validation_pipeline.py:51`, filed medium) — The finding's concrete failure scenario depends on the claim "validation calls its own" copy of _load_formatted_transcript, which is false. The copy at validation_pipeline.py:51 is defined but never …
-- No CI job exercises the declared runtime Python 3.12; gating job runs only 3.11 (`.github/workflows/ci.yml:18`, filed medium) — The CI facts are accurate (quality-gates line 23 and mutation-gate line 42 both pin python-version "3.11"; build matrix tops at 3.11 and swallows failures via `pytest -q || true`; no job runs 3.12). …
+- The release-gate judges (and all extraction/generation prompts) embed untrusted transcript text with spoofable text delimiters and no prompt-injection guard (`faithfulness_judge.py:224`, filed medium) — The structural observation (no injection guard, spoofable text delimiters, no "SOURCE is data" clause) is factually accurate, but the concrete failure scenario does not occur. (1) …
+- Generation-time faithfulness precheck re-judges ALL narrative artifacts, then the publish gate (separate process) judges them again (`extraction_pipeline.py:1118`, filed medium) — The finding's central mechanism does not hold up against the code. (1) There is NO "separate publish subprocess with an empty memo." Publishing runs through …
+- Mutation gate excludes the two fail-closed safety modules it exists to protect (release_gate.py, faithfulness_judge.py) (`quality_gates.py:78`, filed medium) — No wrong behavior occurs. MUTATION_GATE (quality_gates.py:78) is by design a small, explicitly-curated list; the accompanying comment states verbatim "Kept small and fast: the …
+- The gold-set calibration that is the sole basis for arming both judges as Hard BLOCKs is live-API-only; no offline test guards calibration-invalidating drift (P20) (`tests/test_faithfulness_calibration.py:29`, filed medium) — The finding's structural facts are correct (both judges ENABLED and in GATE_BLOCKING_CHECKS per config.py 542/597/487; the three precision/recall calibration tests are …
+- Duplicated `_load_formatted_transcript` in two live pipeline modules (drift risk) (`validation_pipeline.py:51`, filed medium) — The finding's concrete failure scenario depends on the claim "validation calls its own" copy of _load_formatted_transcript, which is false. The copy at validation_pipeline.py:51 …
+- No CI job exercises the declared runtime Python 3.12; gating job runs only 3.11 (`.github/workflows/ci.yml:18`, filed medium) — The CI facts are accurate (quality-gates line 23 and mutation-gate line 42 both pin python-version "3.11"; build matrix tops at 3.11 and swallows failures via `pytest -q || true`; …
 
 ---
-
 ## 2026-07-17 — entity_grounding OR-logic gap (widened by metadata grounding)
 
 `find_ungrounded_names` grounds a multi-word name if **any** significant token

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 2: H3-H7 + CI/deps hygiene)
+
+Second batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **H3** — atomic `runtime_settings.json` write (uuid-named temp + `os.replace`); a partial write can no longer corrupt settings, and corrupt/non-dict resets are logged, not silent.
+- **H4** — all 9 runtime deps declared in `pyproject.toml` so `pip install .` works (was only jsonschema).
+- **H5** — CI `build` matrix → `["3.11","3.12"]` (matches `requires-python>=3.11`; fixes the `3.10`→`3.1` float mis-parse) and removed the `|| true` masks so install/test failures fail CI. This unmasked an undeclared **PyYAML** test dependency — now declared in `requirements.txt` + the pyproject dev group.
+- **H6/H7** — README corrected: default model IDs now match `config.py` (the source of truth); abstract-coverage removed from the Run-All halt list (it is advisory).
+
+Reviewed with `learning-qa` (caught the unmasked PyYAML gap before push). Offline suite: 691 passed / 21 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (adversarial code-review: top-5 fixes)
 
 Fixes from the 45-agent adversarial review (full report `docs/CODE_REVIEW_2026-07-18.md`;
