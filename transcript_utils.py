@@ -564,6 +564,7 @@ def call_claude_with_retry(
     temperature: float = config.TEMP_BALANCED,
     max_retries: int = config.MAX_RETRIES,
     logger: Optional[logging.Logger] = None,
+    script_name: Optional[str] = None,
     min_length: int = 50,
     min_words: int = 0,
     stream: bool = False,
@@ -712,10 +713,18 @@ def call_claude_with_retry(
                             message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens,
                             message.usage.output_tokens, message.stop_reason)
 
-            # Log to CSV
-            script_name = getattr(
-                logger, 'name', 'unknown_script') if logger else "unknown_script"
-            log_token_usage(script_name, model, message.usage,
+            # Log to CSV. Prefer an explicit script_name, then the logger's name; fall
+            # back to 'unknown_script' but SURFACE it (P2) — a silent 'unknown_script'
+            # row loses per-stage cost attribution (review L8).
+            resolved_script = (
+                script_name
+                or (getattr(logger, 'name', None) if logger else None)
+                or "unknown_script"
+            )
+            if resolved_script == "unknown_script" and logger:
+                logger.warning("token cost logged as 'unknown_script' — pass a named "
+                               "logger or script_name= for per-stage cost attribution")
+            log_token_usage(resolved_script, model, message.usage,
                             message.stop_reason)
 
             return message
@@ -849,6 +858,21 @@ def call_claude_with_retry(
                 ) from e
 
             raise
+
+
+def base_name_is_safe(base_name: str) -> bool:
+    """True if ``base_name`` is safe to build an output path from (defense-in-depth;
+    review L16). Rejects path separators, NUL, empty, and a bare '.'/'..' parent-ref —
+    a malicious transcript filename must not escape PROJECTS_DIR. A literal '..' INSIDE a
+    title (an ellipsis, 'Systems... Part 2') is fine because there are no separators, so
+    it can't traverse. Shared by all publish entry points (generate_*, package_*)."""
+    return (
+        bool(base_name)
+        and base_name.strip() not in (".", "..")
+        and "/" not in base_name
+        and "\\" not in base_name
+        and "\x00" not in base_name
+    )
 
 
 def sanitize_filename(filename: str) -> str:
@@ -1723,7 +1747,8 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     return text.lower()
 
 
-def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False) -> tuple[Optional[int], Optional[int], float]:
+def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False,
+                         haystack_normalized: Optional[str] = None) -> tuple[Optional[int], Optional[int], float]:
     """
     Find needle in haystack and return (start_pos, end_pos, match_ratio).
     Uses fuzzy matching to find the best fit.
@@ -1732,6 +1757,11 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         needle: The text to search for.
         haystack: The text to search within.
         aggressive_normalization: Whether to use aggressive normalization.
+        haystack_normalized: Optional pre-normalized haystack. In a per-item loop the
+            same transcript is searched many times; normalizing it once and passing it
+            here avoids re-normalizing the whole transcript on every call (review M11 /
+            P9). Must correspond to ``aggressive_normalization``. The ORIGINAL haystack
+            is still used for position mapping, so callers pass both.
 
     Returns:
         A tuple containing (start_pos, end_pos, match_ratio).
@@ -1739,8 +1769,9 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     """
     needle_normalized = normalize_text(
         needle, aggressive=aggressive_normalization)
-    haystack_normalized = normalize_text(
-        haystack, aggressive=aggressive_normalization)
+    if haystack_normalized is None:
+        haystack_normalized = normalize_text(
+            haystack, aggressive=aggressive_normalization)
 
     # Try exact match first
     if needle_normalized in haystack_normalized:

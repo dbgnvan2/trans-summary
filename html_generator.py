@@ -17,6 +17,7 @@ import release_gate
 from transcript_utils import (
     extract_section,
     load_bowen_references,
+    base_name_is_safe,
     load_emphasis_items,
     load_project_transcript,
     markdown_to_html,
@@ -672,6 +673,9 @@ def _generate_simple_html_page(
 def generate_webpage(base_name: str) -> bool:
     """Orchestrates the generation of the main webpage with a sidebar."""
     logger = setup_logging("generate_webpage")
+    if not base_name_is_safe(base_name):
+        logger.error("Refusing unsafe base_name (path-traversal guard): %r", base_name)
+        return False
     if not release_gate.publish_allowed(base_name, logger):
         return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
@@ -727,6 +731,9 @@ def generate_webpage(base_name: str) -> bool:
 def generate_simple_webpage(base_name: str) -> bool:
     """Generates a simple standalone webpage (no sidebar)."""
     logger = setup_logging("generate_simple_webpage")
+    if not base_name_is_safe(base_name):
+        logger.error("Refusing unsafe base_name (path-traversal guard): %r", base_name)
+        return False
     if not release_gate.publish_allowed(base_name, logger):
         return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:
@@ -771,6 +778,9 @@ def generate_simple_webpage(base_name: str) -> bool:
 def generate_pdf(base_name: str) -> bool:
     """Generates a PDF from the formatted transcript."""
     logger = setup_logging("generate_pdf")
+    if not base_name_is_safe(base_name):
+        logger.error("Refusing unsafe base_name (path-traversal guard): %r", base_name)
+        return False
     if not release_gate.publish_allowed(base_name, logger):
         return False  # M1.B.2 — fail closed: no bundle on a BLOCK
     try:

@@ -18,6 +18,7 @@ from transcript_utils import (
     extract_section,
     find_text_in_content,
     load_project_transcript,
+    normalize_text,
     parse_filename_metadata,
     parse_scored_emphasis_output,
     setup_logging,
@@ -823,13 +824,18 @@ def extract_bowen_references_from_transcript(
 
         def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
             grounded = []
+            # Normalize the transcript ONCE, not per ref per call — the grounding loop
+            # searches the same transcript 2x per ref (review M11 / P9).
+            transcript_norm = normalize_text(transcript_text, aggressive=True)
             for concept, quote in refs:
                 compact_quote = _compact_bowen_quote(quote, max_words=140)
                 _, _, ratio_compact = find_text_in_content(
-                    compact_quote, transcript_text, aggressive_normalization=True
+                    compact_quote, transcript_text, aggressive_normalization=True,
+                    haystack_normalized=transcript_norm,
                 )
                 _, _, ratio_full = find_text_in_content(
-                    quote, transcript_text, aggressive_normalization=True
+                    quote, transcript_text, aggressive_normalization=True,
+                    haystack_normalized=transcript_norm,
                 )
                 ratio = max(ratio_compact, ratio_full)
                 if ratio >= 0.90:
