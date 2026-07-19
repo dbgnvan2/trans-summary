@@ -1273,12 +1273,8 @@ def _extract_lens_titles(lenses_output: str) -> list[str]:
     ]
 
 
-_LENS_STOPWORDS = frozenset({
-    "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
-    "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",
-    "but", "not", "your", "you", "my", "this", "these", "those", "from", "about",
-    "into", "keeps", "keep",
-})
+# Editorial vocabulary lives in config (review L7 / rule 9).
+_LENS_STOPWORDS = config.LENS_STOPWORDS
 
 
 def _top_lens_is_grounded(top_lens: dict, lenses_output: str) -> bool:

@@ -562,7 +562,7 @@ def call_claude_with_retry(
     messages: list,
     max_tokens: int,
     temperature: float = config.TEMP_BALANCED,
-    max_retries: int = 3,
+    max_retries: int = config.MAX_RETRIES,
     logger: Optional[logging.Logger] = None,
     min_length: int = 50,
     min_words: int = 0,
@@ -778,7 +778,7 @@ def call_claude_with_retry(
 
         except APIConnectionError as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt
                 # Used in print
                 msg = f"Connection error, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
                 if logger:
@@ -796,7 +796,7 @@ def call_claude_with_retry(
 
         except RateLimitError:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt  # Exponential backoff: 1s, 2s, 4s
                 # Used in print
                 msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
                 if logger:
@@ -825,7 +825,7 @@ def call_claude_with_retry(
             )
 
             if is_overloaded and attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt
                 if logger:
                     logger.warning(
                         "API overloaded, retrying in %ds... (%d/%d)",

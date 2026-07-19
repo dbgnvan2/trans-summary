@@ -289,6 +289,13 @@ class ProjectSettings:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
 
+    def set_validation_model(self, model_name: str):
+        if model_name in model_specs.PRICING:
+            self.VALIDATION_MODEL = model_name
+        else:
+            raise ValueError(
+                f"Model '{model_name}' not found in model_specs.PRICING.")
+
 
 # Initialize the singleton
 settings = ProjectSettings()
@@ -336,7 +343,7 @@ def set_transcripts_base(path: Union[str, Path]):
     # This is why `import config; config.SOURCE_DIR` is preferred.)
     global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
     # ADDED: Make model variables global
-    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL
+    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL, VALIDATION_MODEL
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR
@@ -346,6 +353,7 @@ def set_transcripts_base(path: Union[str, Path]):
     DEFAULT_MODEL = settings.DEFAULT_MODEL
     AUX_MODEL = settings.AUX_MODEL
     FORMATTING_MODEL = settings.FORMATTING_MODEL
+    VALIDATION_MODEL = settings.VALIDATION_MODEL
 
 
 def set_source_dir_and_infer_base(path: Union[str, Path]):
@@ -825,6 +833,21 @@ FUZZY_MATCH_PREFILTER_MIN_COVERAGE = 0.5
 # Anthropic beta header for prompt caching — single source of truth for the value
 # duplicated across transcript_utils call sites (review L6 / P4).
 ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
+
+# LLM retry policy — promoted from hard-coded literals in call_claude_with_retry
+# (review M6 / P4). max_retries default and the exponential-backoff base.
+MAX_RETRIES = 3
+RETRY_BACKOFF_BASE = 2  # wait = RETRY_BACKOFF_BASE ** attempt seconds (1s, 2s, 4s, …)
+
+# Lens-title stopwords for the grounding check — editorial vocabulary belongs in
+# config, not source (review L7 / rule 9). Consumed by
+# extraction_pipeline._top_lens_is_grounded.
+LENS_STOPWORDS = frozenset({
+    "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
+    "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",
+    "but", "not", "your", "you", "my", "this", "these", "those", "from", "about",
+    "into", "keeps", "keep",
+})
 
 # Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
 # the opening words), so a quote whose first words are verbatim but whose

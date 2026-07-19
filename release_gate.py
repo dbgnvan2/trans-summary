@@ -287,7 +287,11 @@ def check_entity_consistency(base_name: str, logger=None) -> Verdict:
         path = config.PROJECTS_DIR / base_name / f"{base_name}{suffix}"
         if not path.exists():
             continue
-        found = set(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b",
+        # [ \t]+ (not \s+) between name words: \s+ spans newlines, joining the last
+        # word of one line with the first of the next into a bogus "name" and
+        # corrupting near-duplicate detection (review L1; matches the entity_grounding
+        # choice).
+        found = set(re.findall(r"\b[A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+)+\b",
                                 path.read_text(encoding="utf-8")))
         if found:
             names_by_artifact[suffix.strip(" -")] = found
@@ -551,10 +555,20 @@ def run_gate(base_name: str, logger=None, checks: Optional[list] = None) -> Gate
     verdicts = [_safe(name, fn, base_name, logger) for name, fn in checks]
     decision = decide(verdicts)
     if logger:
-        logger.info("Release gate for %s: %s (%d verdict(s), %d blocker(s))",
-                    base_name, decision.decision.value, len(verdicts), len(decision.blockers))
+        n_err = sum(1 for v in verdicts if v.status == Status.ERROR)
+        n_warn = sum(1 for v in verdicts if v.status == Status.WARN)
+        logger.info(
+            "Release gate for %s: %s (%d verdict(s), %d blocker(s), %d error(s), %d warn(s))",
+            base_name, decision.decision.value, len(verdicts), len(decision.blockers),
+            n_err, n_warn)
         for v in decision.blockers:
             logger.error("  BLOCKER [%s] %s: %s", v.status.value, v.check, v.detail)
+        # Surface a NON-blocking "could-not-verify" (ERROR in an advisory check) so an
+        # unattended operator can distinguish ALLOW_WITH_WARNINGS-with-an-ERROR from a
+        # clean ALLOW — otherwise it ships silently (review M8).
+        for v in verdicts:
+            if v.status == Status.ERROR and not _is_blocking(v):
+                logger.warning("  UNVERIFIED [%s] %s: %s", v.status.value, v.check, v.detail)
     return decision
 
 
