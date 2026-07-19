@@ -356,19 +356,95 @@ def check_artifact_contracts(base_name: str, logger=None) -> Verdict:
 # un-memoized LLM judge would re-run ~N calls per publish; caching by content dedupes
 # them. A transient ERROR is NOT cached (P1) so a retry can still succeed.
 _FAITHFULNESS_CACHE: dict = {}
+_JUDGE_DISK_CACHE_MAX = 2000  # bound growth; keep the most-recent entries
+
+
+def _judge_disk_cache_path():
+    return config.LOGS_DIR / "gate_judge_cache.json"
+
+
+def _load_judge_disk_cache() -> dict:
+    """Load the cross-process judge memo; corrupt / non-dict content -> empty (P8)."""
+    import json
+    try:
+        data = json.loads(_judge_disk_cache_path().read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _store_judge_disk_cache(disk_key: str, verdict_dict: dict, logger=None):
+    import json
+    import os
+    try:
+        cache = _load_judge_disk_cache()
+        cache[disk_key] = verdict_dict
+        if len(cache) > _JUDGE_DISK_CACHE_MAX:  # keep the most-recent inserts
+            cache = dict(list(cache.items())[-_JUDGE_DISK_CACHE_MAX:])
+        path = _judge_disk_cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(cache), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as e:  # caching is best-effort — never break the gate on it
+        if logger:
+            logger.warning("could not persist judge cache: %s", e)
+
+
+def _judge_logic_version(instructions: str) -> str:
+    """Version tag folded into the disk-cache key. Captures the judge's PROMPT text, the
+    claim-extraction config, AND config.JUDGE_LOGIC_VERSION (bumped on any judge CODE
+    change) — so a stricter judge can NEVER serve a laxer cached PASS on the armed gate
+    (H2 finding 1, a fail-open). Over-invalidation just triggers a safe re-judge."""
+    import hashlib
+    material = "|".join([
+        config.JUDGE_LOGIC_VERSION,
+        instructions,
+        repr(sorted(config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES)),
+        repr(sorted(config.FAITHFULNESS_SKIP_LINE_LABELS)),
+        str(config.FAITHFULNESS_MIN_CLAIM_CHARS),
+    ])
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
+
+
+def _disk_cached_verdict(disk_key: str, fjudge):
+    """Reconstruct a persisted verdict (never an ERROR) from disk, or None."""
+    disk = _load_judge_disk_cache().get(disk_key)
+    if isinstance(disk, dict) and disk.get("status") and disk.get("status") != fjudge.ERROR:
+        return fjudge.FaithfulnessResult(
+            status=disk["status"],
+            detail=disk.get("detail", ""),
+            claims=[fjudge.ClaimVerdict(**c) for c in disk.get("unfaithful", [])],
+        )
+    return None
 
 
 def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
     import hashlib
 
-    key = (hashlib.sha256(artifact_text.encode("utf-8")).hexdigest(),
-           hashlib.sha256(source.encode("utf-8")).hexdigest())
-    cached = _FAITHFULNESS_CACHE.get(key)
+    a = hashlib.sha256(artifact_text.encode("utf-8")).hexdigest()
+    s = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    mem_key = (a, s)
+    cached = _FAITHFULNESS_CACHE.get(mem_key)
     if cached is not None:
         return cached
+
+    # Cross-process memo (review H2): the CLI orchestrator runs each publish step
+    # (webpage/pdf/package) as a SEPARATE subprocess, so the in-memory cache above is
+    # cold each time and the armed judge re-runs ~N calls per publish. A disk memo keyed
+    # on (artifact-sha, source-sha, judge-model, judge-LOGIC-version) lets a later
+    # subprocess reuse the verdict; the logic version invalidates it on any prompt /
+    # extraction-config / judge-code change (H2 finding 1). ERROR is never stored (P1).
+    disk_key = f"{a}:{s}:{config.FAITHFULNESS_JUDGE_MODEL}:{_judge_logic_version(fjudge._JUDGE_INSTRUCTIONS)}"
+    result = _disk_cached_verdict(disk_key, fjudge)
+    if result is not None:
+        _FAITHFULNESS_CACHE[mem_key] = result
+        return result
+
     result = fjudge.judge_artifact(artifact_text, source, client, logger=logger)
     if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
-        _FAITHFULNESS_CACHE[key] = result
+        _FAITHFULNESS_CACHE[mem_key] = result
+        _store_judge_disk_cache(disk_key, result.to_dict(), logger)
     return result
 
 
@@ -454,14 +530,24 @@ _THEME_JUDGE_CACHE: dict = {}
 def _judge_theme_cached(fjudge, text: str, source: str, kind: str, client, logger):
     import hashlib
 
-    key = (hashlib.sha256(text.encode("utf-8")).hexdigest(),
-           hashlib.sha256(source.encode("utf-8")).hexdigest(), kind)
-    cached = _THEME_JUDGE_CACHE.get(key)
+    a = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    s = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    mem_key = (a, s, kind)
+    cached = _THEME_JUDGE_CACHE.get(mem_key)
     if cached is not None:
         return cached
+    # Same cross-process disk memo as the faithfulness judge (H2 finding 2 / P5): the
+    # theme judge is the OTHER armed hard blocker and pays the identical per-subprocess
+    # cold-memo cost. Keyed on the theme prompt + kind + logic version; ERROR not stored.
+    disk_key = f"theme:{kind}:{a}:{s}:{config.THEME_JUDGE_MODEL}:{_judge_logic_version(fjudge._THEME_JUDGE_INSTRUCTIONS)}"
+    result = _disk_cached_verdict(disk_key, fjudge)
+    if result is not None:
+        _THEME_JUDGE_CACHE[mem_key] = result
+        return result
     result = fjudge.judge_themes_artifact(text, source, kind, client, logger=logger)
     if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
-        _THEME_JUDGE_CACHE[key] = result
+        _THEME_JUDGE_CACHE[mem_key] = result
+        _store_judge_disk_cache(disk_key, result.to_dict(), logger)
     return result
 
 

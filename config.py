@@ -585,13 +585,23 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
 # offline); the enabled path is exercised with a mocked judge. Requires a resolvable
 # Anthropic key (env or the shared ~/.config/llm/keys.json store).
 FAITHFULNESS_JUDGE_ENABLED = True
-# Judge model: PINNED to the explicit version the judge was CALIBRATED on — NOT
-# aliased to DEFAULT_MODEL. A central DEFAULT_MODEL bump must not silently move the
-# armed judge onto an un-recalibrated model (P6: the arming decision trusts a
-# calibration artifact tied to this exact model). When changing it, re-run
-# tests/test_faithfulness_calibration.py and confirm the bars still pass.
+# Judge model: a SEPARATE named constant (NOT aliased to DEFAULT_MODEL) so a central
+# DEFAULT_MODEL bump can't silently move the armed judge onto an un-recalibrated model
+# (P6: the arming decision trusts a calibration artifact tied to this model). NOTE
+# (H12): Anthropic publishes NO dated snapshot for "claude-sonnet-4-6" (only 4-5 has a
+# YYYYMMDD form), so this can't be pinned to an immutable snapshot; the residual risk is
+# Anthropic moving what the string resolves to server-side. Mitigations: (a)
+# tests/test_judge_model_pin.py fails on any change to this string, forcing a
+# re-calibration; (b) last calibrated 2026-07-19 (recall/precision 1.0). When changing
+# it, re-run tests/test_faithfulness_calibration.py and update that pin test.
 FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
+# Version tag folded into the persisted judge-verdict cache key (release_gate H2) so a
+# change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
+# the extraction config still invalidates stale verdicts — a stricter judge must NEVER
+# serve a laxer cached PASS on the armed gate (H2 finding 1, a fail-open). BUMP THIS on
+# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape.
+JUDGE_LOGIC_VERSION = "2026-07-19"
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).
