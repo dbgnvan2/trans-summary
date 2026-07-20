@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 10: dedups L11/L12/L14)
+
+- **L11** — hoisted `_fill_prompt_template` into `transcript_utils.fill_prompt_template` (extraction uses it; validation's dead copy removed).
+- **L14** — hoisted `load_prompt` into `transcript_utils.load_prompt(filename)`; the 5 pipeline modules delegate to it (each with its own prompt filename).
+- **L12** — moved the orphaned, uncollected `legacy_initial_validation_logic.py` into `tests/test_initial_validation_v1.py`, so its 4 V1 cases (parsing + apply-corrections safety) now run as real coverage.
+- **L13 deferred** — the GUI validator-dispatch dedup spans 3 *differing* ts_gui methods (interactive vs auto) and can't be verified headlessly; left with a TODO note (matches the review's own "wants human review").
+
+Offline suite: 728 passed. Net −25 lines.
+
+This completes the autonomously-safe review work: **37 of 43 fixed**, L15 resolved (keep the CLI). The remaining 5 (L13, M1, M7, H9, L17) are deferred with per-item recommendations in `TODO.md` — each needs a human decision or GUI verification.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 9: L2 doc + L15 decision)
 
 - **L2** — documented the intentional `requirements.txt` (pinned CI/dev install, runtime + test tools) vs `pyproject.toml` (package metadata + dev group) split.

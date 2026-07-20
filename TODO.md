@@ -10,7 +10,7 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
 
-### ✅ Fixed (34) — see CHANGELOG 2026-07-18
+### ✅ Fixed (37) — see CHANGELOG 2026-07-18
 
 - **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
 - **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
@@ -44,10 +44,13 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
 - **[L8]** Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution — `transcript_utils.py:711`
 - **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
 - **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
+- **[L11]** `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline — `validation_pipeline.py:75`
+- **[L12]** Two orphaned top-level unittest files are dead code (superseded by tests/) — `legacy_initial_validation_logic.py:13`
+- **[L14]** Five near-identical `load_prompt()` functions differing only by a config filename constant — `summary_pipeline.py:736`
 - **[L16]** base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap) — `html_generator.py:679`
 - **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
 
-### ⏸ Deferred (9) — need a human/API decision, NOT done overnight
+### ⏸ Deferred (6) — need a human/API decision, NOT done overnight
 
 - **[H9]** God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool — `extraction_pipeline.py:1354`
   - Why deferred: refactor the 462-line summarize_transcript — large structural change; wants human review
@@ -55,14 +58,8 @@ Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refu
   - Why deferred: cross-process settings lock (flock) — portability + design; low impact (lost update, not corruption; H3 already prevents corruption)
 - **[M7]** God-function: validate_configuration is 414 lines of linear validation — `config.py:890`
   - Why deferred: refactor the 414-line validate_configuration — large, same class as H9
-- **[L11]** `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline — `validation_pipeline.py:75`
-  - Why deferred: _fill_prompt_template dedup — the two copies have DIVERGED (on the model arg); merging is a judgment call about which behavior is canonical
-- **[L12]** Two orphaned top-level unittest files are dead code (superseded by tests/) — `legacy_initial_validation_logic.py:13`
-  - Why deferred: delete legacy_initial_validation_logic.py — it's an UNCOLLECTED unittest for the live V1 validator; decide whether to port its V1-parsing cases to tests/ before deleting
 - **[L13]** Validator-dispatch (v1/v2 select + get_latest_version + validate + apply) copy-pasted across three ts_gui methods — `ts_gui.py:2533`
-  - Why deferred: validator-dispatch dedup across 3 ts_gui methods — a GUI refactor with real blast radius; wants human review
-- **[L14]** Five near-identical `load_prompt()` functions differing only by a config filename constant — `summary_pipeline.py:736`
-  - Why deferred: load_prompt dedup across 5 pipeline modules — a mistake breaks prompt loading pipeline-wide
+  - Why deferred: GUI validator-dispatch dedup across 3 ts_gui methods — CONSIDERED, deferred: the 3 methods genuinely differ (interactive vs auto flow), the change can't be verified headlessly (needs launching the GUI), and the review flagged it for human review. Best done at the app.
 - **[L15]** Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py — `transcript_process.py:32`
   - Why deferred: RESOLVED — KEEP. The CLI (transcript_process / transcript_extract_* / transcript_summarize) is cross-referenced across those modules AND covered by tests/test_validator_gate_hardening.py, so it's a supported, tested entry point, not dead code. No removal.
 - **[L17]** mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts — `mut_harness.py:160`
