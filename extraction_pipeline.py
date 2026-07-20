@@ -16,6 +16,7 @@ from transcript_utils import (
     create_system_message_with_cache,
     extract_bowen_references,
     extract_section,
+    fill_prompt_template,
     find_text_in_content,
     load_project_transcript,
     normalize_text,
@@ -63,19 +64,6 @@ def _load_formatted_transcript(filename: str) -> str:
 
     validate_input_file(transcript_path)
     return transcript_path.read_text(encoding="utf-8")
-
-
-def _fill_prompt_template(
-    template: str, metadata: dict, transcript: str, **kwargs
-) -> str:
-    """Fill in the prompt template."""
-    placeholders = {**metadata, **kwargs}
-    for key, value in placeholders.items():
-        pattern = re.compile(
-            r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
-        template = pattern.sub(lambda m: str(value), template)
-    template = template.replace("{{insert_transcript_text_here}}", transcript)
-    return template
 
 
 def _generate_summary_with_claude(
@@ -245,7 +233,7 @@ def _generate_with_cached_transcript(
 ) -> str:
     """Generate an artifact using a prompt template and cached transcript context."""
     template = _load_summary_prompt(prompt_filename)
-    prompt = _fill_prompt_template(template, {}, "", **replacements)
+    prompt = fill_prompt_template(template, {}, "", **replacements)
     # If prompts do not include placeholders, still provide dynamic context explicitly.
     unresolved = []
     for key, value in replacements.items():
@@ -525,7 +513,7 @@ def _filter_bowen_references_semantically(
         items_text = "\n".join(
             [f'- Label: {label}\n  Quote: {quote}' for label, quote in refs]
         )
-        prompt = _fill_prompt_template(prompt_template, {}, "", items=items_text)
+        prompt = fill_prompt_template(prompt_template, {}, "", items=items_text)
 
         logger.info("Filtering Bowen references semantically...")
         response = _generate_summary_with_claude(
@@ -1710,7 +1698,7 @@ def summarize_transcript(
                 return False
             logger.info("\n--- PART 8: Generating Blog Post from Lens #1 ---")
             prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
-            prompt = _fill_prompt_template(
+            prompt = fill_prompt_template(
                 prompt_template,
                 metadata,
                 transcript="",
@@ -1755,7 +1743,7 @@ def summarize_transcript(
                 return False
             logger.info("\n--- PART 9: Generating Overview Post (GEO) ---")
             prompt_template = _load_summary_prompt(config.PROMPT_OVERVIEW_FILENAME)
-            prompt = _fill_prompt_template(
+            prompt = fill_prompt_template(
                 prompt_template,
                 metadata,
                 transcript="",

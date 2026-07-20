@@ -860,6 +860,29 @@ def call_claude_with_retry(
             raise
 
 
+def load_prompt(prompt_filename: str) -> str:
+    """Load a prompt template from config.PROMPTS_DIR by filename. Shared by the pipeline
+    stages (review L14 — was 5 near-identical copies differing only by the filename)."""
+    prompt_path = config.PROMPTS_DIR / prompt_filename
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{prompt_filename}")
+    return prompt_path.read_text(encoding="utf-8")
+
+
+def fill_prompt_template(template: str, metadata: dict, transcript: str, **kwargs) -> str:
+    """Fill a prompt template: substitute {{key}} placeholders from metadata+kwargs
+    (case-insensitive), and the transcript into {{insert_transcript_text_here}}. Shared by
+    the extraction/validation pipelines (review L11 — was a duplicated private copy)."""
+    placeholders = {**metadata, **kwargs}
+    for key, value in placeholders.items():
+        pattern = re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
+        template = pattern.sub(lambda m: str(value), template)
+    template = template.replace("{{insert_transcript_text_here}}", transcript)
+    return template
+
+
 def base_name_is_safe(base_name: str) -> bool:
     """True if ``base_name`` is safe to build an output path from (defense-in-depth;
     review L16). Rejects path separators, NUL, empty, and a bare '.'/'..' parent-ref —

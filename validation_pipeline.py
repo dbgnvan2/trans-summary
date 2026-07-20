@@ -72,19 +72,6 @@ def _load_formatted_transcript(filename: str) -> str:
     return transcript_path.read_text(encoding="utf-8")
 
 
-def _fill_prompt_template(
-    template: str, metadata: dict, transcript: str, **kwargs
-) -> str:
-    """Fill in the prompt template."""
-    placeholders = {**metadata, **kwargs}
-    for key, value in placeholders.items():
-        pattern = re.compile(
-            r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
-        template = pattern.sub(lambda m: str(value), template)
-    template = template.replace("{{insert_transcript_text_here}}", transcript)
-    return template
-
-
 def _generate_validation_response(
     prompt: str,
     model: str,
