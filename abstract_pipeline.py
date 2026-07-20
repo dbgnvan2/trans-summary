@@ -27,6 +27,7 @@ import anthropic
 import logging
 
 import config
+import transcript_utils
 from transcript_utils import (
     call_claude_with_retry,
     is_scaffolding_theme_name,
@@ -445,13 +446,7 @@ def prepare_abstract_input(
 
 def load_prompt() -> str:
     """Load the abstract generation prompt template."""
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_STRUCTURED_ABSTRACT_FILENAME
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_ABSTRACT_FILENAME}"
-        )
-    return prompt_path.read_text(encoding="utf-8")
+    return transcript_utils.load_prompt(config.PROMPT_STRUCTURED_ABSTRACT_FILENAME)
 
 
 def generate_abstract(
@@ -479,6 +474,8 @@ def generate_abstract(
     prompt = prompt_template.format(
         input_json=abstract_input.to_json(),
         target_word_count=abstract_input.target_word_count,
+        hard_max_words=config.ABSTRACT_HARD_MAX_WORDS,
+        hard_max_words_minus_one=config.ABSTRACT_HARD_MAX_WORDS - 1,
     )
     if feedback_claims:
         prompt += (

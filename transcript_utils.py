@@ -11,7 +11,7 @@ import time
 from copy import deepcopy
 from datetime import datetime
 from difflib import SequenceMatcher
-from html import unescape
+from html import escape, unescape
 from pathlib import Path
 from typing import Any, Optional
 
@@ -79,6 +79,11 @@ def resolve_anthropic_key() -> Optional[str]:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        return None
+    # A valid-JSON non-object (null / [] / a truncated hand-edit) would raise
+    # AttributeError on .get() below — same class as review C1 (config.py). Fail to
+    # "no key found" gracefully instead (P5 class-fix).
+    if not isinstance(data, dict):
         return None
     providers = data.get("providers", data)
     if isinstance(providers, dict):
@@ -396,8 +401,8 @@ def log_token_usage(script_name: str, model: str, usage_data: object, stop_reaso
         with open(log_file, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(['Timestamp', 'Script Name', 'Items',
-                                'Status', 'Cache', 'Tokens Sent', 'Tokens Response',
+                writer.writerow(['Timestamp', 'Script Name', 'Model',
+                                'Stop Reason', 'Cache', 'Tokens Sent', 'Tokens Response',
                                  'Cache Creation Tokens', 'Cache Read Tokens', 'Estimated Cost ($)'])
 
             writer.writerow([
@@ -557,8 +562,9 @@ def call_claude_with_retry(
     messages: list,
     max_tokens: int,
     temperature: float = config.TEMP_BALANCED,
-    max_retries: int = 3,
+    max_retries: int = config.MAX_RETRIES,
     logger: Optional[logging.Logger] = None,
+    script_name: Optional[str] = None,
     min_length: int = 50,
     min_words: int = 0,
     stream: bool = False,
@@ -621,7 +627,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
                     **call_kwargs
                 ) as stream_manager:
                     message = stream_manager.get_final_message()
@@ -631,7 +637,7 @@ def call_claude_with_retry(
                     max_tokens=max_tokens,
                     temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
                     **call_kwargs
                 )
 
@@ -707,10 +713,18 @@ def call_claude_with_retry(
                             message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens,
                             message.usage.output_tokens, message.stop_reason)
 
-            # Log to CSV
-            script_name = getattr(
-                logger, 'name', 'unknown_script') if logger else "unknown_script"
-            log_token_usage(script_name, model, message.usage,
+            # Log to CSV. Prefer an explicit script_name, then the logger's name; fall
+            # back to 'unknown_script' but SURFACE it (P2) — a silent 'unknown_script'
+            # row loses per-stage cost attribution (review L8).
+            resolved_script = (
+                script_name
+                or (getattr(logger, 'name', None) if logger else None)
+                or "unknown_script"
+            )
+            if resolved_script == "unknown_script" and logger:
+                logger.warning("token cost logged as 'unknown_script' — pass a named "
+                               "logger or script_name= for per-stage cost attribution")
+            log_token_usage(resolved_script, model, message.usage,
                             message.stop_reason)
 
             return message
@@ -773,7 +787,7 @@ def call_claude_with_retry(
 
         except APIConnectionError as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt
                 # Used in print
                 msg = f"Connection error, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
                 if logger:
@@ -791,7 +805,7 @@ def call_claude_with_retry(
 
         except RateLimitError:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt  # Exponential backoff: 1s, 2s, 4s
                 # Used in print
                 msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
                 if logger:
@@ -820,7 +834,7 @@ def call_claude_with_retry(
             )
 
             if is_overloaded and attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = config.RETRY_BACKOFF_BASE ** attempt
                 if logger:
                     logger.warning(
                         "API overloaded, retrying in %ds... (%d/%d)",
@@ -844,6 +858,44 @@ def call_claude_with_retry(
                 ) from e
 
             raise
+
+
+def load_prompt(prompt_filename: str) -> str:
+    """Load a prompt template from config.PROMPTS_DIR by filename. Shared by the pipeline
+    stages (review L14 — was 5 near-identical copies differing only by the filename)."""
+    prompt_path = config.PROMPTS_DIR / prompt_filename
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Prompt file not found: {prompt_path}\n"
+            f"Expected location: {config.PROMPTS_DIR}/{prompt_filename}")
+    return prompt_path.read_text(encoding="utf-8")
+
+
+def fill_prompt_template(template: str, metadata: dict, transcript: str, **kwargs) -> str:
+    """Fill a prompt template: substitute {{key}} placeholders from metadata+kwargs
+    (case-insensitive), and the transcript into {{insert_transcript_text_here}}. Shared by
+    the extraction/validation pipelines (review L11 — was a duplicated private copy)."""
+    placeholders = {**metadata, **kwargs}
+    for key, value in placeholders.items():
+        pattern = re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
+        template = pattern.sub(lambda m: str(value), template)
+    template = template.replace("{{insert_transcript_text_here}}", transcript)
+    return template
+
+
+def base_name_is_safe(base_name: str) -> bool:
+    """True if ``base_name`` is safe to build an output path from (defense-in-depth;
+    review L16). Rejects path separators, NUL, empty, and a bare '.'/'..' parent-ref —
+    a malicious transcript filename must not escape PROJECTS_DIR. A literal '..' INSIDE a
+    title (an ellipsis, 'Systems... Part 2') is fine because there are no separators, so
+    it can't traverse. Shared by all publish entry points (generate_*, package_*)."""
+    return (
+        bool(base_name)
+        and base_name.strip() not in (".", "..")
+        and "/" not in base_name
+        and "\\" not in base_name
+        and "\x00" not in base_name
+    )
 
 
 def sanitize_filename(filename: str) -> str:
@@ -1496,7 +1548,7 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     header_patterns = [
         re.compile(
             r'^\s*(?:[-*>]+\s+)?(?:\*\*)?\[(?P<type>[^-\]]+?)\s*-\s*(?P<category>.+?)\s*-\s*'
-            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
+            r'(?:(?:Rank|rank)\s*:\s*)?(?P<score>[^\]%|\n]+)%?\s*(\|\s*(?P<timestamp>\d{2}:\d{2}:\d{2}))?\](?:\*\*)?\s*(?:\|\s*)?'
             r'(?:Concept|concept)\s*:\s*(?P<concept>.+?)\s*$',
             re.MULTILINE,
         ),
@@ -1649,6 +1701,14 @@ def markdown_to_html(text: str) -> str:
     Returns:
         HTML formatted text
     """
+    # Escape HTML in the (untrusted) transcript/LLM-generated source BEFORE adding our
+    # own tags, so a <script>/onerror payload becomes inert text instead of executing
+    # when the result is rendered with {{ ...|safe }} in the bundle templates (stored
+    # XSS; review H13). quote=False keeps prose apostrophes/quotes readable — safe here
+    # because the output lands in element content, never an attribute. Our <h1>/<strong>
+    # tags below are inserted after escaping, so they remain real markup.
+    text = escape(text, quote=False)
+
     # Handle section headings
     text = re.sub(r'^### (.+)$', r'<h3>\1</h3>', text, flags=re.MULTILINE)
     text = re.sub(r'^## (.+)$', r'<h2>\1</h2>', text, flags=re.MULTILINE)
@@ -1710,7 +1770,8 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     return text.lower()
 
 
-def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False) -> tuple[Optional[int], Optional[int], float]:
+def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False,
+                         haystack_normalized: Optional[str] = None) -> tuple[Optional[int], Optional[int], float]:
     """
     Find needle in haystack and return (start_pos, end_pos, match_ratio).
     Uses fuzzy matching to find the best fit.
@@ -1719,6 +1780,11 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         needle: The text to search for.
         haystack: The text to search within.
         aggressive_normalization: Whether to use aggressive normalization.
+        haystack_normalized: Optional pre-normalized haystack. In a per-item loop the
+            same transcript is searched many times; normalizing it once and passing it
+            here avoids re-normalizing the whole transcript on every call (review M11 /
+            P9). Must correspond to ``aggressive_normalization``. The ORIGINAL haystack
+            is still used for position mapping, so callers pass both.
 
     Returns:
         A tuple containing (start_pos, end_pos, match_ratio).
@@ -1726,8 +1792,9 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     """
     needle_normalized = normalize_text(
         needle, aggressive=aggressive_normalization)
-    haystack_normalized = normalize_text(
-        haystack, aggressive=aggressive_normalization)
+    if haystack_normalized is None:
+        haystack_normalized = normalize_text(
+            haystack, aggressive=aggressive_normalization)
 
     # Try exact match first
     if needle_normalized in haystack_normalized:
@@ -1743,6 +1810,25 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
     needle_words = needle_normalized.split()
     haystack_words = haystack_normalized.split()
     needle_len = len(needle_words)
+
+    # Grounding pre-filter (review H10 / P9): the sliding window below is
+    # O(haystack x needle) and has NO early stop when nothing matches, so an
+    # ungrounded quote scans every position — minutes of CPU on a long transcript,
+    # exactly the hallucinated input the release gate targets. A quote that shares
+    # too few of its DISTINCT words with the transcript can't plausibly reach
+    # FUZZY_MATCH_THRESHOLD, so short-circuit it in O(haystack). The threshold is kept
+    # well below FUZZY_MATCH_THRESHOLD (0.5 vs 0.85) so realistic prose matches survive.
+    # Distinct-word coverage is not a strict lower bound on the char-level ratio, so on
+    # a contrived repeated-word needle this could miss — but only in the SAFE direction
+    # (a false not-found, never a false match), and every caller treats not-found as
+    # fail-closed (skip correction / flag ungrounded / don't highlight).
+    if needle_len == 0:
+        return (None, None, 0)
+    needle_word_set = set(needle_words)
+    haystack_word_set = set(haystack_words)
+    present = sum(1 for w in needle_word_set if w in haystack_word_set)
+    if present / len(needle_word_set) < config.FUZZY_MATCH_PREFILTER_MIN_COVERAGE:
+        return (None, None, 0)
 
     best_ratio = 0
     best_pos = None

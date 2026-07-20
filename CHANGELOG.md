@@ -2,6 +2,140 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-07-18 (review fixes batch 10: dedups L11/L12/L14)
+
+- **L11** — hoisted `_fill_prompt_template` into `transcript_utils.fill_prompt_template` (extraction uses it; validation's dead copy removed).
+- **L14** — hoisted `load_prompt` into `transcript_utils.load_prompt(filename)`; the 5 pipeline modules delegate to it (each with its own prompt filename).
+- **L12** — moved the orphaned, uncollected `legacy_initial_validation_logic.py` into `tests/test_initial_validation_v1.py`, so its 4 V1 cases (parsing + apply-corrections safety) now run as real coverage.
+- **L13 deferred** — the GUI validator-dispatch dedup spans 3 *differing* ts_gui methods (interactive vs auto) and can't be verified headlessly; left with a TODO note (matches the review's own "wants human review").
+
+Offline suite: 728 passed. Net −25 lines.
+
+This completes the autonomously-safe review work: **37 of 43 fixed**, L15 resolved (keep the CLI). The remaining 5 (L13, M1, M7, H9, L17) are deferred with per-item recommendations in `TODO.md` — each needs a human decision or GUI verification.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 9: L2 doc + L15 decision)
+
+- **L2** — documented the intentional `requirements.txt` (pinned CI/dev install, runtime + test tools) vs `pyproject.toml` (package metadata + dev group) split.
+- **L15** — decision: **KEEP** the standalone CLI (`transcript_process` / `transcript_extract_*` / `transcript_summarize`). It's cross-referenced across those modules and covered by `tests/test_validator_gate_hardening.py`, so it's a supported, tested entry point — not dead code.
+
+This closes the safely-automatable review work: **34 of 43 findings fixed**, L15 resolved (keep). The remaining 8 are refactors of working code / judgment calls, deferred with per-item recommendations in `TODO.md` for a human decision.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 8: perf, cost attribution, path guard)
+
+- **M11** — `find_text_in_content` accepts a pre-normalized haystack; the Bowen grounding loop normalizes the transcript ONCE instead of re-normalizing it on each of its ~2 calls per ref (P9). Identical results.
+- **L8** — `call_claude_with_retry` accepts an explicit `script_name` for cost attribution; the `unknown_script` fallback now warns instead of silently losing per-stage attribution (P2).
+- **L16** — a shared `transcript_utils.base_name_is_safe()` guards all FOUR publish entry points (`generate_webpage` / `generate_simple_webpage` / `generate_pdf` / `package_transcript`) against a path-traversal `base_name` before any path build.
+
+Offline suite: 724 passed / 21 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 7: judge layer — caching, cross-process memo, model pin)
+
+Judge-layer batch from the adversarial review, calibration-verified with a live key.
+
+- **H1** — the faithfulness + theme judges now split their prompt into a cached [instructions + SOURCE] block and a per-call [claims/themes] tail, so the transcript is reused across the 4–6 judge calls per publish (the model sees identical text). Live calibration re-passed 1.0/1.0; cache-hit confirmed (call 2 `cache_read=4295`).
+- **H2** — cross-process judge memo: both armed judges now persist verdicts to a disk cache keyed on (artifact-sha, source-sha, model, **judge-logic-version**) so the CLI's per-subprocess publish steps don't re-run the judge. The logic version hashes prompt + extraction config + `JUDGE_LOGIC_VERSION`, so a stricter judge can never serve a laxer cached PASS (fail-open guard). ERROR never cached (P1); corrupt→empty (P8); atomic write.
+- **H12** — `claude-sonnet-4-6` has no published dated snapshot, so the "PINNED" comment was corrected to disclose the residual server-side-resolution risk, and `tests/test_judge_model_pin.py` now fails on any silent change to a judge-model constant (forcing re-calibration).
+
+Offline suite green; live calibration re-passed (gold + real-artifact + theme, 1.0/1.0).
+
+## [Unreleased] - 2026-07-18 (review fixes batch 6: abstract-regen scope)
+
+Sixth (final autonomous) batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M2** — the abstract regeneration precheck judges the abstract ONLY (new optional `suffixes` param on `check_faithfulness`), so a sibling artifact's unfaithful claim no longer misblames the abstract and burns regeneration attempts. The publish gate still judges the full narrative set (default).
+- Follow-ups: stopped enumerating the hard blockers in an in-code comment (it had drifted twice) — it now references `config.GATE_BLOCKING_CHECKS`; added a legacy-CSV consumer test for the M10 reader fallback.
+
+Offline suite: 711 passed / 21 skipped / 3 xfailed.
+
+**Autonomous pass complete: 27 of 43 review findings fixed across 6 independently-reviewed batches** (test count 664 → 711). The remaining 16 are deferred in `TODO.md` — each needs a human/API decision (judge re-calibration, an architectural refactor, or a judgment call).
+
+## [Unreleased] - 2026-07-18 (review fixes batch 5: manifest provenance, CSV labels, docs)
+
+Fifth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M9** — the gate run manifest now stamps `code_revision` (git short rev) and `gate_policy` (blocking checks + error-blocks flag), so a publish decision is traceable to the code and policy that produced it.
+- **M10** — `token_usage.csv` header labels corrected to match the data (`Items`→`Model`, `Status`→`Stop Reason`); `analyze_token_usage` reads `Model` with a legacy `Items` fallback so pre-rename CSVs still parse.
+- **L10** — the abstract prompt's hard word limit is injected from `config.ABSTRACT_HARD_MAX_WORDS` instead of hard-coded 249/250 literals.
+- **L18** — pinned `check_theme_grounding`'s "no theme artifacts → PASS" branch with a test.
+- **M4** — `ARCHITECTURE_DESIGN.md` now documents the release-gate / faithfulness-judge / theme-judge layer and the run manifest.
+
+Offline suite: 708 passed / 21 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 4: retry/config hygiene + gate observability)
+
+Fourth batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M6** — retry policy (`MAX_RETRIES`, `RETRY_BACKOFF_BASE`) promoted from hard-coded literals in `call_claude_with_retry` to `config.py`.
+- **M8** — the release gate's summary log now reports error/warn counts and emits a per-check `UNVERIFIED` line for a non-blocking "could-not-verify" ERROR, so it can't ship silently inside `ALLOW_WITH_WARNINGS`.
+- **L1** — `check_entity_consistency` name regex uses `[ \t]+` (not `\s+`), so it no longer joins proper names across a newline and fabricates near-duplicate clashes (now consistent with the `find_ungrounded_names` hard blocker).
+- **L5** — added `ProjectSettings.set_validation_model()` and included `VALIDATION_MODEL` in the model-global refresh, mirroring its three siblings.
+- **L7** — lens-title stopword list moved from `extraction_pipeline` source into `config.LENS_STOPWORDS` (editorial vocabulary → config).
+
+Offline suite: 703 passed / 21 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 3: emphasis parse + config/doc hygiene)
+
+Third batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **M3** — scored-emphasis parser: pattern-1 score class now excludes `|`, so a `%`-less header carrying a timestamp (`[... Rank: 92 | 00:04:09]`) parses `score=92, timestamp=00:04:09` instead of averaging the digits to `26` and dropping the timestamp.
+- **M5/L4** — removed the drifted inline "Defaults:" model-ID comment in `config.py` (`__init__` is the source of truth).
+- **L3** — README `html_generator.py` line count 650 → 822 (48%, not 59%, reduction).
+- **L6** — `"prompt-caching-2024-07-31"` beta header hoisted to `config.ANTHROPIC_CACHE_BETA_HEADER` (single source of truth).
+- **L9** — `_current_git_revision` no longer caches a git failure as `unknown` for the whole session; it retries on the next call.
+
+Offline suite: 696 passed / 21 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-07-18 (review fixes batch 2: H3-H7 + CI/deps hygiene)
+
+Second batch from the adversarial review (`docs/CODE_REVIEW_2026-07-18.md`).
+
+- **H3** — atomic `runtime_settings.json` write (uuid-named temp + `os.replace`); a partial write can no longer corrupt settings, and corrupt/non-dict resets are logged, not silent.
+- **H4** — all 9 runtime deps declared in `pyproject.toml` so `pip install .` works (was only jsonschema).
+- **H5** — CI `build` matrix → `["3.11","3.12"]` (matches `requires-python>=3.11`; fixes the `3.10`→`3.1` float mis-parse) and removed the `|| true` masks so install/test failures fail CI. This unmasked an undeclared **PyYAML** test dependency — now declared in `requirements.txt` + the pyproject dev group.
+- **H6/H7** — README corrected: default model IDs now match `config.py` (the source of truth); abstract-coverage removed from the Run-All halt list (it is advisory).
+
+Reviewed with `learning-qa` (caught the unmasked PyYAML gap before push). Offline suite: 691 passed / 21 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-07-18 (adversarial code-review: top-5 fixes)
+
+Fixes from the 45-agent adversarial review (full report `docs/CODE_REVIEW_2026-07-18.md`;
+the remaining 38 findings are tracked in TODO.md). All five ship with tests.
+
+- **Stored XSS in the exported bundle (H13).** `markdown_to_html` emitted raw HTML, and its
+  output (abstract/summary/topics/themes/formatted_content — all LLM-generated from the
+  transcript) is rendered `{{ ...|safe }}` in every template, so a `<script>`/`onerror`
+  payload in a transcript executed when the shared HTML/PDF bundle was opened. It now
+  HTML-escapes the untrusted input before inserting our own markdown tags; headings/bold/
+  italic still render. `transcript_utils.py`; `tests/test_markdown_to_html_xss.py`.
+- **Faithfulness gate bypass via claim extraction (H11).** `extract_claims` stripped any
+  leading `Prefix:` (≤40 chars) before the armed judge, so a fabricated attribution
+  ("Stanford study: …") was deleted and rode through unjudged. The strip is now gated on a
+  config allowlist of generic scaffolding labels (`FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES`);
+  a non-allowlisted prefix is left in place and judged. `faithfulness_judge.py`, `config.py`;
+  `tests/test_faithfulness_judge.py`. **P20: the extraction path changed → calibration was
+  re-run 2026-07-19 and PASSED** (gold set recall/precision 1.0; real-artifact path correct —
+  the Luciano-Malorni and "nubbin" fabrications still FAIL; theme judge 1.0/1.0). The armed
+  judge is re-validated after H11.
+- **Default "V2 (Safe)" initial validator failed open (H8).** A per-chunk API/parse failure
+  was caught and returned `[]`, so a dropped chunk was indistinguishable from a clean one and
+  a partially-validated transcript shipped as `*_validated`. It now raises (fail-closed) like
+  the v1 validator; a legitimate empty `[]` still parses. The GUI's `_execute_task` already
+  surfaces the error and stops the spinner. `transcript_initial_validation_v2.py`;
+  `tests/test_v2_validator_fail_closed.py`.
+- **Config import crash on corrupt settings (C1).** A valid-JSON non-object (`null`/`[]`/`5`)
+  in `runtime_settings.json` slipped past the `JSONDecodeError` guard and raised
+  `AttributeError` at module import, taking down the GUI and every pipeline stage. Now reset
+  to `{}` behind an `isinstance` guard. `config.py`;
+  `tests/test_config_runtime_settings_dirty.py`.
+- **Unbounded grounding scan (H10).** The fuzzy matcher's sliding window never early-stopped
+  on an ungrounded quote, so a hallucinated Bowen quote scanned every window (2–4× per ref) —
+  minutes of CPU on a long transcript. Added a cheap distinct-word coverage pre-filter
+  (`FUZZY_MATCH_PREFILTER_MIN_COVERAGE`, kept safely below the match threshold) that
+  short-circuits in O(haystack). `transcript_utils.py`, `config.py`;
+  `tests/test_fuzzy_grounding_prefilter.py`.
+
+Offline suite: 679 passed / 21 skipped / 3 xfailed (was 664; +15 new tests).
+
 ## [Unreleased] - 2026-07-17 (release-gate false positives, clearer messages, log spam, GUI status)
 
 **Release gate no longer false-BLOCKs on filename metadata.** Both hard-blocking

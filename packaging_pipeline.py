@@ -6,7 +6,7 @@ import zipfile
 
 import config
 import release_gate
-from transcript_utils import setup_logging
+from transcript_utils import base_name_is_safe, setup_logging
 
 
 def package_transcript(base_name: str, logger=None) -> bool:
@@ -15,6 +15,10 @@ def package_transcript(base_name: str, logger=None) -> bool:
     """
     if logger is None:
         logger = setup_logging('package_transcript')
+
+    if not base_name_is_safe(base_name):
+        logger.error("Refusing unsafe base_name (path-traversal guard): %r", base_name)
+        return False
 
     if not release_gate.publish_allowed(base_name, logger):
         return False  # M1.B.2 — fail closed: no zip bundle on a BLOCK

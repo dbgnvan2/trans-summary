@@ -6,6 +6,85 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-07-18 — Adversarial code-review findings
+
+Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
+
+### ✅ Fixed (37) — see CHANGELOG 2026-07-18
+
+- **[C1]** Non-dict runtime_settings.json crashes config import app-wide (corrupt-state not handled) — `config.py:64`
+- **[H1]** Faithfulness/theme judges re-send the full transcript per artifact with NO shared cached prefix — the single biggest waste — `faithfulness_judge.py:228`
+- **[H2]** Process-lifetime judge memo is defeated by the CLI orchestrator's subprocess-per-publish-step model — gate + armed judges run 4x/publish — `release_gate.py:354`
+- **[H3]** Non-atomic write + silent {} reset loses ALL persisted settings on a partial write — `config.py:89`
+- **[H4]** pyproject.toml under-declares runtime deps: only jsonschema listed, so `pip install .` yields a broken install — `pyproject.toml:7`
+- **[H5]** CI build matrix (3.8/3.9/3.10) contradicts requires-python>=3.11 AND the code's real >=3.10 floor; failures masked by `|| true` so it can never fail — `.github/workflows/ci.yml:56`
+- **[H6]** README lists all three default model IDs, none of which match config.py — `README.md:211`
+- **[H7]** README says abstract-coverage failure halts 'Run All' — code made it advisory (contradicts README line 23 too) — `README.md:126`
+- **[H8]** Default 'V2 (Safe)' initial validator swallows transient API/parse failures and silently drops a chunk's findings (fail-open) — `transcript_initial_validation_v2.py:233`
+- **[H10]** O(items × transcript) fuzzy grounding scan blows up to minutes on a long transcript with ungrounded quotes — `extraction_pipeline.py:828`
+- **[H11]** Claim-extraction label-strip regex silently deletes a fabricated pre-colon specific before the armed faithfulness judge ever sees it (gate bypass) — `faithfulness_judge.py:136`
+- **[H12]** Faithfulness and theme judge models are floating aliases, NOT date-pinned snapshots — comment claims 'PINNED' but the value has no date suffix (P20/P6) — `config.py:548`
+- **[H13]** Stored XSS: untrusted transcript + LLM fields flow unescaped into the HTML/PDF bundle — `transcript_utils.py:1642`
+- **[M2]** Abstract regeneration loop blames/regenerates the abstract for unfaithful claims in OTHER narrative artifacts (summary/overview/blog) — `extraction_pipeline.py:1118`
+- **[M3]** Emphasis score is miscomputed and timestamp silently dropped when a rank header omits the '%' sign — `transcript_utils.py:1499`
+- **[M4]** ARCHITECTURE_DESIGN.md omits the entire release-gate / faithfulness-judge / theme-judge layer that now governs publishing — `ARCHITECTURE_DESIGN.md:82`
+- **[M5]** config.py inline 'Defaults' comment states FORMATTING_MODEL = claude-sonnet-4-6, but the actual default is Haiku — `config.py:645`
+- **[M6]** Retry/backoff policy hard-coded at use sites, not in config.py — `transcript_utils.py:560`
+- **[M8]** A non-blocking ERROR ("couldn't verify") ships as ALLOW_WITH_WARNINGS with no distinct signal in the one-line log, exit code, or a marker file — `release_gate.py:554`
+- **[M9]** Run manifest omits a code-version / gate-policy stamp, so a decision can't be traced to the code or policy that produced it — `release_gate.py:600`
+- **[M10]** token_usage.csv column headers mislabel the data they carry ('Items' holds the model, 'Status' holds the stop_reason) — `transcript_utils.py:399`
+- **[M11]** Whole transcript is re-normalized on every find_text_in_content call (re-normalize-per-item) — `transcript_utils.py:1729`
+- **[L1]** check_entity_consistency name regex uses \s+ and joins proper names across newlines, corrupting the near-duplicate clash detector — `release_gate.py:290`
+- **[L2]** Split/inconsistent dev-dependency and specifier management across the three files — `requirements.txt:10`
+- **[L3]** README claims html_generator.py is 650 lines; the file is 822 — `README.md:363`
+- **[L4]** Stale doc comment: FORMATTING_MODEL comment says Sonnet, code sets Haiku — `config.py:645`
+- **[L5]** VALIDATION_MODEL lacks a setter and is not refreshed like its siblings — `config.py:47`
+- **[L6]** Prompt-caching beta header string duplicated as a magic literal — `transcript_utils.py:624`
+- **[L7]** Editorial stopword list embedded in Python source — `extraction_pipeline.py:1276`
+- **[L8]** Cost rows fall back to 'unknown_script' when no logger is passed, losing per-stage cost attribution — `transcript_utils.py:711`
+- **[L9]** Git revision is cached as 'unknown' for the whole session after a single git failure — `ts_gui.py:186`
+- **[L10]** Abstract prompt hard-codes '249'/'under 250 words' as literal text, duplicating config.ABSTRACT_HARD_MAX_WORDS (P4 drift) — `prompts/Abstract Generation Prompt v1.md:5`
+- **[L11]** `_fill_prompt_template` copy-pasted identically in extraction_pipeline and validation_pipeline — `validation_pipeline.py:75`
+- **[L12]** Two orphaned top-level unittest files are dead code (superseded by tests/) — `legacy_initial_validation_logic.py:13`
+- **[L14]** Five near-identical `load_prompt()` functions differing only by a config filename constant — `summary_pipeline.py:736`
+- **[L16]** base_name used to build filesystem paths without sanitize_filename (defense-in-depth gap) — `html_generator.py:679`
+- **[L18]** check_theme_grounding 'no theme artifacts -> PASS' is an untested pass-on-empty branch, asymmetric with faithfulness's 'no artifact -> ERROR' — `release_gate.py:500`
+
+### ⏸ Deferred (6) — need a human/API decision, NOT done overnight
+
+- **[H9]** God-function: summarize_transcript is 462 lines, 11 params, one try/except -> bool — `extraction_pipeline.py:1354`
+  - Why deferred: refactor the 462-line summarize_transcript — large structural change; wants human review
+- **[M1]** Cross-process last-writer-wins read-modify-write on runtime_settings.json — `config.py:85`
+  - Why deferred: cross-process settings lock (flock) — portability + design; low impact (lost update, not corruption; H3 already prevents corruption)
+- **[M7]** God-function: validate_configuration is 414 lines of linear validation — `config.py:890`
+  - Why deferred: refactor the 414-line validate_configuration — large, same class as H9
+- **[L13]** Validator-dispatch (v1/v2 select + get_latest_version + validate + apply) copy-pasted across three ts_gui methods — `ts_gui.py:2533`
+  - Why deferred: GUI validator-dispatch dedup across 3 ts_gui methods — CONSIDERED, deferred: the 3 methods genuinely differ (interactive vs auto flow), the change can't be verified headlessly (needs launching the GUI), and the review flagged it for human review. Best done at the app.
+- **[L15]** Standalone CLI extraction pipeline (transcript_process.py + transcript_summarize.py + transcript_extract_*) appears superseded by extraction_pipeline.py — `transcript_process.py:32`
+  - Why deferred: RESOLVED — KEEP. The CLI (transcript_process / transcript_extract_* / transcript_summarize) is cross-referenced across those modules AND covered by tests/test_validator_gate_hardening.py, so it's a supported, tested entry point, not dead code. No removal.
+- **[L17]** mut_harness scores a suite TIMEOUT as 'killed', inflating the very mutation score the M6.A validity gate trusts — `mut_harness.py:160`
+  - Why deferred: mut_harness scores a suite TIMEOUT as 'killed' — changing kill/survive semantics affects the M6.A CI mutation gate; debatable (a hung mutant arguably IS caught)
+- **PyYAML / google deps (sweep #2):** `GoogleDocSummary.py` / `ListModels.py` import `google*`, undeclared in deps — peripheral scripts, don't break CI; add `google-api-python-client`/`google-auth-oauthlib` only if they're still used.
+
+### Remaining (0) — by severity
+
+
+### Systemic risks (classes, not single instances)
+
+1. **Fail-open: a transient/error outcome is recorded as an empty-but-benign result (P1/P2)** — The same 'return [] / PASS-on-empty' shape recurs across the fail-closed core: the V2 validator drops a chunk's findings on API failure, its JSON parser returns [] on truncation, check_theme_grounding treats 'no artifacts' as PASS while faithfulness treats it as ERROR, and a non-blocking ERROR ships as ALLOW_WITH_WARNINGS with no distinct log/exit-code/marker signal. In every case 'couldn't …
+2. **Duplicated source-of-truth that drifts silently (P4/P19)** — Load-bearing values are copy-pasted instead of referenced, and the copies have already diverged: model IDs are wrong in README (all three) and in the config.py:645 'Defaults' comment; the abstract prompt hardcodes 249/250 vs config.ABSTRACT_HARD_MAX_WORDS; retry/backoff constants and a 900.0 timeout duplicate TIMEOUT_SUMMARY inline; token_usage.csv headers mislabel their columns; runtime deps …
+3. **The LLM-judge fail-closed core has real-path and scoping holes (P20/P7)** — The armed judges are trusted as hard blockers but the plumbing around them is under-exercised on the production path: destructive claim extraction removes fabrications before judging (false PASS), the abstract regeneration precheck runs the full multi-artifact faithfulness sweep instead of abstract-only scope (false BLOCK + wasted attempts + misblame), the judge models are floating aliases rather …
+
+### Refuted during verification (no action)
+
+- The release-gate judges (and all extraction/generation prompts) embed untrusted transcript text with spoofable text delimiters and no prompt-injection guard (`faithfulness_judge.py:224`, filed medium) — The structural observation (no injection guard, spoofable text delimiters, no "SOURCE is data" clause) is factually accurate, but the concrete failure scenario does not occur. (1) …
+- Generation-time faithfulness precheck re-judges ALL narrative artifacts, then the publish gate (separate process) judges them again (`extraction_pipeline.py:1118`, filed medium) — The finding's central mechanism does not hold up against the code. (1) There is NO "separate publish subprocess with an empty memo." Publishing runs through …
+- Mutation gate excludes the two fail-closed safety modules it exists to protect (release_gate.py, faithfulness_judge.py) (`quality_gates.py:78`, filed medium) — No wrong behavior occurs. MUTATION_GATE (quality_gates.py:78) is by design a small, explicitly-curated list; the accompanying comment states verbatim "Kept small and fast: the …
+- The gold-set calibration that is the sole basis for arming both judges as Hard BLOCKs is live-API-only; no offline test guards calibration-invalidating drift (P20) (`tests/test_faithfulness_calibration.py:29`, filed medium) — The finding's structural facts are correct (both judges ENABLED and in GATE_BLOCKING_CHECKS per config.py 542/597/487; the three precision/recall calibration tests are …
+- Duplicated `_load_formatted_transcript` in two live pipeline modules (drift risk) (`validation_pipeline.py:51`, filed medium) — The finding's concrete failure scenario depends on the claim "validation calls its own" copy of _load_formatted_transcript, which is false. The copy at validation_pipeline.py:51 …
+- No CI job exercises the declared runtime Python 3.12; gating job runs only 3.11 (`.github/workflows/ci.yml:18`, filed medium) — The CI facts are accurate (quality-gates line 23 and mutation-gate line 42 both pin python-version "3.11"; build matrix tops at 3.11 and swallows failures via `pytest -q || true`; …
+
+---
 ## 2026-07-17 — entity_grounding OR-logic gap (widened by metadata grounding)
 
 `find_ungrounded_names` grounds a multi-word name if **any** significant token

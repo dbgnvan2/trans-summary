@@ -1,3 +1,7 @@
+# Pinned install list for CI and local dev (runtime deps + the test/dev tools pytest
+# and PyYAML that CI needs to run the suite). pyproject.toml is the package metadata:
+# [project].dependencies mirrors the runtime deps below, and [dependency-groups].dev
+# holds pytest/PyYAML/ruff. Keep the two in sync when a runtime dep changes (review L2).
 anthropic==0.75.0
 beautifulsoup4==4.12.3
 jsonschema==4.26.0
@@ -8,3 +12,4 @@ python-dotenv==1.0.1
 tiktoken==0.8.0
 weasyprint==67.0
 pytest==8.3.3
+PyYAML==6.0.2

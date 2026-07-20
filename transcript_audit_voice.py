@@ -20,6 +20,7 @@ import os
 import anthropic
 
 import config
+import transcript_utils
 from transcript_utils import call_claude_with_retry
 
 # Named logger so token-usage rows record this step instead of "unknown_script".
@@ -28,10 +29,7 @@ logger = logging.getLogger("transcript_audit_voice")
 
 def load_prompt() -> str:
     """Load the voice audit prompt template."""
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_VOICE_AUDIT_FILENAME
-    if not prompt_path.exists():
-        raise FileNotFoundError(f"Prompt file not found: {prompt_path}")
-    return prompt_path.read_text(encoding="utf-8")
+    return transcript_utils.load_prompt(config.PROMPT_VOICE_AUDIT_FILENAME)
 
 
 def load_blog_post(base_name: str) -> str:

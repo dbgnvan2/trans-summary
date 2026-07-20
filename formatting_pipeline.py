@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Set
 import anthropic
 
 import config
+import transcript_utils
 from transcript_utils import (
     call_claude_with_retry,
     check_token_budget,
@@ -85,14 +86,7 @@ def strip_transcript_validation_footer(text: str) -> str:
 
 def load_prompt() -> str:
     """Load the formatting prompt template."""
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_FORMATTING_FILENAME
-
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_FORMATTING_FILENAME}"
-        )
-    return prompt_path.read_text(encoding="utf-8")
+    return transcript_utils.load_prompt(config.PROMPT_FORMATTING_FILENAME)
 
 
 def load_raw_transcript(filename: str) -> str:

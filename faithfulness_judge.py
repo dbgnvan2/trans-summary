@@ -121,6 +121,7 @@ def extract_claims(text: str) -> list:
     claims: list = []
     dropped = 0
     skip_labels = {s.lower() for s in config.FAITHFULNESS_SKIP_LINE_LABELS}
+    strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
     for raw_line in _strip_frontmatter(text).splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or line == "---":
@@ -133,7 +134,15 @@ def extract_claims(text: str) -> list:
         label = line.split(":", 1)[0].strip().lower() if ":" in line else ""
         if label and label in skip_labels:
             continue
-        line = re.sub(r"^[A-Za-z][^:\n]{0,40}:\s*", "", line, count=1)  # Description: ...
+        # Strip a leading GENERIC field-label prefix ("Description: <claim>") so the
+        # claim itself is judged — but ONLY for known scaffolding labels (config
+        # allowlist). A non-allowlisted prefix (e.g. a fabricated "Stanford study:"
+        # attribution) is LEFT IN PLACE so the judge sees and can flag it; stripping
+        # an arbitrary pre-colon specific let a fabricated attribution ride through the
+        # armed gate UNJUDGED (gate bypass; review H11 / P7 / P20).
+        m_prefix = re.match(r"^([A-Za-z][^:\n]{0,40}):\s*", line)
+        if m_prefix and m_prefix.group(1).strip().lower() in strip_prefixes:
+            line = line[m_prefix.end():]
         # strip a leading list/theme enumerator ("1. ", "2) ") so a numbered theme
         # header doesn't split into a bare-number "1." fragment.
         line = re.sub(r"^\d+[.)]\s+", "", line).strip()
@@ -221,13 +230,25 @@ Return ONLY a JSON array, one object per claim, in order:
 No prose before or after the JSON."""
 
 
-def build_judge_prompt(claims: list, source: str) -> str:
+def _cached_judge_content(instructions: str, source: str, tail: str) -> list:
+    """Two-block user content: an [instructions + SOURCE] prefix marked as a cache
+    breakpoint, followed by the small per-call tail (claims/themes). The two blocks
+    concatenate to the EXACT single-string prompt the judge used before — the model
+    sees identical text — but the constant transcript prefix is now cache-reusable, so
+    it is not re-billed across the 4-6 judge calls per publish run (review H1). Before
+    this split the varying claims sat inside the same block, so the cache breakpoint
+    fell after them and never hit."""
+    prefix = f"{instructions}\n\n=== SOURCE ===\n{source}\n\n"
+    return [
+        {"type": "text", "text": prefix, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": tail},
+    ]
+
+
+def build_judge_prompt(claims: list, source: str) -> list:
     numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(claims))
-    return (
-        f"{_JUDGE_INSTRUCTIONS}\n\n"
-        f"=== SOURCE ===\n{source}\n\n"
-        f"=== CLAIMS ({len(claims)}) ===\n{numbered}\n"
-    )
+    tail = f"=== CLAIMS ({len(claims)}) ===\n{numbered}\n"
+    return _cached_judge_content(_JUDGE_INSTRUCTIONS, source, tail)
 
 
 def _extract_json_array(text: str) -> list:
@@ -415,15 +436,12 @@ Return ONLY a JSON array, one object per theme, in order:
 No prose before or after the JSON."""
 
 
-def build_theme_judge_prompt(themes: list, source: str) -> str:
+def build_theme_judge_prompt(themes: list, source: str) -> list:
     numbered = "\n\n".join(
         f"{i + 1}. {t['name']}\n{t.get('description', '')}" for i, t in enumerate(themes)
     )
-    return (
-        f"{_THEME_JUDGE_INSTRUCTIONS}\n\n"
-        f"=== SOURCE ===\n{source}\n\n"
-        f"=== THEMES ({len(themes)}) ===\n{numbered}\n"
-    )
+    tail = f"=== THEMES ({len(themes)}) ===\n{numbered}\n"
+    return _cached_judge_content(_THEME_JUDGE_INSTRUCTIONS, source, tail)
 
 
 def judge_themes(themes: list, source: str, client, *,

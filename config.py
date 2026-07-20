@@ -9,8 +9,10 @@ to maintain backward compatibility while enabling safer state management.
 """
 
 import json
+import logging
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import List, Union
 
@@ -61,10 +63,26 @@ class ProjectSettings:
             self.runtime_settings = {}
             return
         try:
-            self.runtime_settings = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            logging.getLogger(__name__).warning(
+                "runtime_settings.json unreadable (%s) — resetting to empty settings", e)
             self.runtime_settings = {}
             return
+
+        # A valid-JSON NON-object (null / [] / 5 / "x" — e.g. a truncated write that
+        # lands on `null`, or a hand-edit) parses cleanly but is not a settings dict.
+        # Calling .get() on it below would raise AttributeError, and because the
+        # singleton is built at module import (`settings = ProjectSettings()`), that
+        # exception escapes `import config` and takes down the GUI and every pipeline
+        # stage. Reset to {} instead of crashing (review C1 / P8 corrupt-state).
+        if not isinstance(data, dict):
+            logging.getLogger(__name__).warning(
+                "runtime_settings.json is not a JSON object (got %s) — resetting to empty settings",
+                type(data).__name__)
+            self.runtime_settings = {}
+            return
+        self.runtime_settings = data
 
         default_source_dir = self.runtime_settings.get("default_source_dir")
         if default_source_dir and Path(default_source_dir).exists():
@@ -83,10 +101,29 @@ class ProjectSettings:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(terms_path)
 
     def _save_runtime_settings(self):
-        """Persist the current runtime settings dictionary to a file."""
+        """Persist the current runtime settings dictionary to a file, ATOMICALLY.
+
+        Write to a temp file in the same directory, then os.replace() it over the
+        target — os.replace is atomic on POSIX and Windows, so a crash / disk-full /
+        concurrent write can never leave a half-written file that the loader would then
+        discard as corrupt, zeroing the user's settings (review H3 / P8). A leftover
+        temp file from a failed write is cleaned up rather than left behind.
+        """
         path = self._runtime_settings_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(self.runtime_settings, indent=2, sort_keys=True), encoding="utf-8")
+        data = json.dumps(self.runtime_settings, indent=2, sort_keys=True)
+        # uuid in the temp name so two concurrent saves (across processes OR threads)
+        # never collide on the same temp file (review sweep #3a).
+        tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp.write_text(data, encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
 
 
     def _update_derived_paths(self):
@@ -252,6 +289,13 @@ class ProjectSettings:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
 
+    def set_validation_model(self, model_name: str):
+        if model_name in model_specs.PRICING:
+            self.VALIDATION_MODEL = model_name
+        else:
+            raise ValueError(
+                f"Model '{model_name}' not found in model_specs.PRICING.")
+
 
 # Initialize the singleton
 settings = ProjectSettings()
@@ -299,7 +343,7 @@ def set_transcripts_base(path: Union[str, Path]):
     # This is why `import config; config.SOURCE_DIR` is preferred.)
     global TRANSCRIPTS_BASE, SOURCE_DIR, PROCESSED_DIR, PROJECTS_DIR, VALIDATION_APPROVED_TERMS_PATH
     # ADDED: Make model variables global
-    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL
+    global DEFAULT_MODEL, AUX_MODEL, FORMATTING_MODEL, VALIDATION_MODEL
     TRANSCRIPTS_BASE = settings.TRANSCRIPTS_BASE
     SOURCE_DIR = settings.SOURCE_DIR
     PROCESSED_DIR = settings.PROCESSED_DIR
@@ -309,6 +353,7 @@ def set_transcripts_base(path: Union[str, Path]):
     DEFAULT_MODEL = settings.DEFAULT_MODEL
     AUX_MODEL = settings.AUX_MODEL
     FORMATTING_MODEL = settings.FORMATTING_MODEL
+    VALIDATION_MODEL = settings.VALIDATION_MODEL
 
 
 def set_source_dir_and_infer_base(path: Union[str, Path]):
@@ -540,13 +585,23 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
 # offline); the enabled path is exercised with a mocked judge. Requires a resolvable
 # Anthropic key (env or the shared ~/.config/llm/keys.json store).
 FAITHFULNESS_JUDGE_ENABLED = True
-# Judge model: PINNED to the explicit version the judge was CALIBRATED on — NOT
-# aliased to DEFAULT_MODEL. A central DEFAULT_MODEL bump must not silently move the
-# armed judge onto an un-recalibrated model (P6: the arming decision trusts a
-# calibration artifact tied to this exact model). When changing it, re-run
-# tests/test_faithfulness_calibration.py and confirm the bars still pass.
+# Judge model: a SEPARATE named constant (NOT aliased to DEFAULT_MODEL) so a central
+# DEFAULT_MODEL bump can't silently move the armed judge onto an un-recalibrated model
+# (P6: the arming decision trusts a calibration artifact tied to this model). NOTE
+# (H12): Anthropic publishes NO dated snapshot for "claude-sonnet-4-6" (only 4-5 has a
+# YYYYMMDD form), so this can't be pinned to an immutable snapshot; the residual risk is
+# Anthropic moving what the string resolves to server-side. Mitigations: (a)
+# tests/test_judge_model_pin.py fails on any change to this string, forcing a
+# re-calibration; (b) last calibrated 2026-07-19 (recall/precision 1.0). When changing
+# it, re-run tests/test_faithfulness_calibration.py and update that pin test.
 FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
+# Version tag folded into the persisted judge-verdict cache key (release_gate H2) so a
+# change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
+# the extraction config still invalidates stale verdicts — a stricter judge must NEVER
+# serve a laxer cached PASS on the armed gate (H2 finding 1, a fail-open). BUMP THIS on
+# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape.
+JUDGE_LOGIC_VERSION = "2026-07-19"
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).
@@ -562,6 +617,22 @@ FAITHFULNESS_SKIP_LINE_LABELS = [
     "document", "prompt version used", "date processed", "source document",
     "coverage", "coverage / role", "key evidence", "nested under structural themes",
     "nested under", "lens fuel value", "lens fuel", "status",
+]
+# GENERIC scaffolding field-labels that legitimately PREFIX real content on a line
+# ("Description: <claim>") and should be STRIPPED so the claim itself is judged.
+# Unlike FAITHFULNESS_SKIP_LINE_LABELS (which drops the whole line), these keep the
+# remainder. ONLY generic labels that prefix a full sentence belong here — NEVER a
+# proper noun, a number, or an attribution/citation label ("reference", "source"):
+# a prefix like "Stanford study:" or "2019 report:" must NOT be stripped, or the
+# fabricated attribution rides through the armed faithfulness judge UNJUDGED (gate
+# bypass; see faithfulness_judge.extract_claims / review H11 / P7 / P20). Editorial
+# list -> config, not code (rule 9). Matched case-insensitively on the text before
+# the first colon.
+FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES = [
+    "description", "summary", "note", "notes", "overview", "context",
+    "background", "example", "explanation", "detail", "details", "point",
+    "takeaway", "rationale", "reason", "purpose", "clarification", "caveat",
+    "definition", "observation",
 ]
 # Narrative artifacts the judge audits: PROSE SUMMARIES that must stay faithful to
 # the source. Themes are DELIBERATELY EXCLUDED — a real-artifact smoke test
@@ -639,10 +710,10 @@ VALIDATION_MEMORY_FILENAME = "validation_memory.json"
 VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
 VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 
-# Model variables moved into ProjectSettings and exposed as globals
-# Defaults: DEFAULT_MODEL = "claude-sonnet-4-6"
-#           AUX_MODEL = "claude-haiku-4-5-20251001"
-#           FORMATTING_MODEL = "claude-sonnet-4-6"
+# Model variables live on ProjectSettings (DEFAULT_MODEL / AUX_MODEL /
+# FORMATTING_MODEL / VALIDATION_MODEL, set in __init__) and are proxied as module
+# globals. See __init__ for the current default values — they are NOT duplicated
+# here (the old inline "Defaults:" list had drifted from the code; review M5/L4).
 
 # Default Summary Word Count
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
@@ -760,6 +831,33 @@ TOKEN_USAGE_WARNING_THRESHOLD = 0.9
 FUZZY_MATCH_THRESHOLD = 0.85
 FUZZY_MATCH_EARLY_STOP = 0.98
 FUZZY_MATCH_PREFIX_LEN = 20
+# Cheap grounding pre-filter: fraction of a needle's distinct words that must appear
+# ANYWHERE in the haystack before the O(haystack x needle) sliding-window scan runs.
+# An ungrounded quote (hallucinated / heavily paraphrased) shares few words with the
+# transcript, so it can never reach FUZZY_MATCH_THRESHOLD anyway — this short-circuits
+# it in O(haystack) instead of scanning every window with no early stop. Kept safely
+# below FUZZY_MATCH_THRESHOLD so it can never drop a quote that would actually match
+# (review H10 / P9).
+FUZZY_MATCH_PREFILTER_MIN_COVERAGE = 0.5
+
+# Anthropic beta header for prompt caching — single source of truth for the value
+# duplicated across transcript_utils call sites (review L6 / P4).
+ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
+
+# LLM retry policy — promoted from hard-coded literals in call_claude_with_retry
+# (review M6 / P4). max_retries default and the exponential-backoff base.
+MAX_RETRIES = 3
+RETRY_BACKOFF_BASE = 2  # wait = RETRY_BACKOFF_BASE ** attempt seconds (1s, 2s, 4s, …)
+
+# Lens-title stopwords for the grounding check — editorial vocabulary belongs in
+# config, not source (review L7 / rule 9). Consumed by
+# extraction_pipeline._top_lens_is_grounded.
+LENS_STOPWORDS = frozenset({
+    "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
+    "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",
+    "but", "not", "your", "you", "my", "this", "these", "those", "from", "about",
+    "into", "keeps", "keep",
+})
 
 # Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
 # the opening words), so a quote whose first words are verbatim but whose

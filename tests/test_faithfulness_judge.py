@@ -66,6 +66,24 @@ def test_extract_claims_keeps_short_concrete_claims():
     assert "OK." not in claims               # true fragment
 
 
+def test_extract_claims_does_not_strip_fabricated_attribution_prefix():
+    """H11 (review 2026-07-18): a fabricated pre-colon specific (a cited study / named
+    entity phrased as a 'Prefix: ...' line) must NOT be stripped before the armed judge
+    sees it — else the attribution rides through the gate UNJUDGED (gate bypass, P7/P20).
+    A GENERIC scaffolding label (config allowlist) IS still stripped so the claim itself
+    is judged."""
+    text = (
+        "Stanford study: transcription accuracy rose to ninety-eight percent.\n\n"
+        "Description: the client was hospitalized twice in 1975.\n"
+    )
+    claims = fj.extract_claims(text)
+    # the fabricated attribution SURVIVES verbatim inside a judgeable claim
+    assert any("Stanford study" in c for c in claims), claims
+    # the generic label IS stripped; its substantive remainder is judged on its own
+    assert "the client was hospitalized twice in 1975." in claims, claims
+    assert not any(c.lower().startswith("description:") for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]

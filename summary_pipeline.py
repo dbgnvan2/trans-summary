@@ -26,6 +26,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import config
+import transcript_utils
 from emphasis_detector import EmphasisDetector
 from transcript_utils import (
     call_claude_with_retry,
@@ -735,13 +736,7 @@ def prepare_summary_input(
 
 def load_prompt() -> str:
     """Load the summary generation prompt template."""
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_STRUCTURED_SUMMARY_FILENAME
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_STRUCTURED_SUMMARY_FILENAME}"
-        )
-    return prompt_path.read_text(encoding="utf-8")
+    return transcript_utils.load_prompt(config.PROMPT_STRUCTURED_SUMMARY_FILENAME)
 
 
 def generate_summary(

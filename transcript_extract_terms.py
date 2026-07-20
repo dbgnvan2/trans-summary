@@ -18,6 +18,7 @@ from pathlib import Path
 import anthropic
 
 import config
+import transcript_utils
 from transcript_utils import (
     call_claude_with_retry,
     create_system_message_with_cache,
@@ -30,13 +31,7 @@ logger = logging.getLogger("transcript_extract_terms")
 
 def load_prompt() -> str:
     """Load the key terms extraction prompt template."""
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_KEY_TERMS_FILENAME
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_KEY_TERMS_FILENAME}"
-        )
-    return prompt_path.read_text(encoding="utf-8")
+    return transcript_utils.load_prompt(config.PROMPT_KEY_TERMS_FILENAME)
 
 
 def load_formatted_transcript(filename: str) -> str:

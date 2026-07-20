@@ -16,8 +16,10 @@ from transcript_utils import (
     create_system_message_with_cache,
     extract_bowen_references,
     extract_section,
+    fill_prompt_template,
     find_text_in_content,
     load_project_transcript,
+    normalize_text,
     parse_filename_metadata,
     parse_scored_emphasis_output,
     setup_logging,
@@ -62,19 +64,6 @@ def _load_formatted_transcript(filename: str) -> str:
 
     validate_input_file(transcript_path)
     return transcript_path.read_text(encoding="utf-8")
-
-
-def _fill_prompt_template(
-    template: str, metadata: dict, transcript: str, **kwargs
-) -> str:
-    """Fill in the prompt template."""
-    placeholders = {**metadata, **kwargs}
-    for key, value in placeholders.items():
-        pattern = re.compile(
-            r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
-        template = pattern.sub(lambda m: str(value), template)
-    template = template.replace("{{insert_transcript_text_here}}", transcript)
-    return template
 
 
 def _generate_summary_with_claude(
@@ -244,7 +233,7 @@ def _generate_with_cached_transcript(
 ) -> str:
     """Generate an artifact using a prompt template and cached transcript context."""
     template = _load_summary_prompt(prompt_filename)
-    prompt = _fill_prompt_template(template, {}, "", **replacements)
+    prompt = fill_prompt_template(template, {}, "", **replacements)
     # If prompts do not include placeholders, still provide dynamic context explicitly.
     unresolved = []
     for key, value in replacements.items():
@@ -524,7 +513,7 @@ def _filter_bowen_references_semantically(
         items_text = "\n".join(
             [f'- Label: {label}\n  Quote: {quote}' for label, quote in refs]
         )
-        prompt = _fill_prompt_template(prompt_template, {}, "", items=items_text)
+        prompt = fill_prompt_template(prompt_template, {}, "", items=items_text)
 
         logger.info("Filtering Bowen references semantically...")
         response = _generate_summary_with_claude(
@@ -823,13 +812,18 @@ def extract_bowen_references_from_transcript(
 
         def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
             grounded = []
+            # Normalize the transcript ONCE, not per ref per call — the grounding loop
+            # searches the same transcript 2x per ref (review M11 / P9).
+            transcript_norm = normalize_text(transcript_text, aggressive=True)
             for concept, quote in refs:
                 compact_quote = _compact_bowen_quote(quote, max_words=140)
                 _, _, ratio_compact = find_text_in_content(
-                    compact_quote, transcript_text, aggressive_normalization=True
+                    compact_quote, transcript_text, aggressive_normalization=True,
+                    haystack_normalized=transcript_norm,
                 )
                 _, _, ratio_full = find_text_in_content(
-                    quote, transcript_text, aggressive_normalization=True
+                    quote, transcript_text, aggressive_normalization=True,
+                    haystack_normalized=transcript_norm,
                 )
                 ratio = max(ratio_compact, ratio_full)
                 if ratio >= 0.90:
@@ -1115,7 +1109,12 @@ def _abstract_gate_precheck(base_name: str, logger=None):
         publish (single attempt).
     """
     import release_gate as rg
-    faith = rg.check_faithfulness(base_name, logger)
+    # Scope the GENERATION-time precheck to the abstract only — otherwise an unfaithful
+    # claim in a sibling artifact (summary/overview/blog, already on disk) would be
+    # blamed on the abstract, burning regeneration attempts on a claim the abstract
+    # cannot remove and emitting a misleading BLOCK message (review M2). The full
+    # multi-artifact faithfulness sweep stays at the publish gate.
+    faith = rg.check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
     entity = rg.check_entity_grounding(base_name, logger)
     if rg.Status.ERROR in (faith.status, entity.status):
         return "unavailable", []
@@ -1273,12 +1272,8 @@ def _extract_lens_titles(lenses_output: str) -> list[str]:
     ]
 
 
-_LENS_STOPWORDS = frozenset({
-    "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
-    "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",
-    "but", "not", "your", "you", "my", "this", "these", "those", "from", "about",
-    "into", "keeps", "keep",
-})
+# Editorial vocabulary lives in config (review L7 / rule 9).
+_LENS_STOPWORDS = config.LENS_STOPWORDS
 
 
 def _top_lens_is_grounded(top_lens: dict, lenses_output: str) -> bool:
@@ -1703,7 +1698,7 @@ def summarize_transcript(
                 return False
             logger.info("\n--- PART 8: Generating Blog Post from Lens #1 ---")
             prompt_template = _load_summary_prompt(config.PROMPT_BLOG_FILENAME)
-            prompt = _fill_prompt_template(
+            prompt = fill_prompt_template(
                 prompt_template,
                 metadata,
                 transcript="",
@@ -1748,7 +1743,7 @@ def summarize_transcript(
                 return False
             logger.info("\n--- PART 9: Generating Overview Post (GEO) ---")
             prompt_template = _load_summary_prompt(config.PROMPT_OVERVIEW_FILENAME)
-            prompt = _fill_prompt_template(
+            prompt = fill_prompt_template(
                 prompt_template,
                 metadata,
                 transcript="",
