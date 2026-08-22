@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-21 (Bowen person-recollection extraction fix + cross-artifact consistency gate)
+
+- **Bowen reference extraction prompt** — a "Bowen reference" is now a recollection of Murray Bowen *the person* (said/wrote/told/suggested/explained…), not "Bowen theory" exposition. The vague prompt previously made the model extract concept-applications, which the (correct) person-vs-theory filter then dropped → empty `bowen-references.md` on a Bowen-dense talk. Verified end-to-end: 0 → 7 genuine person-recollections on a Kerr talk.
+- **New `check_consistency` release-gate check (advisory)** — deterministic, no-API cross-artifact consistency: flags an empty content-derived artifact on a transcript that clearly contains the material it should have captured (person-recollection density for Bowen), plus advisory key-term keyword-overlap and abstract↔topics signals. Wired into `DEFAULT_CHECKS` (advisory by policy, not a hard blocker).
+- **`bowen_attribution.py`** — extracted the Bowen person-attribution detector into a shared stdlib-only module; `extraction_pipeline` and the consistency check both import it (same object by identity), so the density signal and the extraction filter can never drift. Behaviour-identical to the original (differential-verified), including the two distinct verb lists (short for the "Bowen theory" rejection, long for primary attribution).
+- **Test-hygiene fix** — `test_bowen_references_integration` no longer clobbers the real `prompts/bowen_reference_extraction_v1.md` on every full-suite run (the fixture now redirects the frozen `config.PROMPTS_DIR` module attr to a tmp dir and restores it).
+
+Offline suite: 749 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 10: dedups L11/L12/L14)
 
 - **L11** — hoisted `_fill_prompt_template` into `transcript_utils.fill_prompt_template` (extraction uses it; validation's dead copy removed).
