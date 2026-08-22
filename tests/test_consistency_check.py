@@ -190,6 +190,21 @@ def test_consistency_check_is_wired_into_release_gate():
                for name, fn in release_gate.DEFAULT_CHECKS)
 
 
+def test_consistency_fail_blocks_and_warn_ships():
+    """The reconciliation FAIL (empty bowen-references on a Bowen-dense talk) is a
+    HARD blocker — a dropped recollection is a lost signal, not a cosmetic gap. Its
+    heuristic WARNs (orphan key-term, topic coverage, fuzzy drop) stay advisory."""
+    import config
+    import release_gate as rg
+    from release_gate import Decision, Status, Verdict
+
+    assert "consistency" in config.GATE_BLOCKING_CHECKS
+    assert (rg.decide([Verdict("consistency", Status.FAIL, "bowen empty")]).decision
+            is Decision.BLOCK)
+    assert (rg.decide([Verdict("consistency", Status.WARN, "orphan key-term")]).decision
+            is Decision.ALLOW_WITH_WARNINGS)
+
+
 # ---------------------------------------------------------------------------
 # Cross-artifact reconciliation (gap #3) — artifact ↔ artifact
 # ---------------------------------------------------------------------------

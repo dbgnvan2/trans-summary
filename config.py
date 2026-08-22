@@ -529,8 +529,14 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   matter) is a hallucination in a published artifact (U2). Blocks when enabled; a
 #   PASS no-op while THEME_JUDGE_ENABLED is False, so it does not affect the gate
 #   until armed.
+#   consistency (added 2026-08-22): an EMPTY bowen-references.md while the
+#   transcript (or abstract) recounts Bowen the person >= BOWEN_PERSON_MIN_MARKERS
+#   times is a DROPPED RECOLLECTION — the pipeline surfaced a recollection and the
+#   dedicated artifact lost it (a lost signal, not a cosmetic gap). Only its FAIL
+#   findings block; its heuristic WARNs (orphan key-term, topic coverage, the
+#   fuzzy specific-recollection drop) stay advisory.
 GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness",
-                        "theme_grounding"}
+                        "theme_grounding", "consistency"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the

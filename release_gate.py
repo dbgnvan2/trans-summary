@@ -651,15 +651,17 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
 
 
 def check_consistency(base_name: str, logger=None) -> Verdict:
-    """Cross-artifact consistency (advisory). Flags the error class per-artifact
+    """Cross-artifact consistency. Flags the error class per-artifact
     validators miss because every artifact is checked against the transcript but
     never against each other, nor against the transcript's domain density — e.g.
     empty Bowen references on a talk that recounts Bowen the person. Deterministic,
     no API call.
 
-    Advisory by policy (not in ``config.GATE_BLOCKING_CHECKS``): the signals are
-    heuristic, so a FAIL here ships as ALLOW_WITH_WARNINGS unless the check is
-    explicitly elected as a hard blocker."""
+    Hard blocker for its FAIL findings (in ``config.GATE_BLOCKING_CHECKS``): an
+    empty bowen-references.md while the transcript or abstract recounts Bowen the
+    person >= BOWEN_PERSON_MIN_MARKERS times is a dropped recollection — a lost
+    signal, not a cosmetic gap. Its heuristic WARNs (orphan key-term, topic
+    coverage, the fuzzy specific-recollection drop) remain advisory."""
     from transcript_validate_consistency import run as consistency_run
 
     proj = config.PROJECTS_DIR / base_name
