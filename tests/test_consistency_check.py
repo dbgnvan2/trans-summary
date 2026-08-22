@@ -33,6 +33,17 @@ def test_count_person_recollections_ignores_theory_vocabulary():
     assert count_person_recollections(text) == 0
 
 
+def test_count_person_recollections_handles_newline_only_sentences():
+    """F2 — rough dictation that separates sentences with newlines and no terminal
+    punctuation must still count each recollection, not collapse to one unit."""
+    text = (
+        "Bowen said the family is a unit\n"
+        "Bowen wrote about anxiety\n"
+        "Bowen said to focus on self"
+    )
+    assert count_person_recollections(text) >= 3
+
+
 def test_density_signal_shares_the_extractors_detector():
     """The density signal must derive from the extractor's OWN detector, not a
     parallel hand-maintained list — an identity check, not a comment (P19 fix)."""

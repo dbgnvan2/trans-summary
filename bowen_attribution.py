@@ -75,8 +75,10 @@ _ATTRIBUTION_PATTERNS = (
     r"\bbowen\s+quotes?\b",
 )
 
-# Sentence units for density counting (period / bang / question-mark boundary).
-_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+# Sentence units for density counting. Split on newline runs (rough dictation
+# often separates sentences with newlines and no terminal punctuation) AND on
+# terminal punctuation followed by whitespace.
+_UNIT_SPLIT = re.compile(r"\n+|[.!?]\s+")
 
 
 def _is_bowen_person_attribution(quote_l: str) -> bool:
@@ -110,11 +112,16 @@ def find_bowen_person_attributions(text: str) -> list[str]:
     Each returned string is a lowercased matching unit. ``len(...)`` is the
     person-recollection density used by the cross-artifact consistency check;
     the strings themselves are the recollections for reporting.
+
+    Units are split on newlines and terminal punctuation (so a rough-dictation
+    transcript with newline-separated, unpunctuated sentences still yields one
+    unit per recollection), then normalised the same way the extractor does.
     """
     if not text:
         return []
-    norm = " ".join(str(text).split()).strip().lower()
-    if not norm:
-        return []
-    units = _SENTENCE_SPLIT.split(norm)
-    return [u.strip() for u in units if u.strip() and _is_bowen_person_attribution(u)]
+    out = []
+    for u in _UNIT_SPLIT.split(str(text)):
+        u_l = " ".join(u.split()).strip().lower()
+        if u_l and _is_bowen_person_attribution(u_l):
+            out.append(u_l)
+    return out

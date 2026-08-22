@@ -56,6 +56,9 @@ MIN_WORDS_ABSTRACT = 30
 
 # Minimum keyword overlap for a key term to count as "grounded" in the
 # transcript (advisory heuristic only — see the key-term grounding block).
+# Kept module-local (not config.*) deliberately: this module is a standalone,
+# stdlib-only CLI and must not import config (which pulls in model_specs and
+# runtime path state) just to read one threshold.
 KEY_TERM_GROUNDING_MIN_OVERLAP = 0.3
 
 
