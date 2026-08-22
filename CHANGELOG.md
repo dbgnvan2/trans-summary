@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-22 (GUI "Test Drift" pre-flight judge self-test)
+
+- **`ts_gui` "Test Drift" button** — a one-click pre-flight check next to "Config Check" that runs all three semantic judges over their gold sets and reports recall/precision, so the user can confirm the hallucination safety net is still at calibrated accuracy *before* processing a transcript. On drift it logs and pops a dialog with actionable help (re-run to rule out a single-draw flake; identify what changed — judge model / prompt / threshold; re-calibrate, or pin the judge model to a dated snapshot). A "could not run" (no key / API error) is surfaced as a failure, never a clean pass.
+- **`judge_drift_monitor.run_in_process`** — a public in-process entry point returning `(report, drift)` so the GUI reuses the exact CLI evaluate/render/drift logic rather than a parallel copy.
+
 ## [Unreleased] - 2026-08-22 (judge drift monitor — drift insurance for the semantic judges)
 
 - **`judge_drift_monitor`** — the semantic judges (faithfulness, theme, key-terms) were calibrated once at arming and then trusted forever; a model bump or prompt edit that silently un-calibrates them would serve stale verdicts with no signal (P20). This unified CLI re-runs all three judges over their curated gold sets and asserts they still clear their precision/recall bars, exiting non-zero on drift (0 = all clear, 1 = drift detected, 2 = could-not-run). Each judge runs on its OWN configured model unless `--model` overrides all three. Not run by `pytest` (the offline wrapper is `tests/test_judge_drift_monitor.py`); intended for CI or a weekly cron.

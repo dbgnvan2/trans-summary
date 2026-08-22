@@ -1794,8 +1794,13 @@ class TranscriptProcessorGUI:
             return False
         self.log(report)
         if drift:
+            self.set_final_status("Judge drift detected", "red")
             self.log(DRIFT_HELP_TEXT)
-            messagebox.showwarning("Judge Drift Detected", DRIFT_HELP_TEXT)
+            # Tk is not thread-safe: marshal the dialog to the main thread, like
+            # every other dialog in this file (P15), instead of calling
+            # messagebox.showwarning from the worker thread.
+            self.root.after(0, lambda: messagebox.showwarning(
+                "Judge Drift Detected", DRIFT_HELP_TEXT))
             return False
         return True
 
