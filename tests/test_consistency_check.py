@@ -136,6 +136,18 @@ def test_count_items_empty_bowen_file_is_zero():
     assert count_items("## Bowen References\n", "bowen") == 0
 
 
+def test_count_items_round_trips_the_real_formatter():
+    """P19 — the consumer's bowen item count must match the producer's actual
+    format (save->re-parse). If _format_bowen_refs drifts, count_items returning
+    0 on a NON-empty artifact would now FALSE-BLOCK, since consistency is a hard
+    blocker."""
+    import extraction_pipeline as ep
+    refs = [("Differentiation of Self", "DOS equals EO plus A", "[00:03:09]"),
+            ("Emotional Objectivity", "allows emotional neutrality", None)]
+    rendered = ep._format_bowen_refs(refs)
+    assert count_items(rendered, "bowen") == len(refs)
+
+
 def test_parse_key_terms_extracts_headers():
     md = "### Differentiation of Self\nDef\n\n### Emotional Cutoff\nDef2\n"
     assert parse_key_terms(md) == ["Differentiation of Self", "Emotional Cutoff"]

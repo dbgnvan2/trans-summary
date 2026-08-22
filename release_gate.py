@@ -10,8 +10,9 @@ Key invariants:
   * A check that raises becomes an ERROR verdict — it is never silently skipped
     (M1.C). ERROR blocks by default (a run we couldn't verify must not ship, P1).
   * A FAIL blocks only if its check is in ``config.GATE_BLOCKING_CHECKS``; all
-    other FAIL/WARN ship as ALLOW_WITH_WARNINGS. The elected hard blocker is
-    ``entity_grounding`` (fabricated names).
+    other FAIL/WARN ship as ALLOW_WITH_WARNINGS. The hard blockers are enumerated
+    in ``config.GATE_BLOCKING_CHECKS`` (never re-listed here, so the two cannot
+    drift).
 """
 from __future__ import annotations
 
@@ -662,9 +663,16 @@ def check_consistency(base_name: str, logger=None) -> Verdict:
     person >= BOWEN_PERSON_MIN_MARKERS times is a dropped recollection — a lost
     signal, not a cosmetic gap. Its heuristic WARNs (orphan key-term, topic
     coverage, the fuzzy specific-recollection drop) remain advisory."""
-    from transcript_validate_consistency import run as consistency_run
+    from transcript_validate_consistency import resolve_transcript, run as consistency_run
 
     proj = config.PROJECTS_DIR / base_name
+    # A missing/unresolvable source is "cannot verify" (ERROR -> block), not a
+    # definitive inconsistency — mirror check_entity_grounding so the blocker's
+    # FAIL set is exactly "definitive inconsistency" and a source-resolution
+    # failure never blocks as a misclassified FAIL.
+    if resolve_transcript(proj) is None:
+        return Verdict("consistency", Status.ERROR,
+                       "source transcript missing — cannot verify consistency")
     fails, warns, _info = consistency_run(proj)
     if fails:
         return Verdict("consistency", Status.FAIL,
