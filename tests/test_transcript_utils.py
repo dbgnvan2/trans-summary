@@ -125,6 +125,22 @@ Some other content.
     def test_parse_filename_metadata_invalid(self):
         with self.assertRaises(ValueError):
             parse_filename_metadata("invalid-filename.txt")
+
+    def test_parse_filename_metadata_strips_internal_timestamp(self):
+        """A trailing `_YYYYMMDD_HHMMSS` is an internal processing timestamp, not
+        part of the lecture date — the ``date`` field must be the clean YYYY-MM-DD
+        while ``stem`` keeps the full unique segment."""
+        metadata = parse_filename_metadata(
+            "Systems Biology Meets Bowen Theory - Michael Kerr - "
+            "2021-06-25_20260718_155038.txt"
+        )
+        self.assertEqual(metadata["date"], "2021-06-25")
+        self.assertEqual(metadata["year"], "2021")
+        self.assertEqual(
+            metadata["stem"],
+            "Systems Biology Meets Bowen Theory - Michael Kerr - "
+            "2021-06-25_20260718_155038",
+        )
     
     def test_parse_scored_emphasis_output_with_timestamp(self):
         emphasis_text = """

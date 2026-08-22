@@ -1066,11 +1066,21 @@ def parse_filename_metadata(filename: str) -> dict:
         raise ValueError(f"Date must contain a 4-digit year, got: {date}")
     year = year_match.group(1)
 
+    # The lecture date is the leading YYYY-MM-DD. A trailing `_YYYYMMDD_HHMMSS`
+    # is an INTERNAL processing timestamp (added for filename uniqueness), not
+    # part of the lecture date — strip it from the ``date`` field so the YAML
+    # "Lecture date" and any prompt context show the talk's date, not the ingest
+    # timestamp. ``stem`` still carries the full unique segment.
+    clean_date = date
+    dm = re.match(r"(\d{4}-\d{2}-\d{2})", date)
+    if dm:
+        clean_date = dm.group(1)
+
     return {
         "title": title,
         "presenter": presenter,
         "author": presenter,  # for backward compatibility
-        "date": date,
+        "date": clean_date,
         "year": year,
         "filename": safe_filename,  # Return sanitized filename
         "stem": stem
