@@ -182,6 +182,29 @@ def test_real_fabricated_name_still_caught_after_fix():
         "# Abstract\n\nThe work of Luciano Malorni is central.", source)
 
 
+def test_presenter_name_known_not_flagged():
+    """A correct attribution to the presenter (named in the filename, absent from
+    the transcript body) must not be flagged as a hallucinated name."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses bowen theory and systems biology"
+    abstract = "In this lecture, Michael Kerr argues for a systems view of cancer."
+    # without a known name, "Kerr" is absent from the source -> flagged
+    assert "Michael Kerr" in find_ungrounded_names(abstract, source)
+    # with the presenter/author as a known name -> the attribution is not flagged
+    assert "Michael Kerr" not in find_ungrounded_names(
+        abstract, source, known_names=["Michael Kerr"])
+
+
+def test_known_name_does_not_hide_adjacent_fabrication():
+    """A stray token (Kerrstone) is not the known name (Kerr), so an adjacent
+    fabricated name is still flagged even when a known name is supplied."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses systems biology"
+    abstract = "Michael Kerrstone argues for a systems view."
+    names = find_ungrounded_names(abstract, source, known_names=["Michael Kerr"])
+    assert "Michael Kerrstone" in names
+
+
 def test_entity_grounding_presenter_name_grounded_via_metadata(tmp_path, monkeypatch):
     """The presenter's own name (from the filename) must NOT be flagged as
     ungrounded just because the transcript never says it — that was a false

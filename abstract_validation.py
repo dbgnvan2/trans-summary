@@ -26,7 +26,8 @@ import config
 from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
 
 
-def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
+def find_ungrounded_names(abstract: str, transcript: str,
+                          known_names=None) -> list[str]:
     """
     Return multi-word proper names in the abstract that are NOT grounded in the
     source transcript.
@@ -37,6 +38,14 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     ASR spelling normalizations (e.g. "Bertoloso" -> "Bertolaso") while still
     catching a fabricated name whose tokens appear nowhere in the source. Matches
     Latin-accented names ("José García") as well as ASCII.
+
+    ``known_names`` is an optional iterable of names that are legitimately ABSENT
+    from the transcript body (the presenter/author, who is named in the filename
+    metadata but not spoken in their own talk). A name whose significant tokens
+    are ALL covered by a known name is skipped — so a correct attribution to the
+    presenter ("Michael Kerr") is not flagged as a hallucination, while a
+    fabricated adjacent name ("Michael Kerrstone") still is (its stray token is
+    not known).
 
     KNOWN GAPS (this is a lexical check — a real fix is the semantic judge, M2):
     it only detects a MULTI-WORD Title-Case shape, so a single-word surname
@@ -62,6 +71,16 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
         t for t in re.findall(r"[a-zà-öø-ÿ]+", transcript.lower())
         if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
     }
+    # Significant tokens of the presenter/author (filename metadata). These are
+    # deliberately absent from the transcript body, so grounding them against the
+    # source is the wrong test — a correct attribution must not be flagged.
+    known_tokens: set[str] = set()
+    for kn in (known_names or []):
+        if kn:
+            known_tokens.update(
+                t for t in re.findall(r"[a-zà-öø-ÿ]+", str(kn).lower())
+                if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+            )
 
     def _grounded(token: str) -> bool:
         low = token.lower()
@@ -72,6 +91,11 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
             for s in source_tokens
             if abs(len(s) - len(low)) <= 2
         )
+
+    def _known_name(name: str) -> bool:
+        sig = [t for t in name.split()
+               if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN]
+        return bool(sig) and all(t.lower() in known_tokens for t in sig)
 
     ungrounded: list[str] = []
     seen: set[str] = set()
@@ -86,7 +110,8 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
             t for t in name.split()
             if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
         ]
-        if sig_tokens and not any(_grounded(t) for t in sig_tokens):
+        if sig_tokens and not any(_grounded(t) for t in sig_tokens) \
+                and not _known_name(name):
             ungrounded.append(name)
     return ungrounded
 

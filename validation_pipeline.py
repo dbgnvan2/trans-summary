@@ -761,9 +761,15 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
 
         # Advisory (P2): surface abstract proper-names absent from the source.
         # No gate previously checked this, and a real run shipped a fabricated
-        # researcher name ("Luciano Malorni") into the published HTML.
+        # researcher name ("Luciano Malorni") into the published HTML. The
+        # presenter/author is passed as a KNOWN name so a correct attribution to
+        # the speaker (named in the filename, not spoken in their own talk) is not
+        # flagged as a hallucination ("Michael Kerr" false-positive).
+        known_names = [
+            n for n in (metadata.get("presenter"), metadata.get("author")) if n
+        ]
         ungrounded_names = abstract_validation.find_ungrounded_names(
-            abstract_text, transcript
+            abstract_text, transcript, known_names=known_names
         )
         if ungrounded_names:
             logger.warning(
