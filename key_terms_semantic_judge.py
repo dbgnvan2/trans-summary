@@ -108,25 +108,25 @@ def judge_key_terms(terms: list, source: str, client, *,
 
 
 def parse_key_terms_artifact(markdown: str) -> list:
-    """Extract ``[(term, definition)]`` pairs from a key-terms.md artifact. The
-    definition is the prose under each ``### Term`` heading up to the next heading;
-    falls back to the older bold ``**Term**: definition`` format."""
+    """Extract ``[(term, definition)]`` pairs from a key-terms.md artifact. Handles
+    BOTH the ``### Term`` heading format and the older bold ``**Term**: definition``
+    format, merging the two (so a mixed-format file doesn't silently drop one kind)."""
     text = re.sub(r"^---\s*\n.*?\n---\s*\n", "", markdown, flags=re.DOTALL)
     pairs = []
+    seen = set()
+
+    def _add(term: str, definition: str) -> None:
+        term = term.strip()
+        if term and term.lower() != "key terms" and term.lower() not in seen:
+            seen.add(term.lower())
+            pairs.append((term, definition.strip()))
+
     for block in re.split(r"\n(?=###\s)", text):
         m = re.match(r"###\s+(.+?)\s*\n(.*)", block, re.DOTALL)
-        if not m:
-            continue
-        term, definition = m.group(1).strip(), m.group(2).strip()
-        if term and term.lower() != "key terms":
-            pairs.append((term, definition))
-    if pairs:
-        return pairs
-    # Fallback: bold `**Term**: definition` (the older key-terms format).
+        if m:
+            _add(m.group(1), m.group(2))
     for m in re.finditer(r"\*\*([^*\n]+)\*\*\s*[:|-]\s*(.+)", text):
-        term, definition = m.group(1).strip(), m.group(2).strip()
-        if term and term.lower() != "key terms":
-            pairs.append((term, definition))
+        _add(m.group(1), m.group(2))
     return pairs
 
 
@@ -142,8 +142,10 @@ def judge_key_terms_artifact(key_terms_markdown: str, source: str, client, *,
     if not terms:
         # A header-only/blank artifact -> PASS (nothing to judge). A NON-empty body
         # that parsed to zero terms -> ERROR: a silent [] here would let a malformed
-        # key-terms file through unjudged (P19), unlike a loud parse failure.
-        body = re.sub(r"#+\s*key\s+terms\b", "", key_terms_markdown, flags=re.IGNORECASE)
+        # key-terms file through unjudged (P19), unlike a loud parse failure. Strip
+        # frontmatter first so a frontmatter-bearing header-only artifact stays PASS.
+        body = re.sub(r"^---\s*\n.*?\n---\s*\n", "", key_terms_markdown, flags=re.DOTALL)
+        body = re.sub(r"#+\s*key\s+terms\b", "", body, flags=re.IGNORECASE)
         if body.strip():
             return FaithfulnessResult(ERROR, "key-terms artifact has content but no terms parsed")
         return FaithfulnessResult(PASS, "no key terms to judge")
@@ -187,7 +189,14 @@ def binary_key_terms_metrics(pairs: list) -> dict:
             fn += 1
         else:
             tn += 1
-    recall = tp / (tp + fn) if (tp + fn) else 1.0
+    # No INCORRECT truth rows (the whole negative class was filtered out, or
+    # --limit 1 produced none) -> recall is unmeasurable, so a 1.0 default would
+    # falsely read as a threshold-clearing judge (P24). Raise instead.
+    if tp + fn == 0:
+        raise ValueError(
+            "no INCORRECT examples in the labeled set — a calibration with no "
+            "negatives cannot clear the arming threshold")
+    recall = tp / (tp + fn)
     precision = tp / (tp + fp) if (tp + fp) else 1.0
     accuracy = (tp + tn) / len(pairs) if pairs else 1.0
     return {"tp": tp, "fp": fp, "fn": fn, "tn": tn,

@@ -41,7 +41,12 @@ def build_labeled_set(terms: list) -> list:
     if n >= 2:
         for i, (t, own_def) in enumerate(terms):
             wrong_def = terms[(i + 1) % n][1]
-            if keyword_overlap(own_def, wrong_def) >= 0.6:
+            # Symmetric overlap (min of both directions) so the skip decision does
+            # not depend on which definition is `a` vs `b` in the directional
+            # keyword_overlap.
+            sym = min(keyword_overlap(own_def, wrong_def),
+                      keyword_overlap(wrong_def, own_def))
+            if sym >= config.KEY_TERMS_JUDGE_AMBIGUOUS_OVERLAP:
                 continue  # near-duplicate definitions -> ambiguous, not clearly wrong
             labeled.append((t, wrong_def, kj.INCORRECT))
     return labeled
@@ -93,7 +98,11 @@ def main() -> int:
     client = anthropic.Anthropic(api_key=api_key)
 
     print(f"Judging {len(terms)} real terms + {len(terms)} swapped (incorrect) with model {args.model} ...")
-    metrics = run_head_to_head(source, terms, client, args.model)
+    try:
+        metrics = run_head_to_head(source, terms, client, args.model)
+    except ValueError as e:
+        print(f"Cannot calibrate: {e}", file=sys.stderr)
+        return 2
 
     print("\n=== Key-terms domain-semantic judge — head-to-head ===")
     print(f"model     : {args.model}")

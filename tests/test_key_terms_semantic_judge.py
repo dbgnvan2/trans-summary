@@ -140,6 +140,26 @@ def test_binary_key_terms_metrics_empty_raises():
         kj.binary_key_terms_metrics([])
 
 
+def test_binary_key_terms_metrics_no_negatives_raises():
+    # all-correct pairs -> tp+fn == 0 -> recall unmeasurable -> a 1.0 default would
+    # falsely clear arming (P24); it must raise instead
+    with pytest.raises(ValueError):
+        kj.binary_key_terms_metrics([("correct", "correct"), ("correct", "correct")])
+
+
+def test_run_head_to_head_all_filtered_raises(monkeypatch):
+    import key_terms_head_to_head as h2h
+    terms = [
+        ("Emotional Objectivity",
+         "A capacity for emotional neutrality that permits non-reactive engagement."),
+        ("Emotional Neutrality",
+         "A capacity for emotional objectivity that permits non-reactive engagement."),
+    ]
+    client = _canned_client(monkeypatch, _canned_correct())
+    with pytest.raises(ValueError):
+        h2h.run_head_to_head("source", terms, client, "model")
+
+
 def test_run_head_to_head_empty_raises(monkeypatch):
     import key_terms_head_to_head as h2h
     client = _canned_client(monkeypatch, _canned_correct())

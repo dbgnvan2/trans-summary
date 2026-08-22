@@ -710,6 +710,11 @@ KEY_TERMS_JUDGE_MAX_TOKENS = 2048
 # INCORRECT class is load-bearing — a swapped definition must not pass).
 KEY_TERMS_JUDGE_MIN_RECALL_INCORRECT = 0.90
 KEY_TERMS_JUDGE_MIN_PRECISION_INCORRECT = 0.70
+# Head-to-head labeled-set construction: a swap between two terms whose definitions
+# overlap at least this much (symmetric keyword overlap) is ambiguous (near-synonym),
+# not clearly wrong, and is skipped rather than polluting the recall-on-INCORRECT
+# metric. Promoted to config per the tier-threshold convention (not hardcoded).
+KEY_TERMS_JUDGE_AMBIGUOUS_OVERLAP = 0.6
 
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a
