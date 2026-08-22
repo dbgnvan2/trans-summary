@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-21 (offline golden-transcript regression harness)
+
+- **`tests/test_golden_transcript_regression.py`** — an offline end-to-end regression baseline (gap #2). Reuses the three existing golden fixtures (`dave_g_test2`, `roots_bowen_test`, `where_roots`) and runs the deterministic validation layer over each with zero API spend: the fabricated-name detector still flags the real "Luciano Malorni" fabrication (and stays clean on clean abstracts), claim extraction and the artifact codecs yield stable golden counts, the real `release_gate.run_gate` BLOCKs the known fabrication end-to-end, and the cross-artifact consistency check passes on the complete fixture. Offline-ness is enforced inside the test (not just by the suite conftest). The `GOLDEN` table is the single place to update exact counts on a legitimate change.
+
+Offline suite: 758 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-21 (Bowen person-recollection extraction fix + cross-artifact consistency gate)
 
 - **Bowen reference extraction prompt** — a "Bowen reference" is now a recollection of Murray Bowen *the person* (said/wrote/told/suggested/explained…), not "Bowen theory" exposition. The vague prompt previously made the model extract concept-applications, which the (correct) person-vs-theory filter then dropped → empty `bowen-references.md` on a Bowen-dense talk. Verified end-to-end: 0 → 7 genuine person-recollections on a Kerr talk.
