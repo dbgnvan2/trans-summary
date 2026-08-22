@@ -409,7 +409,6 @@ def _judge_logic_version(instructions: str) -> str:
         # remembers to bump JUDGE_LOGIC_VERSION by hand (P6/P4).
         str(config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS),
         str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
-        str(config.FAITHFULNESS_JUDGE_ROUTE_MARGIN),
         str(config.VALIDATION_CHUNK_SIZE),
         str(config.VALIDATION_CHUNK_OVERLAP),
     ])

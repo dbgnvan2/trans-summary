@@ -201,15 +201,6 @@ def _significant_words(text: str) -> set:
     return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP_WORDS}
 
 
-def lexical_overlap(a: str, b: str) -> float:
-    """Fraction of ``a``'s significant words present in ``b`` (0..1)."""
-    aw = _significant_words(a)
-    if not aw:
-        return 0.0
-    bw = _significant_words(b)
-    return sum(1 for w in aw if w in bw) / len(aw)
-
-
 def chunk_source(source: str, *, chunk_words: Optional[int] = None,
                  overlap_words: Optional[int] = None) -> list:
     """Split the source transcript into overlapping word-windows. Reuses the same
@@ -235,24 +226,49 @@ def chunk_source(source: str, *, chunk_words: Optional[int] = None,
     return chunks
 
 
-def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float,
-                           margin: float) -> tuple:
+def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tuple:
     """Return ``(routed, unrouted)``.
 
-    ``routed`` maps window-index -> [claim-index] for claims with a clear lexical anchor
-    in ONE window. ``unrouted`` lists claim-indexes that must be judged against the FULL
-    source: either no window clears ``min_overlap``, or the claim's significant words are
-    SPREAD across windows (the best window does not beat the second-best by ``margin``) —
-    a cross-window summary-level inference no single window can fairly verify.
+    ``routed`` maps window-index -> [claim-index] for claims whose source-anchored
+    content lives entirely within ONE window. ``unrouted`` lists claim-indexes that
+    must be judged against the FULL source: either the claim's significant words barely
+    appear in the source (below ``min_overlap``), or they are SPREAD across windows — a
+    cross-window summary-level inference no single window can fairly verify.
+
+    Spread is detected structurally, not by a best-vs-second margin: a claim routes to a
+    window only if that window contains EVERY significant word of the claim that appears
+    anywhere in the source. A margin only catches a *balanced* split; an unbalanced
+    split (5 words in window A, 3 in window B) still routes to the dominant window and
+    drops the minority element from the judge's context, which can false-BLOCK a
+    faithful abstraction (precision).
     """
     routed: dict = {}
     unrouted: list = []
+    chunk_words = [_significant_words(c) for c in chunks]
     for ci, claim in enumerate(claims):
-        scored = sorted((lexical_overlap(claim, chunk), k)
-                        for k, chunk in enumerate(chunks))
-        best, best_idx = scored[-1]
-        second = scored[-2][0] if len(scored) > 1 else 0.0
-        if best >= min_overlap and (best - second) >= margin:
+        cw = _significant_words(claim)
+        if not cw:
+            unrouted.append(ci)
+            continue
+        # The claim's significant words that appear somewhere in the source
+        # ("source-anchored"). Per-chunk counts tell us where each is found.
+        anchored: set = set()
+        per_chunk: list = []
+        for kw in chunk_words:
+            hit = cw & kw
+            per_chunk.append(len(hit))
+            anchored |= hit
+        if not anchored:
+            # No significant word appears anywhere -> judge against the full source.
+            unrouted.append(ci)
+            continue
+        best_idx = max(range(len(chunks)), key=lambda k: per_chunk[k])
+        # Route only if the best window holds EVERY anchored word (no spread) AND the
+        # claim is non-trivially present in the source (min_overlap floor on the
+        # anchored fraction). Any anchored word outside the best window means the
+        # claim's content spans windows -> full source.
+        if per_chunk[best_idx] == len(anchored) and \
+                (per_chunk[best_idx] / len(cw)) >= min_overlap:
             routed.setdefault(best_idx, []).append(ci)
         else:
             unrouted.append(ci)
@@ -266,8 +282,7 @@ def judge_claims_chunked(claims: list, source: str, client, *,
     low-overlap claims -> the full source."""
     chunks = chunk_source(source)
     routed, unrouted = route_claims_to_chunks(
-        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP,
-        config.FAITHFULNESS_JUDGE_ROUTE_MARGIN)
+        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
     verdicts: list = [None] * len(claims)
     for k, idxs in routed.items():
         sub = judge_claims([claims[i] for i in idxs], chunks[k], client,

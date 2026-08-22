@@ -54,7 +54,7 @@ def test_route_claims_to_chunks_routes_by_lexical_overlap():
               "the cancer research biology of cells"]
     claims = ["Kerr discusses the family anxiety triangle.",
               "Kerr presents the cancer research on cells."]
-    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.1, margin=0.0)
+    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.1)
     assert routed == {0: [0], 1: [1]}
     assert unrouted == []
 
@@ -65,20 +65,35 @@ def test_route_claims_leaves_summary_inference_claim_unrouted():
     # abstraction would be falsely flagged unsupported).
     chunks = ["the family anxiety triangle is central"]
     claims = ["The presenter connects this history to Bowen theory by introducing the equation."]
-    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.5, margin=0.0)
+    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.5)
     assert routed == {}
     assert unrouted == [0]
 
 
 def test_route_claims_detects_cross_window_spread():
-    """A claim whose significant words are spread across >1 window (best does not beat
-    second-best by the margin) is a cross-window inference and must NOT be routed to one
-    window — routing it would hide its other element(s) and false-BLOCK a faithful
-    abstraction (precision)."""
+    """A claim whose significant words are spread across >1 window (no single window
+    holds every source-anchored word) is a cross-window inference and must NOT be
+    routed to one window — routing it would hide its other element(s) and false-BLOCK
+    a faithful abstraction (precision)."""
     chunks = ["the family anxiety triangle is central here",
               "the cancer research biology of cells"]
     claim = ["Kerr connects the family anxiety triangle to the cancer research biology."]
-    routed, unrouted = fj.route_claims_to_chunks(claim, chunks, min_overlap=0.1, margin=0.2)
+    routed, unrouted = fj.route_claims_to_chunks(claim, chunks, min_overlap=0.1)
+    assert routed == {}
+    assert unrouted == [0]
+
+
+def test_route_claims_detects_unbalanced_spread():
+    """An UNBALANCED split (5 anchored words in one window, 3 in another) must still be
+    treated as a cross-window inference. The earlier best-vs-second overlap margin only
+    caught a *balanced* split: here the dominant window wins by a wide margin but still
+    lacks the minority element, so a margin-based check would route to it and false-BLOCK
+    a faithful abstraction. Structural detection (best window must hold EVERY anchored
+    word) catches the unbalanced shape too."""
+    chunks = ["alpha bravo charlie delta echo family anxiety",
+              "foxtrot golf hotel cancer research biology"]
+    claim = ["The speaker links alpha bravo charlie delta echo to foxtrot golf hotel."]
+    routed, unrouted = fj.route_claims_to_chunks(claim, chunks, min_overlap=0.05)
     assert routed == {}
     assert unrouted == [0]
 
@@ -200,7 +215,7 @@ def test_judge_claims_chunked_raises_on_reassembly_violation(monkeypatch):
     monkeypatch.setattr(fj, "judge_claims", fake_judge)
     # simulate a routing hole: claim index 1 is in neither routed nor unrouted
     monkeypatch.setattr(fj, "route_claims_to_chunks",
-                        lambda claims, chunks, min_overlap, margin: ({0: [0]}, []))
+                        lambda claims, chunks, min_overlap: ({0: [0]}, []))
 
     with pytest.raises(ValueError):
         fj.judge_claims_chunked(claims, source, object())
