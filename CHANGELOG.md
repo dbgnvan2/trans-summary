@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-22 (key-term domain-semantic judge — gap #4)
+
+- **`key_terms_semantic_judge`** — the lexical key-terms validator cannot catch a lexically-plausible but semantically-WRONG definition (a term defined as the wrong concept, or swapped with a sibling, while still using transcript vocabulary). This judge asks, per term, whether the DEFINITION correctly captures the term's Bowen-theory meaning — labels `correct`/`incorrect`, fail-closed on any API/parse error. **Built but not yet armed** (`KEY_TERMS_JUDGE_ENABLED=False`); reuses the faithfulness judge's parser + result types + cache-reusable prompt.
+- **Calibration harness** (`key_terms_head_to_head`) — builds a labeled set (real terms = correct; each term's definition swapped with another's = incorrect, skipping near-synonym swaps), runs the judge, and reports precision/recall/accuracy with arming-threshold clearance. A calibration with no INCORRECT examples can never read as "clears" (P24).
+- **Live head-to-head (claude-sonnet-4-6, Kerr "Where Roots Bowen Theory Reside in the Brain")** — recall 1.0 / precision 1.0 / accuracy 1.0 on 20 examples (10 correct + 10 swapped), clearing the arming thresholds. The Claude-vs-Fable second-judge comparison is runnable by invoking the harness with a different `--model` once the Fable model string is provided.
+
+Offline suite: 805 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-21 (cross-artifact reconciliation — gap #3)
 
 - **`transcript_validate_consistency`** — the consistency check now reconciles artifacts against EACH OTHER, not just the transcript, catching drift a per-artifact check cannot see:
