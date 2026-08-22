@@ -120,6 +120,23 @@ def test_extract_claims_strips_bold_topic_label():
     assert any(c.startswith("Kerr describes") for c in claims), claims
 
 
+def test_extract_claims_reemits_name_shaped_bold_label():
+    """A fabricated NAME rendered as a bold label must still reach the judge — the
+    scaffolding strip hides it, but the judge is the semantic backstop for exactly
+    that shape (P7/P20)."""
+    text = "**Luciano Malorni:** his dynamic relational view of cancer is central.\n"
+    claims = fj.extract_claims(text)
+    assert any("Luciano Malorni" in c for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_concept_bold_label():
+    """A concept label with a lowercase connective ("and") is not a name and stays
+    stripped (no topic-label false-BLOCK regression)."""
+    text = "**Systems Biology and Cancer Niche Theory.** Kerr describes the niche.\n"
+    claims = fj.extract_claims(text)
+    assert not any(c == "Systems Biology and Cancer Niche Theory." for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]

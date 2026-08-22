@@ -166,7 +166,33 @@ def extract_claims(text: str) -> list:
         logging.getLogger("faithfulness_judge").debug(
             "extract_claims: dropped %d non-claim fragment(s) of %d",
             dropped, dropped + len(claims))
+    # Re-emit name-shaped bold labels (see _name_shaped_bold_labels): the
+    # scaffolding strip removed them, but a fabricated name rendered as a leading
+    # bold label ("**Luciano Malorni:** ...") is the one shape the judge must still
+    # see — it is the semantic backstop for the entity check's own bold-label blind
+    # spot. A grounded name re-emitted here is judged "entailed" (the judge's
+    # source includes the presenter via metadata framing), so only fabrications
+    # surface as FAILs.
+    for label in _name_shaped_bold_labels(text):
+        if label not in claims:
+            claims.append(label)
     return claims
+
+
+_NAME_SHAPE = re.compile(r"^[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+(?: [A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+)+$")
+
+
+def _name_shaped_bold_labels(text: str) -> list:
+    """Bold labels that look like a proper NAME (2+ Title-Case words, no lowercase
+    connective word). A concept label with a connective ("**Differentiation of
+    Self**", "**Systems Biology and Cancer Niche Theory**") is not a name and is
+    skipped, so the topic-label false-BLOCK fix is preserved."""
+    labels: list = []
+    for m in re.finditer(r"\*\*([^*\n]+?)\*\*", text):
+        label = m.group(1).strip().rstrip(".:—")
+        if _NAME_SHAPE.match(label):
+            labels.append(label)
+    return labels
 
 
 def _is_claim(s: str) -> bool:
@@ -369,7 +395,12 @@ Reserve "unsupported" for a sentence that ADDS substance the source does not con
 — a fabricated concrete specific, or a specific conclusion / stance / causal claim / \
 attribution with no basis in the source (e.g. "attributes recovery to medication" when \
 medication is never mentioned). A rhetorical flourish on top of grounded material is \
-still "entailed"; a NEW factual claim the source does not support is "unsupported".
+still "entailed"; a NEW factual claim the source does not support is "unsupported". \
+Careful with strength escalations: a claim that the source is TENTATIVE about (\"may\", \
+\"perhaps\", \"remains unclear\") is NOT entailed when restated as settled fact — \
+\"definitively proven\" or \"conclusively established\" asserts a specific factual stance \
+the source does not take, and is \"unsupported\" (or \"contradicted\" if the source says \
+the opposite).
 
 Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]
