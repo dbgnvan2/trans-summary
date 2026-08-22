@@ -84,6 +84,42 @@ def test_extract_claims_does_not_strip_fabricated_attribution_prefix():
     assert not any(c.lower().startswith("description:") for c in claims), claims
 
 
+def test_extract_claims_strips_fenced_yaml_metadata():
+    """A fenced ```yaml metadata block (slug/focus_keyword/FAQ) is metadata, not a
+    claim — judging it produced the shipped false-BLOCK on overview/blog (every
+    ``target_audience:``/``q:`` line was flagged "unsupported")."""
+    text = (
+        "```yaml\n"
+        'slug: "cancer-biology-niche-paradigm-shift"\n'
+        'focus_keyword: "Family Systems"\n'
+        'target_audience: "General public"\n'
+        'process_stage: "overview_post"\n'
+        "faq:\n"
+        '  - q: "Who are the key researchers cited in this lecture?"\n'
+        '    a: "Michael Kerr draws primarily on the work of Mina Bissell."\n'
+        "```\n\n"
+        "Kerr argues that cancer arises from a broken tissue niche, not a bad gene.\n"
+    )
+    claims = fj.extract_claims(text)
+    for meta in ("slug", "focus_keyword", "target_audience", "process_stage",
+                 "Who are the key researchers"):
+        assert not any(meta in c for c in claims), (meta, claims)
+    # the body prose is still judged
+    assert any("broken tissue niche" in c for c in claims), claims
+
+
+def test_extract_claims_strips_bold_topic_label():
+    """A leading bold topic label ("**Systems Biology and Cancer Niche Theory.**")
+    is a label, not a claim — only the prose after it is judged."""
+    text = (
+        "**Systems Biology and Cancer Niche Theory.** Kerr describes how cancer "
+        "arises when a healthy niche breaks down.\n"
+    )
+    claims = fj.extract_claims(text)
+    assert not any(c == "Systems Biology and Cancer Niche Theory." for c in claims), claims
+    assert any(c.startswith("Kerr describes") for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]

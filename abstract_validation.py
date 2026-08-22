@@ -720,6 +720,19 @@ def validate_and_report(
     return coverage["passed"], "\n".join(report_lines)
 
 
+def _strip_fenced_block(text: str) -> str:
+    """Strip a LEADING fenced code block (```yaml … ``` or ``` … ```).
+
+    The overview/blog artifacts front-load their SEO/Q&A metadata in a fenced
+    ```yaml block rather than a ``---`` front-matter block. A fenced block is
+    metadata, not artifact content — its ``slug:``/``focus_keyword:``/``q:``/``a:``
+    lines are not claims and not proper names. Stripping it here (single source of
+    truth) keeps every downstream consumer from re-flagging it.
+    """
+    m = re.match(r"^\s*```[^\n]*\n.*?\n```[ \t]*\n?", text, re.DOTALL)
+    return text[m.end():] if m else text
+
+
 def _strip_leading_scaffolding(text: str) -> str:
     """Remove leading YAML front matter and markdown heading/bold-label lines the
     model sometimes emits despite the prompt's "no headers" instruction (e.g. a
@@ -730,6 +743,7 @@ def _strip_leading_scaffolding(text: str) -> str:
         end = t.find("\n---", 3)
         if end != -1:
             t = t[end + 4:].lstrip()
+    t = _strip_fenced_block(t)
     lines = t.split("\n")
     while lines and (
         not lines[0].strip()
@@ -758,6 +772,7 @@ def _strip_scaffolding(text: str) -> str:
         end = t.find("\n---", 3)
         if end != -1:
             t = t[end + 4:].lstrip()
+    t = _strip_fenced_block(t)
     # Inline leading bold label with an optional bullet: "**Term** — def",
     # "**Term:** def", "- **Topic.** desc" -> keep only the definition/description.
     # The separator must be present EITHER as trailing punctuation INSIDE the bold

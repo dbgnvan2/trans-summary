@@ -123,11 +123,18 @@ def extract_claims(text: str) -> list:
     dropped = 0
     skip_labels = {s.lower() for s in config.FAITHFULNESS_SKIP_LINE_LABELS}
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
-    for raw_line in _strip_frontmatter(text).splitlines():
+    # Strip markdown scaffolding — ``---``/fenced ```yaml front matter, heading
+    # lines, bold-only label lines, and leading bold labels — via the SAME helper
+    # the entity/name detector uses (single source of truth, P19). Without this, a
+    # Title-Case topic/term label ("**Systems Biology and Cancer Niche Theory.**")
+    # or a ```yaml metadata block (slug:/focus_keyword:/q:/a:) is extracted and
+    # judged as an "unsupported" claim and false-BLOCKs the faithful artifact.
+    from abstract_validation import _strip_scaffolding
+    for raw_line in _strip_scaffolding(text).splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("#") or line == "---":
+        if not line:
             continue
-        # drop list markers, blockquote markers, and a leading bold field label
+        # drop list markers, blockquote markers, and any residual bold field label
         line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)
         line = line.replace("**", "").replace("__", "").strip()
         # skip a structured-artifact scaffolding / meta line ("Coverage / role:",
@@ -174,11 +181,6 @@ def _is_claim(s: str) -> bool:
     if re.search(r"\d", s):
         return True
     return any(w[:1].isupper() for w in s.split()[1:])
-
-
-def _strip_frontmatter(content: str) -> str:
-    m = re.match(r"^\s*---\s*\n.*?\n---\s*\n", content, re.DOTALL)
-    return content[m.end():] if m else content
 
 
 # --------------------------------------------------------------------------- chunked judging (long transcripts)
