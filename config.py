@@ -533,15 +533,22 @@ GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness"
                         "theme_grounding"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
-# entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
-# was calibrated on abstract prose (0 false positives across 3 real runs, and it
-# catches the shipped 'Luciano Malorni'). Synthesized artifacts (blog, themes,
-# topics, key-terms) carry Title-Case HEADINGS and CONCEPT phrases the detector
-# can't tell from names ("Key Takeaways", "Role Absorption") — scanning them as a
-# BLOCKER would false-BLOCK good runs (a hard stop). Grounding those needs the
-# semantic judge (M2, deferred), not this lexical detector.
+# entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the
+# original, calibrated 0-false-positive scope) plus the other prose outputs
+# (summary, overview, blog), where a fabricated person/org/place name would appear
+# in running text. The detector is heading/bold-aware (find_ungrounded_names strips
+# markdown headings and bold concept/term labels), so a blog's "## Key Takeaways"
+# or a "**Term** — definition" list no longer reads as a fabricated name.
+#
+# The heading-heavy STRUCTURED artifacts (themes, topics, key-terms) stay OUT: their
+# Title-Case concept labels ("Role Absorption") are the artifact's *content*, not
+# proper names, and their fabrication mode is semantic (an invented theme/key-term
+# subject) — that is the theme/key-term judge's domain, not this lexical detector.
 GATE_ENTITY_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
+    SUFFIX_SUMMARY_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
 ]
 # Broader set for the WARN-only cross-artifact consistency check (M4.D). A false
 # positive here is advisory noise, not a hard stop, so it can safely scan the

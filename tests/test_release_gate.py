@@ -97,11 +97,13 @@ def test_m1_clean_run_allows(cloned_run):
     assert rg.run_gate(base, logging.getLogger("t")).decision is not Decision.BLOCK
 
 
-def test_m4c_blocker_scoped_to_abstract_not_synthesized_headings(cloned_run):
+def test_m4c_blocker_scoped_to_prose_not_synthesized_headings(cloned_run):
     """The blocker must NOT fire on Title-Case headings/concepts in synthesized
     artifacts ('Key Takeaways', 'Role Absorption') — verified as false positives
     on real runs; blocking them would refuse to publish a good run. Only the
-    abstract is scanned (config.GATE_ENTITY_ARTIFACT_SUFFIXES)."""
+    NARRATIVE PROSE artifacts (abstract/summary/overview/blog) are scanned
+    (config.GATE_ENTITY_ARTIFACT_SUFFIXES); the heading-heavy structured artifacts
+    (themes/topics/key-terms) are not."""
     base, proj = cloned_run
     ab = proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}"
     ab.write_text(ab.read_text().replace("Luciano Malorni", "Michael Kerr"))  # clean abstract
@@ -214,6 +216,74 @@ def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path
     assert "check failed in" in v.detail
     assert "regenerate and try again" in v.detail.lower()
     assert ".md" not in v.detail
+
+
+def test_entity_grounding_scans_summary_overview_blog(tmp_path, monkeypatch):
+    """The extended blocker scans the narrative prose artifacts (summary, overview,
+    blog) — not just the abstract — so a fabricated name smuggled into one of them
+    FAILs the gate with an actionable message naming the artifact."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems and differentiation", encoding="utf-8")
+    # A fabricated name in BLOG prose (with real headings + a grounded bold term
+    # present) must FAIL and name the blog artifact.
+    blog = proj / f"{base}{config.SUFFIX_BLOG}"
+    blog.write_text(
+        "# Title\n\n## Key Takeaways\n\nThe work of Luciano Malorni is central.\n\n"
+        "## Glossary of Terms\n\n- **Differentiation of Self:** The capacity for objectivity.\n",
+        encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.FAIL
+    assert "Luciano Malorni" in v.detail
+    assert "blog" in v.detail.lower()
+
+
+def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tmp_path, monkeypatch):
+    """Headings ('## Key Takeaways', '### Opening Paragraph') and bold concept
+    labels ('**Role Absorption** — …') in the scanned prose artifacts must NOT read
+    as fabricated names — otherwise extending the blocker would false-BLOCK a good
+    run whose blog/overview/summary legitimately uses those structures."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems differentiation emotional objectivity homeostasis",
+        encoding="utf-8")
+    for suffix, body in [
+        (config.SUFFIX_SUMMARY_GEN,
+         "### Opening Paragraph\n\nJane Doe presents on family systems.\n\n### Body Section\n\n"
+         "She discusses differentiation of self.\n\n### Closing Paragraph\n\nThe talk concludes with homeostasis.\n"),
+        (config.SUFFIX_OVERVIEW,
+         "# A Talk\n\nA Talk is a lecture by Jane Doe about family systems.\n\n## TL;DR\n\n"
+         "Family systems and differentiation.\n\n## Key terms and definitions\n\n"
+         "**Differentiation of Self** — the capacity for emotional objectivity.\n\n"
+         "**Role Absorption** — a concept about family roles.\n"),
+        (config.SUFFIX_BLOG,
+         "# Title\n\n## Key Takeaways\n\n- Differentiation is central.\n\n## Glossary of Terms\n\n"
+         "- **Differentiation of Self:** The capacity for objectivity.\n"),
+    ]:
+        (proj / f"{base}{suffix}").write_text(body, encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.PASS, v.detail
+
+
+def test_find_ungrounded_names_skips_headings_and_bold_labels():
+    """Unit-level: the heading/bold-aware stripper drops '## Key Takeaways',
+    '### Opening Paragraph', and '**Role Absorption**' but still catches a real
+    fabricated name in prose."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems and differentiation"
+    doc = ("# Title\n\n## Key Takeaways\n\n- A point.\n\n"
+           "**Role Absorption** — a concept about roles.\n\n"
+           "The work of Luciano Malorni is central.\n")
+    names = find_ungrounded_names(doc, src)
+    assert "Key Takeaways" not in names
+    assert "Role Absorption" not in names
+    assert "Luciano Malorni" in names
 
 
 def test_entity_grounding_shared_token_name_is_a_known_lexical_gap():

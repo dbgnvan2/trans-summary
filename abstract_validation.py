@@ -44,10 +44,13 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
     (multi-word); adjacent fabrication shapes remain uncovered.
     """
-    # Ignore any leading scaffolding the model emits ("# Abstract", bold label),
-    # so the heading word isn't treated as a proper name (it caused a false
-    # BLOCK: "# Abstract\n\nIn ..." matched as the name "Abstract In").
-    abstract = _strip_leading_scaffolding(abstract)
+    # Strip ALL markdown scaffolding — leading YAML/headings AND mid-document
+    # headings / bold labels — so a Title-Case heading or concept label in a
+    # prose-and-heading artifact (blog/overview/summary) is never mistaken for a
+    # fabricated proper name (the false-BLOCK class: "# Abstract" -> "Abstract In",
+    # "## Key Takeaways" -> "Key Takeaways"). Pure-prose artifacts (the abstract)
+    # carry no mid-document headings, so this is a no-op there.
+    abstract = _strip_scaffolding(abstract)
     # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
     name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
     source_tokens = {
@@ -730,6 +733,42 @@ def _strip_leading_scaffolding(text: str) -> str:
     ):
         lines.pop(0)
     return "\n".join(lines).strip()
+
+
+def _strip_scaffolding(text: str) -> str:
+    """Remove YAML front matter and ALL markdown structural lines the model emits
+    in prose-and-heading artifacts (blog/overview/summary) — every ``#`` heading,
+    every bold-only label line, and inline leading bold labels (definition-list /
+    topic-list style) — so the name detector scans prose only and never treats a
+    Title-Case heading or concept label ("Key Takeaways", "Role Absorption") as a
+    fabricated proper name.
+
+    A superset of ``_strip_leading_scaffolding`` (which strips only LEADING
+    scaffolding, for word-count purposes). Pure-prose artifacts contain no
+    mid-document headings, so this is a no-op there and the abstract's calibrated
+    0-false-positive behaviour is unchanged.
+    """
+    t = (text or "").strip()
+    if t.startswith("---"):
+        end = t.find("\n---", 3)
+        if end != -1:
+            t = t[end + 4:].lstrip()
+    # Inline leading bold label with an optional bullet: "**Term** — def",
+    # "**Term**: def", "- **Topic.** desc" -> keep only the definition/description.
+    _inline_bold = re.compile(r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+\*\*\s*[:—-]\s*(.*)$")
+    kept: list[str] = []
+    for line in t.split("\n"):
+        s = line.strip()
+        if not s:
+            kept.append(line)
+            continue
+        if re.match(r"^#{1,6}\s+", s):            # markdown heading line
+            continue
+        if re.match(r"^\*\*[^*\n]+\*\*\s*$", s):   # bold-only label line
+            continue
+        m = _inline_bold.match(s)
+        kept.append(m.group(1) if m else line)
+    return "\n".join(kept).strip()
 
 
 def validate_structural(abstract: str, target_word_count: int = 250) -> dict:
