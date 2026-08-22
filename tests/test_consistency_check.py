@@ -41,7 +41,14 @@ def test_count_person_recollections_handles_newline_only_sentences():
         "Bowen wrote about anxiety\n"
         "Bowen said to focus on self"
     )
-    assert count_person_recollections(text) >= 3
+    assert count_person_recollections(text) == 3
+
+
+def test_count_person_recollections_bridges_name_verb_newline_split():
+    """F1 — a recollection whose person name and verb straddle a newline must
+    still count (the extractor collapses newlines to spaces)."""
+    text = "Murray Bowen\nsaid the family is an emotional unit."
+    assert count_person_recollections(text) == 1
 
 
 def test_density_signal_shares_the_extractors_detector():

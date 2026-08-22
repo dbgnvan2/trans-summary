@@ -22,6 +22,7 @@ def mock_project_dirs(tmp_path):
 
     config.set_transcripts_base(tmp_path)
     config.settings.PROMPTS_DIR = tmp_path / "prompts"
+    config.PROMPTS_DIR = tmp_path / "prompts"  # module attr (production read site, config.py:327)
     config.settings.PROMPTS_DIR.mkdir()
 
     # Create necessary subdirectories within the mock transcripts base
@@ -34,6 +35,7 @@ def mock_project_dirs(tmp_path):
     # Restore original config paths
     config.set_transcripts_base(original_transcripts_base)
     config.settings.PROMPTS_DIR = original_prompts_dir
+    config.PROMPTS_DIR = original_prompts_dir
 
 
 @pytest.fixture
@@ -59,13 +61,10 @@ def mock_transcript_file(mock_project_dirs):
 
 @pytest.fixture
 def mock_bowen_prompt_file(mock_project_dirs):
-    """Provide a Bowen extraction prompt file at the path the pipeline reads.
+    """Create a mock Bowen extraction prompt file.
 
-    NOTE: production reads ``config.PROMPTS_DIR`` (a module-level constant frozen
-    at import time, config.py:327), NOT the redirected ``config.settings.PROMPTS_DIR``
-    — so this writes to the REAL repo prompt file, not the tmp dir. Save and
-    restore it so a full-suite run can't clobber the committed prompt. The LLM is
-    mocked, so the prompt content itself is irrelevant to the assertions.
+    Writes into the redirected ``config.PROMPTS_DIR`` (the tmp dir set by
+    ``mock_project_dirs``), so the real repo prompt file is never touched.
     """
     prompt_content = """# BOWEN REFERENCE EXTRACTION
 Your task is to extract direct quotes or close paraphrases.
@@ -77,13 +76,8 @@ TRANSCRIPT:
 {{insert_transcript_text_here}}
 """
     prompt_file = config.PROMPTS_DIR / config.PROMPT_BOWEN_EXTRACTION_FILENAME
-    original = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
     prompt_file.write_text(prompt_content, encoding="utf-8")
-    yield prompt_file
-    if original is not None:
-        prompt_file.write_text(original, encoding="utf-8")
-    else:
-        prompt_file.unlink(missing_ok=True)
+    return prompt_file
 
 
 # Mock LLM response for Bowen references

@@ -75,10 +75,10 @@ _ATTRIBUTION_PATTERNS = (
     r"\bbowen\s+quotes?\b",
 )
 
-# Sentence units for density counting. Split on newline runs (rough dictation
-# often separates sentences with newlines and no terminal punctuation) AND on
-# terminal punctuation followed by whitespace.
-_UNIT_SPLIT = re.compile(r"\n+|[.!?]\s+")
+# Sentence-level split for density counting. Split on terminal punctuation only;
+# newlines are handled inside find_bowen_person_attributions so a recollection
+# whose person name and verb straddle a newline is still counted.
+_SENTENCE_SPLIT = re.compile(r"[.!?]\s+")
 
 
 def _is_bowen_person_attribution(quote_l: str) -> bool:
@@ -113,15 +113,35 @@ def find_bowen_person_attributions(text: str) -> list[str]:
     person-recollection density used by the cross-artifact consistency check;
     the strings themselves are the recollections for reporting.
 
-    Units are split on newlines and terminal punctuation (so a rough-dictation
-    transcript with newline-separated, unpunctuated sentences still yields one
-    unit per recollection), then normalised the same way the extractor does.
+    Splitting strategy (handles both failure modes):
+    * terminal punctuation delimits sentences;
+    * newlines further split a sentence into lines (rough dictation often
+      separates unpunctuated sentences with newlines);
+    * a line that doesn't match on its own is re-tried joined with the next
+      line (space-normalised), so a recollection whose person name and verb
+      straddle a newline ("Murray Bowen\\nsaid …") is still counted — matching
+      the extractor's own newline-collapsing normalisation.
     """
     if not text:
         return []
-    out = []
-    for u in _UNIT_SPLIT.split(str(text)):
-        u_l = " ".join(u.split()).strip().lower()
-        if u_l and _is_bowen_person_attribution(u_l):
-            out.append(u_l)
+    out: list[str] = []
+    for seg in _SENTENCE_SPLIT.split(str(text)):
+        lines = [" ".join(x.split()).strip().lower() for x in seg.split("\n")]
+        lines = [x for x in lines if x]
+        i = 0
+        while i < len(lines):
+            if _is_bowen_person_attribution(lines[i]):
+                out.append(lines[i])
+                i += 1
+                continue
+            nxt = lines[i + 1] if i + 1 < len(lines) else None
+            # Only bridge a newline when the next line does NOT match on its own,
+            # so a legitimate next-line recollection is not consumed into a join.
+            if nxt is not None and not _is_bowen_person_attribution(nxt):
+                joined = lines[i] + " " + nxt
+                if _is_bowen_person_attribution(joined):
+                    out.append(joined)
+                    i += 2
+                    continue
+            i += 1
     return out
