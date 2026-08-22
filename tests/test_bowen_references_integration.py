@@ -59,7 +59,14 @@ def mock_transcript_file(mock_project_dirs):
 
 @pytest.fixture
 def mock_bowen_prompt_file(mock_project_dirs):
-    """Create a mock bowen extraction prompt file."""
+    """Provide a Bowen extraction prompt file at the path the pipeline reads.
+
+    NOTE: production reads ``config.PROMPTS_DIR`` (a module-level constant frozen
+    at import time, config.py:327), NOT the redirected ``config.settings.PROMPTS_DIR``
+    — so this writes to the REAL repo prompt file, not the tmp dir. Save and
+    restore it so a full-suite run can't clobber the committed prompt. The LLM is
+    mocked, so the prompt content itself is irrelevant to the assertions.
+    """
     prompt_content = """# BOWEN REFERENCE EXTRACTION
 Your task is to extract direct quotes or close paraphrases.
 ## OUTPUT FORMAT
@@ -70,8 +77,13 @@ TRANSCRIPT:
 {{insert_transcript_text_here}}
 """
     prompt_file = config.PROMPTS_DIR / config.PROMPT_BOWEN_EXTRACTION_FILENAME
+    original = prompt_file.read_text(encoding="utf-8") if prompt_file.exists() else None
     prompt_file.write_text(prompt_content, encoding="utf-8")
-    return prompt_file
+    yield prompt_file
+    if original is not None:
+        prompt_file.write_text(original, encoding="utf-8")
+    else:
+        prompt_file.unlink(missing_ok=True)
 
 
 # Mock LLM response for Bowen references
