@@ -417,9 +417,16 @@ def _judge_logic_version(instructions: str) -> str:
         # the current structural "all source-anchored words in one window") changes the
         # source context a claim is judged against but is NOT a config constant, so a
         # code-only change would otherwise escape the manual JUDGE_LOGIC_VERSION bump
-        # and serve a stale verdict. Hash the function source so routing-code changes
-        # invalidate by construction (P6/P4).
+        # and serve a stale verdict. Hash the routing function AND its behaviour-
+        # determining helpers (word windowing, the significance filter, the stopword
+        # set) so routing-code changes invalidate by construction (P6/P4). NOTE: these
+        # read the on-disk source, so after editing faithfulness_judge.py you MUST
+        # restart any long-lived process (Tk GUI) before judging, or the key can drift
+        # ahead of the still-in-memory code (P16).
         inspect.getsource(fjudge.route_claims_to_chunks),
+        inspect.getsource(fjudge.chunk_source),
+        inspect.getsource(fjudge._significant_words),
+        repr(sorted(fjudge._STOP_WORDS)),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
