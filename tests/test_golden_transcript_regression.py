@@ -93,9 +93,9 @@ _GOLDEN = {
 
 
 def _resolve(fixture: str, rel: str) -> Path:
-    """Path to a fixture file, applying the where_roots '<base> - ' prefix."""
+    """Path to a fixture file, applying a '<dir-name> - ' prefix for prefixed fixtures."""
     g = _GOLDEN[fixture]
-    return g["dir"] / (f"{WR_BASE} - {rel}" if g.get("prefixed") else rel)
+    return g["dir"] / (f"{g['dir'].name} - {rel}" if g.get("prefixed") else rel)
 
 
 def _read(fixture: str, rel: str) -> str:
@@ -149,10 +149,20 @@ def test_golden_artifact_codecs_parse_to_stable_counts(fixture):
 # ---------------------------------------------------------------------------
 def test_golden_gate_blocks_known_fabrication_end_to_end(monkeypatch):
     """Run the actual ``release_gate.run_gate`` over the where_roots golden
-    transcript. The LLM judges are disabled by the suite-wide conftest fixture,
-    so this is fully offline; the deterministic ``entity_grounding`` check (the
-    elected hard blocker) must BLOCK on 'Luciano Malorni'."""
+    transcript. The deterministic ``entity_grounding`` check (the elected hard
+    blocker) must BLOCK on 'Luciano Malorni'."""
     monkeypatch.setattr(config, "PROJECTS_DIR", FIX / "where_roots")
+    # Enforce offline-ness HERE, not just via the suite-wide conftest: the judges
+    # ship ARMED (config.FAITHFULNESS_JUDGE_ENABLED=True) and a real key resolves on
+    # this machine, so if the ambient conftest fixture were bypassed (e.g.
+    # `cd tests && pytest`), the gate would construct a live Anthropic client and
+    # this test would still PASS while spending API — silently. Make the opt-out loud
+    # and self-contained (the inverse of the conftest's "loud opt-in" rule).
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)
+    monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", False)
+    import transcript_utils
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: None)
+
     decision = rg.run_gate(WR_BASE)
     assert decision.decision == rg.Decision.BLOCK
     assert any(b.check == "entity_grounding" for b in decision.blockers)
