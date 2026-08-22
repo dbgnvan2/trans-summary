@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-21 (chunked faithfulness judge for long transcripts)
+
+- **`faithfulness_judge`** — a single batched judge call over a long transcript degrades attention (especially the middle) and can near the context limit (gap #1). Above `FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS` (3000), `judge_artifact` now splits the source into overlapping word-windows (reusing the lexical validators' `VALIDATION_CHUNK_SIZE`/`OVERLAP`) and routes each claim to the window that holds *all* of its source-anchored significant words; a claim whose content spans windows (a summary-level inference connecting material across the source) is judged against the full source so a faithful abstraction is never falsely flagged. Short sources keep the single-call path unchanged.
+- **Structural spread detection** — a claim routes to a window only if that window contains every significant word of the claim that appears anywhere in the source. This catches balanced *and* unbalanced cross-window spread uniformly (a best-vs-second overlap margin was found to miss the unbalanced shape in review), while still routing genuinely localized claims (e.g. a per-section key term).
+- **Fail-closed reassembly** — `judge_claims_chunked` raises on any missing/None verdict before returning, so a future routing hole maps to a gate ERROR rather than an unhandled AttributeError downstream.
+- **Cache invalidation by construction** — the chunking thresholds AND the routing code itself (`route_claims_to_chunks`, `chunk_source`, `_significant_words`, `_STOP_WORDS`) are folded into `_judge_logic_version`'s hashed material, so a threshold tune or routing-code edit cannot silently serve a stale cached PASS on the armed gate.
+
+Offline suite: 773 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-21 (offline golden-transcript regression harness)
 
 - **`tests/test_golden_transcript_regression.py`** — an offline end-to-end regression baseline (gap #2). Reuses the three existing golden fixtures (`dave_g_test2`, `roots_bowen_test`, `where_roots`) and runs the deterministic validation layer over each with zero API spend: the fabricated-name detector still flags the real "Luciano Malorni" fabrication (and stays clean on clean abstracts), claim extraction and the artifact codecs yield stable golden counts, the real `release_gate.run_gate` BLOCKs the known fabrication end-to-end, and the cross-artifact consistency check passes on the complete fixture. Offline-ness is enforced inside the test (not just by the suite conftest). The `GOLDEN` table is the single place to update exact counts on a legitimate change.
