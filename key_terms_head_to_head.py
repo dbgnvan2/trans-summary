@@ -27,19 +27,32 @@ import key_terms_semantic_judge as kj
 
 def build_labeled_set(terms: list) -> list:
     """Return [(term, definition, true_label)] — the real definitions are CORRECT,
-    each term's definition cyclically swapped with the next term's is INCORRECT."""
+    each term's definition cyclically swapped with the next term's is INCORRECT.
+
+    A swap between two terms whose OWN definitions are near-duplicates (near-synonym
+    terms) is AMBIGUOUS rather than clearly wrong — the judge reasonably calling it
+    "correct" would pollute the recall-on-INCORRECT metric. Such swaps are skipped;
+    add hand-authored plausible-but-wrong definitions for the hard-middle negatives
+    the swap cannot produce."""
+    from transcript_validate_consistency import keyword_overlap
+
     labeled = [(t, d, kj.CORRECT) for (t, d) in terms]
     n = len(terms)
     if n >= 2:
-        for i, (t, _d) in enumerate(terms):
-            wrong_def = terms[(i + 1) % n][1]  # the NEXT term's definition
+        for i, (t, own_def) in enumerate(terms):
+            wrong_def = terms[(i + 1) % n][1]
+            if keyword_overlap(own_def, wrong_def) >= 0.6:
+                continue  # near-duplicate definitions -> ambiguous, not clearly wrong
             labeled.append((t, wrong_def, kj.INCORRECT))
     return labeled
 
 
 def run_head_to_head(source: str, terms: list, client, model: str,
                      logger=None) -> dict:
-    """Run the judge over the labeled set and return metrics + the paired labels."""
+    """Run the judge over the labeled set and return metrics + the paired labels.
+    Raises on an empty term set — no evidence must never read as a perfect judge."""
+    if not terms:
+        raise ValueError("no key terms to calibrate against")
     labeled = build_labeled_set(terms)
     verdicts = kj.judge_key_terms(
         [(t, d) for (t, d, _l) in labeled], source, client, model=model, logger=logger)
@@ -48,6 +61,8 @@ def run_head_to_head(source: str, terms: list, client, model: str,
     metrics = kj.binary_key_terms_metrics(pairs)
     metrics["pairs"] = pairs
     metrics["n"] = len(pairs)
+    metrics["missed"] = [t for (t, _d, l), v in zip(labeled, verdicts)
+                         if l == kj.INCORRECT and v.label == kj.CORRECT]
     return metrics
 
 
@@ -65,6 +80,9 @@ def main() -> int:
         Path(args.terms).expanduser().read_text(encoding="utf-8", errors="replace"))
     if args.limit:
         terms = terms[: args.limit]
+    if not terms:
+        print("No key terms parsed — cannot calibrate.", file=sys.stderr)
+        return 2
 
     from transcript_utils import resolve_anthropic_key
     api_key = resolve_anthropic_key()
@@ -88,10 +106,9 @@ def main() -> int:
               and metrics["precision"] >= config.KEY_TERMS_JUDGE_MIN_PRECISION_INCORRECT)
     print(f"\nCLEARS arming thresholds: {'YES' if clears else 'NO'}")
     if metrics["fn"]:
-        print("\nMissed (false-negative) pairs:")
-        for (t, p) in metrics["pairs"]:
-            if t == kj.INCORRECT and p == kj.CORRECT:
-                print(f"  [MISSED] true=incorrect pred=correct")
+        print("\nMissed (false-negative) swaps — wrong definitions the judge called correct:")
+        for t in metrics["missed"]:
+            print(f"  [MISSED] {t!r}")
     return 0 if clears else 1
 
 

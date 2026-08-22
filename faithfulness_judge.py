@@ -52,10 +52,11 @@ class ClaimVerdict:
 
     @property
     def faithful(self) -> bool:
-        # A "passing" verdict for EITHER judge: the faithfulness judge's ENTAILED or
-        # the theme judge's GROUNDED. (Without "grounded" here, `unfaithful` would
-        # list every theme — grounded ones included — in a theme FAIL report.)
-        return self.label in ("entailed", "grounded")
+        # A "passing" verdict for EITHER judge: the faithfulness judge's ENTAILED, the
+        # theme judge's GROUNDED, or the key-terms semantic judge's CORRECT. (Without
+        # the theme/key-terms labels here, `unfaithful` would list every verdict —
+        # grounded ones included — in a theme/key-terms FAIL report.)
+        return self.label in ("entailed", "grounded", "correct")
 
 
 @dataclass
@@ -424,6 +425,14 @@ def _parse_judge_response(response_text: str, claims: list,
         label, rationale = by_index[i]
         verdicts.append(ClaimVerdict(claim=claim, label=label, rationale=rationale))
     return verdicts
+
+
+# Public names for cross-module reuse — the key-terms domain-semantic judge imports
+# these to reuse the fail-closed parse + the cache-breakpoint prompt. The underscore
+# names stay canonical (in-module call sites are unchanged); these aliases are the
+# stable cross-module surface.
+parse_judge_response = _parse_judge_response
+cached_judge_content = _cached_judge_content
 
 
 def judge_claims(claims: list, source: str, client, *,

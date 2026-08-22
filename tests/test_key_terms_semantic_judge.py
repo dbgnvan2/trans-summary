@@ -114,6 +114,7 @@ def test_judge_artifact_errors_on_missing_source(monkeypatch):
 
 
 def test_judge_artifact_passes_when_no_terms(monkeypatch):
+    """A header-only artifact (no body) is a legitimate 'nothing to judge' PASS."""
     client = _canned_client(monkeypatch, _canned_correct())
     r = kj.judge_key_terms_artifact("## Key Terms\n", SOURCE, client)
     assert r.status == kj.PASS
@@ -134,9 +135,45 @@ def test_binary_key_terms_metrics():
                  "recall": 0.75, "precision": 0.75, "accuracy": 0.8}
 
 
-def test_binary_key_terms_metrics_empty_is_neutral():
-    m = kj.binary_key_terms_metrics([])
-    assert m["recall"] == 1.0 and m["precision"] == 1.0 and m["accuracy"] == 1.0
+def test_binary_key_terms_metrics_empty_raises():
+    with pytest.raises(ValueError):
+        kj.binary_key_terms_metrics([])
+
+
+def test_run_head_to_head_empty_raises(monkeypatch):
+    import key_terms_head_to_head as h2h
+    client = _canned_client(monkeypatch, _canned_correct())
+    with pytest.raises(ValueError):
+        h2h.run_head_to_head("source", [], client, "model")
+
+
+def test_judge_artifact_errors_on_nonempty_unparseable(monkeypatch):
+    # A non-empty body that parses to zero terms is a parse failure (ERROR), not a
+    # silent PASS — a malformed key-terms file must not ride through unjudged (P19).
+    client = _canned_client(monkeypatch, _canned_correct())
+    r = kj.judge_key_terms_artifact("Some prose with no ### headings at all.", SOURCE, client)
+    assert r.status == kj.ERROR
+
+
+def test_parse_key_terms_artifact_bold_format():
+    md = "**Differentiation of Self**: the capacity to be self-guided.\n**Fusion**: merging of selves.\n"
+    pairs = kj.parse_key_terms_artifact(md)
+    assert pairs == [("Differentiation of Self", "the capacity to be self-guided."),
+                     ("Fusion", "merging of selves.")]
+
+
+def test_build_labeled_set_filters_ambiguous_swaps():
+    import key_terms_head_to_head as h2h
+    terms = [
+        ("Emotional Objectivity",
+         "A capacity for emotional neutrality that permits non-reactive engagement."),
+        ("Emotional Neutrality",
+         "A capacity for emotional objectivity that permits non-reactive engagement."),
+    ]
+    labeled = h2h.build_labeled_set(terms)
+    # near-duplicate definitions -> the swap is ambiguous and skipped
+    assert len(labeled) == 2
+    assert all(l == kj.CORRECT for (_t, _d, l) in labeled)
 
 
 def test_build_labeled_set():

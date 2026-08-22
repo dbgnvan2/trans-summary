@@ -40,8 +40,8 @@ from faithfulness_judge import (
     PASS,
     ClaimVerdict,
     FaithfulnessResult,
-    _cached_judge_content,
-    _parse_judge_response,
+    cached_judge_content,
+    parse_judge_response,
 )
 
 # Labels the judge assigns each key term's definition.
@@ -82,7 +82,7 @@ def build_key_terms_judge_prompt(terms: list, source: str) -> list:
         f"{i + 1}. TERM: {t}\nDEFINITION: {d}" for i, (t, d) in enumerate(terms)
     )
     tail = f"=== KEY TERMS ({len(terms)}) ===\n{numbered}\n"
-    return _cached_judge_content(_JUDGE_INSTRUCTIONS, source, tail)
+    return cached_judge_content(_JUDGE_INSTRUCTIONS, source, tail)
 
 
 def judge_key_terms(terms: list, source: str, client, *,
@@ -104,18 +104,26 @@ def judge_key_terms(terms: list, source: str, client, *,
         timeout=config.TIMEOUT_DEFAULT,
     )
     names = [t for t, _ in terms]
-    return _parse_judge_response(message.content[0].text, names, valid_labels=_LABELS)
+    return parse_judge_response(message.content[0].text, names, valid_labels=_LABELS)
 
 
 def parse_key_terms_artifact(markdown: str) -> list:
     """Extract ``[(term, definition)]`` pairs from a key-terms.md artifact. The
-    definition is the prose under each ``### Term`` heading up to the next heading."""
+    definition is the prose under each ``### Term`` heading up to the next heading;
+    falls back to the older bold ``**Term**: definition`` format."""
     text = re.sub(r"^---\s*\n.*?\n---\s*\n", "", markdown, flags=re.DOTALL)
     pairs = []
     for block in re.split(r"\n(?=###\s)", text):
         m = re.match(r"###\s+(.+?)\s*\n(.*)", block, re.DOTALL)
         if not m:
             continue
+        term, definition = m.group(1).strip(), m.group(2).strip()
+        if term and term.lower() != "key terms":
+            pairs.append((term, definition))
+    if pairs:
+        return pairs
+    # Fallback: bold `**Term**: definition` (the older key-terms format).
+    for m in re.finditer(r"\*\*([^*\n]+)\*\*\s*[:|-]\s*(.+)", text):
         term, definition = m.group(1).strip(), m.group(2).strip()
         if term and term.lower() != "key terms":
             pairs.append((term, definition))
@@ -132,6 +140,12 @@ def judge_key_terms_artifact(key_terms_markdown: str, source: str, client, *,
         return FaithfulnessResult(ERROR, "source transcript missing — cannot verify key terms")
     terms = parse_key_terms_artifact(key_terms_markdown)
     if not terms:
+        # A header-only/blank artifact -> PASS (nothing to judge). A NON-empty body
+        # that parsed to zero terms -> ERROR: a silent [] here would let a malformed
+        # key-terms file through unjudged (P19), unlike a loud parse failure.
+        body = re.sub(r"#+\s*key\s+terms\b", "", key_terms_markdown, flags=re.IGNORECASE)
+        if body.strip():
+            return FaithfulnessResult(ERROR, "key-terms artifact has content but no terms parsed")
         return FaithfulnessResult(PASS, "no key terms to judge")
     try:
         verdicts = judge_key_terms(terms, source, client, model=model, logger=log)
@@ -155,7 +169,12 @@ def binary_key_terms_metrics(pairs: list) -> dict:
     """Precision/recall/accuracy of detecting the INCORRECT class (the 'dangerous'
     class — a swapped/wrong definition the judge must not pass). ``pairs`` =
     [(true_label, pred_label)]. Recall is load-bearing: FN = a wrong definition the
-    judge called correct. 1.0 by convention when a denominator is 0."""
+    judge called correct. An EMPTY labeled set is a calibration error, not a perfect
+    judge — raise rather than return a misleading 1.0 (P24)."""
+    if not pairs:
+        raise ValueError(
+            "cannot compute key-terms metrics on an empty labeled set — "
+            "empty must never read as a perfect (1.0) judge")
     tp = fp = fn = tn = 0
     for true_label, pred_label in pairs:
         t = true_label == INCORRECT
