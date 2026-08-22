@@ -154,6 +154,23 @@ def test_extract_claims_does_not_reemit_connective_less_concept_label():
     assert not any(c == "Family Projection Process" for c in claims), claims
 
 
+def test_extract_claims_does_not_reemit_connective_less_concept_label_colon_outside():
+    """A connective-less Bowen concept label rendered in the repo's own
+    '**Term**: def' colon-outside shape must NOT be re-emitted as a fabricated name
+    (P3/P7) — the vocabulary exclusion (not the period discriminator) catches the
+    colon form, which _NAME_SHAPE would otherwise match."""
+    text = "**Family Projection Process**: anxiety is projected from parent to child.\n"
+    claims = fj.extract_claims(text)
+    assert not any("Family Projection Process" in c for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_scaffolding_label():
+    """A generic scaffolding label ('**Theme One**: ...') is never a person name."""
+    text = "**Theme One**: a structural anchor in the talk.\n"
+    claims = fj.extract_claims(text)
+    assert not any("Theme One" in c for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]

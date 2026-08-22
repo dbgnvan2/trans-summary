@@ -181,20 +181,57 @@ def extract_claims(text: str) -> list:
 
 _NAME_SHAPE = re.compile(r"^[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+(?: [A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+)+$")
 
+# Structural/generic bold labels that are never a person name. The repo's own
+# key-terms/theme/topic formats use the "**Term**: def" colon-outside shape, so a
+# connective-less Title-Case label here ("Theme One", "Term Two") would otherwise
+# be re-emitted as a fabricated name and false-BLOCK (P3/P7).
+_SCAFFOLDING_LABEL_RE = re.compile(
+    r"^(?:theme|term|topic|section|frame|phase|stage|part)\b", re.IGNORECASE
+)
+
+# Canonical Bowen Family Systems Theory concepts that are connective-less AND
+# Title-Case (the "and"/"of" connectives that already exclude "Systems Biology and
+# Cancer Niche Theory" / "Differentiation of Self" are absent here, so _NAME_SHAPE
+# matches them). Best-effort vocabulary: the eight Bowen concepts are canonical, but
+# a LECTURE-SPECIFIC concept label not in this set ("Emergent Features") is a
+# residual false-positive of the name backstop — a fully-general name-vs-concept
+# discriminator needs the semantic judge, not a regex (see CHANGELOG).
+_BOWEN_CONCEPT_LABELS = frozenset({
+    "chronic anxiety",
+    "emotional cutoff",
+    "emotional fusion",
+    "emotional reactivity",
+    "emotional system",
+    "family projection process",
+    "multigenerational transmission process",
+    "nuclear family emotional system",
+    "sibling position",
+    "societal emotional process",
+    "societal regression",
+})
+
 
 def _name_shaped_bold_labels(text: str) -> list:
     """Bold labels that are the ATTRIBUTION shape ``**Name:** <claim>`` or
     ``**Name**: <claim>`` (a colon inside OR outside the bold) AND look like a
     proper NAME (2+ Title-Case words, no lowercase connective). A concept/term
-    label uses a period or stands alone ("**Family Projection Process.**",
-    "**Differentiation of Self**") and is NOT re-emitted — so the topic-label
-    false-BLOCK fix is preserved while a fabricated name ("**Luciano Malorni:** ...")
-    still reaches the judge (its backstop role)."""
+    label uses a period or stands alone (\"**Family Projection Process.**\",
+    \"**Differentiation of Self**\") and is NOT re-emitted — so the topic-label
+    false-BLOCK fix is preserved while a fabricated name (\"**Luciano Malorni:** ...\")
+    still reaches the judge (its backstop role). The connective-less colon-outside
+    concept shape (\"**Family Projection Process**: …\") is excluded via the Bowen
+    concept vocabulary + scaffolding-label regex (see constants above)."""
     labels: list = []
     for m in re.finditer(r"\*\*([^*\n]+?)(?::\*\*|\*\*[ \t]*:)", text):
         label = m.group(1).strip().rstrip(".")
-        if _NAME_SHAPE.match(label):
-            labels.append(label)
+        if not _NAME_SHAPE.match(label):
+            continue
+        lowered = label.lower()
+        if _SCAFFOLDING_LABEL_RE.match(lowered):
+            continue
+        if lowered in _BOWEN_CONCEPT_LABELS:
+            continue
+        labels.append(label)
     return labels
 
 

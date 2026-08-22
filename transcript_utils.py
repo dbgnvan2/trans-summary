@@ -1254,12 +1254,17 @@ def extract_bowen_references(content: str) -> list:
     # ('**Note:** "There are no explicit references to Bowen ..."'), while KEEPING
     # a real quote whose body merely contains a content negation ("there are no
     # isolated individuals"). The meta-signal names the REFERENCE being absent,
-    # not a content fact.
+    # not a content fact — so the negation is bound to reference-absence OBJECTS
+    # (references/instances/quotes) with an optional intensity modifier, never a
+    # free-standing "direct"/"explicit"/"grounded" (which fires inside "no direct
+    # causal link" / "no explicit mention of the triangle" and silently drops a
+    # real Bowen-attributed quote — P2).
     quotes = [
         (c, q) for c, q in quotes
         if not re.search(
-            r"\b(?:no|zero|none)\s+(?:instances|references|explicit|direct|grounded|bowen|qualifying|items|quotes)\b"
-            r"|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
+            r"\b(?:no|zero|none)\s+(?:(?:explicit|direct|grounded|qualifying)\s+)?"
+            r"(?:references|instances|quotes)\b"
+            r"|\bno\s+bowen\b|\bnone\s+found\b|\bdoes\s+not\s+contain\b|\bnot\s+found\b",
             q, re.IGNORECASE,
         )
     ]

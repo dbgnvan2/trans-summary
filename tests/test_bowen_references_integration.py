@@ -308,3 +308,19 @@ def test_extract_bowen_references_drops_bold_wrapped_no_refs_prose():
     content = '## Bowen References\n\n> **Note:** "There are no explicit references to Bowen in this transcript."\n'
     refs = extract_bowen_references(content)
     assert refs == []
+
+
+def test_extract_bowen_references_keeps_quote_with_content_negation():
+    """A real Bowen-attributed quote whose body contains a content negation
+    ('no direct causal link') is a CONTENT fact, not a 'no references found'
+    meta-statement — the guard must bind to reference-absence OBJECTS
+    (references/instances/quotes), never a free-standing 'direct'/'explicit' (P2)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Cancer Etiology:** "Bowen said there is no direct causal link between stress and cancer."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Cancer Etiology", "Bowen said there is no direct causal link between stress and cancer."),
+    ]

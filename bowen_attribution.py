@@ -125,19 +125,29 @@ def has_bowen_source_attribution(quote: str) -> bool:
 def concept_has_bowen_attribution(concept: str) -> bool:
     """Return True when the concept LABEL itself names Bowen as the source
     ("Bowen's Timeline Prediction", "Murray Bowen's …"). Possessive "Bowen's X"
-    (excluding "Bowen theory"/"Bowen theorist") or "Murray Bowen"/"Dr. Bowen" in
-    the label. Single source of truth, shared with the extraction pipeline's rule
-    filter and the Bowen parser's fallback."""
+    (excluding "Bowen theory"/"Bowen's theory"/"Bowen theorist") or "Murray
+    Bowen"/"Dr. Bowen" in the label. Single source of truth, shared with the
+    extraction pipeline's rule filter and the Bowen parser's fallback."""
     if not concept:
         return False
     c = " ".join(str(concept).lower().split()).strip()
     if not c:
         return False
-    if re.search(r"\bbowen'?s\b", c) and not re.search(r"\bbowen\s+theor", c):
-        return True
-    if re.search(r"\b(?:murray\s+bowen|dr\.?\s*bowen)\b", c):
-        return True
-    return False
+    has_bowen = bool(
+        re.search(r"\bbowen(?:'?s)?\b", c)
+        or re.search(r"\b(?:murray\s+bowen|dr\.?\s*bowen)\b", c)
+    )
+    if not has_bowen:
+        return False
+    # Any theory/theorist word in the label marks it as theory EXPOSITION, not a
+    # recollection of Bowen the person — covers "Bowen theory", "Bowen's theory of
+    # differentiation", "Bowen's differentiation theory", and "Bowen theorist(s)"
+    # alike (the possessive "'s" and an intervening word both defeated the old
+    # immediate-adjacency check — P3/P4). Mirrors the quote-side check in
+    # _is_bowen_person_attribution.
+    if re.search(r"\btheor\w*\b", c):
+        return False
+    return True
 
 
 def find_bowen_person_attributions(text: str) -> list[str]:

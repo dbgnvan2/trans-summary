@@ -71,6 +71,19 @@ def test_has_bowen_source_attribution_rejects_non_attributed_content():
     )
 
 
+def test_concept_has_bowen_attribution_rejects_possessive_theory():
+    """A possessive theory-framing concept label is theory exposition, not a person
+    recollection — the exclusion must cover "Bowen's theory" (with the apostrophe-s),
+    not just a bare "bowen theory" (P3/P4)."""
+    from bowen_attribution import concept_has_bowen_attribution
+    assert not concept_has_bowen_attribution("Bowen's theory of differentiation")
+    assert not concept_has_bowen_attribution("Murray Bowen's theory")
+    assert not concept_has_bowen_attribution("Bowen's differentiation theory")
+    # a genuine possessive label still counts as person attribution
+    assert concept_has_bowen_attribution("Bowen's Timeline Prediction")
+    assert concept_has_bowen_attribution("Murray Bowen's Prediction")
+
+
 def test_rule_filter_bowen_references_keeps_only_attributed_items():
     refs = [
         ("Direct", "Murray Bowen said anxiety binds the family process."),
