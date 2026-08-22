@@ -19,6 +19,16 @@ A learning-qa failure-pattern sweep (`2c0feb1...HEAD`) then caught and fixed fou
 
 Offline suite: 837 passed / 18 skipped / 3 xfailed.
 
+## [Unreleased] - 2026-08-22 (Bowen parser + name-shape backstop convergence)
+
+Three further learning-qa confirmation sweeps (`4be1271...HEAD`) kept finding new failure modes in the two fuzzy heuristics the full-run review introduced. Each fix narrowed one class; the final sweep drove both to their robust terminal form:
+
+- **Bowen reference parser** — the "no references" prose guard is now **inverted**: a quote with a Bowen person attribution (in the quote *or* the concept label, both via `bowen_attribution` as single source of truth) is always kept, and only an *unattributed* meta-shaped quote (`"There are no explicit references to Bowen …"`) is dropped. A false-drop can now only hit an unattributed quote — which the rule filter discards downstream anyway — so the negation vocabulary can no longer silently drop a real recollection (`"Bowen said there are no instances of emotional cutoff"`). The parser also gained a non-bold fallback gated on quote-OR-concept attribution, a post-parse prose guard, and smart-quote/re.MULTILINE-safe regexes.
+- **`concept_has_bowen_attribution`** — the theory-rejection is now a single source of truth that rejects the theory/theorist *nouns* (`"Bowen's theory of differentiation"`, `"Bowen's differentiation theory"`) but keeps a possessive-adjective recollection (`"Bowen's theoretical insights"`), mirroring the quote-side detector.
+- **Name-shape backstop** — `_name_shaped_bold_labels` re-emits a fabricated name rendered as `**Name:** …` (the entity check's bold-label blind spot) while excluding generic scaffolding labels (`Theme/Term/Topic/…`) and the canonical Bowen concept vocabulary (moved to `config.BOWEN_CONCEPT_LABELS`, rule #9). **Residual (documented, interim):** a *lecture-specific* concept label not in the canonical set (e.g. `"Emergent Features"`) is still re-emitted as a fabricated name; a fully-general name-vs-concept discriminator needs the semantic judge, not a regex — flagged as a follow-up rather than shipped as a false sense of closure.
+
+Offline suite: 850 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-22 (GUI "Test Drift" pre-flight judge self-test)
 
 - **`ts_gui` "Test Drift" button** — a one-click pre-flight check next to "Config Check" that runs all three semantic judges over their gold sets and reports recall/precision, so the user can confirm the hallucination safety net is still at calibrated accuracy *before* processing a transcript. On drift it logs and pops a dialog with actionable help (re-run to rule out a single-draw flake; identify what changed — judge model / prompt / threshold; re-calibrate, or pin the judge model to a dated snapshot). A "could not run" (no key / API error) is surfaced as a failure, never a clean pass.
