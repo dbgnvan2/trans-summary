@@ -177,6 +177,29 @@ def test_evaluate_raises_when_key_terms_has_no_danger(monkeypatch):
         jdm.evaluate(None, model_override="test-model")
 
 
+def test_run_in_process_returns_report_and_drift_flag(monkeypatch):
+    """The GUI's in-process entry point must reuse evaluate/render/drift and
+    return (report, drift) — drift False on a clean run, True on a miss."""
+    good_f = [("entailed", "entailed"), ("contradicted", "contradicted")]
+    good_t = [("grounded", "grounded"), ("ungrounded", "ungrounded")]
+    good_k = [("correct", "correct"), ("incorrect", "incorrect")]
+    monkeypatch.setattr(jdm, "_run_faithfulness", lambda c, m: (good_f, []))
+    monkeypatch.setattr(jdm, "_run_themes", lambda c, m: (good_t, []))
+    monkeypatch.setattr(jdm, "_run_key_terms", lambda c, m: (good_k, []))
+
+    report, drift = jdm.run_in_process(None, "test-model")
+    assert drift is False
+    assert "all judges clear their bars" in report
+
+    # a miss -> drift True
+    bad_f = [("entailed", "entailed"), ("contradicted", "entailed"),
+             ("unsupported", "entailed")]
+    monkeypatch.setattr(jdm, "_run_faithfulness", lambda c, m: (bad_f, []))
+    report2, drift2 = jdm.run_in_process(None, "test-model")
+    assert drift2 is True
+    assert "DRIFT DETECTED" in report2
+
+
 def test_run_themes_raises_on_zero_parse(monkeypatch):
     """P19: a grounded theme artifact that parses to zero items must raise (contract
     drift), not silently shrink the precision denominator — and the guard must be

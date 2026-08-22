@@ -39,6 +39,23 @@ from validation_learning import (
 INIT_VAL_FILTER_VERSION = "compact-v3"
 _GIT_REVISION_CACHE = None
 
+# Help text surfaced when the judge drift check detects drift (the semantic
+# safety net scoring below its calibrated bars). Shown in the log and a dialog.
+DRIFT_HELP_TEXT = (
+    "Judge drift detected — the semantic judges (faithfulness / theme / key-terms)\n"
+    "are not scoring at their calibrated accuracy. They are the safety net that\n"
+    "catches hallucinations, so do NOT run the pipeline until this is resolved.\n\n"
+    "What to do:\n"
+    "1. Re-run 'Test Drift' once to confirm (a single draw can be unlucky).\n"
+    "2. Ask what changed — judge model, a prompt, or a threshold?\n"
+    "   • If you changed one of those intentionally, re-calibrate the judge and\n"
+    "     update its gold set if any example is now genuinely wrong.\n"
+    "   • If nothing changed, the provider likely updated the model alias. Pin the\n"
+    "     judge model to a dated snapshot (e.g. 'claude-sonnet-4-6-YYYYMMDD') and\n"
+    "     re-run the check.\n"
+    "3. Only resume processing once all three judges clear their bars again."
+)
+
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.5
 # Fixed pipeline execution order for the 13 selectable stages. Also drives
 # checkbox layout in setup_ui() and the run order in _run_selected_stages().
@@ -766,17 +783,21 @@ class TranscriptProcessorGUI:
             button_frame, text="Config Check", command=self.do_config_check)
         self.config_btn.grid(row=utility_row, column=1, padx=(0, 5), pady=2)
 
+        self.drift_btn = ttk.Button(
+            button_frame, text="Test Drift", command=self.do_drift_check)
+        self.drift_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
+
         self.clean_logs_btn = ttk.Button(
             button_frame, text="Clean Logs...", command=self.do_clean_logs)
-        self.clean_logs_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
+        self.clean_logs_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
 
         self.cleanup_btn = ttk.Button(
             button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
-        self.cleanup_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
+        self.cleanup_btn.grid(row=utility_row, column=5, padx=(0, 5), pady=2)
 
         # Row 5: Run Selected / Manage Selections
         # Spec: docs/spec_stage_selection_2026-07-12.md#SS.9
@@ -1747,6 +1768,36 @@ class TranscriptProcessorGUI:
         """Run a configuration check and log the results."""
         self.log("STEP: Checking Configuration...")
         self.run_task_in_thread(self._run_config_check)
+
+    def do_drift_check(self):
+        """Run the judge drift monitor — a pre-flight self-test of the semantic
+        judges. Costs a small amount of API; run before processing to confirm the
+        hallucination safety net is still at calibrated accuracy."""
+        self.log("STEP: Testing judges for drift (small API spend)…")
+        self.run_task_in_thread(self._run_drift_check, task_name="Judge Drift Check")
+
+    def _run_drift_check(self):
+        import judge_drift_monitor as jdm
+        from transcript_utils import resolve_anthropic_key
+
+        key = resolve_anthropic_key()
+        if not key:
+            self.log("❌ Judge drift check could not run: no Anthropic API key resolved.")
+            return False
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        try:
+            report, drift = jdm.run_in_process(client, None)
+        except Exception as e:  # noqa: BLE001 — an errored check is not a clean pass
+            self.log("❌ Judge drift check errored (not a clean pass): %s: %s",
+                     type(e).__name__, e)
+            return False
+        self.log(report)
+        if drift:
+            self.log(DRIFT_HELP_TEXT)
+            messagebox.showwarning("Judge Drift Detected", DRIFT_HELP_TEXT)
+            return False
+        return True
 
     def _run_config_check(self):
         try:

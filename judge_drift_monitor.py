@@ -206,6 +206,18 @@ def _render(results: list, model: str) -> str:
     return "\n".join(lines)
 
 
+def run_in_process(client, model_override: str | None = None) -> tuple[str, bool]:
+    """Run the monitor in-process and return ``(report_str, drift_bool)``.
+
+    No argparse or key resolution (the caller owns the client) — the GUI calls
+    this so a "Test Drift" button reuses the exact same evaluate/render/drift
+    logic as the CLI. Raises on API/parse failure (the caller decides how to
+    surface a not-clean-pass)."""
+    results = evaluate(client, model_override)
+    report = _render(results, model_override or "per-judge configured model")
+    return report, any(_drifted(r) for r in results)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Drift monitor for the three semantic judges.")
     ap.add_argument("--model", default=None,
