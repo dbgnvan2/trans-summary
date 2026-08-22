@@ -1226,6 +1226,8 @@ def extract_bowen_references(content: str) -> list:
     if not target_content:
         return []
 
+    from bowen_attribution import has_bowen_source_attribution, concept_has_bowen_attribution
+
     # A Bowen reference is a concept label + a quoted body. Parse the prompt's
     # BOLD format first ("**Concept:**"/"**Concept**:"); the model sometimes
     # drifts to a bare "Label: \"quote\"", so fall back to a non-bold form.
@@ -1240,9 +1242,8 @@ def extract_bowen_references(content: str) -> list:
         # criteria). This rejects prose like 'Summary: "differentiation of self is
         # discussed"' (no attribution) while still reading a real ref the model
         # emitted without bold ('On Triangles: "Bowen said ..."', or "Bowen's
-        # Timeline Prediction: \"this would take 20 years.\""). Single source of
+        # Timeline Prediction: \"this would take 20 years.\"). Single source of
         # truth: bowen_attribution.
-        from bowen_attribution import has_bowen_source_attribution, concept_has_bowen_attribution
         quotes = [
             (c, q) for c, q in re.findall(
                 r'^\s*(?:[-*>]+\s+)?([^*\n]+?):[ \t]*["\u201c](.+?)["\u201d]',
@@ -1251,22 +1252,24 @@ def extract_bowen_references(content: str) -> list:
         ]
 
     # Drop a candidate that is itself a "no references found" meta-statement
-    # ('**Note:** "There are no explicit references to Bowen ..."'), while KEEPING
-    # a real quote whose body merely contains a content negation ("there are no
-    # isolated individuals"). The meta-signal names the REFERENCE being absent,
-    # not a content fact — so the negation is bound to reference-absence OBJECTS
-    # (references/instances/quotes) with an optional intensity modifier, never a
-    # free-standing "direct"/"explicit"/"grounded" (which fires inside "no direct
-    # causal link" / "no explicit mention of the triangle" and silently drops a
-    # real Bowen-attributed quote — P2).
+    # ('**Note:** "There are no explicit references to Bowen ..."'), but ONLY when
+    # the quote carries NO Bowen attribution. A quote that names Bowen as the source
+    # ("Bowen said there are no instances of ...") is a real recollection, not a
+    # meta-statement, even when its body contains a negation — so the guard is
+    # INVERTED: KEEP if attributed (quote OR concept), else drop only if meta-shaped.
+    # This is robust to the negation vocabulary drifting, because a false-drop can
+    # only hit an UNATTRIBUTED quote, which the rule filter discards anyway (P2).
+    meta_absence = re.compile(
+        r"\b(?:no|zero|none)\s+(?:(?:explicit|direct|grounded|qualifying)\s+)?"
+        r"(?:references|instances|quotes)\b"
+        r"|\bno\s+bowen\b|\bnone\s+found\b|\bdoes\s+not\s+contain\b|\bnot\s+found\b",
+        re.IGNORECASE,
+    )
     quotes = [
         (c, q) for c, q in quotes
-        if not re.search(
-            r"\b(?:no|zero|none)\s+(?:(?:explicit|direct|grounded|qualifying)\s+)?"
-            r"(?:references|instances|quotes)\b"
-            r"|\bno\s+bowen\b|\bnone\s+found\b|\bdoes\s+not\s+contain\b|\bnot\s+found\b",
-            q, re.IGNORECASE,
-        )
+        if has_bowen_source_attribution(q)
+        or concept_has_bowen_attribution(c)
+        or not meta_absence.search(q)
     ]
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]

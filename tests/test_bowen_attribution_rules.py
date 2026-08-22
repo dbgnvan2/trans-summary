@@ -84,6 +84,15 @@ def test_concept_has_bowen_attribution_rejects_possessive_theory():
     assert concept_has_bowen_attribution("Murray Bowen's Prediction")
 
 
+def test_concept_has_bowen_attribution_keeps_adjectival_insights():
+    """'theoretical' as an adjective is NOT theory framing — 'Bowen's theoretical
+    insights' is a recollection of his thinking, not 'Bowen theory' exposition. The
+    theory rejection must be narrow (theory/theorist NOUNS only, not 'theoretical')."""
+    from bowen_attribution import concept_has_bowen_attribution
+    assert concept_has_bowen_attribution("Bowen's theoretical insights")
+    assert concept_has_bowen_attribution("Bowen's theoretical contributions")
+
+
 def test_rule_filter_bowen_references_keeps_only_attributed_items():
     refs = [
         ("Direct", "Murray Bowen said anxiety binds the family process."),

@@ -189,26 +189,15 @@ _SCAFFOLDING_LABEL_RE = re.compile(
     r"^(?:theme|term|topic|section|frame|phase|stage|part)\b", re.IGNORECASE
 )
 
-# Canonical Bowen Family Systems Theory concepts that are connective-less AND
-# Title-Case (the "and"/"of" connectives that already exclude "Systems Biology and
-# Cancer Niche Theory" / "Differentiation of Self" are absent here, so _NAME_SHAPE
-# matches them). Best-effort vocabulary: the eight Bowen concepts are canonical, but
-# a LECTURE-SPECIFIC concept label not in this set ("Emergent Features") is a
-# residual false-positive of the name backstop — a fully-general name-vs-concept
-# discriminator needs the semantic judge, not a regex (see CHANGELOG).
-_BOWEN_CONCEPT_LABELS = frozenset({
-    "chronic anxiety",
-    "emotional cutoff",
-    "emotional fusion",
-    "emotional reactivity",
-    "emotional system",
-    "family projection process",
-    "multigenerational transmission process",
-    "nuclear family emotional system",
-    "sibling position",
-    "societal emotional process",
-    "societal regression",
-})
+# Canonical Bowen Family Systems Theory concepts (see config.BOWEN_CONCEPT_LABELS).
+# Connective-less AND Title-Case — the "and"/"of" connectives that already exclude
+# "Systems Biology and Cancer Niche Theory" / "Differentiation of Self" are absent
+# here, so _NAME_SHAPE matches them. Best-effort editorial vocabulary: a
+# LECTURE-SPECIFIC concept label not in the set ("Emergent Features") is a residual
+# false-positive of the name backstop — a fully-general name-vs-concept discriminator
+# needs the semantic judge, not a regex (see CHANGELOG). Rule #9: editorial content
+# lives in config.py, not code.
+_BOWEN_CONCEPT_LABELS = config.BOWEN_CONCEPT_LABELS
 
 
 def _name_shaped_bold_labels(text: str) -> list:

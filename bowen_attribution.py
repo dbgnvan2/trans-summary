@@ -139,13 +139,15 @@ def concept_has_bowen_attribution(concept: str) -> bool:
     )
     if not has_bowen:
         return False
-    # Any theory/theorist word in the label marks it as theory EXPOSITION, not a
+    # A theory/theorist NOUN in the label marks it as theory EXPOSITION, not a
     # recollection of Bowen the person — covers "Bowen theory", "Bowen's theory of
     # differentiation", "Bowen's differentiation theory", and "Bowen theorist(s)"
-    # alike (the possessive "'s" and an intervening word both defeated the old
-    # immediate-adjacency check — P3/P4). Mirrors the quote-side check in
-    # _is_bowen_person_attribution.
-    if re.search(r"\btheor\w*\b", c):
+    # (the possessive "'s" and an intervening word both defeated the old
+    # immediate-adjacency check). Deliberately NARROW to the theory/theorist nouns
+    # the quote-side check rejects — an adjective like "theoretical" is NOT a
+    # rejection signal, so "Bowen's theoretical insights" (a recollection of his
+    # thinking) still counts as person attribution (P3/P4/P5).
+    if re.search(r"\b(?:theory|theorists?)\b", c):
         return False
     return True
 

@@ -758,6 +758,28 @@ THEME_SCAFFOLDING_LABELS = frozenset(
     {"summary paragraph", "summary", "conclusion"}
 )
 
+# Canonical Bowen Family Systems Theory concepts (editorial — rule #9: content,
+# not code). Used by faithfulness_judge._name_shaped_bold_labels to keep a
+# connective-less Title-Case concept label rendered in the repo's own
+# "**Term**: def" shape from being re-emitted as a fabricated name. Best-effort:
+# a LECTURE-SPECIFIC concept label not in this set (e.g. "Emergent Features") is a
+# residual false-positive of the regex name backstop — a fully-general
+# name-vs-concept discriminator needs the semantic judge, not a list. Compared
+# case-insensitively against the bold label's lowercased text.
+BOWEN_CONCEPT_LABELS = frozenset({
+    "chronic anxiety",
+    "emotional cutoff",
+    "emotional fusion",
+    "emotional reactivity",
+    "emotional system",
+    "family projection process",
+    "multigenerational transmission process",
+    "nuclear family emotional system",
+    "sibling position",
+    "societal emotional process",
+    "societal regression",
+})
+
 # Validation learning artifacts
 VALIDATION_MEMORY_FILENAME = "validation_memory.json"
 VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME

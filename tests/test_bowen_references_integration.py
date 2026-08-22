@@ -324,3 +324,18 @@ def test_extract_bowen_references_keeps_quote_with_content_negation():
     assert refs == [
         ("On Cancer Etiology", "Bowen said there is no direct causal link between stress and cancer."),
     ]
+
+
+def test_extract_bowen_references_keeps_attributed_quote_with_meta_shaped_negation():
+    """An ATTRIBUTED quote whose body contains a reference-absence-shaped negation
+    ('no instances of ...') is a real recollection, not a meta-statement — the guard
+    is INVERTED: keep if Bowen-attributed, drop only an UNATTRIBUTED meta (P2)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Emotional Cutoff:** "Bowen said there are no instances of emotional cutoff in this family."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Emotional Cutoff", "Bowen said there are no instances of emotional cutoff in this family."),
+    ]
