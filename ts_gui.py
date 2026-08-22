@@ -1880,6 +1880,26 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_web_pdf_generation)
 
     def _run_web_pdf_generation(self):
+        import release_gate
+
+        if not self.base_name:
+            return False
+
+        # Run the release gate ONCE, up-front, so a publication BLOCK surfaces its
+        # real reason ("faithfulness: check failed in summary-generated, overview,
+        # blog") instead of the opaque "Full webpage generation failed", and so no
+        # web/PDF work is attempted when publication is refused (previously both
+        # generators each ran the gate and both failed silently).
+        decision = release_gate.run_gate(self.base_name, self.logger)
+        if decision.decision is release_gate.Decision.BLOCK:
+            self.log("  - ❌ Release gate BLOCKED publication — skipping webpage/PDF.")
+            for v in decision.blockers:
+                self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")
+            for v in decision.verdicts:
+                if v.status is release_gate.Status.WARN:
+                    self.log(f"      [WARN] {v.check}: {v.detail}")
+            return False
+
         success = True
         self.log("  - Generating full webpage...")
         if not pipeline.generate_webpage(self.base_name):
