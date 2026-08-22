@@ -119,10 +119,11 @@ def find_bowen_person_attributions(text: str) -> list[str]:
       separates unpunctuated sentences with newlines);
     * a line that doesn't match on its own is re-tried joined with the FOLLOWING
       lines (space-normalised), growing until it matches, so a recollection whose
-      name and verb straddle any number of newlines ("Murray Bowen\\n…\\nsaid …")
-      is still counted — matching the extractor's own newline-collapsing
-      normalisation. The grow stops before any line that itself matches (that
-      line is its own recollection and must not be consumed).
+      name and verb straddle several newlines ("Murray Bowen\n…\nsaid …") is
+      still counted (within the pattern's own 80-char name→verb window) —
+      matching the extractor's newline-collapsing normalisation. The grow stops
+      before any line that itself matches (that line is its own recollection and
+      must not be consumed).
     """
     if not text:
         return []

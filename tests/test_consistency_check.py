@@ -11,6 +11,7 @@ that never recounts Bowen the person legitimately has zero references.
 from transcript_validate_consistency import (
     count_items,
     count_person_recollections,
+    distinct_person_markers,
     normalize,
     parse_key_terms,
     run,
@@ -57,6 +58,14 @@ def test_count_person_recollections_bridges_multi_line_straddle():
     the bridge must grow past a single pair of lines."""
     text = "Bowen\nalways\nsaid the family is an emotional unit."
     assert count_person_recollections(text) == 1
+
+
+def test_bridge_guard_stops_before_self_matching_line():
+    """The grow-bridge must stop before a line that itself matches, so a
+    mid-bridge self-matching recollection is reported cleanly, not folded into a
+    polluted join."""
+    text = "Bowen\nalways\nBowen said the family is a unit"
+    assert distinct_person_markers(text) == ["bowen said the family is a unit"]
 
 
 def test_density_signal_shares_the_extractors_detector():
