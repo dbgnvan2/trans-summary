@@ -264,7 +264,7 @@ def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tm
          "**Role Absorption** — a concept about family roles.\n"),
         (config.SUFFIX_BLOG,
          "# Title\n\n## Key Takeaways\n\n- Differentiation is central.\n\n## Glossary of Terms\n\n"
-         "- **Differentiation of Self:** The capacity for objectivity.\n"),
+         "- **Role Absorption:** The capacity for objectivity.\n"),
     ]:
         (proj / f"{base}{suffix}").write_text(body, encoding="utf-8")
     v = rg.check_entity_grounding(base)
@@ -273,12 +273,15 @@ def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tm
 
 def test_find_ungrounded_names_skips_headings_and_bold_labels():
     """Unit-level: the heading/bold-aware stripper drops '## Key Takeaways',
-    '### Opening Paragraph', and '**Role Absorption**' but still catches a real
-    fabricated name in prose."""
+    '### Opening Paragraph', and '**Role Absorption**' (including the
+    colon-inside-bold and period-inside-bold glossary/topic formats) but still
+    catches a real fabricated name in prose."""
     from abstract_validation import find_ungrounded_names
     src = "the speaker discusses family systems and differentiation"
     doc = ("# Title\n\n## Key Takeaways\n\n- A point.\n\n"
            "**Role Absorption** — a concept about roles.\n\n"
+           "- **Role Absorption:** The capacity for objectivity.\n\n"
+           "- **Role Absorption.** Kerr describes family roles.\n\n"
            "The work of Luciano Malorni is central.\n")
     names = find_ungrounded_names(doc, src)
     assert "Key Takeaways" not in names

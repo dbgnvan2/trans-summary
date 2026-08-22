@@ -42,7 +42,12 @@ def find_ungrounded_names(abstract: str, transcript: str) -> list[str]:
     it only detects a MULTI-WORD Title-Case shape, so a single-word surname
     ("Malorni" alone), an ALL-CAPS acronym/org ("ACME"), initials ("J. Ewing"),
     and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
-    (multi-word); adjacent fabrication shapes remain uncovered.
+    (multi-word); adjacent fabrication shapes remain uncovered. Markdown headings
+    and bold concept/term labels are STRIPPED before scanning (so a blog's
+    "## Key Takeaways" or a "**Role Absorption** —" list is not a name), which
+    means a fabricated name that appears INSIDE a heading or as a bold label is
+    invisible to this lexical check — the armed faithfulness judge (M2) is the
+    semantic backstop for those shapes.
     """
     # Strip ALL markdown scaffolding — leading YAML/headings AND mid-document
     # headings / bold labels — so a Title-Case heading or concept label in a
@@ -755,7 +760,11 @@ def _strip_scaffolding(text: str) -> str:
             t = t[end + 4:].lstrip()
     # Inline leading bold label with an optional bullet: "**Term** — def",
     # "**Term**: def", "- **Topic.** desc" -> keep only the definition/description.
-    _inline_bold = re.compile(r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+\*\*\s*[:—-]\s*(.*)$")
+    # The bold CONTENT is matched non-greedily so a trailing colon/period INSIDE the
+    # bold ("**Term:** def", "**Topic.** desc") is consumed as part of the label
+    # rather than leaving a required separator after "**" that then fails to match
+    # (which let an ungrounded bold term read as a fabricated name — a false BLOCK).
+    _inline_bold = re.compile(r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+?\*\*\s*[:—-]?\s*(.*)$")
     kept: list[str] = []
     for line in t.split("\n"):
         s = line.strip()
