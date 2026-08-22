@@ -38,6 +38,27 @@ def test_has_bowen_source_attribution_rejects_theory_and_theorists():
     )
 
 
+def test_theory_rejection_uses_the_short_verb_list():
+    """The 'Bowen theory' rejection check uses a SHORTER verb list than the
+    primary attribution pattern. Locking this boundary prevents a future
+    refactor from unifying the two lists and silently changing behaviour.
+
+    - "suggested"/"did" are in the LONG (attribution) list only, so a
+      "Bowen theory … as Bowen suggested/did …" clause is still rejected.
+    - "noted" is in the SHORT (rejection) list too, so "… as Murray noted …"
+      is accepted as a person recollection even with "Bowen theory" nearby.
+    """
+    assert not _has_bowen_source_attribution(
+        "Bowen theory, as Bowen suggested, explains anxiety."
+    )
+    assert not _has_bowen_source_attribution(
+        "Bowen theory, as Bowen did, shaped the field."
+    )
+    assert _has_bowen_source_attribution(
+        "Bowen theory, as Murray noted, is about triangles."
+    )
+
+
 def test_has_bowen_source_attribution_rejects_non_attributed_content():
     assert not _has_bowen_source_attribution(
         "The emotional system is the force that motivates the relationship system."

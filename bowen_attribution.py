@@ -6,15 +6,29 @@ extraction pipeline (to filter candidate Bowen references) and the
 cross-artifact consistency check (to estimate person-recollection density), so
 the two definitions can never drift apart.
 
-Stdlib-only (``re``) so the consistency check can import it without pulling in
-the pipeline's API clients.
+The regexes below are byte-for-byte identical to the pre-refactor
+``extraction_pipeline._has_bowen_source_attribution``; the only change is that
+they now live in this stdlib-only module (``re``) so the consistency check can
+import them without pulling in the pipeline's API clients.
 """
 
 from __future__ import annotations
 
 import re
 
-# ---- person-attribution verb list (shared with the rejection below) ----------
+# ---- verb lists -------------------------------------------------------------
+# NOTE: the original had TWO different verb lists. The "Bowen theory" rejection
+# check uses the SHORT list; the primary attribution pattern uses the LONG list.
+# Do not unify them — that changes the rejection semantics.
+
+# Short list — used ONLY by the "Bowen theory" rejection check.
+_REJECTION_VERBS = (
+    r"said|says|saying|wrote|writes|thought|believed|described|"
+    r"referred|called|commented|noted|observed|argued|stated|told|"
+    r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about"
+)
+
+# Long list — used ONLY by the primary "Bowen said / did / predicted ..." pattern.
 _ATTRIBUTION_VERBS = (
     r"said|says|saying|wrote|writes|thought|believed|described|"
     r"referred|called|commented|noted|observed|argued|stated|told|did|does|do|"
@@ -22,7 +36,16 @@ _ATTRIBUTION_VERBS = (
     r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about"
 )
 
-# "Bowen said / wrote / believed / described / did / predicted ..." etc.
+# "murray" (bare) — the rejection anchor's "Murray" needs no surname, unlike the
+# primary pattern's "murray(?:\s+bowen)?".
+_THEORY_PERSON_VERB_PATTERN = (
+    r"\b(?:murray|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b"
+    r"[^.!?\n]{0,80}\b"
+    rf"(?:{_REJECTION_VERBS})\b"
+)
+
+# Primary person-verb pattern: "Bowen said / wrote / believed / described / did /
+# predicted ..." etc.
 _PERSON_VERB_PATTERN = (
     r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b"
     r"[^.!?\n]{0,80}\b"
@@ -64,7 +87,7 @@ def _is_bowen_person_attribution(quote_l: str) -> bool:
     # "Bowen theory says X" is theory exposition, not a recollection of Bowen —
     # unless the same clause also carries a person-attribution verb.
     if re.search(r"\bbowen\s+theory\b", quote_l) and not re.search(
-        _PERSON_VERB_PATTERN, quote_l
+        _THEORY_PERSON_VERB_PATTERN, quote_l
     ):
         return False
     return any(re.search(p, quote_l) for p in _ATTRIBUTION_PATTERNS)
