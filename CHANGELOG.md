@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-22 (full-run review: close six validation gaps)
+
+Fixes from reviewing a full Kerr "Systems Biology Meets Bowen Theory" run that halted at stage 8. The halt was the release gate correctly **BLOCKING** publication, but the block exposed six real bugs:
+
+- **Faithfulness false-BLOCK on metadata** — `extract_claims` fed the overview/blog fenced ```` ```yaml ```` block (slug/focus_keyword/target_audience/faq q:/a:) and leading bold topic labels to the judge as "claims", which were flagged "unsupported" and false-blocked publication. The extractor now pre-strips scaffolding via the shared `_strip_scaffolding` helper (extended with a `_strip_fenced_block` step) — one source of truth, so the entity/name detector and the claim extractor cannot drift (P19).
+- **Faithfulness over-flags editorial prose** — the judge treated rhetorical/editorial framing of grounded material ("The environment is not incidental.", "It was a logical approach, and it produced genuine discoveries.") as "unsupported". The judge instructions now classify editorial framing (emphasis/restatement/framing with no NEW specific) as entailed, while keeping "unsupported" reserved for fabricated specifics and invented causal claims/attributions (the recall-bearing class). Two editorial-framing gold cases (ef1/ef2) lock the behaviour via live re-calibration (M2.B).
+- **Bowen parser turned "no references" prose into a fake candidate** — `extract_bowen_references` matched a bare "Label: \"quote\"" shape, so the model's prose ("There are no instances of \"Bowen said,\"") parsed into a garbage candidate and produced a confusing "0 grounded refs from 1 candidate" diagnostic on a lecture with genuinely zero person recollections. The parser now requires the prompt's bold concept format (re-added `re.MULTILINE`, whose loss parsed only the first line).
+- **Presenter name flagged as a hallucination** — `find_ungrounded_names` now accepts `known_names` (presenter/author from filename metadata) so a correct attribution to the speaker ("Michael Kerr", never named in their own talk) is not flagged; a fabricated adjacent name ("Michael Kerrstone") is still caught.
+- **Ingest timestamp leaked into the date** — `parse_filename_metadata` returned the full `2021-06-25_20260718_155038` segment, so the YAML "Lecture date" and prompt date context showed the ingest timestamp. The `date` field is now the clean `YYYY-MM-DD`; `stem` keeps the full unique segment.
+- **Stage 8 reported an opaque "webpage generation failed"** — when the gate BLOCKED, the GUI now runs the gate once up-front, logs the specific blockers/warnings, and skips webpage/PDF entirely instead of both generators each re-running the gate and failing silently.
+
+Known, non-blocking (left for a follow-up): the "Core" + standalone "Bowen + Emphasis" double-run still extracts emphasis/Bowen twice when both are selected (documented workflow choice, `TODO.md`); a heads-up warning when both are selected would help.
+
+A learning-qa failure-pattern sweep (`2c0feb1...HEAD`) then caught and fixed four more: the Bowen parser's bold-requirement silently dropping non-bold real references (now a non-bold fallback + a loud empty-parse warning); the scaffolding strip hiding a fabricated name rendered as a leading bold label (name-shaped bold labels are now re-emitted so the judge stays the backstop); the editorial-framing guidance risking recall on strength-escalations ("definitively proven" when the source is tentative is now explicitly unsupported); and the known-name whitelist hiding a short fabricated surname ("Michael Li") via token filtering (now exact full-name match).
+
+Offline suite: 837 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-22 (GUI "Test Drift" pre-flight judge self-test)
 
 - **`ts_gui` "Test Drift" button** — a one-click pre-flight check next to "Config Check" that runs all three semantic judges over their gold sets and reports recall/precision, so the user can confirm the hallucination safety net is still at calibrated accuracy *before* processing a transcript. On drift it logs and pops a dialog with actionable help (re-run to rule out a single-draw flake; identify what changed — judge model / prompt / threshold; re-calibrate, or pin the judge model to a dated snapshot). A "could not run" (no key / API error) is surfaced as a failure, never a clean pass.
