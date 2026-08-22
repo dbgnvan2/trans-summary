@@ -91,6 +91,22 @@ def test_h2_logic_version_change_invalidates_cached_pass(tmp_path, monkeypatch):
     assert calls["n"] == 2, "logic-version change must force a re-judge, not serve stale PASS"
 
 
+def test_h2_routing_code_change_invalidates_by_construction(monkeypatch):
+    """The routing ALGORITHM (margin-vs-second heuristic vs structural all-anchored) is
+    folded into the cache key as its source, so a code-only routing change invalidates a
+    cached verdict even if the developer forgets to bump JUDGE_LOGIC_VERSION (P6/P4)."""
+    import inspect as inspect_mod
+
+    real_getsource = inspect_mod.getsource
+    before = rg._judge_logic_version("instructions")
+    # simulate a routing-code edit: the function source text changes
+    monkeypatch.setattr(
+        inspect_mod, "getsource",
+        lambda fn: real_getsource(fn) + "\n# simulated routing-code change")
+    after = rg._judge_logic_version("instructions")
+    assert before != after, "routing-code change must change the cache key (by construction)"
+
+
 def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     """The theme judge (the other armed hard blocker) gets the same cross-process disk
     memo (H2 finding 2 / P5)."""

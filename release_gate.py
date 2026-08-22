@@ -397,6 +397,8 @@ def _judge_logic_version(instructions: str) -> str:
     change) — so a stricter judge can NEVER serve a laxer cached PASS on the armed gate
     (H2 finding 1, a fail-open). Over-invalidation just triggers a safe re-judge."""
     import hashlib
+    import inspect
+    import faithfulness_judge as fjudge
     material = "|".join([
         config.JUDGE_LOGIC_VERSION,
         instructions,
@@ -411,6 +413,13 @@ def _judge_logic_version(instructions: str) -> str:
         str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
         str(config.VALIDATION_CHUNK_SIZE),
         str(config.VALIDATION_CHUNK_OVERLAP),
+        # The routing ALGORITHM itself (e.g. the earlier margin-vs-second heuristic vs
+        # the current structural "all source-anchored words in one window") changes the
+        # source context a claim is judged against but is NOT a config constant, so a
+        # code-only change would otherwise escape the manual JUDGE_LOGIC_VERSION bump
+        # and serve a stale verdict. Hash the function source so routing-code changes
+        # invalidate by construction (P6/P4).
+        inspect.getsource(fjudge.route_claims_to_chunks),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
