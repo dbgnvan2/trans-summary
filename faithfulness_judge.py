@@ -180,6 +180,112 @@ def _strip_frontmatter(content: str) -> str:
     return content[m.end():] if m else content
 
 
+# --------------------------------------------------------------------------- chunked judging (long transcripts)
+# A single batched judge call over a LONG source degrades attention, especially the
+# middle of the transcript, and can near the context limit (gap #1). Instead, split the
+# source into overlapping word-windows and judge each claim against the window it most
+# lexically resembles; a claim that resembles no single window (a summary-level
+# inference connecting material across the source) is judged against the FULL source.
+_STOP_WORDS = {
+    "about", "also", "among", "and", "are", "as", "at", "been", "being", "but",
+    "can", "could", "for", "from", "had", "has", "have", "her", "his", "how",
+    "into", "its", "not", "our", "out", "she", "that", "the", "their", "them",
+    "they", "this", "was", "were", "what", "when", "which", "who", "will",
+    "with", "would", "your",
+}
+
+
+def _significant_words(text: str) -> set:
+    """Lowercased, stopword-free words of length >= 4 — the vocabulary used for
+    lexical claim->window routing (a deterministic relevance proxy)."""
+    return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP_WORDS}
+
+
+def lexical_overlap(a: str, b: str) -> float:
+    """Fraction of ``a``'s significant words present in ``b`` (0..1)."""
+    aw = _significant_words(a)
+    if not aw:
+        return 0.0
+    bw = _significant_words(b)
+    return sum(1 for w in aw if w in bw) / len(aw)
+
+
+def chunk_source(source: str, *, chunk_words: Optional[int] = None,
+                 overlap_words: Optional[int] = None) -> list:
+    """Split the source transcript into overlapping word-windows. Reuses the same
+    windowing as the lexical validators (config.VALIDATION_CHUNK_SIZE/OVERLAP), read
+    at call time so a test (or runtime) config change is honoured."""
+    chunk_words = chunk_words or config.VALIDATION_CHUNK_SIZE
+    overlap_words = overlap_words or config.VALIDATION_CHUNK_OVERLAP
+    words = source.split()
+    total = len(words)
+    if total <= chunk_words:
+        return [source]
+    chunks = []
+    start = 0
+    while start < total:
+        end = min(start + chunk_words, total)
+        # merge a small trailing remainder into the prior window (no stub window)
+        if 0 < total - end < chunk_words * 0.3:
+            end = total
+        chunks.append(" ".join(words[start:end]))
+        if end >= total:
+            break
+        start = max(end - overlap_words, start + 1)
+    return chunks
+
+
+def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tuple:
+    """Return ``(routed, unrouted)``.
+
+    ``routed`` maps window-index -> [claim-index] for claims with a lexical anchor in
+    that window; ``unrouted`` lists claim-indexes whose best window still falls below
+    ``min_overlap`` (summary-level inference) and should be judged against the FULL
+    source so a faithful abstraction is not falsely flagged as unsupported.
+    """
+    routed: dict = {}
+    unrouted: list = []
+    for ci, claim in enumerate(claims):
+        best_idx, best = None, -1.0
+        for k, chunk in enumerate(chunks):
+            score = lexical_overlap(claim, chunk)
+            if score > best:
+                best_idx, best = k, score
+        if best_idx is not None and best >= min_overlap:
+            routed.setdefault(best_idx, []).append(ci)
+        else:
+            unrouted.append(ci)
+    return routed, unrouted
+
+
+def judge_claims_chunked(claims: list, source: str, client, *,
+                         model: Optional[str] = None, logger=None) -> list:
+    """Judge claims against bounded source windows (long transcripts), returning
+    verdicts in the ORIGINAL claim order. Routed claims -> their best window;
+    low-overlap claims -> the full source."""
+    chunks = chunk_source(source)
+    routed, unrouted = route_claims_to_chunks(
+        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
+    verdicts: list = [None] * len(claims)
+    for k, idxs in routed.items():
+        sub = judge_claims([claims[i] for i in idxs], chunks[k], client,
+                           model=model, logger=logger)
+        for local, ci in enumerate(idxs):
+            verdicts[ci] = sub[local]
+    if unrouted:
+        sub = judge_claims([claims[i] for i in unrouted], source, client,
+                           model=model, logger=logger)
+        for local, ci in enumerate(unrouted):
+            verdicts[ci] = sub[local]
+    return verdicts
+
+
+def _should_chunk(source: str) -> bool:
+    """Use the chunked path only for a genuinely long source; short transcripts are
+    cheaply and accurately judged in one call."""
+    return len(source.split()) >= config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS
+
+
 # --------------------------------------------------------------------------- the judge
 _JUDGE_INSTRUCTIONS = """\
 You are a strict faithfulness auditor. You are given a SOURCE transcript and a \
@@ -334,7 +440,13 @@ def judge_artifact(artifact_text: str, source: str, client, *,
     if not claims:
         return FaithfulnessResult(PASS, "no judgeable claims in artifact")
     try:
-        verdicts = judge_claims(claims, source, client, model=model, logger=log)
+        if _should_chunk(source):
+            # Long source: judge each claim against its most-relevant window (and
+            # summary-level inference claims against the full source) — bounded
+            # per-call attention instead of one giant call over the whole transcript.
+            verdicts = judge_claims_chunked(claims, source, client, model=model, logger=log)
+        else:
+            verdicts = judge_claims(claims, source, client, model=model, logger=log)
     except Exception as e:  # noqa: BLE001 — judge failure must fail closed, not pass
         log.error("Faithfulness judge failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"judge error: {type(e).__name__}: {e}")

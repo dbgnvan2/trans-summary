@@ -600,12 +600,24 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
 # the extraction config still invalidates stale verdicts — a stricter judge must NEVER
 # serve a laxer cached PASS on the armed gate (H2 finding 1, a fail-open). BUMP THIS on
-# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape.
-JUDGE_LOGIC_VERSION = "2026-07-19"
+# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape
+# / judging strategy (e.g. chunked routing changes the source context a claim is judged
+# against, so a pre-chunk PASS must not be served post-chunk).
+JUDGE_LOGIC_VERSION = "2026-08-21"
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).
 FAITHFULNESS_MIN_CLAIM_CHARS = 25
+# Chunked faithfulness judging (long-transcript attention, gap #1): above this source
+# word count the judge routes each claim to its most lexically-similar source window
+# instead of one batched call over the whole transcript. Below it, the single-call path
+# (cheaper, already accurate for short sources) is used unchanged.
+FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS = 3000
+# A claim whose best lexical overlap with any source window is below this is a
+# summary-level inference claim (it connects material spread across the source), so it
+# is judged against the FULL source rather than one window — routing it to a single
+# window would falsely mark a faithful abstraction "unsupported".
+FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
 # Structured-artifact SCAFFOLDING / META field labels whose line is NOT a claim
 # about the source and must be skipped by claim extraction (esp. the themes
 # artifacts). These are the model's own meta-commentary or document boilerplate,
