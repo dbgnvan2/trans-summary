@@ -24,17 +24,14 @@ def test_normalize_collapses_and_strips():
     assert normalize("Dr. Bowen's theory") == "dr bowen s theory"
 
 
-def test_keyword_overlap_matches_morphological_variant():
-    """A light 5-char-prefix match grounds 'Homeostasis' on 'homeostatic' (the
-    exact-word match alone would false-flag the real where_roots fixture)."""
-    assert keyword_overlap("Homeostasis", "monitoring homeostatic threats") == 1.0
-    assert keyword_overlap("Homeostasis", "the family triangle") == 0.0
-
-
-def test_keyword_overlap_does_not_overmatch_prefix():
-    """A shared 5-char prefix only fires on genuine variants, not near-misses
-    (conservation vs conversation share only 4 chars before diverging)."""
-    assert keyword_overlap("conservation", "the conversation was long") == 0.0
+def test_keyword_overlap_is_exact_word_match():
+    """Exact-word semantics: a morphological variant (homeostatic) does NOT ground
+    a term (Homeostasis), nor does a near-miss — a looser match was found to
+    silently suppress warnings across every caller (P7)."""
+    assert keyword_overlap("Homeostasis", "monitoring homeostatic threats") == 0.0
+    assert keyword_overlap("family", "families are the unit here") == 0.0
+    assert keyword_overlap("internal", "interpersonal dynamics") == 0.0
+    assert keyword_overlap("family", "the family is a unit") == 1.0
 
 
 def test_count_person_recollections_finds_markers():
@@ -176,20 +173,40 @@ def test_consistency_check_is_wired_into_release_gate():
 # Cross-artifact reconciliation (gap #3) — artifact ↔ artifact
 # ---------------------------------------------------------------------------
 def test_run_flags_abstract_recollection_dropped_from_empty_bowen(tmp_path):
-    """The abstract recounts Bowen the person but bowen-references.md is EMPTY ->
-    a recollection the pipeline itself surfaced was dropped (FAIL)."""
+    """The abstract recounts Bowen the person (>= 2 recollections) but
+    bowen-references.md is EMPTY -> recollections the pipeline surfaced were
+    dropped (FAIL)."""
     base = "Sample - Author - 2024-01-01"
     proj = tmp_path / base
     proj.mkdir()
     (proj / f"{base} - formatted.md").write_text(
         "some transcript words here that are long enough", encoding="utf-8")
     (proj / f"{base} - abstract-generated.md").write_text(
-        "Bowen said the family is an emotional unit.", encoding="utf-8")
+        "Bowen said the family is an emotional unit. To quote Bowen, fusion is the default.",
+        encoding="utf-8")
     (proj / f"{base} - bowen-references.md").write_text(
         "## Bowen References\n", encoding="utf-8")
     fails, _warns, _info = run(proj)
     assert any("Abstract recounts Bowen the person" in f and "EMPTY" in f
                for f in fails)
+
+
+def test_run_does_not_fail_single_abstract_recollection(tmp_path):
+    """A single incidental abstract recollection (e.g. 'Bowen's framework') + empty
+    bowen-references is a WARN, not a FAIL — mirrors the >=2 transcript threshold."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text(
+        "some transcript words here that are long enough", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "Drawing on Bowen's framework, this talk explores differentiation.",
+        encoding="utf-8")
+    (proj / f"{base} - bowen-references.md").write_text(
+        "## Bowen References\n", encoding="utf-8")
+    fails, warns, _info = run(proj)
+    assert not fails
+    assert any("possibly an incidental mention" in w for w in warns)
 
 
 def test_run_warns_abstract_recollection_without_bowen_artifact(tmp_path):
@@ -253,6 +270,23 @@ def test_run_does_not_flag_reflected_key_term(tmp_path):
         "### Differentiation of Self\nA concept.\n", encoding="utf-8")
     _fails, warns, _info = run(proj)
     assert not any("not reflected in the abstract" in w for w in warns)
+
+
+def test_run_skips_orphan_check_without_topics_artifact(tmp_path):
+    """With no topics artifact, the orphan check must not fire — a key term absent
+    from the abstract alone is not an orphan (the 'not in any topic' half is
+    vacuous)."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "This talk is about family systems.", encoding="utf-8")
+    (proj / f"{base} - key-terms.md").write_text(
+        "### Zygotic Differentiation\nA concept.\n", encoding="utf-8")
+    # no topics.md
+    _fails, warns, _info = run(proj)
+    assert not any("not reflected in the abstract or any topic" in w for w in warns)
 
 
 def test_run_warns_topic_barely_reflected_in_abstract(tmp_path):

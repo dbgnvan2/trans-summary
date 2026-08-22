@@ -157,20 +157,29 @@ def parse_topics(text: str) -> list[str]:
     return out
 
 
-def _lexically_matches(word: str, words: set) -> bool:
-    """Exact word, or a shared >=5-char prefix (a light morphological-variant
-    match: homeostasis/homeostatic, family/families, differentiate/differentiation)."""
-    if word in words:
-        return True
-    prefix = word[:5]
-    if len(prefix) < 5:
-        return False
-    return any(prefix == w[:5] for w in words)
+# Attribution-scaffolding words to strip from a Bowen recollection when judging
+# whether its *substance* is reflected in bowen-references.md: the bare name and
+# the attribution verbs trivially appear in any populated bowen-references file,
+# so counting them as "reflected" would hide a dropped recollection whose content
+# words are all absent.
+_ATTRIBUTION_SCAFFOLD = {
+    "bowen", "murray", "said", "says", "told", "wrote", "quote", "quoted",
+    "suggested", "suggest", "explained", "explain", "stated", "recalled",
+    "remember", "remembered", "described", "describe", "mentioned", "mention",
+}
+
+
+def _content_words(marker: str) -> set:
+    """A recollection's CONTENT words — its >=4-char tokens minus the attribution
+    scaffolding (name + verbs)."""
+    return {w for w in re.findall(r"[a-zA-Z]{4,}", marker.lower())
+            if w not in _ATTRIBUTION_SCAFFOLD}
 
 
 def keyword_overlap(a: str, b: str) -> float:
-    """Fraction of a's meaningful keywords present in b (0..1), with a light
-    morphological-variant tolerance so "homeostatic" grounds "Homeostasis"."""
+    """Fraction of a's meaningful keywords present in b (0..1), exact-word match
+    (no stemming — a light prefix heuristic was found to over-match non-variants
+    like family/familiar and silently loosen every caller)."""
     stop = {
         "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
         "can", "discussion", "examining", "examination", "exploration", "explores",
@@ -182,7 +191,7 @@ def keyword_overlap(a: str, b: str) -> float:
     if not aw:
         return 0.0
     bw = set(re.findall(r"[a-zA-Z]{4,}", b.lower()))
-    return sum(1 for w in aw if _lexically_matches(w, bw)) / len(aw)
+    return sum(1 for w in aw if w in bw) / len(aw)
 
 
 def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
@@ -313,11 +322,11 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
         if abstract_path is not None else ""
 
     # Bowen recollection-drop: the abstract recounts Bowen the person but the
-    # dedicated bowen-references.md is empty -> a recollection the pipeline itself
-    # surfaced was dropped between extraction and synthesis. (The abstract is a
-    # curated synthesis, so a SINGLE surfaced recollection is already a real miss
-    # — unlike the raw-transcript density check, which needs >= 2 to discount an
-    # incidental mention.)
+    # dedicated bowen-references.md is empty -> recollections the pipeline itself
+    # surfaced were dropped between extraction and synthesis. Mirrors the raw-
+    # transcript density check's >= BOWEN_PERSON_MIN_MARKERS threshold, so a single
+    # incidental "Bowen's framework" synthesis in the abstract does not false-FAIL
+    # a theory-dense talk.
     if abstract_path is not None:
         abstract_markers = distinct_person_markers(strip_frontmatter(abstract_text))
         if abstract_markers:
@@ -331,14 +340,25 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
                     f"Abstract recounts Bowen the person {len(abstract_markers)} time(s) "
                     f"but no bowen-references.md artifact is present (stage skipped?)."
                 )
-            elif bowen_items == 0:
+            elif bowen_items == 0 and len(abstract_markers) >= BOWEN_PERSON_MIN_MARKERS:
                 fails.append(
                     f"Abstract recounts Bowen the person {len(abstract_markers)} time(s) "
                     f"but bowen-references.md is EMPTY — a surfaced recollection was dropped."
                 )
+            elif bowen_items == 0:
+                warns.append(
+                    f"Abstract recounts Bowen the person {len(abstract_markers)} time(s) "
+                    f"but bowen-references.md is EMPTY — possibly an incidental mention."
+                )
             else:
-                dropped = [m for m in abstract_markers
-                           if keyword_overlap(m, bowen_text) < 0.4]
+                bowen_words = set(re.findall(r"[a-zA-Z]{4,}", bowen_text.lower()))
+                dropped = []
+                for m in abstract_markers:
+                    cw = _content_words(m)
+                    if not cw:
+                        continue  # nothing but attribution scaffolding
+                    if sum(1 for w in cw if w in bowen_words) / len(cw) < 0.4:
+                        dropped.append(m)
                 if dropped:
                     sample = ", ".join(f'"{m[:40]}…"' for m in dropped[:3])
                     warns.append(
@@ -347,11 +367,12 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
                     )
 
     # Orphan key-term: a key term reflected in NEITHER the abstract NOR any topic
-    # is a candidate orphan — extracted but never surfaced in any synthesis.
-    if terms_path is not None and abstract_path is not None:
+    # is a candidate orphan — extracted but never surfaced in any synthesis. Needs
+    # both reflection surfaces present: with no topics artifact the "not in any
+    # topic" half is vacuous and every term would look orphaned.
+    if terms_path is not None and abstract_path is not None and topics_path is not None:
         terms = parse_key_terms(terms_path.read_text(encoding="utf-8", errors="replace"))
-        topics = parse_topics(topics_path.read_text(encoding="utf-8", errors="replace")) \
-            if topics_path is not None else []
+        topics = parse_topics(topics_path.read_text(encoding="utf-8", errors="replace"))
         if terms:
             orphan_terms = []
             for term in terms:
