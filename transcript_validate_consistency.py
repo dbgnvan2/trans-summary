@@ -41,7 +41,7 @@ import re
 import sys
 from pathlib import Path
 
-from bowen_attribution import find_bowen_person_attributions
+from bowen_attribution import ATTRIBUTION_SCAFFOLD_WORDS, find_bowen_person_attributions
 
 # Minimum person-recollection units that make an empty bowen-references.md a
 # real (not false-positive) miss. A single incidental "Bowen said" in passing is
@@ -157,37 +157,36 @@ def parse_topics(text: str) -> list[str]:
     return out
 
 
-# Attribution-scaffolding words to strip from a Bowen recollection when judging
-# whether its *substance* is reflected in bowen-references.md: the bare name and
-# the attribution verbs trivially appear in any populated bowen-references file,
-# so counting them as "reflected" would hide a dropped recollection whose content
-# words are all absent.
-_ATTRIBUTION_SCAFFOLD = {
-    "bowen", "murray", "said", "says", "told", "wrote", "quote", "quoted",
-    "suggested", "suggest", "explained", "explain", "stated", "recalled",
-    "remember", "remembered", "described", "describe", "mentioned", "mention",
-}
+# General fillers (>=4-char) excluded from keyword matching — shared by
+# keyword_overlap (the scoring primitive) and _content_words (recollection
+# substance), so a recollection's "that/this/there" scaffolding can't inflate
+# its content-word denominator.
+_GENERAL_STOP_WORDS = frozenset({
+    "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
+    "can", "discussion", "examining", "examination", "exploration", "explores",
+    "for", "from", "how", "in", "including", "into", "is", "it", "its", "like",
+    "models", "of", "on", "or", "presentation", "process", "research", "showing",
+    "systems", "that", "the", "their", "these", "this", "to", "with",
+})
 
 
 def _content_words(marker: str) -> set:
     """A recollection's CONTENT words — its >=4-char tokens minus the attribution
-    scaffolding (name + verbs)."""
+    scaffolding (name + verbs, derived from the detector's own verb lists) and
+    the general fillers."""
     return {w for w in re.findall(r"[a-zA-Z]{4,}", marker.lower())
-            if w not in _ATTRIBUTION_SCAFFOLD}
+            if w not in ATTRIBUTION_SCAFFOLD_WORDS and w not in _GENERAL_STOP_WORDS}
 
 
 def keyword_overlap(a: str, b: str) -> float:
-    """Fraction of a's meaningful keywords present in b (0..1), exact-word match
-    (no stemming — a light prefix heuristic was found to over-match non-variants
-    like family/familiar and silently loosen every caller)."""
-    stop = {
-        "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
-        "can", "discussion", "examining", "examination", "exploration", "explores",
-        "for", "from", "how", "in", "including", "into", "is", "it", "its", "like",
-        "models", "of", "on", "or", "presentation", "process", "research", "showing",
-        "systems", "that", "the", "their", "these", "this", "to", "with",
-    }
-    aw = {w for w in re.findall(r"[a-zA-Z]{4,}", a.lower()) if w not in stop}
+    """Fraction of a's meaningful keywords present in b (0..1), exact-word match.
+    No stemming: a light prefix heuristic was found to over-match non-variants
+    (family/familiar) and silently loosen every caller; the accepted trade-off is
+    a WARN-only miss when a noun term grounds only on its adjective form
+    (Homeostasis vs homeostatic), which the authoritative key-terms validator
+    still catches via local-window grounding."""
+    aw = {w for w in re.findall(r"[a-zA-Z]{4,}", a.lower())
+          if w not in _GENERAL_STOP_WORDS}
     if not aw:
         return 0.0
     bw = set(re.findall(r"[a-zA-Z]{4,}", b.lower()))

@@ -9,6 +9,7 @@ that never recounts Bowen the person legitimately has zero references.
 """
 
 from transcript_validate_consistency import (
+    _content_words,
     count_items,
     count_person_recollections,
     distinct_person_markers,
@@ -32,6 +33,17 @@ def test_keyword_overlap_is_exact_word_match():
     assert keyword_overlap("family", "families are the unit here") == 0.0
     assert keyword_overlap("internal", "interpersonal dynamics") == 0.0
     assert keyword_overlap("family", "the family is a unit") == 1.0
+
+
+def test_content_words_strips_derived_attribution_scaffold():
+    """The attribution scaffold is DERIVED from the detector's own verb lists, so
+    a recollection matched via ANY detector verb ('believed', 'concluded', …) has
+    that verb stripped — not just the verbs a hand-copied list happened to name."""
+    cw = _content_words("bowen believed differentiation of self is key")
+    assert "bowen" not in cw and "believed" not in cw
+    assert "differentiation" in cw and "self" in cw
+    # 'concluded' was absent from an earlier hand-maintained scaffold
+    assert "concluded" not in _content_words("bowen concluded the family is a unit")
 
 
 def test_count_person_recollections_finds_markers():
@@ -239,6 +251,24 @@ def test_run_passes_abstract_recollection_reflected_in_bowen(tmp_path):
     fails, warns, _info = run(proj)
     assert not any("Abstract recounts Bowen the person" in f for f in fails)
     assert not any("not reflected in bowen-references" in w for w in warns)
+
+
+def test_run_warns_abstract_recollection_content_not_in_bowen(tmp_path):
+    """A POPULATED bowen-references.md whose content words are disjoint from an
+    abstract recollection -> the recollection's substance is missing -> WARN (the
+    drop path, the mirror of the reflected-pass test)."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "Bowen believed differentiation of self is crucial to families.",
+        encoding="utf-8")
+    (proj / f"{base} - bowen-references.md").write_text(
+        "## Bowen References\n\n### Unrelated\n> \"Bowen discussed triangles in detail\"\n",
+        encoding="utf-8")
+    _fails, warns, _info = run(proj)
+    assert any("not reflected in bowen-references" in w for w in warns)
 
 
 def test_run_warns_orphan_key_term(tmp_path):
