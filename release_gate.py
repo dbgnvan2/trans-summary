@@ -626,6 +626,30 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     return Verdict("required_artifacts", Status.PASS, "all required artifacts present")
 
 
+def check_consistency(base_name: str, logger=None) -> Verdict:
+    """Cross-artifact consistency (advisory). Flags the error class per-artifact
+    validators miss because every artifact is checked against the transcript but
+    never against each other, nor against the transcript's domain density — e.g.
+    empty Bowen references on a talk that recounts Bowen the person. Deterministic,
+    no API call.
+
+    Advisory by policy (not in ``config.GATE_BLOCKING_CHECKS``): the signals are
+    heuristic, so a FAIL here ships as ALLOW_WITH_WARNINGS unless the check is
+    explicitly elected as a hard blocker."""
+    from transcript_validate_consistency import run as consistency_run
+
+    proj = config.PROJECTS_DIR / base_name
+    fails, warns, _info = consistency_run(proj)
+    if fails:
+        return Verdict("consistency", Status.FAIL,
+                       f"{len(fails)} cross-artifact inconsistency(ies): {fails[0]}",
+                       items=fails)
+    if warns:
+        return Verdict("consistency", Status.WARN,
+                       f"{len(warns)} cross-artifact warning(s)", items=warns)
+    return Verdict("consistency", Status.PASS, "artifacts mutually consistent")
+
+
 # Ordered registry. Which checks are hard blockers is config policy
 # (config.GATE_BLOCKING_CHECKS — not enumerated here so this comment can't drift); the
 # rest are advisory verdicts recorded in the manifest.
@@ -638,6 +662,7 @@ DEFAULT_CHECKS: list = [
     ("verbatim_quotes", check_verbatim_quotes),
     ("timestamp_citations", check_timestamp_citations),
     ("entity_consistency", check_entity_consistency),
+    ("consistency", check_consistency),
 ]
 
 

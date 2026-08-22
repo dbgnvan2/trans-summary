@@ -9,12 +9,14 @@ never against each other (and never against the transcript's domain density).
 Checks
 ------
 1. Sparsity vs density — a content-derived artifact that is empty/near-empty
-   while the transcript is clearly dense in that artifact's domain (the confirmed
-   "empty Bowen references on a Bowen-dense talk" bug).
-2. Key-term grounding — every key term should appear in the transcript (a
-   lightweight redundancy against hallucinated terms).
-3. Cross-artifact keyword overlap — informational: how much the abstract shares
-   vocabulary with the extracted topics, and whether topics cover the transcript.
+   while the transcript clearly contains the material the artifact should have
+   captured. For Bowen references the signal is PERSON-RECOLLECTION markers
+   ("Bowen said/told/explained…", "To quote Bowen…") — matching the extractor's
+   own definition of a Bowen reference, NOT theory vocabulary ("Bowen theory
+   says…", "differentiation/triangles/fusion…").
+2. Key-term grounding (advisory WARN) — a light keyword-overlap sanity check,
+   deliberately NOT authoritative (the dedicated key-terms validator owns that).
+3. Cross-artifact keyword overlap (advisory) — abstract↔topics vocabulary.
 
 Usage
 -----
@@ -32,15 +34,24 @@ import re
 import sys
 from pathlib import Path
 
-# Keep in sync with extraction_pipeline._BOWEN_CONCEPT_PATTERN.
-_BOWEN_TERMS = (
-    "differentiation", "undifferentiation", "triangle", "triangles", "triangling",
-    "triangulation", "fusion", "cutoff", "projection", "sibling position",
-    "multigenerational", "togetherness", "individuality", "emotional system",
-    "emotional process", "emotional unit", "relationship system", "societal",
-    "anxiety", "reactivity", "reactive", "systems thinking", "feeling system",
-    "intellectual system", "symbiosis", "symbiotic",
+# Person-recollection markers: phrases a speaker uses when recounting Murray
+# Bowen HIMSELF (the extractor's definition of a Bowen reference). Deliberately
+# NOT theory vocabulary ("Bowen theory", "differentiation", "fusion") — a
+# theory-dense talk that never recounts Bowen the person legitimately has zero
+# Bowen references, and must not be flagged.
+_BOWEN_PERSON_MARKERS = (
+    "bowen said", "bowen says", "bowen told", "bowen explained", "bowen explains",
+    "bowen described", "bowen emphasized", "bowen stressed", "bowen suggested",
+    "bowen believed", "bowen thought", "bowen would say", "bowen used to say",
+    "bowen liked to say", "to quote bowen", "bowen expressed", "bowen had a way",
+    "bowen put it", "bowen was very clear", "dr bowen", "murray bowen",
+    "i remember bowen", "bowen wrote", "bowen called", "bowen referred",
 )
+
+# Minimum person-recollection markers that make an empty bowen-references.md a
+# real (not false-positive) miss. A single incidental "Bowen said" in passing is
+# discounted; two or more recollections the extractor missed is a genuine drop.
+BOWEN_PERSON_MIN_MARKERS = 2
 
 # Artifact suffix -> (label, parser kind)
 ARTIFACTS = {
@@ -68,17 +79,18 @@ def strip_frontmatter(text: str) -> str:
     return text[m.end():] if m else text
 
 
-def count_bowen_occurrences(text: str) -> int:
+def count_person_recollections(text: str) -> int:
+    """Count person-recollection markers (Murray Bowen himself) in the text."""
     norm = normalize(text)
     total = 0
-    for term in _BOWEN_TERMS:
-        total += norm.count(normalize(term))
+    for marker in _BOWEN_PERSON_MARKERS:
+        total += norm.count(normalize(marker))
     return total
 
 
-def distinct_bowen_terms(text: str) -> set:
+def distinct_person_markers(text: str) -> set:
     norm = normalize(text)
-    return {t for t in _BOWEN_TERMS if normalize(t) in norm}
+    return {m for m in _BOWEN_PERSON_MARKERS if normalize(m) in norm}
 
 
 def resolve_transcript(project_dir: Path) -> Path | None:
@@ -100,11 +112,9 @@ def count_items(text: str, kind: str) -> int:
     """Count 'items' in an artifact by its known markdown shape."""
     text = strip_frontmatter(text)
     if kind in ("bowen", "terms", "topics"):
-        # "### Concept/Term/Topic" headers (the on-disk format).
         n = len(re.findall(r"^###\s", text, re.MULTILINE))
         if n:
             return n
-        # Older blockquote format: "> **Concept:** \"quote\""
         return len(re.findall(r"^>\s*\*\*", text, re.MULTILINE))
     if kind == "emphasis":
         n = len(re.findall(r"(?m)^\s*(?:\[|Explicit|Implicit|-|\*|\d+\.)", text))
@@ -122,14 +132,12 @@ def parse_key_terms(text: str) -> list[str]:
     """Extract key-term names from the key-terms artifact."""
     text = strip_frontmatter(text)
     terms: list[str] = []
-    # "### Term Name" blocks
     for m in re.findall(r"^###\s+([^\n]+)", text, re.MULTILINE):
         t = m.strip()
         if t and t.lower() not in ("key terms",):
             terms.append(t)
     if terms:
         return terms
-    # "**Term**: definition" fallback
     for m in re.findall(r"^\*\*([^*]+)\*\*\s*[:|-]", text, re.MULTILINE):
         terms.append(m.strip())
     return terms
@@ -177,24 +185,26 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
     tw = word_count(transcript)
     info.append(f"Transcript: {transcript_path.name} ({tw} words)")
 
-    # ---- Bowen density signal ------------------------------------------------
-    bowen_occ = count_bowen_occurrences(transcript)
-    bowen_terms = distinct_bowen_terms(transcript)
-    info.append(f"Bowen signal: {bowen_occ} term occurrences across {len(bowen_terms)} distinct concepts "
-                f"({', '.join(sorted(bowen_terms))})")
+    # ---- Bowen person-recollection signal -----------------------------------
+    bowen_markers = count_person_recollections(transcript)
+    markers = distinct_person_markers(transcript)
+    info.append(f"Bowen person-recollection signal: {bowen_markers} marker occurrence(s) "
+                f"across {len(markers)} distinct phrase(s) "
+                f"({', '.join(sorted(markers)) or 'none'})")
 
     # ---- Sparsity vs density ------------------------------------------------
     bowen_path = find_artifact(project_dir, " - bowen-references.md")
     if bowen_path is not None:
         n = count_items(bowen_path.read_text(encoding="utf-8", errors="replace"), "bowen")
-        if n == 0 and bowen_occ >= 10:
+        if n == 0 and bowen_markers >= BOWEN_PERSON_MIN_MARKERS:
             fails.append(
-                f"Bowen references are EMPTY ({n} items) but the transcript is Bowen-dense "
-                f"({bowen_occ} term occurrences across {len(bowen_terms)} concepts). "
-                f"Likely the attribution filter over-dropped — check {bowen_path.name}."
+                f"Bowen references are EMPTY ({n} items) but the transcript recounts "
+                f"Bowen the person {bowen_markers} time(s). Likely an extraction miss "
+                f"— check {bowen_path.name}."
             )
         elif n == 0:
-            warns.append(f"Bowen references are empty ({n} items) with only {bowen_occ} Bowen-term occurrences.")
+            info.append(f"Bowen references: 0 items (only {bowen_markers} person-recollection "
+                        f"marker(s) — may be legitimately empty).")
         else:
             info.append(f"Bowen references: {n} items.")
     else:
@@ -240,29 +250,30 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
     else:
         info.append("No abstract-generated.md artifact present (stage skipped?).")
 
-    # ---- Key-term grounding (light) -----------------------------------------
+    # ---- Key-term grounding (advisory WARN — keyword overlap, not verbatim) --
+    # The dedicated key-terms validator (validate_key_terms_fidelity) owns
+    # authoritative grounding; this is a light sanity flag only, so it warns,
+    # never fails (a synthesized concept label rarely appears verbatim).
     if terms_path is not None:
         terms_text = terms_path.read_text(encoding="utf-8", errors="replace")
-        norm_t = normalize(transcript)
-        missing = []
+        weakly_grounded = []
         for term in parse_key_terms(terms_text):
-            # ground on the best alias part (slash-joined aliases never appear verbatim)
-            parts = [p.strip() for p in re.split(r"\s*/\s*", term) if p.strip()] or [term]
-            if not any(normalize(p) in norm_t for p in parts):
-                missing.append(term)
-        if missing:
-            fails.append(f"{len(missing)} key term(s) not found in transcript: {', '.join(missing)}")
+            if keyword_overlap(term, transcript) < 0.3:
+                weakly_grounded.append(term)
+        if weakly_grounded:
+            warns.append(
+                f"{len(weakly_grounded)} key term(s) weakly overlap the transcript "
+                f"(heuristic): {', '.join(weakly_grounded)}"
+            )
         else:
-            info.append("All key terms grounded in transcript.")
+            info.append("All key terms have reasonable transcript keyword overlap.")
 
-    # ---- Cross-artifact keyword overlap (informational) ---------------------
+    # ---- Cross-artifact keyword overlap (advisory) --------------------------
     if topics_path is not None and abstract_path is not None:
         topics = parse_topics(topics_path.read_text(encoding="utf-8", errors="replace"))
         abstract = abstract_path.read_text(encoding="utf-8", errors="replace")
         if topics:
-            top_overlap = max(
-                keyword_overlap(t, abstract) for t in topics
-            )
+            top_overlap = max(keyword_overlap(t, abstract) for t in topics)
             info.append(f"Abstract↔topics max keyword overlap: {top_overlap:.2f}")
             if top_overlap < 0.05:
                 warns.append("Abstract shares almost no vocabulary with any extracted topic — may not reflect them.")

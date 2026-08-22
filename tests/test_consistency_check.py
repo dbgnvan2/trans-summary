@@ -1,13 +1,15 @@
 """Tests for transcript_validate_consistency.py — the cross-artifact consistency check.
 
 The key behaviour under test: an empty content-derived artifact (Bowen references)
-on a transcript that is dense in that artifact's domain must FAIL — the exact bug
-the check was written to catch.
+on a transcript that recounts Murray Bowen the person must FAIL. The signal is
+person-recollection markers ("Bowen said…", "To quote Bowen…"), NOT theory
+vocabulary ("differentiation", "fusion", "Bowen theory…") — a theory-dense talk
+that never recounts Bowen the person legitimately has zero references.
 """
 
 from transcript_validate_consistency import (
-    count_bowen_occurrences,
     count_items,
+    count_person_recollections,
     normalize,
     parse_key_terms,
     run,
@@ -16,12 +18,18 @@ from transcript_validate_consistency import (
 
 def test_normalize_collapses_and_strips():
     assert normalize("Differentiation of Self!") == "differentiation of self"
-    assert normalize("Bowen's  theory—") == "bowen s theory"
+    assert normalize("Dr. Bowen's theory") == "dr bowen s theory"
 
 
-def test_count_bowen_occurrences_finds_terms():
-    text = "differentiation of self, triangles, fusion, and anxiety."
-    assert count_bowen_occurrences(text) >= 4
+def test_count_person_recollections_finds_markers():
+    text = "Bowen said the family is a unit. To quote Bowen, people push for oneness."
+    assert count_person_recollections(text) >= 2
+
+
+def test_count_person_recollections_ignores_theory_vocabulary():
+    # Theory terms must NOT count as person recollections (the false-FAIL class).
+    text = "Differentiation of self, triangles, fusion, and anxiety in Bowen theory."
+    assert count_person_recollections(text) == 0
 
 
 def test_count_items_parses_bowen_format():
@@ -42,32 +50,50 @@ def test_parse_key_terms_extracts_headers():
     assert parse_key_terms(md) == ["Differentiation of Self", "Emotional Cutoff"]
 
 
-def test_run_flags_empty_bowen_on_dense_transcript(tmp_path):
-    """The core regression: 0 Bowen references on a Bowen-dense transcript FAILs."""
+def test_run_flags_empty_bowen_when_transcript_recounts_bowen(tmp_path):
+    """Core regression: 0 Bowen references while the transcript recounts Bowen
+    the person -> FAIL."""
     base = "Sample - Author - 2024-01-01"
     proj = tmp_path / base
     proj.mkdir()
-    transcript = (
-        "differentiation of self " * 10
-        + "triangles anxiety fusion "
-        + "emotional system " * 5
-    )
+    transcript = "Bowen said the family is an emotional unit. To quote Bowen, fusion is the default."
     (proj / f"{base} - formatted.md").write_text(transcript, encoding="utf-8")
-    (proj / f"{base} - bowen-references.md").write_text(
-        "## Bowen References\n", encoding="utf-8"
-    )
+    (proj / f"{base} - bowen-references.md").write_text("## Bowen References\n", encoding="utf-8")
     fails, _warns, _info = run(proj)
     assert any("Bowen references are EMPTY" in f for f in fails)
+
+
+def test_run_does_not_false_fail_on_theory_dense_talk(tmp_path):
+    """A theory-dense talk with NO person recollection legitimately has zero
+    Bowen references — must NOT be flagged (the P7/P19 false-FAIL fix)."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    transcript = "Differentiation of self and triangles and fusion are central to the theory."
+    (proj / f"{base} - formatted.md").write_text(transcript, encoding="utf-8")
+    (proj / f"{base} - bowen-references.md").write_text("## Bowen References\n", encoding="utf-8")
+    fails, _warns, _info = run(proj)
+    assert not any("Bowen references are EMPTY" in f for f in fails)
 
 
 def test_run_passes_when_bowen_populated(tmp_path):
     base = "Sample - Author - 2024-01-01"
     proj = tmp_path / base
     proj.mkdir()
-    transcript = "differentiation of self " * 10 + "triangles anxiety fusion"
+    transcript = "Bowen said the family is a unit. To quote Bowen, oneness."
     (proj / f"{base} - formatted.md").write_text(transcript, encoding="utf-8")
     (proj / f"{base} - bowen-references.md").write_text(
-        "## Bowen References\n\n### Concept A\n> \"differentiation\"\n", encoding="utf-8"
+        "## Bowen References\n\n### Concept A\n> \"Bowen said\"\n", encoding="utf-8"
     )
     fails, _warns, _info = run(proj)
     assert not any("Bowen references are EMPTY" in f for f in fails)
+
+
+def test_consistency_check_is_wired_into_release_gate():
+    """P21 — the check must be registered in the gate, not CLI-only."""
+    import release_gate
+
+    names = [name for name, _fn in release_gate.DEFAULT_CHECKS]
+    assert "consistency" in names
+    assert any(name == "consistency" and fn is release_gate.check_consistency
+               for name, fn in release_gate.DEFAULT_CHECKS)
