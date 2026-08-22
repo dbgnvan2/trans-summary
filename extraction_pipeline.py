@@ -10,6 +10,7 @@ import anthropic
 import abstract_pipeline
 import config
 import summary_pipeline
+from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
 from transcript_utils import (
     call_claude_with_retry,
     clean_project_name,
@@ -359,60 +360,6 @@ def _compact_bowen_quote(quote: str, max_words: int = 140) -> str:
         compact = " ".join(compact_words[:max_words]).rstrip(" ,;:") + "..."
 
     return compact
-
-
-def _has_bowen_source_attribution(quote: str) -> bool:
-    """
-    Return True only when quote text itself contains attribution language that
-    clearly ties the statement to Murray/Dr. Bowen as the source.
-    """
-    if not quote:
-        return False
-
-    quote_l = " ".join(str(quote).split()).strip().lower()
-    if not quote_l:
-        return False
-
-    # Explicitly reject non-source actor patterns.
-    if re.search(r"\bbowen\s+theorists?\b", quote_l):
-        return False
-    if re.search(r"\bbowen\s+theory\b", quote_l) and not re.search(
-        r"\b(?:murray|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
-        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
-        r"referred|called|commented|noted|observed|argued|stated|told|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        quote_l,
-    ):
-        return False
-
-    attribution_patterns = [
-        # "Bowen said / wrote / believed / described / did / predicted ..." etc.
-        r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
-        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
-        r"referred|called|commented|noted|observed|argued|stated|told|did|does|do|"
-        r"predicted|switched|shifted|suggested|concluded|found|identified|saw|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        # "to quote Bowen" / "quote from Bowen"
-        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen)\b",
-        # Possessive attribution: "Bowen's [adjectives] idea/observation/insight/…"
-        # Allow up to two intervening words so "Bowen's basic ideas", "Bowen's very
-        # insightful observation", "all Bowen's key points" all match — previously
-        # only an immediately-adjacent noun (or "key") was recognised, so a common
-        # phrasing like "Bowen's basic ideas" was silently dropped.
-        r"\bbowen'?s\s+(?:\w+\s+){0,2}"
-        r"(?:ideas?|concepts?|points?|observations?|insights?|views?|"
-        r"approach|framework|thinking|conclusions?|predictions?|comments?|"
-        r"quotes?|switch|work|writings?|teachings?)\b",
-        # "I remember (talking to) Murray ... he said"
-        r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
-        # "a tape / video / recording Murray Bowen made / did"
-        r"\b(?:tape|video|recording|session)\s+(?:\w+\s+){0,4}murray\s+bowen\b",
-        # "What did Bowen do / say"
-        r"\bwhat\s+did\s+bowen\b",
-        # "favorite Bowen quotes"
-        r"\bbowen\s+quotes?\b",
-    ]
-    return any(re.search(p, quote_l) for p in attribution_patterns)
 
 
 def _concept_has_bowen_attribution(concept: str) -> bool:

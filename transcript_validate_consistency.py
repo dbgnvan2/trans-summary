@@ -10,10 +10,11 @@ Checks
 ------
 1. Sparsity vs density — a content-derived artifact that is empty/near-empty
    while the transcript clearly contains the material the artifact should have
-   captured. For Bowen references the signal is PERSON-RECOLLECTION markers
-   ("Bowen said/told/explained…", "To quote Bowen…") — matching the extractor's
-   own definition of a Bowen reference, NOT theory vocabulary ("Bowen theory
-   says…", "differentiation/triangles/fusion…").
+   captured. For Bowen references the signal is person-recollection density,
+   computed by ``bowen_attribution.find_bowen_person_attributions`` — the SAME
+   detector the extractor's filter uses (``bowen_attribution`` is the shared
+   source of truth), so the two definitions cannot drift. Theory vocabulary
+   ("Bowen theory says…", "differentiation/triangles/fusion…") does NOT count.
 2. Key-term grounding (advisory WARN) — a light keyword-overlap sanity check,
    deliberately NOT authoritative (the dedicated key-terms validator owns that).
 3. Cross-artifact keyword overlap (advisory) — abstract↔topics vocabulary.
@@ -34,21 +35,9 @@ import re
 import sys
 from pathlib import Path
 
-# Person-recollection markers: phrases a speaker uses when recounting Murray
-# Bowen HIMSELF (the extractor's definition of a Bowen reference). Deliberately
-# NOT theory vocabulary ("Bowen theory", "differentiation", "fusion") — a
-# theory-dense talk that never recounts Bowen the person legitimately has zero
-# Bowen references, and must not be flagged.
-_BOWEN_PERSON_MARKERS = (
-    "bowen said", "bowen says", "bowen told", "bowen explained", "bowen explains",
-    "bowen described", "bowen emphasized", "bowen stressed", "bowen suggested",
-    "bowen believed", "bowen thought", "bowen would say", "bowen used to say",
-    "bowen liked to say", "to quote bowen", "bowen expressed", "bowen had a way",
-    "bowen put it", "bowen was very clear", "dr bowen", "murray bowen",
-    "i remember bowen", "bowen wrote", "bowen called", "bowen referred",
-)
+from bowen_attribution import find_bowen_person_attributions
 
-# Minimum person-recollection markers that make an empty bowen-references.md a
+# Minimum person-recollection units that make an empty bowen-references.md a
 # real (not false-positive) miss. A single incidental "Bowen said" in passing is
 # discounted; two or more recollections the extractor missed is a genuine drop.
 BOWEN_PERSON_MIN_MARKERS = 2
@@ -65,6 +54,10 @@ ARTIFACTS = {
 # Minimum meaningful size: below this, a content-derived artifact is "empty".
 MIN_WORDS_ABSTRACT = 30
 
+# Minimum keyword overlap for a key term to count as "grounded" in the
+# transcript (advisory heuristic only — see the key-term grounding block).
+KEY_TERM_GROUNDING_MIN_OVERLAP = 0.3
+
 
 def normalize(text: str) -> str:
     """Lowercase, collapse whitespace, drop hyphens/apostrophes for matching."""
@@ -80,17 +73,18 @@ def strip_frontmatter(text: str) -> str:
 
 
 def count_person_recollections(text: str) -> int:
-    """Count person-recollection markers (Murray Bowen himself) in the text."""
-    norm = normalize(text)
-    total = 0
-    for marker in _BOWEN_PERSON_MARKERS:
-        total += norm.count(normalize(marker))
-    return total
+    """Count sentence-units that recount Murray Bowen himself.
+
+    Delegates to ``bowen_attribution.find_bowen_person_attributions`` — the same
+    detector the extractor's filter uses — so the density signal is aligned with
+    the extractor by construction, not via a parallel hand-maintained list.
+    """
+    return len(find_bowen_person_attributions(text))
 
 
-def distinct_person_markers(text: str) -> set:
-    norm = normalize(text)
-    return {m for m in _BOWEN_PERSON_MARKERS if normalize(m) in norm}
+def distinct_person_markers(text: str) -> list:
+    """Return the matching recollection units (lowercased) for reporting."""
+    return find_bowen_person_attributions(text)
 
 
 def resolve_transcript(project_dir: Path) -> Path | None:
@@ -186,11 +180,11 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
     info.append(f"Transcript: {transcript_path.name} ({tw} words)")
 
     # ---- Bowen person-recollection signal -----------------------------------
-    bowen_markers = count_person_recollections(transcript)
     markers = distinct_person_markers(transcript)
-    info.append(f"Bowen person-recollection signal: {bowen_markers} marker occurrence(s) "
-                f"across {len(markers)} distinct phrase(s) "
-                f"({', '.join(sorted(markers)) or 'none'})")
+    bowen_markers = len(markers)
+    sample = ", ".join(f'"{m[:60]}{"…" if len(m) > 60 else ""}"' for m in markers[:3])
+    info.append(f"Bowen person-recollection signal: {bowen_markers} unit(s) "
+                f"({sample or 'none'})")
 
     # ---- Sparsity vs density ------------------------------------------------
     bowen_path = find_artifact(project_dir, " - bowen-references.md")
@@ -204,7 +198,7 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
             )
         elif n == 0:
             info.append(f"Bowen references: 0 items (only {bowen_markers} person-recollection "
-                        f"marker(s) — may be legitimately empty).")
+                        f"unit(s) — may be legitimately empty).")
         else:
             info.append(f"Bowen references: {n} items.")
     else:
@@ -258,7 +252,7 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
         terms_text = terms_path.read_text(encoding="utf-8", errors="replace")
         weakly_grounded = []
         for term in parse_key_terms(terms_text):
-            if keyword_overlap(term, transcript) < 0.3:
+            if keyword_overlap(term, transcript) < KEY_TERM_GROUNDING_MIN_OVERLAP:
                 weakly_grounded.append(term)
         if weakly_grounded:
             warns.append(

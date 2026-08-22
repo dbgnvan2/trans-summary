@@ -2,8 +2,9 @@
 
 The key behaviour under test: an empty content-derived artifact (Bowen references)
 on a transcript that recounts Murray Bowen the person must FAIL. The signal is
-person-recollection markers ("Bowen said…", "To quote Bowen…"), NOT theory
-vocabulary ("differentiation", "fusion", "Bowen theory…") — a theory-dense talk
+person-recollection density computed by ``bowen_attribution.find_bowen_person_
+attributions`` — the SAME detector the extractor's filter uses — NOT theory
+vocabulary ("differentiation", "fusion", "Bowen theory…"): a theory-dense talk
 that never recounts Bowen the person legitimately has zero references.
 """
 
@@ -29,6 +30,29 @@ def test_count_person_recollections_finds_markers():
 def test_count_person_recollections_ignores_theory_vocabulary():
     # Theory terms must NOT count as person recollections (the false-FAIL class).
     text = "Differentiation of self, triangles, fusion, and anxiety in Bowen theory."
+    assert count_person_recollections(text) == 0
+
+
+def test_density_signal_shares_the_extractors_detector():
+    """The density signal must derive from the extractor's OWN detector, not a
+    parallel hand-maintained list — an identity check, not a comment (P19 fix)."""
+    import bowen_attribution
+    import extraction_pipeline as ep
+
+    assert ep._has_bowen_source_attribution is bowen_attribution.has_bowen_source_attribution
+
+
+def test_possessive_attribution_is_counted():
+    """Under-coverage fix: 'Bowen's key insight' is an attribution the extractor
+    accepts, so the density signal must count it (was silently dropped before)."""
+    text = "Bowen's key insight was about anxiety. Bowen's concept of differentiation follows."
+    assert count_person_recollections(text) >= 2
+
+
+def test_unrecognized_attribution_verb_is_not_counted():
+    """Over-coverage fix: verbs the extractor does not recognise (e.g. 'explained',
+    'emphasized') must NOT inflate the density — empty may be correct, not a miss."""
+    text = "Bowen explained the theory in detail. Bowen emphasized differentiation."
     assert count_person_recollections(text) == 0
 
 
