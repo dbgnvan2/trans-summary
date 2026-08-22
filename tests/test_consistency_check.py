@@ -12,6 +12,7 @@ from transcript_validate_consistency import (
     count_items,
     count_person_recollections,
     distinct_person_markers,
+    keyword_overlap,
     normalize,
     parse_key_terms,
     run,
@@ -21,6 +22,19 @@ from transcript_validate_consistency import (
 def test_normalize_collapses_and_strips():
     assert normalize("Differentiation of Self!") == "differentiation of self"
     assert normalize("Dr. Bowen's theory") == "dr bowen s theory"
+
+
+def test_keyword_overlap_matches_morphological_variant():
+    """A light 5-char-prefix match grounds 'Homeostasis' on 'homeostatic' (the
+    exact-word match alone would false-flag the real where_roots fixture)."""
+    assert keyword_overlap("Homeostasis", "monitoring homeostatic threats") == 1.0
+    assert keyword_overlap("Homeostasis", "the family triangle") == 0.0
+
+
+def test_keyword_overlap_does_not_overmatch_prefix():
+    """A shared 5-char prefix only fires on genuine variants, not near-misses
+    (conservation vs conversation share only 4 chars before diverging)."""
+    assert keyword_overlap("conservation", "the conversation was long") == 0.0
 
 
 def test_count_person_recollections_finds_markers():
@@ -156,3 +170,101 @@ def test_consistency_check_is_wired_into_release_gate():
     assert "consistency" in names
     assert any(name == "consistency" and fn is release_gate.check_consistency
                for name, fn in release_gate.DEFAULT_CHECKS)
+
+
+# ---------------------------------------------------------------------------
+# Cross-artifact reconciliation (gap #3) — artifact ↔ artifact
+# ---------------------------------------------------------------------------
+def test_run_flags_abstract_recollection_dropped_from_empty_bowen(tmp_path):
+    """The abstract recounts Bowen the person but bowen-references.md is EMPTY ->
+    a recollection the pipeline itself surfaced was dropped (FAIL)."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text(
+        "some transcript words here that are long enough", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "Bowen said the family is an emotional unit.", encoding="utf-8")
+    (proj / f"{base} - bowen-references.md").write_text(
+        "## Bowen References\n", encoding="utf-8")
+    fails, _warns, _info = run(proj)
+    assert any("Abstract recounts Bowen the person" in f and "EMPTY" in f
+               for f in fails)
+
+
+def test_run_warns_abstract_recollection_without_bowen_artifact(tmp_path):
+    """A missing bowen-references.md (stage skipped) is a WARN, not a FAIL, even
+    when the abstract recounts Bowen the person."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text(
+        "some transcript words here that are long enough", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "Bowen said the family is an emotional unit.", encoding="utf-8")
+    fails, warns, _info = run(proj)
+    assert not fails
+    assert any("no bowen-references.md artifact is present" in w for w in warns)
+
+
+def test_run_passes_abstract_recollection_reflected_in_bowen(tmp_path):
+    """An abstract recollection that IS captured in bowen-references.md is not
+    flagged (no false drop)."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "Bowen said the family is an emotional unit.", encoding="utf-8")
+    (proj / f"{base} - bowen-references.md").write_text(
+        "## Bowen References\n\n### Concept\n> \"Bowen said the family is an emotional unit\"\n",
+        encoding="utf-8")
+    fails, warns, _info = run(proj)
+    assert not any("Abstract recounts Bowen the person" in f for f in fails)
+    assert not any("not reflected in bowen-references" in w for w in warns)
+
+
+def test_run_warns_orphan_key_term(tmp_path):
+    """A key term reflected in neither the abstract nor any topic is a candidate
+    orphan -> WARN."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "This talk is about family systems.", encoding="utf-8")
+    (proj / f"{base} - key-terms.md").write_text(
+        "### Zygotic Differentiation\nA concept.\n", encoding="utf-8")
+    (proj / f"{base} - topics.md").write_text(
+        "### Family Systems\nTopic body.\n", encoding="utf-8")
+    _fails, warns, _info = run(proj)
+    assert any("not reflected in the abstract or any topic" in w for w in warns)
+
+
+def test_run_does_not_flag_reflected_key_term(tmp_path):
+    """A key term present in the abstract is not an orphan."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "This talk discusses differentiation of self in families.", encoding="utf-8")
+    (proj / f"{base} - key-terms.md").write_text(
+        "### Differentiation of Self\nA concept.\n", encoding="utf-8")
+    _fails, warns, _info = run(proj)
+    assert not any("not reflected in the abstract" in w for w in warns)
+
+
+def test_run_warns_topic_barely_reflected_in_abstract(tmp_path):
+    """A topic the abstract silently omits (while reflecting others) is flagged
+    individually, not just via the max-overlap signal."""
+    base = "Sample - Author - 2024-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base} - formatted.md").write_text("transcript text here", encoding="utf-8")
+    (proj / f"{base} - abstract-generated.md").write_text(
+        "This talk is about family anxiety and triangles.", encoding="utf-8")
+    (proj / f"{base} - topics.md").write_text(
+        "### Family Anxiety\nBody.\n\n### Zygotic Mutation\nBody.\n", encoding="utf-8")
+    _fails, warns, _info = run(proj)
+    assert any("barely reflected in the abstract" in w for w in warns)

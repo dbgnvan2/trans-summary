@@ -17,7 +17,13 @@ Checks
    ("Bowen theory says…", "differentiation/triangles/fusion…") does NOT count.
 2. Key-term grounding (advisory WARN) — a light keyword-overlap sanity check,
    deliberately NOT authoritative (the dedicated key-terms validator owns that).
-3. Cross-artifact keyword overlap (advisory) — abstract↔topics vocabulary.
+3. Cross-artifact keyword overlap (advisory) — abstract↔topics vocabulary, per
+   topic (not just the max).
+4. Cross-artifact reconciliation (artifact ↔ artifact, advisory/hard as noted) —
+   the abstract surfacing a Bowen recollection the dedicated artifact dropped
+   (FAIL when bowen-references.md is EMPTY, WARN when a specific recollection is
+   absent or the artifact is missing); a key term extracted but reflected in
+   neither the abstract nor any topic (WARN, orphan).
 
 Usage
 -----
@@ -151,8 +157,20 @@ def parse_topics(text: str) -> list[str]:
     return out
 
 
+def _lexically_matches(word: str, words: set) -> bool:
+    """Exact word, or a shared >=5-char prefix (a light morphological-variant
+    match: homeostasis/homeostatic, family/families, differentiate/differentiation)."""
+    if word in words:
+        return True
+    prefix = word[:5]
+    if len(prefix) < 5:
+        return False
+    return any(prefix == w[:5] for w in words)
+
+
 def keyword_overlap(a: str, b: str) -> float:
-    """Fraction of a's meaningful keywords present in b (0..1)."""
+    """Fraction of a's meaningful keywords present in b (0..1), with a light
+    morphological-variant tolerance so "homeostatic" grounds "Homeostasis"."""
     stop = {
         "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
         "can", "discussion", "examining", "examination", "exploration", "explores",
@@ -164,7 +182,7 @@ def keyword_overlap(a: str, b: str) -> float:
     if not aw:
         return 0.0
     bw = set(re.findall(r"[a-zA-Z]{4,}", b.lower()))
-    return sum(1 for w in aw if w in bw) / len(aw)
+    return sum(1 for w in aw if _lexically_matches(w, bw)) / len(aw)
 
 
 def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
@@ -274,11 +292,78 @@ def run(project_dir: Path) -> tuple[list[str], list[str], list[str]]:
             info.append(f"Abstract↔topics max keyword overlap: {top_overlap:.2f}")
             if top_overlap < 0.05:
                 warns.append("Abstract shares almost no vocabulary with any extracted topic — may not reflect them.")
+            else:
+                omitted = [t for t in topics if keyword_overlap(t, abstract) < 0.05]
+                if omitted:
+                    warns.append(f"{len(omitted)} topic(s) barely reflected in the abstract: {', '.join(omitted)}")
     if topics_path is not None:
         topics = parse_topics(topics_path.read_text(encoding="utf-8", errors="replace"))
         uncovered = [t for t in topics if keyword_overlap(t, transcript) < 0.05]
         if uncovered:
             warns.append(f"{len(uncovered)} topic(s) weakly grounded in transcript: {', '.join(uncovered)}")
+
+    # ---- Cross-artifact reconciliation (artifact ↔ artifact) -----------------
+    # The checks above reconcile each artifact against the TRANSCRIPT. These
+    # reconcile artifacts against EACH OTHER, catching drift a per-artifact check
+    # cannot see: a downstream synthesis (abstract) surfacing a Bowen recollection
+    # the dedicated artifact dropped, or a key term extracted but never reflected
+    # in any synthesis. Deterministic, no API.
+
+    abstract_text = abstract_path.read_text(encoding="utf-8", errors="replace") \
+        if abstract_path is not None else ""
+
+    # Bowen recollection-drop: the abstract recounts Bowen the person but the
+    # dedicated bowen-references.md is empty -> a recollection the pipeline itself
+    # surfaced was dropped between extraction and synthesis. (The abstract is a
+    # curated synthesis, so a SINGLE surfaced recollection is already a real miss
+    # — unlike the raw-transcript density check, which needs >= 2 to discount an
+    # incidental mention.)
+    if abstract_path is not None:
+        abstract_markers = distinct_person_markers(strip_frontmatter(abstract_text))
+        if abstract_markers:
+            bowen_text = ""
+            bowen_items = 0
+            if bowen_path is not None:
+                bowen_text = bowen_path.read_text(encoding="utf-8", errors="replace")
+                bowen_items = count_items(bowen_text, "bowen")
+            if bowen_path is None:
+                warns.append(
+                    f"Abstract recounts Bowen the person {len(abstract_markers)} time(s) "
+                    f"but no bowen-references.md artifact is present (stage skipped?)."
+                )
+            elif bowen_items == 0:
+                fails.append(
+                    f"Abstract recounts Bowen the person {len(abstract_markers)} time(s) "
+                    f"but bowen-references.md is EMPTY — a surfaced recollection was dropped."
+                )
+            else:
+                dropped = [m for m in abstract_markers
+                           if keyword_overlap(m, bowen_text) < 0.4]
+                if dropped:
+                    sample = ", ".join(f'"{m[:40]}…"' for m in dropped[:3])
+                    warns.append(
+                        f"{len(dropped)} abstract Bowen recollection(s) not reflected in "
+                        f"bowen-references.md (possible drop): {sample}"
+                    )
+
+    # Orphan key-term: a key term reflected in NEITHER the abstract NOR any topic
+    # is a candidate orphan — extracted but never surfaced in any synthesis.
+    if terms_path is not None and abstract_path is not None:
+        terms = parse_key_terms(terms_path.read_text(encoding="utf-8", errors="replace"))
+        topics = parse_topics(topics_path.read_text(encoding="utf-8", errors="replace")) \
+            if topics_path is not None else []
+        if terms:
+            orphan_terms = []
+            for term in terms:
+                in_abstract = keyword_overlap(term, abstract_text) >= 0.05
+                in_topic = any(keyword_overlap(term, t) >= 0.05 for t in topics)
+                if not in_abstract and not in_topic:
+                    orphan_terms.append(term)
+            if orphan_terms:
+                warns.append(
+                    f"{len(orphan_terms)} key term(s) not reflected in the abstract or "
+                    f"any topic (possible orphan): {', '.join(orphan_terms)}"
+                )
 
     return fails, warns, info
 
