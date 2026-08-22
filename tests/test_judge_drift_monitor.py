@@ -152,3 +152,45 @@ def test_evaluate_raises_on_empty_danger_class(monkeypatch):
     monkeypatch.setattr(jdm, "_run_key_terms", lambda c, m: ([("correct", "correct")], []))
     with pytest.raises(ValueError):
         jdm.evaluate(None, model_override="test-model")
+
+
+def test_evaluate_raises_when_theme_has_no_danger(monkeypatch):
+    """The fail-closed guard must fire for the THEME judge too, not just the first
+    (faithfulness) branch — a stray typo in the theme predicate would otherwise
+    leave theme recall defaulting to 1.0 (false-green) with the suite still green."""
+    monkeypatch.setattr(jdm, "_run_faithfulness",
+                        lambda c, m: ([("contradicted", "contradicted")], []))
+    monkeypatch.setattr(jdm, "_run_themes", lambda c, m: ([("grounded", "grounded")], []))
+    monkeypatch.setattr(jdm, "_run_key_terms",
+                        lambda c, m: ([("incorrect", "incorrect")], []))
+    with pytest.raises(ValueError):
+        jdm.evaluate(None, model_override="test-model")
+
+
+def test_evaluate_raises_when_key_terms_has_no_danger(monkeypatch):
+    """Same, for the KEY-TERMS judge branch."""
+    monkeypatch.setattr(jdm, "_run_faithfulness",
+                        lambda c, m: ([("contradicted", "contradicted")], []))
+    monkeypatch.setattr(jdm, "_run_themes", lambda c, m: ([("ungrounded", "ungrounded")], []))
+    monkeypatch.setattr(jdm, "_run_key_terms", lambda c, m: ([("correct", "correct")], []))
+    with pytest.raises(ValueError):
+        jdm.evaluate(None, model_override="test-model")
+
+
+def test_run_themes_raises_on_zero_parse(monkeypatch):
+    """P19: a grounded theme artifact that parses to zero items must raise (contract
+    drift), not silently shrink the precision denominator — and the guard must be
+    reachable offline (before any API call)."""
+    import artifact_contracts as ac
+
+    class _EmptyCodec:
+        def parse_markdown(self, text, kind):
+            return {"items": []}
+
+    class _CodecFactory:
+        def __call__(self, name):
+            return _EmptyCodec()
+
+    monkeypatch.setattr(ac, "codec", _CodecFactory())
+    with pytest.raises(ValueError):
+        jdm._run_themes(None, "test-model")

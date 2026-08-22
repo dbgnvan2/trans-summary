@@ -670,9 +670,13 @@ def check_consistency(base_name: str, logger=None) -> Verdict:
     # definitive inconsistency — mirror check_entity_grounding so the blocker's
     # FAIL set is exactly "definitive inconsistency" and a source-resolution
     # failure never blocks as a misclassified FAIL.
-    if resolve_transcript(proj) is None:
+    transcript_path = resolve_transcript(proj)
+    if transcript_path is None:
         return Verdict("consistency", Status.ERROR,
                        "source transcript missing — cannot verify consistency")
+    if not transcript_path.read_text(encoding="utf-8", errors="replace").strip():
+        return Verdict("consistency", Status.ERROR,
+                       "source transcript empty — cannot verify consistency")
     fails, warns, _info = consistency_run(proj)
     if fails:
         return Verdict("consistency", Status.FAIL,
