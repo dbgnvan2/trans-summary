@@ -46,6 +46,15 @@ def test_content_words_strips_derived_attribution_scaffold():
     assert "concluded" not in _content_words("bowen concluded the family is a unit")
 
 
+def test_content_words_derives_quantified_verb_forms_precisely():
+    """The precise derivation strips a quantified verb form ('talked' from
+    'talk(?:ed)?') but does NOT leak phrase fillers ('clear'/'about') or strip
+    domain-generic content nouns ('systems')."""
+    assert "talked" not in _content_words("bowen talked about triangles")
+    assert "clear" in _content_words("bowen said the picture is clear")
+    assert "systems" in _content_words("bowen said systems thinking is central")
+
+
 def test_count_person_recollections_finds_markers():
     text = "Bowen said the family is a unit. To quote Bowen, people push for oneness."
     assert count_person_recollections(text) >= 2

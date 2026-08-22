@@ -157,25 +157,28 @@ def parse_topics(text: str) -> list[str]:
     return out
 
 
-# General fillers (>=4-char) excluded from keyword matching — shared by
-# keyword_overlap (the scoring primitive) and _content_words (recollection
-# substance), so a recollection's "that/this/there" scaffolding can't inflate
-# its content-word denominator.
-_GENERAL_STOP_WORDS = frozenset({
-    "about", "also", "among", "analysis", "and", "are", "as", "at", "be", "by",
-    "can", "discussion", "examining", "examination", "exploration", "explores",
+# True fillers (function words) — excluded from BOTH keyword_overlap (scoring)
+# and _content_words (recollection substance).
+_FILLER_WORDS = frozenset({
+    "about", "also", "among", "and", "are", "as", "at", "be", "by", "can",
     "for", "from", "how", "in", "including", "into", "is", "it", "its", "like",
-    "models", "of", "on", "or", "presentation", "process", "research", "showing",
-    "systems", "that", "the", "their", "these", "this", "to", "with",
+    "of", "on", "or", "that", "the", "their", "these", "this", "to", "with",
+})
+# Domain-generic meta words — excluded from keyword_overlap ONLY (they suppress
+# topic-title false-positives like "Analysis of …"), NOT from recollection
+# substance, where "systems"/"research"/"process" can be genuine content.
+_META_WORDS = frozenset({
+    "analysis", "discussion", "examining", "examination", "exploration", "explores",
+    "models", "presentation", "process", "research", "showing", "systems",
 })
 
 
 def _content_words(marker: str) -> set:
     """A recollection's CONTENT words — its >=4-char tokens minus the attribution
     scaffolding (name + verbs, derived from the detector's own verb lists) and
-    the general fillers."""
+    the true fillers (NOT the domain-generic meta words, which can be content)."""
     return {w for w in re.findall(r"[a-zA-Z]{4,}", marker.lower())
-            if w not in ATTRIBUTION_SCAFFOLD_WORDS and w not in _GENERAL_STOP_WORDS}
+            if w not in ATTRIBUTION_SCAFFOLD_WORDS and w not in _FILLER_WORDS}
 
 
 def keyword_overlap(a: str, b: str) -> float:
@@ -186,7 +189,7 @@ def keyword_overlap(a: str, b: str) -> float:
     (Homeostasis vs homeostatic), which the authoritative key-terms validator
     still catches via local-window grounding."""
     aw = {w for w in re.findall(r"[a-zA-Z]{4,}", a.lower())
-          if w not in _GENERAL_STOP_WORDS}
+          if w not in _FILLER_WORDS and w not in _META_WORDS}
     if not aw:
         return 0.0
     bw = set(re.findall(r"[a-zA-Z]{4,}", b.lower()))

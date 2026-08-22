@@ -36,18 +36,20 @@ _ATTRIBUTION_VERBS = (
     r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about"
 )
 
-# Scaffold words: the plain >=4-char tokens a recollection is MATCHED on (the
+# Scaffold words: the plain attribution tokens a recollection is MATCHED on (the
 # person name + the attribution verbs), DERIVED from the verb regex lists above —
 # the single source of truth — so the consistency check's "strip attribution
 # before judging content" can never drift from the detector's actual vocabulary
-# (the recurring two-hand-maintained-lists failure). "quote"/"quoted" are added
-# explicitly because the "quoted?" alternation only surfaces "quoted" to the
-# tokenizer; "dr" rides along as a name token.
+# (the recurring two-hand-maintained-lists failure). Derived PRECISELY: only the
+# pure single-word `[a-z]+` alternations are taken verbatim; the quantified /
+# multi-word verb forms are spelled out explicitly ("quote"/"quoted" from
+# "quoted?", "talk"/"talked" from "talk(?:ed)?…"), so the tokenizer neither misses
+# a verb form ("talked") nor leaks a phrase filler ("about"/"clear"/"very"/"used").
 ATTRIBUTION_SCAFFOLD_WORDS = frozenset(
-    {w for verb_re in (_REJECTION_VERBS, _ATTRIBUTION_VERBS)
+    {alt for verb_re in (_REJECTION_VERBS, _ATTRIBUTION_VERBS)
      for alt in verb_re.split("|")
-     for w in re.findall(r"[a-z]{4,}", alt)}
-    | {"bowen", "murray", "dr", "quote", "quoted"}
+     if re.fullmatch(r"[a-z]+", alt)}
+    | {"quote", "quoted", "talk", "talked", "bowen", "murray", "dr"}
 )
 
 # "murray" (bare) — the rejection anchor's "Murray" needs no surname, unlike the
