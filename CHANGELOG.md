@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-22 (judge drift monitor — drift insurance for the semantic judges)
+
+- **`judge_drift_monitor`** — the semantic judges (faithfulness, theme, key-terms) were calibrated once at arming and then trusted forever; a model bump or prompt edit that silently un-calibrates them would serve stale verdicts with no signal (P20). This unified CLI re-runs all three judges over their curated gold sets and asserts they still clear their precision/recall bars, exiting non-zero on drift (0 = all clear, 1 = drift detected, 2 = could-not-run). Each judge runs on its OWN configured model unless `--model` overrides all three. Not run by `pytest` (the offline wrapper is `tests/test_judge_drift_monitor.py`); intended for CI or a weekly cron.
+- **`key_terms_gold`** — the missing third gold set: 7 real (correct) definitions + 10 hand-authored INCORRECT definitions (a swapped concept, a reversed relationship, a reversed formula, or the opposite meaning) — the class lexical grounding and entailment cannot catch, so it specifically grades the key-terms judge's semantic discrimination.
+- **Live baseline (claude-sonnet-4-6)** — all three judges recall = precision = 1.0 on their gold sets (faithfulness 31, theme 31, key-terms 17 cases).
+
+## [Unreleased] - 2026-08-22 (empty bowen-references now blocks)
+
+- **`consistency` promoted to a hard blocker** — an empty `bowen-references.md` while the transcript or abstract recounts Bowen the person ≥ 2 times is a DROPPED RECOLLECTION (a lost signal on the highest-signal artifact), so the check's FAIL findings now BLOCK publication instead of shipping as `ALLOW_WITH_WARNINGS`. Its heuristic WARNs (orphan key-term, topic coverage, the fuzzy specific-recollection drop) remain advisory.
+
+## [Unreleased] - 2026-08-22 (fabricated-name blocker extended to narrative prose)
+
+- **`find_ungrounded_names` is now heading/bold-aware** — it strips ALL markdown headings and bold concept/term labels (not just leading scaffolding), so a blog's "## Key Takeaways" or a "**Role Absorption** —" definition list no longer reads as a fabricated proper name. A bare "**bold** prose" with no label separator is left intact, so a real name rendered as leading bold emphasis is still detected.
+- **Blocker scope widened** — `GATE_ENTITY_ARTIFACT_SUFFIXES` now scans the narrative prose artifacts (abstract, summary, overview, blog), so a fabricated person/org/place name in the summary/overview/blog FAILs the gate (previously only the abstract was scanned; the others were caught only indirectly by the faithfulness judge). The heading-heavy STRUCTURED artifacts (themes/topics/key-terms) stay excluded — their Title-Case concept labels are content, not names, and their fabrication mode is semantic (the theme/key-term judges' domain).
+
+Offline suite: 819 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-22 (key-term domain-semantic judge — gap #4)
 
 - **`key_terms_semantic_judge`** — the lexical key-terms validator cannot catch a lexically-plausible but semantically-WRONG definition (a term defined as the wrong concept, or swapped with a sibling, while still using transcript vocabulary). This judge asks, per term, whether the DEFINITION correctly captures the term's Bowen-theory meaning — labels `correct`/`incorrect`, fail-closed on any API/parse error. **Built but not yet armed** (`KEY_TERMS_JUDGE_ENABLED=False`); reuses the faithfulness judge's parser + result types + cache-reusable prompt.
