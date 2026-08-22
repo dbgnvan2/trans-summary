@@ -51,6 +51,14 @@ def test_count_person_recollections_bridges_name_verb_newline_split():
     assert count_person_recollections(text) == 1
 
 
+def test_count_person_recollections_bridges_multi_line_straddle():
+    """A recollection whose name and verb are separated by an intervening line
+    (>= 3 lines) must still count — the extractor collapses ALL whitespace, so
+    the bridge must grow past a single pair of lines."""
+    text = "Bowen\nalways\nsaid the family is an emotional unit."
+    assert count_person_recollections(text) == 1
+
+
 def test_density_signal_shares_the_extractors_detector():
     """The density signal must derive from the extractor's OWN detector, not a
     parallel hand-maintained list — an identity check, not a comment (P19 fix)."""

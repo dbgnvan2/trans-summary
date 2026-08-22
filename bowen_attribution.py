@@ -117,10 +117,12 @@ def find_bowen_person_attributions(text: str) -> list[str]:
     * terminal punctuation delimits sentences;
     * newlines further split a sentence into lines (rough dictation often
       separates unpunctuated sentences with newlines);
-    * a line that doesn't match on its own is re-tried joined with the next
-      line (space-normalised), so a recollection whose person name and verb
-      straddle a newline ("Murray Bowen\\nsaid …") is still counted — matching
-      the extractor's own newline-collapsing normalisation.
+    * a line that doesn't match on its own is re-tried joined with the FOLLOWING
+      lines (space-normalised), growing until it matches, so a recollection whose
+      name and verb straddle any number of newlines ("Murray Bowen\\n…\\nsaid …")
+      is still counted — matching the extractor's own newline-collapsing
+      normalisation. The grow stops before any line that itself matches (that
+      line is its own recollection and must not be consumed).
     """
     if not text:
         return []
@@ -134,14 +136,22 @@ def find_bowen_person_attributions(text: str) -> list[str]:
                 out.append(lines[i])
                 i += 1
                 continue
-            nxt = lines[i + 1] if i + 1 < len(lines) else None
-            # Only bridge a newline when the next line does NOT match on its own,
-            # so a legitimate next-line recollection is not consumed into a join.
-            if nxt is not None and not _is_bowen_person_attribution(nxt):
-                joined = lines[i] + " " + nxt
+            # Bridge: grow the join across following lines (space-normalised)
+            # until it matches, stopping before any line that itself matches.
+            joined = lines[i]
+            j = i
+            matched = False
+            while j + 1 < len(lines):
+                nxt = lines[j + 1]
+                if _is_bowen_person_attribution(nxt):
+                    break
+                joined = joined + " " + nxt
+                j += 1
                 if _is_bowen_person_attribution(joined):
                     out.append(joined)
-                    i += 2
-                    continue
-            i += 1
+                    i = j + 1
+                    matched = True
+                    break
+            if not matched:
+                i += 1
     return out
