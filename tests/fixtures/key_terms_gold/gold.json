@@ -55,6 +55,18 @@
     {"id": "kt_i7", "source": "dave_g", "label": "incorrect",
      "term": "Nubbin of Self",
      "definition": "A phrase describing the client's complete loss of individual autonomy, evidenced by his total dependence on others for decisions and his inability to assert any boundary.",
-     "note": "OPPOSITE — the nubbin of self is a preserved expression of autonomy, not its loss"}
+     "note": "OPPOSITE — the nubbin of self is a preserved expression of autonomy, not its loss"},
+    {"id": "kt_i8", "source": "where_roots", "label": "incorrect",
+     "term": "Emotional Salience Network",
+     "definition": "A brain network anchored in the prefrontal cortex that is responsible for sustained attention and working memory, keeping a person focused on their goals while ignoring distractions.",
+     "note": "WRONG CONCEPT — this is the executive control network, not the salience network"},
+    {"id": "kt_i9", "source": "where_roots", "label": "incorrect",
+     "term": "Wanting versus Liking",
+     "definition": "Two identical subsystems within the brain's reward system that both produce pleasure, such that wanting something and liking it are one and the same experience.",
+     "note": "REVERSED — wanting and liking are DISTINCT subsystems, not identical"},
+    {"id": "kt_i10", "source": "roots_bowen", "label": "incorrect",
+     "term": "Differentiation of Self (DOS)",
+     "definition": "A core concept in Bowen theory expressed as the equation DOS equals emotional objectivity minus action, where action is subtracted from objectivity to reach differentiation.",
+     "note": "REVERSED FORMULA — DOS = EO + A, not EO − A"}
   ]
 }

@@ -50,7 +50,9 @@ def test_key_terms_gold_has_correct_and_incorrect_and_parses_terms():
     labels = {c["label"] for c in gold["cases"]}
     assert "correct" in labels and "incorrect" in labels
     n_incorrect = sum(1 for c in gold["cases"] if c["label"] == "incorrect")
-    assert n_incorrect >= 3, "recall on the incorrect class needs a real negative set"
+    assert n_incorrect == 10, "exact count — the negative set is the judge's statistical power (P29)"
+    n_correct = sum(1 for c in gold["cases"] if c["label"] == "correct")
+    assert n_correct == 7, "exact count (P29)"
     for c in gold["cases"]:
         assert c["term"].strip() and c["definition"].strip(), c["id"]
 
@@ -58,7 +60,7 @@ def test_key_terms_gold_has_correct_and_incorrect_and_parses_terms():
 def test_theme_gold_has_grounded_and_ungrounded():
     gold = _load("theme_gold")
     assert gold["grounded_artifacts"], "theme gold needs grounded (real) themes"
-    assert len(gold["ungrounded_themes"]) >= 3, "theme gold needs a real ungrounded set"
+    assert len(gold["ungrounded_themes"]) == 11, "exact count — the negative set is the judge's statistical power (P29)"
 
 
 def test_theme_metrics_counts_a_miss():
@@ -138,3 +140,15 @@ def test_evaluate_detects_drift_with_mocked_runners(monkeypatch):
     assert f["metrics"]["fn"] == 2
     assert f["metrics"]["recall"] < config.FAITHFULNESS_MIN_RECALL_UNFAITHFUL
     assert jdm._drifted(f)
+
+
+def test_evaluate_raises_on_empty_danger_class(monkeypatch):
+    """F1 (P24): a judge whose gold set has NO danger-class examples must fail
+    closed (raise -> exit 2), not report recall=precision=1.0 on an empty
+    denominator — that was the false-green the sweep found."""
+    no_danger_f = [("entailed", "entailed"), ("entailed", "entailed")]
+    monkeypatch.setattr(jdm, "_run_faithfulness", lambda c, m: (no_danger_f, []))
+    monkeypatch.setattr(jdm, "_run_themes", lambda c, m: ([("grounded", "grounded")], []))
+    monkeypatch.setattr(jdm, "_run_key_terms", lambda c, m: ([("correct", "correct")], []))
+    with pytest.raises(ValueError):
+        jdm.evaluate(None, model_override="test-model")

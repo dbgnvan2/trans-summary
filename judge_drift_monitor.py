@@ -74,6 +74,13 @@ def _run_themes(client, model):
         src = sources[ga["source"]]
         text = (FIX / ga["dir"] / f"{ga['suffix']}.md").read_text(encoding="utf-8")
         obj = ac.codec("themes").parse_markdown(text, ga["kind"])
+        if not obj["items"]:
+            # Zero-from-non-empty is format-contract drift (P19), not a clean
+            # empty — a grounded artifact that parses to nothing must not silently
+            # shrink the precision denominator.
+            raise ValueError(
+                f"theme gold {ga['source']}/{ga['suffix']} parsed to zero items — "
+                f"contract drift, cannot verify")
         verdicts = fj.judge_themes(obj["items"], src, client)
         for t, v in zip(obj["items"], verdicts):
             pairs.append(("grounded", v.label))
@@ -137,6 +144,17 @@ def evaluate(client, model_override: str | None = None) -> list:
     f_pairs, f_rows = _run_faithfulness(client, f_model)
     t_pairs, t_rows = _run_themes(client, t_model)
     k_pairs, k_rows = _run_key_terms(client, k_model)
+    # Fail closed: a judge whose gold set has NO danger-class examples cannot be
+    # verified — that must read as "could not run" (exit 2), never a clean pass
+    # with recall/precision defaulting to 1.0 on an empty denominator (P24).
+    for name, pairs, is_danger in [
+        ("faithfulness", f_pairs, fj.is_unfaithful),
+        ("theme", t_pairs, lambda lab: lab == fj.UNGROUNDED),
+        ("key_terms", k_pairs, lambda lab: lab == kj.INCORRECT),
+    ]:
+        if not any(is_danger(t) for t, _ in pairs):
+            raise ValueError(
+                f"{name} gold set has no danger-class examples — cannot verify")
     return [
         _judge_result("faithfulness", f_pairs, f_rows,
                       fj.binary_faithfulness_metrics(f_pairs),
