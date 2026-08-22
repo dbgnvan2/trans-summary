@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-21 (cross-artifact reconciliation — gap #3)
+
+- **`transcript_validate_consistency`** — the consistency check now reconciles artifacts against EACH OTHER, not just the transcript, catching drift a per-artifact check cannot see:
+  - **Bowen recollection-drop** (abstract ↔ bowen-references): the abstract surfacing ≥ 2 person-recollections while `bowen-references.md` is EMPTY is a FAIL (a recollection the pipeline itself surfaced was dropped); a missing artifact (skipped stage) or a single incidental mention is a WARN; a recollection whose *substance* is absent from a non-empty file is a WARN.
+  - **Orphan key-term** (key-term ↔ abstract + topics): a term reflected in neither synthesis surface is a WARN.
+  - **Per-topic abstract coverage**: a topic the abstract silently omits is flagged individually (extends the old max-overlap-only signal).
+- **Attribution-scaffold derivation** — `bowen_attribution.ATTRIBUTION_SCAFFOLD_WORDS` is derived from the detector's own verb regex lists (precisely: pure single-word verbs + explicit `quote`/`quoted`/`talk`/`talked`), so the consistency check's "strip attribution before judging recollection substance" can never drift from what the detector actually matches. `keyword_overlap` reverted to exact-word matching (a 5-char-prefix heuristic was found to over-match non-variants like `family`/`familiar` and silently loosen every caller).
+
+Offline suite: 785 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-21 (chunked faithfulness judge for long transcripts)
 
 - **`faithfulness_judge`** — a single batched judge call over a long transcript degrades attention (especially the middle) and can near the context limit (gap #1). Above `FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS` (3000), `judge_artifact` now splits the source into overlapping word-windows (reusing the lexical validators' `VALIDATION_CHUNK_SIZE`/`OVERLAP`) and routes each claim to the window that holds *all* of its source-anchored significant words; a claim whose content spans windows (a summary-level inference connecting material across the source) is judged against the full source so a faithful abstraction is never falsely flagged. Short sources keep the single-call path unchanged.
