@@ -205,6 +205,16 @@ def test_known_name_does_not_hide_adjacent_fabrication():
     assert "Michael Kerrstone" in names
 
 
+def test_known_name_does_not_hide_short_fabricated_surname():
+    """A fabricated surname shorter than the min token length ("Li") must not be
+    hidden by matching only the shared known first name ("Michael")."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses systems biology"
+    abstract = "Michael Li argues for a systems view."
+    names = find_ungrounded_names(abstract, source, known_names=["Michael Kerr"])
+    assert "Michael Li" in names
+
+
 def test_entity_grounding_presenter_name_grounded_via_metadata(tmp_path, monkeypatch):
     """The presenter's own name (from the filename) must NOT be flagged as
     ungrounded just because the transcript never says it — that was a false

@@ -71,16 +71,14 @@ def find_ungrounded_names(abstract: str, transcript: str,
         t for t in re.findall(r"[a-zà-öø-ÿ]+", transcript.lower())
         if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
     }
-    # Significant tokens of the presenter/author (filename metadata). These are
-    # deliberately absent from the transcript body, so grounding them against the
-    # source is the wrong test — a correct attribution must not be flagged.
-    known_tokens: set[str] = set()
-    for kn in (known_names or []):
-        if kn:
-            known_tokens.update(
-                t for t in re.findall(r"[a-zà-öø-ÿ]+", str(kn).lower())
-                if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
-            )
+    # Presenter/author names (filename metadata) that are legitimately ABSENT from
+    # the transcript body, so grounding them against the source is the wrong test.
+    # Match the FULL normalized name (not a filtered token subset): a sub-4-char
+    # fabricated surname ("Michael Li" vs presenter "Michael Kerr") must NOT be
+    # hidden by dropping its only distinguishing token below the min length.
+    known_full: set[str] = {
+        " ".join(str(kn).lower().split()) for kn in (known_names or []) if kn
+    }
 
     def _grounded(token: str) -> bool:
         low = token.lower()
@@ -93,9 +91,7 @@ def find_ungrounded_names(abstract: str, transcript: str,
         )
 
     def _known_name(name: str) -> bool:
-        sig = [t for t in name.split()
-               if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN]
-        return bool(sig) and all(t.lower() in known_tokens for t in sig)
+        return " ".join(name.lower().split()) in known_full
 
     ungrounded: list[str] = []
     seen: set[str] = set()
