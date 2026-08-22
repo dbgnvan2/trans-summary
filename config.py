@@ -618,6 +618,10 @@ FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS = 3000
 # is judged against the FULL source rather than one window — routing it to a single
 # window would falsely mark a faithful abstraction "unsupported".
 FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
+# A claim whose best window does NOT clearly beat its second-best (best - second below
+# this margin) has its significant words SPREAD across >1 window — a cross-window
+# inference claim — and is judged against the FULL source, not the single best window.
+FAITHFULNESS_JUDGE_ROUTE_MARGIN = 0.10
 # Structured-artifact SCAFFOLDING / META field labels whose line is NOT a claim
 # about the source and must be skipped by claim extraction (esp. the themes
 # artifacts). These are the model's own meta-commentary or document boilerplate,

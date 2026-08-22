@@ -54,7 +54,7 @@ def test_route_claims_to_chunks_routes_by_lexical_overlap():
               "the cancer research biology of cells"]
     claims = ["Kerr discusses the family anxiety triangle.",
               "Kerr presents the cancer research on cells."]
-    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.1)
+    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.1, margin=0.0)
     assert routed == {0: [0], 1: [1]}
     assert unrouted == []
 
@@ -65,7 +65,20 @@ def test_route_claims_leaves_summary_inference_claim_unrouted():
     # abstraction would be falsely flagged unsupported).
     chunks = ["the family anxiety triangle is central"]
     claims = ["The presenter connects this history to Bowen theory by introducing the equation."]
-    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.5)
+    routed, unrouted = fj.route_claims_to_chunks(claims, chunks, min_overlap=0.5, margin=0.0)
+    assert routed == {}
+    assert unrouted == [0]
+
+
+def test_route_claims_detects_cross_window_spread():
+    """A claim whose significant words are spread across >1 window (best does not beat
+    second-best by the margin) is a cross-window inference and must NOT be routed to one
+    window — routing it would hide its other element(s) and false-BLOCK a faithful
+    abstraction (precision)."""
+    chunks = ["the family anxiety triangle is central here",
+              "the cancer research biology of cells"]
+    claim = ["Kerr connects the family anxiety triangle to the cancer research biology."]
+    routed, unrouted = fj.route_claims_to_chunks(claim, chunks, min_overlap=0.1, margin=0.2)
     assert routed == {}
     assert unrouted == [0]
 
@@ -169,3 +182,25 @@ def test_judge_artifact_uses_single_call_for_short_source(monkeypatch):
 def test_should_chunk_threshold():
     assert fj._should_chunk(" ".join("x" for _ in range(3000))) is True
     assert fj._should_chunk("short source") is False
+
+
+def test_judge_claims_chunked_raises_on_reassembly_violation(monkeypatch):
+    """Fail-closed reassembly (P2/P14): if a future routing change leaves a claim in
+    NEITHER routed nor unrouted (a routing hole), judge_claims_chunked must RAISE
+    (-> gate ERROR), not hand back None verdicts that crash downstream with an
+    unhandled AttributeError."""
+    import pytest
+
+    source = "family anxiety triangle fusion here cancer biology cells research there"
+    claims = ["First claim.", "Second claim."]
+
+    def fake_judge(claims_, source_, client, model=None, logger=None):
+        return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
+
+    monkeypatch.setattr(fj, "judge_claims", fake_judge)
+    # simulate a routing hole: claim index 1 is in neither routed nor unrouted
+    monkeypatch.setattr(fj, "route_claims_to_chunks",
+                        lambda claims, chunks, min_overlap, margin: ({0: [0]}, []))
+
+    with pytest.raises(ValueError):
+        fj.judge_claims_chunked(claims, source, object())

@@ -403,6 +403,15 @@ def _judge_logic_version(instructions: str) -> str:
         repr(sorted(config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES)),
         repr(sorted(config.FAITHFULNESS_SKIP_LINE_LABELS)),
         str(config.FAITHFULNESS_MIN_CLAIM_CHARS),
+        # The chunked-routing strategy changes WHICH source context each claim is
+        # judged against, so its thresholds must invalidate a cached PASS too — else a
+        # future tune serves a stale verdict (H2 fail-open) unless the developer
+        # remembers to bump JUDGE_LOGIC_VERSION by hand (P6/P4).
+        str(config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS),
+        str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
+        str(config.FAITHFULNESS_JUDGE_ROUTE_MARGIN),
+        str(config.VALIDATION_CHUNK_SIZE),
+        str(config.VALIDATION_CHUNK_OVERLAP),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 

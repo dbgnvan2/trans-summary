@@ -235,23 +235,24 @@ def chunk_source(source: str, *, chunk_words: Optional[int] = None,
     return chunks
 
 
-def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tuple:
+def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float,
+                           margin: float) -> tuple:
     """Return ``(routed, unrouted)``.
 
-    ``routed`` maps window-index -> [claim-index] for claims with a lexical anchor in
-    that window; ``unrouted`` lists claim-indexes whose best window still falls below
-    ``min_overlap`` (summary-level inference) and should be judged against the FULL
-    source so a faithful abstraction is not falsely flagged as unsupported.
+    ``routed`` maps window-index -> [claim-index] for claims with a clear lexical anchor
+    in ONE window. ``unrouted`` lists claim-indexes that must be judged against the FULL
+    source: either no window clears ``min_overlap``, or the claim's significant words are
+    SPREAD across windows (the best window does not beat the second-best by ``margin``) —
+    a cross-window summary-level inference no single window can fairly verify.
     """
     routed: dict = {}
     unrouted: list = []
     for ci, claim in enumerate(claims):
-        best_idx, best = None, -1.0
-        for k, chunk in enumerate(chunks):
-            score = lexical_overlap(claim, chunk)
-            if score > best:
-                best_idx, best = k, score
-        if best_idx is not None and best >= min_overlap:
+        scored = sorted((lexical_overlap(claim, chunk), k)
+                        for k, chunk in enumerate(chunks))
+        best, best_idx = scored[-1]
+        second = scored[-2][0] if len(scored) > 1 else 0.0
+        if best >= min_overlap and (best - second) >= margin:
             routed.setdefault(best_idx, []).append(ci)
         else:
             unrouted.append(ci)
@@ -265,7 +266,8 @@ def judge_claims_chunked(claims: list, source: str, client, *,
     low-overlap claims -> the full source."""
     chunks = chunk_source(source)
     routed, unrouted = route_claims_to_chunks(
-        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
+        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP,
+        config.FAITHFULNESS_JUDGE_ROUTE_MARGIN)
     verdicts: list = [None] * len(claims)
     for k, idxs in routed.items():
         sub = judge_claims([claims[i] for i in idxs], chunks[k], client,
@@ -277,6 +279,13 @@ def judge_claims_chunked(claims: list, source: str, client, *,
                            model=model, logger=logger)
         for local, ci in enumerate(unrouted):
             verdicts[ci] = sub[local]
+    # Fail-closed reassembly guard (P2/P14): a future routing or judge_claims change
+    # that dropped/reordered a verdict would otherwise surface as an unhandled
+    # AttributeError on None downstream — raise here so the gate maps it to ERROR.
+    if len(verdicts) != len(claims) or any(v is None for v in verdicts):
+        raise ValueError(
+            f"chunked judge returned {sum(1 for v in verdicts if v is not None)}/"
+            f"{len(claims)} verdicts — reassembly contract violated")
     return verdicts
 
 
