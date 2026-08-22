@@ -1226,21 +1226,33 @@ def extract_bowen_references(content: str) -> list:
     if not target_content:
         return []
 
-    # A Bowen reference is a BOLD concept label + a quoted body. The separator
-    # (colon/period/em-dash) may sit inside ("**Concept:**") or outside
-    # ("**Concept**:") the bold. We REQUIRE the bold: the prior bare
-    # "Label: \"quote\"" fallback also matched PROSE like 'There are no instances
-    # of "Bowen said,"' and turned the model's "no references" explanation into a
-    # garbage candidate (concept="There are no instances of"), which then flowed
-    # through the semantic filter as a fake ref and produced the confusing
-    # "0 grounded refs from 1 candidate" drop diagnostic. A prose "none found"
-    # response has no bold -> clean []. The model's output format is pinned to
-    # bold by the extraction/filter prompts and _clean_bowen_output preserves it.
+    # A prose "no references found" response is not a reference. The model drifts
+    # to prose ("There are no instances of ...", "The input contains only a label
+    # and a fragment") when there are genuinely no person recollections; detect it
+    # BEFORE any parse so it returns [] cleanly rather than being turned into a
+    # garbage candidate.
+    if re.search(
+        r"\b(?:no|zero|none)\s+(?:instances|references|explicit|direct|grounded|bowen|qualifying|items|quotes)\b"
+        r"|\bthere are no\b|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
+        target_content, re.IGNORECASE,
+    ):
+        return []
+
+    # A Bowen reference is a concept label + a quoted body. Parse the prompt's
+    # BOLD format first ("**Concept:**"/"**Concept**:"); the model sometimes
+    # drifts to a bare "Label: \"quote\"", so fall back to a non-bold form that
+    # REQUIRES a "Label:" colon (a prose sentence with an incidental quote has no
+    # label structure and is already rejected by the none-found guard above).
     quote_pattern = re.compile(
         r'^\s*(?:[-*>]+\s+)?\*\*([^*\n]+?)(?:[.:\u2014-]\*\*|\*\*[ \t]*[:\u2014-])[ \t]*["\u201c](.+?)["\u201d]',
         re.MULTILINE,
     )
     quotes = quote_pattern.findall(target_content)
+    if not quotes:
+        quotes = re.findall(
+            r'^\s*(?:[-*>]+\s+)?([^*\n]{1,60}?):[ \t]*["\u201c](.+?)["\u201d]',
+            target_content, re.MULTILINE,
+        )
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 

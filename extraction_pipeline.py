@@ -752,6 +752,16 @@ def extract_bowen_references_from_transcript(
         parsed_refs = extract_bowen_references(
             "## Bowen References\n\n" + final_content
         )
+        if final_content.strip() and not parsed_refs:
+            # The extraction returned a non-empty response that parsed to 0 refs.
+            # Either a "no references" prose response (legitimate empty) OR format
+            # drift the parser could not read — surface it loudly rather than let a
+            # dropped-format extraction read as a silent, indistinguishable 0.
+            logger.warning(
+                "Bowen extraction response was non-empty but parsed to 0 "
+                "references (prose 'none found' or unrecognised format): %.120s",
+                final_content,
+            )
         filtered_refs = _filter_bowen_references_semantically(
             parsed_refs, model, logger
         )

@@ -243,3 +243,17 @@ def test_extract_bowen_references_parses_bold_format():
         ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
         ("On Differentiation", "Bowen stressed the importance of differentiation of self."),
     ]
+
+
+def test_extract_bowen_references_non_bold_fallback():
+    """A real reference the model emitted WITHOUT the bold format (`Label: "quote"`)
+    must still parse — requiring bold alone silently dropped it (P19)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> On Triangles: "Murray Bowen said triangles are molecules of an emotional system."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
+    ]
