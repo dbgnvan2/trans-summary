@@ -103,6 +103,13 @@
      "note": "ADVERSARIAL — invented causal claim with NO proper noun (the recall-hole class). Source attributes recovery to community college / self-direction, never to medication."},
     {"id": "us7", "source": "where_roots", "label": "unsupported",
      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience.",
-     "note": "ADVERSARIAL — invented stance, no proper noun. Source is explicitly tentative (answers remain incomplete)."}
+     "note": "ADVERSARIAL — invented stance, no proper noun. Source is explicitly tentative (answers remain incomplete)."},
+
+    {"id": "ef1", "source": "where_roots", "label": "entailed",
+     "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious.",
+     "note": "EDITORIAL FRAMING (precision): source ties the resistance to the church/Jesuits and 'a lot of resistance' — framing of grounded material, not a new fact"},
+    {"id": "ef2", "source": "where_roots", "label": "entailed",
+     "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow.",
+     "note": "EDITORIAL FRAMING (precision): source explicitly asks what course Bowen theory will take 'as did heliocentrism' — connects two grounded elements"}
   ]
 }

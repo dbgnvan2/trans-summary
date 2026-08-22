@@ -358,6 +358,19 @@ When unsure whether the source supports a claim built from grounded elements, pr
 "entailed". Reserve "unsupported" for a claim introducing substance the source does \
 not contain, and "contradicted" for a direct factual clash.
 
+EDITORIAL / RHETORICAL FRAMING IS "entailed", NOT "unsupported". A blog, overview, \
+or summary sentence that merely EMPHASIZES, RESTATES, or FRAMES grounded material — \
+without introducing a NEW specific fact, name, date, number, study, causal claim, or \
+attribution — is faithful. Examples that are "entailed" when their underlying content \
+is in the source: "It was a logical approach, and it produced genuine discoveries."; \
+"The environment is not incidental."; "They are looking at the parts when the \
+explanation lives in the pattern."; "That kind of reckoning is rare in science." \
+Reserve "unsupported" for a sentence that ADDS substance the source does not contain \
+— a fabricated concrete specific, or a specific conclusion / stance / causal claim / \
+attribution with no basis in the source (e.g. "attributes recovery to medication" when \
+medication is never mentioned). A rhetorical flourish on top of grounded material is \
+still "entailed"; a NEW factual claim the source does not support is "unsupported".
+
 Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]
 No prose before or after the JSON."""
