@@ -759,12 +759,15 @@ def _strip_scaffolding(text: str) -> str:
         if end != -1:
             t = t[end + 4:].lstrip()
     # Inline leading bold label with an optional bullet: "**Term** — def",
-    # "**Term**: def", "- **Topic.** desc" -> keep only the definition/description.
-    # The bold CONTENT is matched non-greedily so a trailing colon/period INSIDE the
-    # bold ("**Term:** def", "**Topic.** desc") is consumed as part of the label
-    # rather than leaving a required separator after "**" that then fails to match
-    # (which let an ungrounded bold term read as a fabricated name — a false BLOCK).
-    _inline_bold = re.compile(r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+?\*\*\s*[:—-]?\s*(.*)$")
+    # "**Term:** def", "- **Topic.** desc" -> keep only the definition/description.
+    # The separator must be present EITHER as trailing punctuation INSIDE the bold
+    # (colon/period: "**Term:**", "**Topic.**") OR after the closing "**"
+    # (em-dash/colon/hyphen: "**Term** — def") — a bare "**bold** prose" with no
+    # separator is NOT a label and is left intact, so a real name rendered as
+    # leading bold emphasis is still detected rather than silently hidden.
+    _inline_bold = re.compile(
+        r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+?(?:[.:—-]\*\*|\*\*[ \t]*[:—-])[ \t]*(.*)$"
+    )
     kept: list[str] = []
     for line in t.split("\n"):
         s = line.strip()

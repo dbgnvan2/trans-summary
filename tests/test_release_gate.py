@@ -289,6 +289,17 @@ def test_find_ungrounded_names_skips_headings_and_bold_labels():
     assert "Luciano Malorni" in names
 
 
+def test_find_ungrounded_names_still_catches_bold_name_without_separator():
+    """A fabricated name rendered as leading bold emphasis WITHOUT a label
+    separator ('**Luciano Malorni** wrote…') must still be detected — the
+    stripper removes only bold labels carrying a ':'/'-'/'.' separator, not bare
+    bold emphasis (the over-strip fix from the re-sweep)."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems"
+    assert "Luciano Malorni" in find_ungrounded_names(
+        "**Luciano Malorni** wrote about Bowen.", src)
+
+
 def test_entity_grounding_shared_token_name_is_a_known_lexical_gap():
     """KNOWN GAP (F2, documented — not fixed here): find_ungrounded_names grounds
     a name if ANY significant token matches (OR-logic), so a fabricated surname
