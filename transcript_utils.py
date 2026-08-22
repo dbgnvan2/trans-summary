@@ -1216,13 +1216,21 @@ def extract_bowen_references(content: str) -> list:
     if not target_content:
         return []
 
-    # Relaxed pattern using MULTILINE mode
-    # Handles:
-    # - **Label:** "Quote" (colon inside bold)
-    # - **Label**: "Quote" (colon outside bold)
-    # - Label: "Quote" (no bold)
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'  # noqa
-    quotes = re.findall(quote_pattern, target_content, flags=re.MULTILINE)
+    # A Bowen reference is a BOLD concept label + a quoted body. The separator
+    # (colon/period/em-dash) may sit inside ("**Concept:**") or outside
+    # ("**Concept**:") the bold. We REQUIRE the bold: the prior bare
+    # "Label: \"quote\"" fallback also matched PROSE like 'There are no instances
+    # of "Bowen said,"' and turned the model's "no references" explanation into a
+    # garbage candidate (concept="There are no instances of"), which then flowed
+    # through the semantic filter as a fake ref and produced the confusing
+    # "0 grounded refs from 1 candidate" drop diagnostic. A prose "none found"
+    # response has no bold -> clean []. The model's output format is pinned to
+    # bold by the extraction/filter prompts and _clean_bowen_output preserves it.
+    quote_pattern = re.compile(
+        r'^\s*(?:[-*>]+\s+)?\*\*([^*\n]+?)(?:[.:\u2014-]\*\*|\*\*[ \t]*[:\u2014-])[ \t]*["\u201c](.+?)["\u201d]',
+        re.MULTILINE,
+    )
+    quotes = quote_pattern.findall(target_content)
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 

@@ -216,3 +216,30 @@ def test_bowen_references_fallback_to_primary_when_filter_invalid(
 
     assert len(extracted) == 3
     assert extracted[0][0] == "On Triangles and Emotional Forces"
+
+
+def test_extract_bowen_references_rejects_prose():
+    """The model's "no references" PROSE must not parse into a garbage candidate
+    (concept='There are no instances of', quote='Bowen said,') — the shipped bug
+    that produced a confusing '0 grounded refs from 1 candidate' diagnostic."""
+    from transcript_utils import extract_bowen_references
+    prose = '## Bowen References\n\n> There are no instances of "Bowen said," in this transcript.\n'
+    assert extract_bowen_references(prose) == []
+    prose2 = '## Bowen References\n\nThe input contains only a label and a fragment ("Bowen said,").\n'
+    assert extract_bowen_references(prose2) == []
+
+
+def test_extract_bowen_references_parses_bold_format():
+    """The prompt's bold format (`> **Concept:** "quote"`, colon inside or outside
+    the bold) still parses correctly after the prose-rejection tightening."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Triangles:** "Murray Bowen said triangles are molecules of an emotional system."\n'
+        '> **On Differentiation**: "Bowen stressed the importance of differentiation of self."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
+        ("On Differentiation", "Bowen stressed the importance of differentiation of self."),
+    ]
