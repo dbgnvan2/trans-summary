@@ -11,6 +11,7 @@ import abstract_pipeline
 import config
 import summary_pipeline
 from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
+from bowen_attribution import concept_has_bowen_attribution
 from transcript_utils import (
     call_claude_with_retry,
     clean_project_name,
@@ -363,21 +364,10 @@ def _compact_bowen_quote(quote: str, max_words: int = 140) -> str:
 
 
 def _concept_has_bowen_attribution(concept: str) -> bool:
-    """Return True when the concept name itself names Bowen as the source.
-
-    Handles cases like "Bowen's Timeline Prediction" or "Bowen's War on Cancer
-    Comment" where the attribution is in the label, not the quote body.
-    """
-    if not concept:
-        return False
-    c = concept.lower().strip()
-    # Possessive "Bowen's X" (exclude "Bowen theory" / "Bowen theorist")
-    if re.search(r"\bbowen'?s\b", c) and not re.search(r"\bbowen\s+theor", c):
-        return True
-    # "Murray Bowen" or "Dr. Bowen" in the concept name
-    if re.search(r"\b(?:murray\s+bowen|dr\.?\s*bowen)\b", c):
-        return True
-    return False
+    """(alias) See ``bowen_attribution.concept_has_bowen_attribution`` — single
+    source of truth, shared with the Bowen parser's fallback so the two cannot
+    drift."""
+    return concept_has_bowen_attribution(concept)
 
 
 def _rule_filter_bowen_references(

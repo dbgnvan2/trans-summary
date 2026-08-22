@@ -183,14 +183,15 @@ _NAME_SHAPE = re.compile(r"^[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+(?: [A-ZÀ-ÖØ-Þ][a
 
 
 def _name_shaped_bold_labels(text: str) -> list:
-    """Bold labels that are the ATTRIBUTION shape ``**Name:** <claim>`` (a colon
-    INSIDE the bold) AND look like a proper NAME (2+ Title-Case words, no lowercase
-    connective). A concept/term label uses a period or stands alone
-    ("**Family Projection Process.**", "**Differentiation of Self**") and is NOT
-    re-emitted — so the topic-label false-BLOCK fix is preserved while a fabricated
-    name ("**Luciano Malorni:** ...") still reaches the judge (its backstop role)."""
+    """Bold labels that are the ATTRIBUTION shape ``**Name:** <claim>`` or
+    ``**Name**: <claim>`` (a colon inside OR outside the bold) AND look like a
+    proper NAME (2+ Title-Case words, no lowercase connective). A concept/term
+    label uses a period or stands alone ("**Family Projection Process.**",
+    "**Differentiation of Self**") and is NOT re-emitted — so the topic-label
+    false-BLOCK fix is preserved while a fabricated name ("**Luciano Malorni:** ...")
+    still reaches the judge (its backstop role)."""
     labels: list = []
-    for m in re.finditer(r"\*\*([^*\n]+?):\*\*", text):
+    for m in re.finditer(r"\*\*([^*\n]+?)(?::\*\*|\*\*[ \t]*:)", text):
         label = m.group(1).strip().rstrip(".")
         if _NAME_SHAPE.match(label):
             labels.append(label)

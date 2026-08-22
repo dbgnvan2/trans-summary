@@ -290,3 +290,21 @@ def test_extract_bowen_references_long_label_not_dropped():
     )
     refs = extract_bowen_references(content)
     assert refs and refs[0][0].startswith("On Differentiation of Self")
+
+
+def test_extract_bowen_references_concept_attributed_non_bold():
+    """A non-bold ref whose attribution lives in the CONCEPT label (not the quote)
+    must parse — quote-only attribution would drop it, contradicting the rule filter."""
+    from transcript_utils import extract_bowen_references
+    content = '## Bowen References\n\n> Bowen\'s Timeline Prediction: "this would take 20 years."\n'
+    refs = extract_bowen_references(content)
+    assert refs == [("Bowen's Timeline Prediction", "this would take 20 years.")]
+
+
+def test_extract_bowen_references_drops_bold_wrapped_no_refs_prose():
+    """A bold-wrapped prose 'no references' explanation must be dropped, not parsed
+    into a garbage candidate via the bold path."""
+    from transcript_utils import extract_bowen_references
+    content = '## Bowen References\n\n> **Note:** "There are no explicit references to Bowen in this transcript."\n'
+    refs = extract_bowen_references(content)
+    assert refs == []

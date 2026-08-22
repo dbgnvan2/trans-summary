@@ -129,6 +129,14 @@ def test_extract_claims_reemits_name_shaped_bold_label():
     assert any("Luciano Malorni" in c for c in claims), claims
 
 
+def test_extract_claims_reemits_name_shaped_bold_label_colon_outside():
+    """The colon-OUTSIDE attribution shape ("**Name**: claim") is equivalent to the
+    colon-inside form and must also re-emit the name (P3)."""
+    text = "**Luciano Malorni**: his dynamic relational view of cancer is central.\n"
+    claims = fj.extract_claims(text)
+    assert any("Luciano Malorni" in c for c in claims), claims
+
+
 def test_extract_claims_does_not_reemit_concept_bold_label():
     """A concept label with a lowercase connective ("and") is not a name and stays
     stripped (no topic-label false-BLOCK regression)."""

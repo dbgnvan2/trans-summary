@@ -1235,30 +1235,34 @@ def extract_bowen_references(content: str) -> list:
     )
     quotes = quote_pattern.findall(target_content)
     if not quotes:
-        # Non-bold fallback: only keep a candidate whose QUOTE carries a Bowen
-        # attribution (the prompt's own INCLUDE criteria). This rejects prose like
-        # 'Summary: "differentiation of self is discussed"' (no attribution) while
-        # still reading a real 'On Triangles: "Bowen said ..."' the model emitted
-        # without bold. Single source of truth: bowen_attribution.
-        from bowen_attribution import has_bowen_source_attribution
+        # Non-bold fallback: keep a candidate only when it carries a Bowen
+        # attribution in the QUOTE OR the CONCEPT label (the prompt's INCLUDE
+        # criteria). This rejects prose like 'Summary: "differentiation of self is
+        # discussed"' (no attribution) while still reading a real ref the model
+        # emitted without bold ('On Triangles: "Bowen said ..."', or "Bowen's
+        # Timeline Prediction: \"this would take 20 years.\""). Single source of
+        # truth: bowen_attribution.
+        from bowen_attribution import has_bowen_source_attribution, concept_has_bowen_attribution
         quotes = [
             (c, q) for c, q in re.findall(
                 r'^\s*(?:[-*>]+\s+)?([^*\n]+?):[ \t]*["\u201c](.+?)["\u201d]',
                 target_content, re.MULTILINE,
-            ) if has_bowen_source_attribution(q)
+            ) if has_bowen_source_attribution(q) or concept_has_bowen_attribution(c)
         ]
 
-    if not quotes:
-        # Nothing parsed. Distinguish a prose "no references found" response from
-        # an unrecognised format / empty section. The guard runs ONLY post-parse,
-        # so a REAL reference whose quote happens to contain "there are no ..." is
-        # already parsed above and never reaches this check.
-        if re.search(
+    # Drop a candidate that is itself a "no references found" meta-statement
+    # ('**Note:** "There are no explicit references to Bowen ..."'), while KEEPING
+    # a real quote whose body merely contains a content negation ("there are no
+    # isolated individuals"). The meta-signal names the REFERENCE being absent,
+    # not a content fact.
+    quotes = [
+        (c, q) for c, q in quotes
+        if not re.search(
             r"\b(?:no|zero|none)\s+(?:instances|references|explicit|direct|grounded|bowen|qualifying|items|quotes)\b"
-            r"|\bthere are no\b|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
-            target_content, re.IGNORECASE,
-        ):
-            return []
+            r"|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
+            q, re.IGNORECASE,
+        )
+    ]
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
