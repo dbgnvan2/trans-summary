@@ -1226,33 +1226,39 @@ def extract_bowen_references(content: str) -> list:
     if not target_content:
         return []
 
-    # A prose "no references found" response is not a reference. The model drifts
-    # to prose ("There are no instances of ...", "The input contains only a label
-    # and a fragment") when there are genuinely no person recollections; detect it
-    # BEFORE any parse so it returns [] cleanly rather than being turned into a
-    # garbage candidate.
-    if re.search(
-        r"\b(?:no|zero|none)\s+(?:instances|references|explicit|direct|grounded|bowen|qualifying|items|quotes)\b"
-        r"|\bthere are no\b|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
-        target_content, re.IGNORECASE,
-    ):
-        return []
-
     # A Bowen reference is a concept label + a quoted body. Parse the prompt's
     # BOLD format first ("**Concept:**"/"**Concept**:"); the model sometimes
-    # drifts to a bare "Label: \"quote\"", so fall back to a non-bold form that
-    # REQUIRES a "Label:" colon (a prose sentence with an incidental quote has no
-    # label structure and is already rejected by the none-found guard above).
+    # drifts to a bare "Label: \"quote\"", so fall back to a non-bold form.
     quote_pattern = re.compile(
         r'^\s*(?:[-*>]+\s+)?\*\*([^*\n]+?)(?:[.:\u2014-]\*\*|\*\*[ \t]*[:\u2014-])[ \t]*["\u201c](.+?)["\u201d]',
         re.MULTILINE,
     )
     quotes = quote_pattern.findall(target_content)
     if not quotes:
-        quotes = re.findall(
-            r'^\s*(?:[-*>]+\s+)?([^*\n]{1,60}?):[ \t]*["\u201c](.+?)["\u201d]',
-            target_content, re.MULTILINE,
-        )
+        # Non-bold fallback: only keep a candidate whose QUOTE carries a Bowen
+        # attribution (the prompt's own INCLUDE criteria). This rejects prose like
+        # 'Summary: "differentiation of self is discussed"' (no attribution) while
+        # still reading a real 'On Triangles: "Bowen said ..."' the model emitted
+        # without bold. Single source of truth: bowen_attribution.
+        from bowen_attribution import has_bowen_source_attribution
+        quotes = [
+            (c, q) for c, q in re.findall(
+                r'^\s*(?:[-*>]+\s+)?([^*\n]+?):[ \t]*["\u201c](.+?)["\u201d]',
+                target_content, re.MULTILINE,
+            ) if has_bowen_source_attribution(q)
+        ]
+
+    if not quotes:
+        # Nothing parsed. Distinguish a prose "no references found" response from
+        # an unrecognised format / empty section. The guard runs ONLY post-parse,
+        # so a REAL reference whose quote happens to contain "there are no ..." is
+        # already parsed above and never reaches this check.
+        if re.search(
+            r"\b(?:no|zero|none)\s+(?:instances|references|explicit|direct|grounded|bowen|qualifying|items|quotes)\b"
+            r"|\bthere are no\b|\bnone found\b|\bdoes not contain\b|\bno bowen\b|\bnot found\b",
+            target_content, re.IGNORECASE,
+        ):
+            return []
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 

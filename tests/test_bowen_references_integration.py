@@ -257,3 +257,36 @@ def test_extract_bowen_references_non_bold_fallback():
     assert refs == [
         ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
     ]
+
+
+def test_extract_bowen_references_keeps_quote_containing_no():
+    """A real quote whose body contains 'there are no ...' must NOT be dropped by
+    the 'no references' prose guard (the guard runs only post-parse)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Differentiation:** "Bowen said there are no isolated individuals in an emotional system."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Differentiation", "Bowen said there are no isolated individuals in an emotional system."),
+    ]
+
+
+def test_extract_bowen_references_rejects_prose_colon_quote_without_attribution():
+    """Prose with a 'Label: "quote"' shape but NO Bowen attribution must not parse
+    into a garbage candidate (structural test, not a keyword blocklist)."""
+    from transcript_utils import extract_bowen_references
+    prose = '## Bowen References\n\nSummary: "differentiation of self is discussed at length."\n'
+    assert extract_bowen_references(prose) == []
+
+
+def test_extract_bowen_references_long_label_not_dropped():
+    """A long non-bold concept label is not silently dropped (no 60-char cap)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> On Differentiation of Self in the Context of Family Emotional Process: "Bowen said triangles are molecules."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs and refs[0][0].startswith("On Differentiation of Self")

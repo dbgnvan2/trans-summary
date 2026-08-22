@@ -137,6 +137,15 @@ def test_extract_claims_does_not_reemit_concept_bold_label():
     assert not any(c == "Systems Biology and Cancer Niche Theory." for c in claims), claims
 
 
+def test_extract_claims_does_not_reemit_connective_less_concept_label():
+    """A connective-LESS Bowen concept label ("Family Projection Process") is not an
+    attribution shape (period, not colon) and must stay stripped — the name-shape
+    backstop only re-emits the '**Name:**' attribution shape."""
+    text = "**Family Projection Process.** Kerr describes how anxiety is projected.\n"
+    claims = fj.extract_claims(text)
+    assert not any(c == "Family Projection Process" for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]
