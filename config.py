@@ -694,6 +694,23 @@ THEME_ARTIFACT_SUFFIXES = [
 THEME_JUDGE_MIN_RECALL_UNGROUNDED = 0.90
 THEME_JUDGE_MIN_PRECISION_UNGROUNDED = 0.70
 
+# Key-terms domain-semantic judge (gap #4) — BUILT, NOT yet armed. The lexical
+# key-terms validator (validate_key_terms_fidelity) cannot catch a lexically-
+# plausible but semantically-WRONG definition (a term defined as the wrong concept,
+# or swapped with a sibling, while still using transcript vocabulary). This judge
+# asks, per term, whether the DEFINITION correctly captures the term's Bowen-theory
+# meaning — a question the groundedness judges (faithfulness/theme) cannot answer,
+# because both a correct and a swapped definition are grounded. DISABLED until it
+# clears a labeled head-to-head (correct vs swapped definitions); same build ->
+# calibrate -> arm path as the faithfulness/theme judges.
+KEY_TERMS_JUDGE_ENABLED = False
+KEY_TERMS_JUDGE_MODEL = "claude-sonnet-4-6"
+KEY_TERMS_JUDGE_MAX_TOKENS = 2048
+# The judge ships only if it clears these on the key-terms gold set (recall on the
+# INCORRECT class is load-bearing — a swapped definition must not pass).
+KEY_TERMS_JUDGE_MIN_RECALL_INCORRECT = 0.90
+KEY_TERMS_JUDGE_MIN_PRECISION_INCORRECT = 0.70
+
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a
 # genuine "speaker did not state a purpose" (which demotes the check to optional).
