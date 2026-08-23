@@ -1849,7 +1849,13 @@ def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optiona
     words = [w for w in words if w.strip()]
     if not words:
         return (None, None)
-    pattern = r"\b" + r"\s+".join(re.escape(w) for w in words) + r"\b"
+    # Between-word separators must mirror what normalize_text (non-aggressive)
+    # strips — whitespace, HTML tags, and [hh:mm:ss] timestamps — so the raw regex
+    # finds the SAME (first) occurrence the normalized `in` check matched. Without
+    # this, a timestamp-split occurrence is invisible to the raw search and a LATER
+    # verbatim copy is silently returned instead (P11: locate-back ≠ what matched).
+    sep = r"(?:<[^>]+>|[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?|\s)+"
+    pattern = r"\b" + sep.join(re.escape(w) for w in words) + r"\b"
     m = re.search(pattern, haystack, re.IGNORECASE)
     if m is None:
         return (None, None)
@@ -1939,15 +1945,11 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
                 break
 
     if best_pos is not None:
-        # Re-locate the matched words in the RAW haystack first (correct offsets for
-        # a whitespace/case-only difference); fall back to the normalized-word
-        # approximation when the words can't be re-located (a true typo — the span
-        # guard then rejects the misaligned slice, the safe path).
-        raw_span = _locate_raw_span(needle.split(), haystack)
-        if raw_span[0] is not None:
-            return (raw_span[0], raw_span[1], best_ratio)
-        # Approximate position in original text
-        # This is rough but works for highlighting
+        # Approximate position in original text. A true fuzzy (typo) match cannot
+        # be re-located by _locate_raw_span — its words don't appear verbatim, and
+        # if they did the exact branch would already have fired — so the normalized-
+        # word approximation is the only option here, and the span guard remains the
+        # safety net against a misaligned slice.
         words_before = ' '.join(haystack_words[:best_pos])
         approx_start = len(words_before)
         approx_end = approx_start + \

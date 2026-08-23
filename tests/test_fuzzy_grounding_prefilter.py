@@ -64,3 +64,18 @@ def test_find_text_in_content_returns_raw_offsets_case_insensitive():
     start, end, ratio = find_text_in_content("Beta Gamma", "prefix beta gamma suffix")
     assert (start, end, ratio) == (7, 17, 1.0)
     assert "prefix beta gamma suffix"[start:end] == "beta gamma"
+
+
+def test_find_text_in_content_locates_timestamp_split_occurrence():
+    """A timestamp between words is stripped by normalize_text, so the raw search must
+    tolerate it to find the SAME (first) occurrence the normalized match did — not
+    silently re-locate to a later verbatim copy (P11: locate-back != what matched)."""
+    hay = "beta [00:01:02] gamma ... later beta gamma"
+    start, end, ratio = find_text_in_content("beta gamma", hay)
+    assert (start, end, ratio) == (0, 21, 1.0)
+    assert hay[start:end] == "beta [00:01:02] gamma"
+
+
+def test_find_text_in_content_no_partial_word_match():
+    """The raw re-location must not match a needle inside a longer word."""
+    assert find_text_in_content("beta gamma", "betablocker gamma") == (None, None, 0)
