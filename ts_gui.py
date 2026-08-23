@@ -81,6 +81,16 @@ STAGE_DEFINITIONS = [
     ("bundle", "Bundle (DOC/PDF)"),
 ]
 
+
+def _duplicate_bowen_emphasis(selected_keys, include_bowen: bool, include_emphasis: bool) -> bool:
+    """True when the 'core' stage (with Bowen/Emphasis included) AND the standalone
+    'bowen_emphasis' stage are BOTH selected — the same Bowen/Emphasis extraction
+    then runs twice (duplicate API cost, and the later stage overwrites the earlier
+    output). Purely a heads-up signal; it never changes what runs."""
+    if "core" not in selected_keys or "bowen_emphasis" not in selected_keys:
+        return False
+    return bool(include_bowen or include_emphasis)
+
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
 # {stage_key: [group, ...]} where each group is a list of
 # (producing_stage_key, artifact_suffix_attr) pairs. A group is satisfied if
@@ -2176,6 +2186,22 @@ class TranscriptProcessorGUI:
         # unchecked prerequisites are reused from disk.
         self.log("\n--- Run plan ---")
         self._log_selective_run_plan(selected_keys)
+
+        # Heads-up (TODO.md "Redundant Emphasis+Bowen double-run"): Core with
+        # Bowen/Emphasis included PLUS the standalone Bowen+Emphasis stage runs the
+        # same extraction twice. Surface it so the operator can deselect one before
+        # paying for a duplicate run (it never changes what actually runs).
+        if _duplicate_bowen_emphasis(
+            selected_keys,
+            self._get_bool_var("include_bowen_core", default=True),
+            self._get_bool_var("include_emphasis_core", default=True),
+        ):
+            self.log(
+                "⚠️ Heads-up: 'Core' is set to include Bowen/Emphasis AND the "
+                "standalone 'Bowen + Emphasis' stage is also selected — those "
+                "extractions will run twice (duplicate cost; the later stage "
+                "overwrites the earlier output). Deselect one to avoid the duplicate."
+            )
 
         # Bottom status bar tracks the current major step (SB.1); the final
         # message is set by _execute_task on completion/failure.
