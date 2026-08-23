@@ -1845,7 +1845,7 @@ def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optiona
     offsets that correctly bound the words in the original text. Returns ``(None, None)``
     when the words can't be re-located (a residual normalize_text strip this separator
     does NOT mirror — a bare-colon ":MM" minutes marker or an HTML entity), so callers
-    keep their safe fallback (a skip, never a corruption).
+    keep their safe fallback — a first-prefix span the downstream span-guard rejects.
     """
     words = [w for w in words if w.strip()]
     if not words:
@@ -1856,7 +1856,7 @@ def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optiona
     # timestamp-split occurrence is otherwise invisible and a LATER verbatim copy
     # silently returned — P11). Not mirrored: normalize_text's second bare-colon
     # ":MM" pass (`:\d{2}`) and HTML entities — those fall through to the safe
-    # prefix-find fallback (a skip, never a corruption). (A bare 2-digit NUMBER with
+    # prefix-find fallback — a first-prefix span the downstream span-guard rejects. (A bare 2-digit NUMBER with
     # no colon is NOT stripped by normalize_text either, so it never reaches here.)
     sep = r"(?:<[^>]+>|[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?|\s)+"
     pattern = r"\b" + sep.join(re.escape(w) for w in words) + r"\b"
