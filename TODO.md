@@ -114,7 +114,7 @@ still won't match), but the gold set should be re-verified before relying on it.
 
 ---
 
-## 2026-07-17 — Init Val fuzzy matcher (follow-up)
+## 2026-07-17 — Init Val fuzzy matcher (follow-up) ✅ FIXED 2026-08-22
 
 The span-match guard (`transcript_utils.span_matches_original`) now makes Init Val
 auto-apply *safe* against mis-located spans, but it does so by **skipping** them —
@@ -124,11 +124,15 @@ offsets (double spaces, timestamps, punctuation inside the phrase). Root cause:
 normalized-word indices / first-prefix occurrence, so its offsets don't map back
 to the raw text when normalization changed lengths.
 
-- **Follow-up:** fix `find_text_in_content` to return correct *raw-text* offsets
-  (e.g. re-locate the matched window in the original string), so legitimate fuzzy
-  corrections apply again while the span guard still blocks mis-locations.
-  Verified empirically 2026-07-17: `find_text_in_content("beta gamma", "beta   gamma")`
-  returns a misaligned slice, which the guard correctly skips.
+- **Follow-up:** ✅ **FIXED 2026-08-22.** `find_text_in_content` now re-locates the
+  matched window in the RAW haystack via `_locate_raw_span` (a case-insensitive,
+  whitespace-flexible `\b…\b` regex) in both the exact and fuzzy branches, so a
+  whitespace/case-only difference returns correct raw offsets and a legitimate
+  fuzzy correction applies again — while the span guard still blocks a true
+  mis-location (a typo/timestamp-split word, where `_locate_raw_span` returns None
+  and the prior heuristic + guard keep the safe skip). Tests: `find_text_in_content`
+  raw-offset cases in `test_fuzzy_grounding_prefilter.py`; the v1/v2 span-guard
+  tests now assert the correction APPLIES for a double-space difference.
 - **Adjacent (not fixed):** the multi-match branch still applies a ≥7-word
   correction to *all* occurrences of its `original_text` — intended, but noted.
 
@@ -573,11 +577,14 @@ late-only stages (package/webpdf/bowen_emphasis) that don't read the raw source.
 Matches prior `do_all` behaviour (spec SS.10) — not a regression. Revisit if it
 causes spurious "run Init Val first" blocks. Ref: `ts_gui.py` `do_run_selected`.
 
-### Redundant Emphasis+Bowen double-run
+### Redundant Emphasis+Bowen double-run ✅ FIXED 2026-08-22
 Selecting **Core** (with Include Emphasis/Bowen) *and* the standalone
 **Bowen + Emphasis** stage runs both twice (wasted cost + overwrite). A workflow
 choice, not a bug — a heads-up warning when both are selected would help.
 Ref: `ts_gui.py` `_run_selected_stages`.
+✅ `_run_selected_stages` now logs a heads-up warning (via the unit-tested
+`_duplicate_bowen_emphasis` predicate) when both are selected and at least one of
+Bowen/Emphasis is included in Core.
 
 ---
 

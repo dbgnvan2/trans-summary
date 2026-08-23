@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-08-22 (close three non-blocking follow-ups)
+
+Three items previously deferred as non-blocking (from the full-run review) are now fixed:
+
+- **Emphasis decimal rank mis-parse** — `parse_scored_emphasis_output._parse_score` digit-averaged every number group, so a decimal rank `"92.9"` became `(92+9)/2 = 50` (mis-displayed AND mis-validated against the category range). It now parses the first number as a float and rounds to int (`92.9 → 93`).
+- **`UNRECOGNIZED` emphasis type leaked through** — the parser's lenient bracket pattern captured any type token the model emitted, and it was written verbatim into the artifact header. `validate_emphasis_item` now rejects a type outside `Explicit/Implicit/Clinical` (fail-closed, logged), instead of writing it through.
+- **`find_text_in_content` returned misaligned raw offsets** — offsets were computed from normalized-word indices / a needle-prefix `find`, so a whitespace difference (double space) produced a span that did not bound the needle in the raw text; the Init Val span guard then (correctly but wastefully) skipped a legitimate fuzzy correction (recall loss, not corruption). It now re-locates the matched window in the RAW haystack via `_locate_raw_span` (case-insensitive, whitespace-flexible `\b…\b` regex), so whitespace/case-only differences apply correctly while the guard still blocks a true mis-location.
+- **Core + standalone Bowen/Emphasis double-run** — selecting `Core` (with Include Bowen/Emphasis) AND the standalone `Bowen + Emphasis` stage ran the same extraction twice. `_run_selected_stages` now logs a heads-up warning (via the unit-tested `_duplicate_bowen_emphasis` predicate); it never changes what runs.
+
+Offline suite: 856 passed / 18 skipped / 3 xfailed.
+
 ## [Unreleased] - 2026-08-22 (full-run review: close six validation gaps)
 
 Fixes from reviewing a full Kerr "Systems Biology Meets Bowen Theory" run that halted at stage 8. The halt was the release gate correctly **BLOCKING** publication, but the block exposed six real bugs:
