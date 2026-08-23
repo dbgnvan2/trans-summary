@@ -1844,20 +1844,20 @@ def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optiona
     case-insensitive regex whose between-word separator mirrors those strips returns
     offsets that correctly bound the words in the original text. Returns ``(None, None)``
     when the words can't be re-located (a residual normalize_text strip this separator
-    deliberately does NOT mirror — a bare 2-digit number or an HTML entity), so callers
+    does NOT mirror — a bare-colon ":MM" minutes marker or an HTML entity), so callers
     keep their safe fallback (a skip, never a corruption).
     """
     words = [w for w in words if w.strip()]
     if not words:
         return (None, None)
     # Between-word separators mirror the MAIN things normalize_text (non-aggressive)
-    # strips — whitespace, HTML tags, and [hh:mm:ss] timestamps — so the raw regex
-    # finds the SAME (first) occurrence the normalized `in` check matched (a
+    # strips — whitespace, HTML tags, and [hh:mm:ss]/mm:ss timestamps — so the raw
+    # regex finds the SAME (first) occurrence the normalized `in` check matched (a
     # timestamp-split occurrence is otherwise invisible and a LATER verbatim copy
-    # silently returned — P11). Deliberately NOT mirrored: normalize_text's second
-    # bare ":?\\d{2}" pass and HTML entities — a bare 2-digit number is more likely
-    # real content than a timestamp, and treating it as a separator could delete it,
-    # so those fall through to the safe prefix-find fallback (skip, not corruption).
+    # silently returned — P11). Not mirrored: normalize_text's second bare-colon
+    # ":MM" pass (`:\d{2}`) and HTML entities — those fall through to the safe
+    # prefix-find fallback (a skip, never a corruption). (A bare 2-digit NUMBER with
+    # no colon is NOT stripped by normalize_text either, so it never reaches here.)
     sep = r"(?:<[^>]+>|[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?|\s)+"
     pattern = r"\b" + sep.join(re.escape(w) for w in words) + r"\b"
     m = re.search(pattern, haystack, re.IGNORECASE)
@@ -1902,9 +1902,9 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         raw_span = _locate_raw_span(needle.split(), haystack)
         if raw_span[0] is not None:
             return (raw_span[0], raw_span[1], 1.0)
-        # Rare fallback (a bare 2-digit number / HTML entity between the needle's
-        # words, which the separator above deliberately does not mirror): locate by
-        # the first prefix as before.
+        # Rare fallback (a bare-colon ":MM" minutes marker / HTML entity between the
+        # needle's words, which the separator above does not mirror): locate by the
+        # first prefix as before.
         search_start = needle[:min(
             config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
