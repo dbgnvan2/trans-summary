@@ -1833,6 +1833,29 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     return text.lower()
 
 
+def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optional[int]]:
+    """Locate ``words`` in the RAW ``haystack``, tolerating the case and whitespace
+    differences that ``normalize_text`` removes, and return raw char offsets
+    ``(start, end)``.
+
+    ``normalize_text`` (non-aggressive) lowercases, collapses whitespace, and strips
+    timestamps/tags — so the normalized-space match position does NOT map 1:1 back to
+    the raw string. Re-searching the raw haystack with a case-insensitive,
+    whitespace-flexible regex returns offsets that correctly bound the words in the
+    original text (so ``haystack[start:end]`` is the matched phrase). Returns
+    ``(None, None)`` when the words can't be re-located (e.g. a timestamp sits between
+    them), so callers keep their existing safe fallback.
+    """
+    words = [w for w in words if w.strip()]
+    if not words:
+        return (None, None)
+    pattern = r"\b" + r"\s+".join(re.escape(w) for w in words) + r"\b"
+    m = re.search(pattern, haystack, re.IGNORECASE)
+    if m is None:
+        return (None, None)
+    return (m.start(), m.end())
+
+
 def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False,
                          haystack_normalized: Optional[str] = None) -> tuple[Optional[int], Optional[int], float]:
     """
@@ -1861,8 +1884,16 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
 
     # Try exact match first
     if needle_normalized in haystack_normalized:
-        # Find position in original (non-normalized) text
-        # Use first 20 chars to locate in original
+        # Re-locate the needle in the RAW (non-normalized) haystack with a case-
+        # and whitespace-tolerant search, so the returned offsets bound the needle
+        # in the original text — the old `find(needle_prefix)` + `pos + len(needle)`
+        # returned a misaligned span when normalization changed the raw length
+        # (double spaces), which made the span guard skip a legitimate correction.
+        raw_span = _locate_raw_span(needle.split(), haystack)
+        if raw_span[0] is not None:
+            return (raw_span[0], raw_span[1], 1.0)
+        # Rare fallback (a timestamp/tag stripped between the needle's words):
+        # locate by the first prefix as before.
         search_start = needle[:min(
             config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
@@ -1908,6 +1939,13 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
                 break
 
     if best_pos is not None:
+        # Re-locate the matched words in the RAW haystack first (correct offsets for
+        # a whitespace/case-only difference); fall back to the normalized-word
+        # approximation when the words can't be re-located (a true typo — the span
+        # guard then rejects the misaligned slice, the safe path).
+        raw_span = _locate_raw_span(needle.split(), haystack)
+        if raw_span[0] is not None:
+            return (raw_span[0], raw_span[1], best_ratio)
         # Approximate position in original text
         # This is rough but works for highlighting
         words_before = ' '.join(haystack_words[:best_pos])

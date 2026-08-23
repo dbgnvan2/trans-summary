@@ -49,3 +49,18 @@ def test_grounded_exact_needle_still_matches():
     start, end, ratio = find_text_in_content(needle, _LONG_HAYSTACK, aggressive_normalization=True)
     assert start is not None
     assert ratio >= config.FUZZY_MATCH_THRESHOLD
+
+
+def test_find_text_in_content_returns_raw_offsets_for_whitespace_diff():
+    """Offsets must bound the needle in the RAW haystack, not the normalized one. A
+    double space used to shift the offset and produce a misaligned slice, which the
+    span guard then (correctly but wastefully) skipped — a recall loss, not corruption."""
+    start, end, ratio = find_text_in_content("beta gamma", "X beta   gamma Y")
+    assert (start, end, ratio) == (2, 14, 1.0)
+    assert "X beta   gamma Y"[start:end] == "beta   gamma"
+
+
+def test_find_text_in_content_returns_raw_offsets_case_insensitive():
+    start, end, ratio = find_text_in_content("Beta Gamma", "prefix beta gamma suffix")
+    assert (start, end, ratio) == (7, 17, 1.0)
+    assert "prefix beta gamma suffix"[start:end] == "beta gamma"
