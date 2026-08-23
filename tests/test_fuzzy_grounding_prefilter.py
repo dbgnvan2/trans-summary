@@ -76,6 +76,12 @@ def test_find_text_in_content_locates_timestamp_split_occurrence():
     assert hay[start:end] == "beta [00:01:02] gamma"
 
 
-def test_find_text_in_content_no_partial_word_match():
-    """The raw re-location must not match a needle inside a longer word."""
-    assert find_text_in_content("beta gamma", "betablocker gamma") == (None, None, 0)
+def test_locate_raw_span_rejects_partial_word():
+    """The \\b boundary must prevent a mid-word match: 'blocker' must not match the
+    'blocker' inside 'betablocker'. This is an EXACT-branch case (the needle's
+    normalized form IS a substring), so it actually reaches _locate_raw_span (unlike a
+    fuzzy-threshold case that short-circuits first)."""
+    from transcript_utils import _locate_raw_span
+    assert _locate_raw_span(["blocker", "gamma"], "betablocker gamma") == (None, None)
+    # the standalone word DOES match
+    assert _locate_raw_span(["blocker", "gamma"], "blocker gamma") == (0, 13)

@@ -1839,21 +1839,25 @@ def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optiona
     ``(start, end)``.
 
     ``normalize_text`` (non-aggressive) lowercases, collapses whitespace, and strips
-    timestamps/tags — so the normalized-space match position does NOT map 1:1 back to
-    the raw string. Re-searching the raw haystack with a case-insensitive,
-    whitespace-flexible regex returns offsets that correctly bound the words in the
-    original text (so ``haystack[start:end]`` is the matched phrase). Returns
-    ``(None, None)`` when the words can't be re-located (e.g. a timestamp sits between
-    them), so callers keep their existing safe fallback.
+    HTML tags and [hh:mm:ss] timestamps — so the normalized-space match position does
+    NOT map 1:1 back to the raw string. Re-searching the raw haystack with a
+    case-insensitive regex whose between-word separator mirrors those strips returns
+    offsets that correctly bound the words in the original text. Returns ``(None, None)``
+    when the words can't be re-located (a residual normalize_text strip this separator
+    deliberately does NOT mirror — a bare 2-digit number or an HTML entity), so callers
+    keep their safe fallback (a skip, never a corruption).
     """
     words = [w for w in words if w.strip()]
     if not words:
         return (None, None)
-    # Between-word separators must mirror what normalize_text (non-aggressive)
+    # Between-word separators mirror the MAIN things normalize_text (non-aggressive)
     # strips — whitespace, HTML tags, and [hh:mm:ss] timestamps — so the raw regex
-    # finds the SAME (first) occurrence the normalized `in` check matched. Without
-    # this, a timestamp-split occurrence is invisible to the raw search and a LATER
-    # verbatim copy is silently returned instead (P11: locate-back ≠ what matched).
+    # finds the SAME (first) occurrence the normalized `in` check matched (a
+    # timestamp-split occurrence is otherwise invisible and a LATER verbatim copy
+    # silently returned — P11). Deliberately NOT mirrored: normalize_text's second
+    # bare ":?\\d{2}" pass and HTML entities — a bare 2-digit number is more likely
+    # real content than a timestamp, and treating it as a separator could delete it,
+    # so those fall through to the safe prefix-find fallback (skip, not corruption).
     sep = r"(?:<[^>]+>|[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?|\s)+"
     pattern = r"\b" + sep.join(re.escape(w) for w in words) + r"\b"
     m = re.search(pattern, haystack, re.IGNORECASE)
@@ -1898,8 +1902,9 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
         raw_span = _locate_raw_span(needle.split(), haystack)
         if raw_span[0] is not None:
             return (raw_span[0], raw_span[1], 1.0)
-        # Rare fallback (a timestamp/tag stripped between the needle's words):
-        # locate by the first prefix as before.
+        # Rare fallback (a bare 2-digit number / HTML entity between the needle's
+        # words, which the separator above deliberately does not mirror): locate by
+        # the first prefix as before.
         search_start = needle[:min(
             config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
