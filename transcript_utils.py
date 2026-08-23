@@ -1584,8 +1584,14 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     (Location)
     """
     def _parse_score(score_str: str) -> int:
-        nums = [int(n) for n in re.findall(r'\d+', score_str or '')]
-        return int(sum(nums) / len(nums)) if nums else 0
+        # The score field is a single percentage, possibly decimal ("92.9"). The
+        # old digit-averaging (sum(int(n) for n in findall(r'\d+'))/count) split
+        # "92.9" into ["92", "9"] and averaged them to 50 — silently mis-scoring a
+        # decimal rank. Parse the FIRST number as a float and round to int instead
+        # (P2: a wrong score both mis-displays and mis-validates against the
+        # category range).
+        m = re.search(r'\d+(?:\.\d+)?', score_str or '')
+        return int(round(float(m.group()))) if m else 0
 
     def _clean_field(value: str) -> str:
         return re.sub(r'\s+', ' ', (value or '').replace('*', '').strip())
@@ -1714,6 +1720,15 @@ def validate_emphasis_item(item: dict) -> tuple[bool, list[str]]:
         if not (min_rank <= score <= max_rank):
             issues.append(
                 f"Score {score}% outside expected range [{min_rank}-{max_rank}] for category {category}")
+
+    # 4. Reject an unrecognized emphasis TYPE. The parse's lenient bracket pattern
+    # captures any type token the model emits (e.g. "UNRECOGNIZED"), which then
+    # leaked verbatim into the saved artifact header. The prompt only defines
+    # Explicit/Implicit/Clinical; anything else is format drift and must be
+    # filtered here (fail-closed) rather than written through.
+    item_type = str(item.get('type', '')).strip().lower()
+    if item_type not in {'explicit', 'implicit', 'clinical'}:
+        issues.append(f"Unrecognized emphasis type: '{item.get('type')}'")
 
     return len(issues) == 0, issues
 

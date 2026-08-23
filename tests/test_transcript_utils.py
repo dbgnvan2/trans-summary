@@ -9,6 +9,7 @@ from transcript_utils import (
     parse_filename_metadata,
     parse_scored_emphasis_output,
     strip_yaml_frontmatter,
+    validate_emphasis_item,
 )
 
 
@@ -160,6 +161,47 @@ Some other content.
         items = parse_scored_emphasis_output(emphasis_text)
         self.assertEqual(len(items), 1)
         self.assertIsNone(items[0]['timestamp'])
+
+    def test_parse_scored_emphasis_output_decimal_score(self):
+        """A decimal rank ("92.9%") must parse to the nearest integer, not be
+        digit-averaged into a wrong value (92.9 -> 50, which mis-displayed and
+        mis-validated against the category range)."""
+        emphasis_text = """
+[Explicit - A2 - Rank: 92.9%] Concept: Decimal rank concept
+"A quote that is long enough to be a valid emphasis item."
+"""
+        items = parse_scored_emphasis_output(emphasis_text)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['score'], 93)
+
+    def test_validate_emphasis_item_rejects_unrecognized_type(self):
+        """An emphasis type outside the prompt's Explicit/Implicit/Clinical set
+        (e.g. 'UNRECOGNIZED') must be rejected, not written through to the artifact."""
+        item = {
+            "type": "UNRECOGNIZED",
+            "category": "A2",
+            "score": 92,
+            "concept": "Some concept",
+            "quote": "This is a sufficiently long quote for emphasis validation.",
+            "timestamp": None,
+        }
+        is_valid, issues = validate_emphasis_item(item)
+        self.assertFalse(is_valid)
+        self.assertTrue(any("Unrecognized emphasis type" in i for i in issues))
+
+    def test_validate_emphasis_item_accepts_known_types(self):
+        """Explicit/Implicit/Clinical (case-insensitive) are the only valid types."""
+        for t in ("Explicit", "implicit", "CLINICAL"):
+            item = {
+                "type": t,
+                "category": "A8",
+                "score": 92,
+                "concept": "Some concept",
+                "quote": "Emphasis detection requires a sufficiently long quote to pass validation cleanly.",
+                "timestamp": None,
+            }
+            is_valid, issues = validate_emphasis_item(item)
+            self.assertTrue(is_valid, f"type {t!r} should be valid: {issues}")
 
     @patch('pathlib.Path.read_text')
     @patch('pathlib.Path.exists')
