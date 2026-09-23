@@ -112,8 +112,10 @@ def _split_sentences(line: str) -> list:
 def extract_claims(text: str) -> list:
     """Split a narrative artifact into atomic, judgeable claims (sentence-level).
 
-    Strips markdown headings, list markers, bold/italic wrappers, and the leading
-    ``# Abstract`` / ``**Description:**`` scaffolding — a heading is not a claim.
+    Strips list markers, bold/italic wrappers, and ``**Description:**``-style
+    scaffolding. Headings are judged as claims when they are long enough to
+    assert something or contain a number, unless they are generic scaffolding
+    (``config.FAITHFULNESS_GENERIC_HEADINGS``).
     Returns claims long enough to carry a verifiable assertion (>= config bound),
     in document order. Deterministic: no LLM call here (cost + reproducibility)."""
     if not text:
@@ -124,7 +126,19 @@ def extract_claims(text: str) -> list:
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
     for raw_line in _strip_frontmatter(text).splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("#") or line == "---":
+        if not line or line == "---":
+            continue
+        if line.startswith("#"):
+            # A heading can carry a claim ("Bowen's 1954 Study at Harvard"), which
+            # was previously never judged. Judge headings that are long enough to
+            # assert something or that state a number; skip generic scaffolding
+            # headings ("Abstract", "Key Takeaways").
+            heading = line.lstrip("#").replace("**", "").replace("__", "").strip()
+            generic = {h.lower() for h in config.FAITHFULNESS_GENERIC_HEADINGS}
+            if (heading and heading.lower().rstrip(":") not in generic
+                    and (len(heading) >= config.FAITHFULNESS_MIN_CLAIM_CHARS
+                         or re.search(r"\d", heading))):
+                claims.append(heading)
             continue
         # drop list markers, blockquote markers, and a leading bold field label
         line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)

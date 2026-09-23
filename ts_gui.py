@@ -1837,11 +1837,15 @@ class TranscriptProcessorGUI:
         self.log("  - Validating full webpage...")
         f = io.StringIO()
         with redirect_stdout(f):
-            transcript_validate_webpage.validate_webpage(self.base_name)
+            webpage_ok = transcript_validate_webpage.validate_webpage(self.base_name)
 
         validation_output = f.getvalue()
         self.log(validation_output)
         print(validation_output)
+        if not webpage_ok:
+            # Previously the validator's result was discarded.
+            self.log("  - Webpage validation FAILED.")
+            success = False
         return success
 
     def do_package(self):

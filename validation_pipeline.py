@@ -2,8 +2,10 @@
 Pipeline module for validation tasks (headers, abstracts, emphasis).
 """
 
+import functools
 import os
 import re
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Optional
 
@@ -535,16 +537,62 @@ def validate_topics_lightweight(
     return failed == 0
 
 
+# Typographic characters the model may emit where the transcript has ASCII (or
+# vice versa); mapped before comparison so they don't count as altered words.
+_QUOTE_CHAR_MAP = str.maketrans({
+    "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
+    "\u2013": " ", "\u2014": " ", "\u2026": " ", "\u00a0": " ",
+})
+
+
+@functools.lru_cache(maxsize=4)
+def _normalized_word_tuple(text: str) -> tuple:
+    """Aggressively normalized words of ``text`` (cached: the same transcript is
+    searched once per quote)."""
+    text = text.translate(_QUOTE_CHAR_MAP)
+    text = normalize_text(text, aggressive=True)
+    return tuple(re.sub(r"[^\w\s]", " ", text).split())
+
+
+@functools.lru_cache(maxsize=4)
+def _transcript_matcher(transcript_words: tuple) -> SequenceMatcher:
+    """SequenceMatcher with the transcript as seq2 (its index is built once and
+    reused; only seq1 changes per quote)."""
+    return SequenceMatcher(None, (), transcript_words, autojunk=False)
+
+
+def _quote_word_coverage(quote: str, transcript: str) -> float:
+    """Fraction of the quote's words found, in order, at its location in the
+    transcript.
+
+    Locates the quote by its longest verbatim run of words, then aligns the whole
+    quote against a window around that spot. Words the quote omits from the source
+    (e.g. an ellipsis) do not lower the score; words the quote adds or changes do.
+    """
+    q = list(_normalized_word_tuple(quote))
+    if not q:
+        return 0.0
+    t = _normalized_word_tuple(transcript)
+    locator = _transcript_matcher(t)
+    locator.set_seq1(q)
+    anchor = locator.find_longest_match(0, len(q), 0, len(t))
+    if anchor.size == 0:
+        return 0.0
+    slack = len(q) // 2 + 5
+    lo = max(0, anchor.b - anchor.a - slack)
+    hi = min(len(t), anchor.b + (len(q) - anchor.a) + slack)
+    blocks = SequenceMatcher(None, q, t[lo:hi], autojunk=False).get_matching_blocks()
+    return sum(b.size for b in blocks) / len(q)
+
+
 def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     """
     Grounding ratio for one emphasis quote against the transcript.
 
-    Matches BOTH the head and the tail of the quote (not just the opening words)
-    and returns the WEAKER of the two match ratios. A quote whose first words are
-    verbatim but whose remainder is fabricated therefore scores low (the tail
-    fails) instead of passing on its opening alone. Short quotes (<= 2x the
-    head/tail window) are matched whole. Reflow across timestamp markers in the
-    middle of a long quote is tolerated because only the ends are probed.
+    Returns the WEAKEST of: the head match, the tail match (both fuzzy, for long
+    quotes; the whole quote for short ones), and the whole-quote word coverage
+    (``_quote_word_coverage``). Probing only the head and tail let a quote with a
+    fabricated or negated middle score 1.0; the coverage term catches that.
     """
     words = quote.split()
     n = config.EMPHASIS_HEADTAIL_WORDS
@@ -552,10 +600,11 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
         probes = [quote]
     else:
         probes = [" ".join(words[:n]), " ".join(words[-n:])]
-    return min(
+    ends = min(
         find_text_in_content(p, formatted_content, aggressive_normalization=True)[2]
         for p in probes
     )
+    return min(ends, _quote_word_coverage(quote, formatted_content))
 
 
 def validate_emphasis_items(

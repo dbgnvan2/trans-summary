@@ -664,6 +664,10 @@ def call_claude_with_retry(
                 # Validation failed
                 if logger:
                     logger.error("Response validation failed: %s", e)
+                # Hitting max_tokens is deterministic for the same request: a retry
+                # would be truncated again and billed again. Fail immediately.
+                if getattr(message, "stop_reason", None) == "max_tokens":
+                    raise
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
                     if logger:

@@ -3,6 +3,9 @@ Pipeline module for transcript formatting and basic validation.
 Extracts raw text, formats it via LLM, and performs word-level validation.
 """
 
+import datetime
+import hashlib
+import json
 import os
 import re
 from difflib import SequenceMatcher
@@ -26,9 +29,15 @@ from transcript_utils import (
 
 
 def strip_sic_annotations(text: str) -> tuple[str, int]:
-    """Removes [sic] annotations and returns the cleaned text and count."""
-    pattern = r"\s*\[sic\](?:\s*\([^)]*\))?\s*"
-    cleaned_text, count = re.subn(pattern, " ", text)
+    """Removes [sic] annotations and returns the cleaned text and count.
+
+    Only horizontal whitespace (spaces/tabs) around the annotation is consumed.
+    Line breaks are never removed: consuming them merged a paragraph ending in
+    "[sic]" with the following "## Section" heading, which hid that heading
+    from every line-anchored parser.
+    """
+    pattern = r"[ \t]*\[sic\](?:[ \t]*\([^)\n]*\))?"
+    cleaned_text, count = re.subn(pattern, "", text)
     return cleaned_text, count
 
 
@@ -97,6 +106,14 @@ def load_raw_transcript(filename: str) -> str:
     return strip_transcript_validation_footer(raw_text)
 
 
+def formatting_max_tokens(model: str) -> int:
+    """Output token budget for the formatting call: the model's documented max
+    output where known (config.MODEL_OUTPUT_TOKEN_LIMITS), else
+    config.MAX_TOKENS_FORMATTING. The formatter reproduces the whole transcript,
+    so its output is as long as its input."""
+    return config.MODEL_OUTPUT_TOKEN_LIMITS.get(model.lower(), config.MAX_TOKENS_FORMATTING)
+
+
 def format_transcript_with_claude(
     raw_transcript: str,
     prompt_template: str,
@@ -150,7 +167,7 @@ def format_transcript_with_claude(
         client=client,
         model=model,
         messages=messages,
-        max_tokens=config.MAX_TOKENS_FORMATTING,
+        max_tokens=formatting_max_tokens(model),
         stream=True,
         logger=logger,
         timeout=config.TIMEOUT_FORMATTING,
@@ -158,6 +175,21 @@ def format_transcript_with_claude(
     )
 
     return message.content[0].text
+
+
+def strip_leading_title(text: str) -> tuple[str, List[str]]:
+    """Remove heading-only lines before the first ``## Section`` heading (the
+    model tends to echo the prompt's own title, e.g. ``# Transcript Formatting
+    - Thematic Sections - v12-Lite``). Non-heading content before Section 1 is
+    left in place so validation reports it."""
+    match = re.search(r"^## Section ", text, flags=re.MULTILINE)
+    if not match:
+        return text, []
+    before = text[:match.start()]
+    lines = [ln.strip() for ln in before.splitlines() if ln.strip()]
+    if not lines or not all(ln.startswith("#") for ln in lines):
+        return text, []
+    return text[match.start():], lines
 
 
 def save_formatted_transcript(content: str, original_filename: str) -> Path:
@@ -204,8 +236,21 @@ def format_transcript(
         full_prompt_for_budget_check = (
             f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
         )
+        max_output = formatting_max_tokens(model)
+        expected_output = int(
+            transcript_utils.estimate_token_count(raw_transcript)
+            * config.FORMATTING_OUTPUT_EXPANSION
+        )
+        if expected_output > max_output:
+            logger.error(
+                "Transcript too long for single-pass formatting with %s: about %d "
+                "output tokens needed, model limit %d. Use a model with a larger "
+                "output limit (config FORMATTING_MODEL) or split the transcript.",
+                model, expected_output, max_output,
+            )
+            return False
         max_context_input_budget = max(
-            config.MAX_CONTEXT_TOKENS - config.MAX_TOKENS_FORMATTING,
+            config.MAX_CONTEXT_TOKENS - max_output,
             config.MAX_TOKENS_FORMATTING,
         )
 
@@ -223,6 +268,9 @@ def format_transcript(
         formatted_content, sic_count = strip_sic_annotations(formatted_content)
         if sic_count > 0 and logger:
             logger.info("Removed %d [sic] annotation(s).", sic_count)
+        formatted_content, removed = strip_leading_title(formatted_content)
+        if removed:
+            logger.info("Removed %d title line(s) before Section 1: %s", len(removed), removed[0])
 
         output_path = save_formatted_transcript(
             formatted_content, raw_filename)
@@ -239,22 +287,38 @@ def format_transcript(
         return False
 
 
-def _generate_yaml_front_matter(meta: dict, source_filename: str) -> str:
+def _generate_yaml_front_matter(
+    meta: dict, source_filename: str, validation: Optional[dict] = None
+) -> str:
     """
     Generate YAML front matter block.
+
+    ``validation`` is the passing format-validation record for this exact text, or
+    None. The Authenticity field states only what was actually checked: an
+    automated word comparison against the source transcript (not the recording).
     """
-    authenticity = (
-        "Verified line-by-line against the original recording. No wording has been\n"
-        "  omitted, merged, reordered, paraphrased, or corrected. All text remains\n"
-        "  exactly as spoken except for added section headings and removal of timestamps."
-    )
+    if validation:
+        cmp = validation.get("comparison", {})
+        n_corr = len(cmp.get("corrections", []))
+        corrected = (f" {n_corr} apparent transcription error(s) corrected;" if n_corr else "")
+        authenticity = (
+            "Automated word-level comparison against the source transcript passed\n"
+            f"  ({cmp.get('mismatch_count', '?')} differing words of "
+            f"{cmp.get('checked_words', '?')}).{corrected} Section headings added;\n"
+            "  timestamps, stutters and transcription artifacts removed."
+        )
+    else:
+        authenticity = (
+            "NOT VERIFIED: no passing comparison against the source transcript is\n"
+            "  recorded for this text."
+        )
 
     return f'''---
 Title: "{meta["title"]}"
 Presenter: "{meta["presenter"]}"
 Lecture date: "{meta["date"]}"
 Source recording: "{source_filename}"
-Transcriber: "Automated; human-reviewed"
+Transcriber: "{config.YAML_TRANSCRIBER}"
 Authenticity: "{authenticity}"
 Version: "v1.0"
 License: "© {meta["year"]} {meta["presenter"]}. All rights reserved."
@@ -349,7 +413,15 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         meta = _resolve_yaml_metadata(transcript_filename, formatted_content)
         source_filename = meta.get("source_filename") or f"{meta['stem']}.{source_ext.lstrip('.')}"
 
-        yaml_block = _generate_yaml_front_matter(meta, source_filename)
+        validation = None
+        if format_validation_passed_for(meta["stem"], formatted_content):
+            validation = load_format_validation_record(meta["stem"])
+        else:
+            logger.warning(
+                "No passing format validation recorded for this formatted text; "
+                "YAML Authenticity will state NOT VERIFIED."
+            )
+        yaml_block = _generate_yaml_front_matter(meta, source_filename, validation)
         final_content = yaml_block + formatted_content
 
         output_path = config.PROJECTS_DIR / stem / \
@@ -386,6 +458,43 @@ def _normalize_word_for_validation(w: str) -> str:
     return w.lower()
 
 
+def _is_fuzzy_match(a_n: str, b_n: str) -> bool:
+    """Accept likely transcription typos (e.g. 'livel' vs 'life')."""
+    return (
+        bool(a_n)
+        and bool(b_n)
+        and a_n[0] == b_n[0]
+        and SequenceMatcher(None, a_n, b_n).ratio() > 0.65
+    )
+
+
+def _word_opcodes(a: List[str], b: List[str]) -> List[tuple]:
+    """difflib opcodes for two word lists, with the common prefix and suffix
+    trimmed first (O(n)). The trim makes identical or near-identical inputs fast
+    and keeps SequenceMatcher's worst case (long runs of one repeated word) from
+    being reached on realistic transcripts."""
+    n_pre = 0
+    limit = min(len(a), len(b))
+    while n_pre < limit and a[n_pre] == b[n_pre]:
+        n_pre += 1
+    n_suf = 0
+    while (n_suf < limit - n_pre
+           and a[len(a) - 1 - n_suf] == b[len(b) - 1 - n_suf]):
+        n_suf += 1
+    ops: List[tuple] = []
+    if n_pre:
+        ops.append(("equal", 0, n_pre, 0, n_pre))
+    mid_a = a[n_pre:len(a) - n_suf]
+    mid_b = b[n_pre:len(b) - n_suf]
+    if mid_a or mid_b:
+        for tag, i1, i2, j1, j2 in SequenceMatcher(
+                None, mid_a, mid_b, autojunk=False).get_opcodes():
+            ops.append((tag, i1 + n_pre, i2 + n_pre, j1 + n_pre, j2 + n_pre))
+    if n_suf:
+        ops.append(("equal", len(a) - n_suf, len(a), len(b) - n_suf, len(b)))
+    return ops
+
+
 def _compare_transcripts(
     raw_text: str,
     formatted_text: str,
@@ -394,140 +503,116 @@ def _compare_transcripts(
     max_mismatch_ratio: float,
     max_mismatches: Optional[int],
 ) -> Dict[str, Any]:
-    """Compares raw to formatted transcript, word by word."""
+    """Compares raw to formatted transcript, word by word.
+
+    Uses a global alignment (difflib.SequenceMatcher over normalized words), so
+    deletions, insertions and substitutions of any length are located and each
+    word is counted once. The previous greedy aligner could only resynchronise
+    within ``max_lookahead`` words, silently ignored inserted words, and counted
+    a truncated output as a single mismatch.
+
+    Mismatch reasons: "Mismatch" (substitution), "Skipped in A (deletion in B)",
+    "Inserted in B", and "B exhausted" (raw words missing from the end of the
+    formatted text, i.e. truncation).
+
+    ``max_contiguous_run`` is the size of the largest single differing block.
+
+    ``max_lookahead`` is retained for call compatibility and is unused.
+    ``max_mismatch_ratio`` no longer stops the comparison early; exceeding it
+    sets ``stopped_reason`` to "mismatch_ratio". ``max_mismatches`` caps the
+    returned list and sets ``stopped_reason`` to "max_mismatches".
+    """
+    del max_lookahead  # unused; see docstring
+
     a_words: List[str] = raw_text.split()
+    b_words: List[str] = formatted_text.split()
 
-    # Filter B words to only those that have content after normalization
-    b_words_raw: List[str] = formatted_text.split()
-    b_words: List[str] = []
-    b_norm: List[str] = []
-    for w in b_words_raw:
-        norm = _normalize_word_for_validation(w)
-        if norm:
-            b_words.append(w)
-            b_norm.append(norm)
+    def _checkable(words: List[str]) -> tuple[List[int], List[str]]:
+        idx: List[int] = []
+        norm: List[str] = []
+        for pos, word in enumerate(words):
+            n = _normalize_word_for_validation(word)
+            if n and n not in skip_words:
+                idx.append(pos)
+                norm.append(n)
+        return idx, norm
 
-    a_norm: List[str] = [_normalize_word_for_validation(w) for w in a_words]
+    a_idx, a_norm = _checkable(a_words)
+    b_idx, b_norm = _checkable(b_words)
+    b_vocab = set(b_norm)
 
     mismatches: List[Dict[str, Any]] = []
-    checked = 0
-    i = 0
-    j = 0
-    stopped_reason: Optional[str] = None
+    corrections: List[Dict[str, Any]] = []
 
-    while i < len(a_words):
-        a_n = a_norm[i]
+    def _deleted(k: int, reason: str) -> None:
+        mismatches.append({
+            "a_index": a_idx[k], "a_word": a_words[a_idx[k]],
+            "b_index": None, "b_word": None, "reason": reason,
+        })
 
-        if not a_n or a_n in skip_words:
-            i += 1
+    def _inserted(k: int) -> None:
+        mismatches.append({
+            "a_index": None, "a_word": None,
+            "b_index": b_idx[k], "b_word": b_words[b_idx[k]],
+            "reason": "Inserted in B",
+        })
+
+    b_exhausted = False
+    max_run = 0
+    max_run_a_index: Optional[int] = None
+    for tag, i1, i2, j1, j2 in _word_opcodes(a_norm, b_norm):
+        if tag == "equal":
             continue
-
-        checked += 1
-
-        if j >= len(b_words):
-            mismatches.append(
-                {
-                    "a_index": i,
-                    "a_word": a_words[i],
-                    "b_index": None,
-                    "b_word": None,
-                    "reason": "B exhausted",
-                }
-            )
-            stopped_reason = "B_exhausted"
-            break
-
-        if a_n == b_norm[j]:
-            i += 1
-            j += 1
-        else:
-            # Check for Fuzzy Match (Typo correction)
-            # e.g. "livel" vs "life"
-            if len(a_n) > 0 and len(b_norm[j]) > 0 and a_n[0] == b_norm[j][0]:
-                matcher = SequenceMatcher(None, a_n, b_norm[j])
-                if matcher.ratio() > 0.65:
-                    i += 1
-                    j += 1
-                    continue
-
-            # Bidirectional Lookahead Strategy
-            b_match_offset = None
-            for offset in range(1, max_lookahead + 1):
-                if j + offset < len(b_words) and a_n == b_norm[j + offset]:
-                    b_match_offset = offset
-                    break
-
-            a_match_offset = None
-            for offset in range(1, max_lookahead + 1):
-                if i + offset < len(a_norm) and b_norm[j] == a_norm[i + offset]:
-                    a_match_offset = offset
-                    break
-
-            action = "mismatch"
-
-            if b_match_offset is not None and a_match_offset is None:
-                action = "skip_b"
-            elif a_match_offset is not None and b_match_offset is None:
-                action = "skip_a"
-            elif b_match_offset is not None and a_match_offset is not None:
-                path1_score = 0
-                if i + 1 < len(a_norm) and j + b_match_offset + 1 < len(b_words):
-                    if a_norm[i + 1] == b_norm[j + b_match_offset + 1]:
-                        path1_score = 1
-
-                path2_score = 0
-                if i + a_match_offset + 1 < len(a_norm) and j + 1 < len(b_words):
-                    if a_norm[i + a_match_offset + 1] == b_norm[j + 1]:
-                        path2_score = 1
-
-                if path1_score > path2_score:
-                    action = "skip_b"
-                elif path2_score > path1_score:
-                    action = "skip_a"
-                else:
-                    if b_match_offset <= a_match_offset:
-                        action = "skip_b"
-                    else:
-                        action = "skip_a"
-
-            if action == "skip_b":
-                j += b_match_offset
-            elif action == "skip_a":
-                for k in range(a_match_offset):
-                    mismatches.append(
-                        {
-                            "a_index": i + k,
-                            "a_word": a_words[i + k],
-                            "b_index": j,
-                            "b_word": b_words[j],
-                            "reason": "Skipped in A (deletion in B)",
-                        }
-                    )
-                i += a_match_offset
+        before = len(mismatches)
+        # Raw words left over at the very end mean the formatted text stopped
+        # early (truncation).
+        at_end = i2 == len(a_norm) and j2 == len(b_norm) and (i2 - i1) > (j2 - j1)
+        deletion_reason = "B exhausted" if at_end else "Skipped in A (deletion in B)"
+        b_exhausted = b_exhausted or at_end
+        paired = min(i2 - i1, j2 - j1) if tag == "replace" else 0
+        for k in range(paired):
+            a_n, b_n = a_norm[i1 + k], b_norm[j1 + k]
+            # A near-identical replacement is accepted as a transcription
+            # correction only if the raw word appears nowhere in the formatted
+            # text (the formatter treated it as a mishearing throughout, e.g.
+            # 'homostasis' -> 'homeostasis'). If the raw word is used elsewhere
+            # in the formatted text it is a real word, so replacing it is an
+            # edit (their/there, patient/parent) and counts as a mismatch.
+            if _is_fuzzy_match(a_n, b_n) and a_n not in b_vocab:
+                corrections.append({"a_index": a_idx[i1 + k], "a_word": a_words[a_idx[i1 + k]],
+                                    "b_index": b_idx[j1 + k], "b_word": b_words[b_idx[j1 + k]]})
             else:
-                mismatches.append(
-                    {
-                        "a_index": i,
-                        "a_word": a_words[i],
-                        "b_index": j,
-                        "b_word": b_words[j],
-                        "reason": "Mismatch",
-                    }
-                )
-                i += 1
+                mismatches.append({
+                    "a_index": a_idx[i1 + k], "a_word": a_words[a_idx[i1 + k]],
+                    "b_index": b_idx[j1 + k], "b_word": b_words[b_idx[j1 + k]],
+                    "reason": "Mismatch",
+                })
+        for k in range(i1 + paired, i2):
+            _deleted(k, deletion_reason)
+        for k in range(j1 + paired, j2):
+            _inserted(k)
+        run = len(mismatches) - before
+        if run > max_run:
+            max_run = run
+            max_run_a_index = a_idx[i1] if i1 < len(a_idx) else None
 
-        if checked > 0:
-            mismatch_count = len(mismatches)
-            mismatch_ratio = mismatch_count / checked
-            if max_mismatches is not None and mismatch_count >= max_mismatches:
-                stopped_reason = "max_mismatches"
-                break
-            if checked > len(a_words) * 0.2 and mismatch_ratio > max_mismatch_ratio:
-                stopped_reason = "mismatch_ratio"
-                break
+    mismatches.sort(key=lambda m: (
+        m["a_index"] if m["a_index"] is not None else float("inf"),
+        m["b_index"] if m["b_index"] is not None else float("inf"),
+    ))
 
+    checked = len(a_norm)
     mismatch_count = len(mismatches)
     mismatch_ratio = mismatch_count / checked if checked > 0 else 0.0
+
+    stopped_reason: Optional[str] = None
+    if b_exhausted:
+        stopped_reason = "B_exhausted"
+    elif max_mismatches is not None and mismatch_count >= max_mismatches:
+        stopped_reason = "max_mismatches"
+        mismatches = mismatches[:max_mismatches]
+    elif mismatch_ratio > max_mismatch_ratio:
+        stopped_reason = "mismatch_ratio"
 
     return {
         "a_word_count": len(a_words),
@@ -537,7 +622,340 @@ def _compare_transcripts(
         "mismatch_ratio": mismatch_ratio,
         "mismatches": mismatches,
         "stopped_reason": stopped_reason,
+        # Longest single block of differing words, and where it starts in the
+        # raw text. A ratio alone lets a whole dropped paragraph pass on a long
+        # transcript (e.g. 92 words = 0.9% of 10,000).
+        "max_contiguous_run": max_run,
+        "max_run_a_index": max_run_a_index,
+        # Accepted near-identical replacements of words that never appear in the
+        # formatted text (likely transcription errors the formatter corrected).
+        "corrections": corrections,
     }
+
+
+_TIMESTAMP_PATTERN = r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?"
+
+
+def _strip_times(text: str) -> str:
+    """Remove clock-like tokens (timestamps, times of day)."""
+    text = re.sub(_TIMESTAMP_PATTERN, " ", text, flags=re.IGNORECASE)
+    return re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", text)
+
+
+def _prepare_texts_for_comparison(raw_text: str, formatted_text: str) -> tuple[str, str]:
+    """Normalize raw and formatted transcripts before word comparison."""
+    raw_clean = strip_transcript_validation_footer(raw_text)
+    raw_clean = strip_transcript_metadata_header(raw_clean)
+    raw_clean = strip_raw_speaker_prefixes(raw_clean)
+    raw_clean = re.sub(r"^\s*Transcribed by\b.*", "", raw_clean, flags=re.MULTILINE)
+    raw_clean = _strip_times(raw_clean)
+    # Strip lines that are solely a bare number (plain TRX timestamp lines)
+    raw_clean = re.sub(r"(?m)^\s*\d+\s*$", " ", raw_clean)
+
+    formatted_clean, _ = strip_sic_annotations(formatted_text)
+    formatted_clean = re.sub(r"\*\*[^*]+:\*\*\s*", "", formatted_clean)
+    formatted_clean = re.sub(r"^\s*#+.*$", "", formatted_clean, flags=re.MULTILINE)
+    formatted_clean = _strip_times(formatted_clean)
+
+    return raw_clean, formatted_clean
+
+
+# Output contract from the formatting prompt:
+#   ## Section N – Heading Text ([hh:mm:ss]).
+_HEADING_RE = re.compile(
+    r"^## Section (\d+) – (.+?) \(\[(\d{2}):(\d{2}):(\d{2})\]\)\.[ \t]*$"
+)
+_RAW_TIME_RE = re.compile(r"(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])")
+
+
+def _raw_timestamp_seconds(raw_text: str) -> Set[int]:
+    """All clock-like values in the raw transcript, in seconds (h:mm:ss or m:ss)."""
+    found: Set[int] = set()
+    for first, second, third in _RAW_TIME_RE.findall(raw_text):
+        if third:
+            found.add(int(first) * 3600 + int(second) * 60 + int(third))
+        else:
+            found.add(int(first) * 60 + int(second))
+    return found
+
+
+def validate_section_headings(
+    formatted_text: str, raw_text: Optional[str] = None
+) -> tuple[List[str], List[str]]:
+    """Deterministic check of the section-heading output contract.
+
+    Returns (errors, warnings). ``formatted_text`` must have YAML front matter
+    removed. If ``raw_text`` is given, each heading timestamp other than the
+    prompt's 00:00:00 fallback must occur in the raw transcript.
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+    lines = formatted_text.splitlines()
+
+    for line_no, line in enumerate(lines, 1):
+        stripped = line.lstrip()
+        if "## Section" in line and not stripped.startswith("## Section"):
+            errors.append(
+                f"Line {line_no}: '## Section' heading is not at the start of a "
+                "line (merged into text)"
+            )
+
+    heading_lines = [
+        (line_no, line) for line_no, line in enumerate(lines, 1)
+        if line.startswith("#")
+    ]
+    if not any(line.startswith("## Section") for _, line in heading_lines):
+        errors.append("No '## Section' headings found")
+        return errors, warnings
+
+    first_heading_line = next(
+        n for n, line in heading_lines if line.startswith("## Section")
+    )
+    preamble = [line.strip() for line in lines[: first_heading_line - 1] if line.strip()]
+    if preamble:
+        # Warning, not error: every fixture output checked so far starts with the
+        # prompt's own H1 title echoed back ("# Transcript Formatting - ...").
+        warnings.append(f"Content before the first '## Section' heading: {preamble[0]!r}")
+
+    raw_seconds = _raw_timestamp_seconds(raw_text) if raw_text is not None else None
+
+    sections = []
+    for line_no, line in heading_lines:
+        match = _HEADING_RE.match(line)
+        if not match:
+            if line.startswith("## "):
+                errors.append(f"Line {line_no}: heading does not match contract: {line!r}")
+            continue
+        number = int(match.group(1))
+        title = match.group(2)
+        hh, mm, ss = (int(match.group(g)) for g in (3, 4, 5))
+        if mm > 59 or ss > 59:
+            errors.append(f"Section {number}: invalid timestamp {hh:02d}:{mm:02d}:{ss:02d}")
+        seconds = hh * 3600 + mm * 60 + ss
+        title_words = len(title.split())
+        if not 3 <= title_words <= 12:
+            warnings.append(f"Section {number}: heading has {title_words} words (contract: 3-12)")
+        sections.append((line_no, number, seconds, f"{hh:02d}:{mm:02d}:{ss:02d}"))
+
+    numbers = [n for _, n, _, _ in sections]
+    if numbers != list(range(1, len(numbers) + 1)):
+        errors.append(f"Section numbers are not sequential from 1: {numbers}")
+
+    previous = None
+    for line_no, number, seconds, ts in sections:
+        if previous is not None and seconds < previous:
+            errors.append(f"Section {number}: timestamp {ts} is earlier than the previous section")
+        previous = seconds
+        if raw_seconds is None or seconds == 0:
+            if seconds == 0 and number > 1 and raw_seconds:
+                warnings.append(
+                    f"Section {number}: uses 00:00:00 fallback although the raw transcript has timestamps"
+                )
+            continue
+        if seconds not in raw_seconds:
+            errors.append(f"Section {number}: timestamp {ts} does not occur in the raw transcript")
+
+    # Every section must contain transcript text.
+    starts = [line_no for line_no, _, _, _ in sections] + [len(lines) + 1]
+    for (line_no, number, _, _), next_start in zip(sections, starts[1:]):
+        body = lines[line_no:next_start - 1]
+        if not any(b.strip() and not b.startswith("#") for b in body):
+            errors.append(f"Section {number}: no transcript text")
+
+    return errors, warnings
+
+
+_TIME_TOKEN_RE = re.compile(r"^[\[\(]?(\d{1,2}):(\d{2})(?::(\d{2}))?[\]\)]?[.,]?$")
+
+
+def _raw_words_with_times(raw_text: str) -> tuple[List[str], List[Optional[int]]]:
+    """Normalized raw words and, for each, the most recent raw timestamp (seconds)."""
+    text = strip_transcript_metadata_header(strip_transcript_validation_footer(raw_text))
+    words: List[str] = []
+    times: List[Optional[int]] = []
+    current: Optional[int] = None
+    for token in text.split():
+        m = _TIME_TOKEN_RE.match(token)
+        if m:
+            a, b, c = m.groups()
+            current = int(a) * 3600 + int(b) * 60 + int(c) if c else int(a) * 60 + int(b)
+            continue
+        n = _normalize_word_for_validation(token)
+        if n:
+            words.append(n)
+            times.append(current)
+    return words, times
+
+
+def check_heading_timestamp_positions(
+    formatted_text: str, raw_text: str
+) -> tuple[List[str], List[str]]:
+    """Check each heading timestamp against where the section actually starts in
+    the raw transcript.
+
+    The section's opening words are located in the raw text by global alignment.
+    The heading timestamp must be the raw timestamp of the segment the section
+    starts in, or the next raw timestamp after that point (a section starting
+    mid-segment takes the first timestamp inside it). Skipped when the raw text
+    has no timestamps. ``formatted_text`` must have YAML front matter removed.
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+    raw_words, raw_times = _raw_words_with_times(raw_text)
+    if not any(t is not None for t in raw_times):
+        return errors, warnings
+
+    fmt_words: List[str] = []
+    section_starts: List[tuple[int, int, int]] = []  # (number, seconds, word index)
+    for line in formatted_text.splitlines():
+        m = _HEADING_RE.match(line)
+        if m:
+            secs = int(m.group(3)) * 3600 + int(m.group(4)) * 60 + int(m.group(5))
+            section_starts.append((int(m.group(1)), secs, len(fmt_words)))
+            continue
+        if line.startswith("#"):
+            continue
+        body, _ = strip_sic_annotations(re.sub(r"\*\*[^*]+:\*\*", " ", line))
+        for token in body.split():
+            n = _normalize_word_for_validation(token)
+            if n:
+                fmt_words.append(n)
+
+    fmt_to_raw = [-1] * len(fmt_words)
+    for tag, i1, i2, j1, j2 in _word_opcodes(raw_words, fmt_words):
+        if tag == "equal":
+            for k in range(i2 - i1):
+                fmt_to_raw[j1 + k] = i1 + k
+
+    # next_time[i]: first raw timestamp value that starts strictly after word i.
+    next_time: List[Optional[int]] = [None] * len(raw_words)
+    upcoming: Optional[int] = None
+    for i in range(len(raw_words) - 1, -1, -1):
+        next_time[i] = upcoming
+        if i > 0 and raw_times[i] != raw_times[i - 1]:
+            upcoming = raw_times[i]
+        elif i == 0 and raw_times[0] is not None:
+            upcoming = raw_times[0]
+
+    search = config.HEADING_TS_LOCATE_WINDOW
+    for number, secs, start in section_starts:
+        located = next(
+            (k for k in range(start, min(start + search, len(fmt_words))) if fmt_to_raw[k] >= 0),
+            None,
+        )
+        if located is None:
+            warnings.append(f"Section {number}: opening words not found in raw transcript; "
+                            "timestamp position not checked")
+            continue
+        r = fmt_to_raw[located]
+        r0 = max(0, r - (located - start))
+        allowed = {t if t is not None else 0 for t in raw_times[r0:r + 1]}
+        if next_time[r] is not None:
+            allowed.add(next_time[r])
+        if secs not in allowed:
+            shown = ", ".join(f"{a // 3600:02d}:{a % 3600 // 60:02d}:{a % 60:02d}" for a in sorted(allowed))
+            errors.append(
+                f"Section {number}: heading timestamp "
+                f"{secs // 3600:02d}:{secs % 3600 // 60:02d}:{secs % 60:02d} does not match "
+                f"where the section starts in the raw transcript (expected one of: {shown})"
+            )
+    return errors, warnings
+
+
+def verify_source_fidelity(
+    raw_text: str, formatted_text: str, skip_words: Optional[Set[str]] = None
+) -> Dict[str, Any]:
+    """All deterministic checks of a formatted transcript against its raw source.
+
+    ``formatted_text`` may include YAML front matter (it is stripped). Returns a
+    dict with ``passed``, ``errors``, ``warnings`` and ``comparison`` (the
+    ``_compare_transcripts`` result without the per-word mismatch list, plus
+    ``mismatch_sample``: the first 20 mismatches).
+    """
+    formatted_text = strip_yaml_frontmatter(formatted_text)
+    raw_clean, formatted_clean = _prepare_texts_for_comparison(raw_text, formatted_text)
+    result = _compare_transcripts(
+        raw_clean, formatted_clean, skip_words or set(),
+        config.VALIDATION_LOOKAHEAD_WINDOW, 0.05, None,
+    )
+    errors, warnings = validate_section_headings(formatted_text, raw_text)
+    pos_errors, pos_warnings = check_heading_timestamp_positions(formatted_text, raw_text)
+    errors += pos_errors
+    warnings += pos_warnings
+
+    if result["max_contiguous_run"] > config.VALIDATION_MAX_CONTIGUOUS_RUN:
+        errors.append(
+            f"{result['max_contiguous_run']} consecutive differing words starting at raw "
+            f"word {result['max_run_a_index']} (limit {config.VALIDATION_MAX_CONTIGUOUS_RUN})"
+        )
+    if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
+        errors.append(
+            f"mismatch ratio {result['mismatch_ratio'] * 100:.2f}% exceeds limit "
+            f"{config.VALIDATION_MISMATCH_RATIO * 100:.1f}%"
+        )
+    comparison = {k: v for k, v in result.items() if k not in ("mismatches", "corrections")}
+    comparison["mismatch_sample"] = result["mismatches"][:20]
+    comparison["corrections"] = [
+        f"{c['a_word']} -> {c['b_word']}" for c in result["corrections"]]
+    if result["corrections"]:
+        warnings.append(
+            f"{len(result['corrections'])} word(s) changed as transcription corrections: "
+            + ", ".join(comparison["corrections"][:10]))
+    return {
+        "passed": not errors,
+        "errors": errors,
+        "warnings": warnings,
+        "comparison": comparison,
+    }
+
+
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def format_validation_record_path(stem: str) -> Path:
+    return config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_FORMAT_VALIDATION}"
+
+
+def raw_source_copy_path(stem: str) -> Path:
+    return config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_RAW_SOURCE}"
+
+
+def load_format_validation_record(stem: str) -> Optional[dict]:
+    path = format_validation_record_path(stem)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def format_validation_passed_for(stem: str, formatted_text: str) -> bool:
+    """True only if a PASS record exists for exactly this formatted text."""
+    record = load_format_validation_record(stem)
+    return bool(
+        record
+        and record.get("passed") is True
+        and record.get("formatted_sha256") == _sha256_text(strip_yaml_frontmatter(formatted_text))
+    )
+
+
+def _write_format_validation_record(
+    stem: str, raw_name: str, raw_text: str, formatted_text: str, outcome: Dict[str, Any]
+) -> None:
+    record = {
+        "raw_file": raw_name,
+        "raw_sha256": _sha256_text(raw_text),
+        "formatted_sha256": _sha256_text(strip_yaml_frontmatter(formatted_text)),
+        "passed": outcome["passed"],
+        "errors": outcome["errors"],
+        "warnings": outcome["warnings"],
+        "comparison": outcome["comparison"],
+        "validated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    path = format_validation_record_path(stem)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
 
 
 def validate_format(
@@ -570,54 +988,6 @@ def validate_format(
             detect_transcript_source_format(raw_text),
         )
 
-        formatted_text = strip_yaml_frontmatter(formatted_text)
-
-        raw_clean = strip_transcript_validation_footer(raw_text)
-        raw_clean = strip_transcript_metadata_header(raw_clean)
-
-        raw_clean = strip_raw_speaker_prefixes(raw_clean)
-        raw_clean = re.sub(r"^\s*Transcribed by\b.*", "",
-                           raw_clean, flags=re.MULTILINE)
-
-        raw_clean = re.sub(
-            r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?",
-            " ",
-            raw_clean,
-            flags=re.IGNORECASE,
-        )
-        raw_clean = re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", raw_clean)
-        # Strip lines that are solely a bare number (plain TRX timestamp lines)
-        raw_clean = re.sub(r"(?m)^\s*\d+\s*$", " ", raw_clean)
-
-        # Remove procedural speech from raw text to avoid validation errors
-        # These are commonly removed by the formatting model
-        procedural_patterns = [
-            r"\bnext slide(?:,? please)?\.?",
-            r"\bnext one(?:,? please)?\.?",
-            r"\bslide please\.?",
-            r"\bintro\b",  
-            r"(?:^|[\.\!\?]\s+)so(?:,)?\s+",   # Sentence-starting 'So'
-            r"(?:^|[\.\!\?]\s+)okay(?:,)?\s+", # Sentence-starting 'Okay'
-            r"(?:^|[\.\!\?]\s+)right(?:,)?\s+", # Sentence-starting 'Right'
-            r"\bjust to emphasize(?: this)?",
-            r"\bone please",
-            r"\bthere you see",
-            r"\bthanks\.?",
-            r"\bnext(?:,)?\s+",
-            r"\bone(?:,)?\s+",
-            r"\bslide(?:,)?\s+",
-            r"\bplease\.?"
-        ]
-        for p in procedural_patterns:
-            raw_clean = re.sub(p, " ", raw_clean, flags=re.IGNORECASE | re.MULTILINE)
-
-        formatted_clean, _ = re.subn(
-            r"\s+\[sic\](?: \([^)]+\))?", "", formatted_text)
-        formatted_clean = re.sub(r"\*\*[^*]+:\*\*\s*", "", formatted_clean)
-
-        formatted_clean = re.sub(
-            r"^\s*#+.*$", "", formatted_clean, flags=re.MULTILINE)
-
         skip_words = set()
         if skip_words_file:
             skip_words = {
@@ -626,32 +996,38 @@ def validate_format(
                 if word and not word.startswith("#")
             }
 
-        result = _compare_transcripts(
-            raw_clean,
-            formatted_clean,
-            skip_words,
-            config.VALIDATION_LOOKAHEAD_WINDOW,
-            0.05,
-            None,
+        outcome = verify_source_fidelity(raw_text, formatted_text, skip_words)
+        comparison = outcome["comparison"]
+
+        # Keep a copy of the exact raw source just validated against, so the release
+        # gate can re-verify later even after the source file is renamed or moved.
+        # Always overwritten: the formatted text may have been regenerated from a
+        # different raw version (e.g. a corrected _v2).
+        raw_source_copy_path(stem).write_text(raw_text, encoding="utf-8")
+        _write_format_validation_record(
+            stem, raw_file_path.name, raw_text, formatted_text, outcome
         )
 
         logger.info("=== Comparison Summary ===")
-        for key, value in result.items():
-            if key != "mismatches":
+        for key, value in comparison.items():
+            if key != "mismatch_sample":
                 logger.info(f"{key}: {value}")
+        for warning in outcome["warnings"]:
+            logger.warning("Check: %s", warning)
 
-        if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
-            logger.error("Validation FAILED: Mismatch ratio %.2f%% exceeds limit (%.1f%%).",
-                         result['mismatch_ratio'] * 100, config.VALIDATION_MISMATCH_RATIO * 100)
-            for m in result["mismatches"][:20]:
+        if not outcome["passed"]:
+            logger.error("Validation FAILED: %d error(s).", len(outcome["errors"]))
+            for error in outcome["errors"][:20]:
+                logger.error("  %s", error)
+            for m in comparison["mismatch_sample"]:
                 logger.error("  Mismatch (%s): A[%s]='%s' vs B[%s]='%s'", m.get(
                     'reason', 'Unknown'), m['a_index'], m['a_word'], m['b_index'], m.get('b_word'))
             return False
 
-        if result["mismatch_count"] > 0:
+        if comparison["mismatch_count"] > 0:
             logger.warning("Validation PASSED with warnings: %d mismatches (%.2f%%).",
-                           result['mismatch_count'], result['mismatch_ratio'] * 100)
-            for m in result["mismatches"][:10]:
+                           comparison['mismatch_count'], comparison['mismatch_ratio'] * 100)
+            for m in comparison["mismatch_sample"][:10]:
                 logger.warning("  Ignored Mismatch (%s): A[%s]='%s' vs B[%s]='%s'", m.get(
                     'reason', 'Unknown'), m['a_index'], m['a_word'], m['b_index'], m.get('b_word'))
         else:

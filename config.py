@@ -465,6 +465,8 @@ SUFFIX_PDF = ".pdf"
 SUFFIX_HEADER_VAL_REPORT = " - header-validation.md"
 SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 SUFFIX_RUN_MANIFEST = " - run-manifest.json"
+SUFFIX_FORMAT_VALIDATION = " - format-validation.json"
+SUFFIX_RAW_SOURCE = " - raw-source.txt"
 SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
 SUFFIX_ZIP = ".zip"
 # MD-collection bundle export (docs/spec_bundle_export_2026-07-16.md). Distinct
@@ -529,8 +531,18 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   matter) is a hallucination in a published artifact (U2). Blocks when enabled; a
 #   PASS no-op while THEME_JUDGE_ENABLED is False, so it does not affect the gate
 #   until armed.
-GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness",
-                        "theme_grounding"}
+#   source_fidelity (added 2026-09-23): every other check grounds against the
+#   formatted transcript, which is itself model output. It must match the raw
+#   source (word comparison, heading contract, heading timestamp positions).
+#   verbatim_quotes (made blocking 2026-09-23): Bowen/emphasis quotes are published
+#   AS quotes; a quote whose wording is not in the source is a misquotation. The
+#   check now compares the whole quote, not only its first/last words.
+#   topic_term_faithfulness (added 2026-09-23): topic descriptions and key-term
+#   definitions are model-written prose; judged claim-by-claim like the narrative
+#   artifacts. NOT YET CALIBRATED on real runs — see FAITHFULNESS notes below.
+GATE_BLOCKING_CHECKS = {"source_fidelity", "entity_grounding", "artifact_contracts",
+                        "faithfulness", "theme_grounding", "verbatim_quotes",
+                        "topic_term_faithfulness"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
@@ -601,7 +613,14 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # the extraction config still invalidates stale verdicts — a stricter judge must NEVER
 # serve a laxer cached PASS on the armed gate (H2 finding 1, a fail-open). BUMP THIS on
 # any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape.
-JUDGE_LOGIC_VERSION = "2026-07-19"
+JUDGE_LOGIC_VERSION = "2026-09-23"  # headings now judged as claims
+# Headings skipped by claim extraction (document scaffolding, not claims).
+FAITHFULNESS_GENERIC_HEADINGS = [
+    "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
+    "key points", "key takeaways", "takeaways", "background", "context",
+    "discussion", "themes", "topics", "key terms", "structural themes",
+    "interpretive themes", "blog post", "about this talk", "about the presenter",
+]
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).
@@ -648,6 +667,13 @@ FAITHFULNESS_ARTIFACT_SUFFIXES = [
     SUFFIX_SUMMARY_GEN,
     SUFFIX_OVERVIEW,
     SUFFIX_BLOG,
+]
+# Topic descriptions and key-term definitions, judged by the same judge after
+# conversion to one "Title: sentence" claim per line (release_gate
+# .topics_terms_as_claims). Added 2026-09-23; NOT YET CALIBRATED on real runs.
+TOPIC_TERM_FAITHFULNESS_SUFFIXES = [
+    SUFFIX_TOPICS,
+    SUFFIX_KEY_TERMS,
 ]
 # M2.B gold-set gate: the judge ships only if it clears these on the curated set.
 # Recall on the dangerous class (contradicted+unsupported) is the load-bearing bar —
@@ -739,7 +765,17 @@ MAX_CONTEXT_TOKENS = 200000
 # Model output caps for known low-limit models.
 MODEL_OUTPUT_TOKEN_LIMITS = {
     "claude-3-5-haiku-20241022": 8192,
+    # Synchronous Messages API max output, from Anthropic's Models overview
+    # (platform.claude.com/docs/en/about-claude/models/overview, 2026-09-23).
+    "claude-haiku-4-5-20251001": 64000,
+    "claude-haiku-4-5": 64000,
+    "claude-sonnet-5": 128000,
+    "claude-opus-5-5": 128000,
+    "claude-fable-5-1": 128000,
 }
+# Formatting output grows over the input by headings and speaker labels; the
+# pre-call check requires input-token estimate x this factor to fit max output.
+FORMATTING_OUTPUT_EXPANSION = 1.15
 
 # Temperature Settings
 TEMP_STRICT = 0.0
@@ -779,6 +815,17 @@ PROMPT_BOWEN_FILTER_FILENAME = "bowen_reference_filter_v1.md"
 # Validation Settings
 VALIDATION_MISMATCH_RATIO = 0.015  # 1.5% tolerance
 VALIDATION_LOOKAHEAD_WINDOW = 10
+# Largest allowed single block of differing words (deleted, inserted or
+# substituted) between raw and formatted transcripts. The mismatch ratio alone
+# lets a dropped paragraph pass on a long transcript. Chosen value, not derived:
+# the one real fixture checked (where_roots, ~10k words) has a largest block of 2.
+VALIDATION_MAX_CONTIGUOUS_RUN = 10
+# Value written to the YAML "Transcriber" field. Only claim human review when a
+# person has actually reviewed the transcript.
+YAML_TRANSCRIBER = "Automated"
+# How many formatted words past a heading to search for the first word that
+# aligns with the raw transcript when checking the heading's timestamp position.
+HEADING_TS_LOCATE_WINDOW = 30
 
 # Minimum Generation Lengths
 MIN_EXTRACTS_PERCENT = 0.04  # 4% of transcript word count
@@ -867,6 +914,11 @@ LENS_STOPWORDS = frozenset({
 EMPHASIS_HEADTAIL_WORDS = 12
 EMPHASIS_QUOTE_FOUND_RATIO = 0.95
 EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
+# Release gate: fraction of a quote's words that must appear, in order, at its
+# location in the transcript. 1.0 = every quoted word is in the source (words the
+# quote omits, e.g. at an ellipsis, do not count against it). All 36 quotes in the
+# where_roots fixture score 1.0; one changed word in a 40-word quote scores 0.975.
+QUOTE_MIN_WORD_COVERAGE = 1.0
 
 # Key-terms definition grounding: the definition is a synthesized paraphrase, so
 # it is checked for topical keyword overlap, never verbatim. Global overlap with

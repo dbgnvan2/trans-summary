@@ -1779,13 +1779,25 @@ def summarize_transcript(
             formatted_path = (
                 config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_FORMATTED}"
             )
-            if formatted_path.exists():
-                validate_emphasis_items(
-                    formatted_path, formatted_path, logger)
-                logger.info("VALIDATION: Checking Topics (lightweight)...")
-                validate_topics_lightweight(formatted_path, stem, logger)
-                logger.info("VALIDATION: Checking Key Terms...")
-                validate_key_terms_fidelity(formatted_path, stem, logger)
+            if not formatted_path.exists():
+                logger.error("VALIDATION: formatted transcript not found at %s — "
+                             "extracted items cannot be validated.", formatted_path)
+                return False
+            # Results are enforced: previously the return values were discarded,
+            # so a failed check only appeared in the log.
+            failed_checks = []
+            if not validate_emphasis_items(formatted_path, formatted_path, logger):
+                failed_checks.append("emphasis quotes")
+            logger.info("VALIDATION: Checking Topics (lightweight)...")
+            if not validate_topics_lightweight(formatted_path, stem, logger):
+                failed_checks.append("topics")
+            logger.info("VALIDATION: Checking Key Terms...")
+            if not validate_key_terms_fidelity(formatted_path, stem, logger):
+                failed_checks.append("key terms")
+            if failed_checks:
+                logger.error("VALIDATION FAILED: %s — see the validation reports; "
+                             "regenerate before publishing.", ", ".join(failed_checks))
+                return False
 
         if generate_structured:
             logger.info("Generating structured summary...")
@@ -1798,7 +1810,9 @@ def summarize_transcript(
             )
             if structured_success:
                 logger.info("Validating structured summary...")
-                validate_summary_coverage(base_name=stem, logger=logger)
+                if not validate_summary_coverage(base_name=stem, logger=logger):
+                    logger.error("Structured summary failed coverage validation.")
+                    return False
             else:
                 logger.error("Structured summary generation failed.")
                 return False

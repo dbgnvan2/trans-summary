@@ -206,10 +206,83 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     return Verdict("entity_grounding", Status.PASS, "all proper names grounded")
 
 
+# --------------------------------------------------------------------------- source fidelity
+def _raw_source_candidates(base_name: str) -> list:
+    """Raw transcript files that may be this project's source: the project's own
+    raw-source copy (written at format validation) if present, otherwise
+    ``<base_name>.txt`` in the project folder and .txt files in SOURCE_DIR /
+    PROCESSED_DIR whose cleaned name is ``base_name``
+    (covers ``_vN`` / ``_validated`` versions and ``- Processed`` renames)."""
+    from transcript_utils import clean_project_name
+
+    proj = config.PROJECTS_DIR / base_name
+    copy = proj / f"{base_name}{config.SUFFIX_RAW_SOURCE}"
+    if copy.exists():
+        return [copy]
+    found = []
+    in_project = proj / f"{base_name}.txt"
+    if in_project.exists():
+        found.append(in_project)
+    for folder in (getattr(config, "SOURCE_DIR", None), getattr(config, "PROCESSED_DIR", None)):
+        if not folder or not Path(folder).is_dir():
+            continue
+        for f in sorted(Path(folder).glob("*.txt")):
+            stem = re.sub(r" - Processed(?: \(\d+\))?$", "", f.stem)
+            if clean_project_name(stem) == base_name:
+                found.append(f)
+    return found
+
+
+def check_source_fidelity(base_name: str, logger=None) -> Verdict:
+    """FAIL unless the formatted transcript — the text every other check treats as
+    ground truth — matches its raw source transcript: word-level comparison,
+    heading contract, and heading timestamps. Raw source not found -> ERROR
+    (cannot verify -> block)."""
+    import formatting_pipeline as fp
+
+    formatted = _load_source_transcript(base_name)
+    if not formatted or not formatted.strip():
+        return Verdict("source_fidelity", Status.ERROR, "formatted transcript missing or empty")
+    # The package ships the YAML transcript when present, but everything here is
+    # verified against the formatted transcript: they must be the same text.
+    proj = config.PROJECTS_DIR / base_name
+    yaml_path = proj / f"{base_name}{config.SUFFIX_YAML}"
+    formatted_path = proj / f"{base_name}{config.SUFFIX_FORMATTED}"
+    if yaml_path.exists() and formatted_path.exists():
+        from transcript_utils import strip_yaml_frontmatter
+        yaml_body = strip_yaml_frontmatter(yaml_path.read_text(encoding="utf-8")).strip()
+        if yaml_body != formatted.strip():
+            return Verdict("source_fidelity", Status.FAIL,
+                           "YAML transcript body differs from the formatted transcript "
+                           "(stale YAML) — re-run the add-YAML step")
+    candidates = _raw_source_candidates(base_name)
+    if not candidates:
+        return Verdict("source_fidelity", Status.ERROR,
+                       "raw source transcript not found (no project raw-source copy and no "
+                       "matching file in source/processed) — cannot verify the formatted "
+                       "transcript; re-run format validation")
+    best = None
+    for path in candidates:
+        outcome = fp.verify_source_fidelity(path.read_text(encoding="utf-8-sig"), formatted)
+        if outcome["passed"]:
+            return Verdict("source_fidelity", Status.PASS,
+                           f"formatted transcript matches raw source {path.name} "
+                           f"({outcome['comparison']['mismatch_count']} differing words)")
+        if best is None or len(outcome["errors"]) < len(best[1]["errors"]):
+            best = (path, outcome)
+    path, outcome = best
+    return Verdict("source_fidelity", Status.FAIL,
+                   f"formatted transcript does not match raw source {path.name}: "
+                   f"{outcome['errors'][0]} — re-run formatting",
+                   items=outcome["errors"][:20])
+
+
 # --------------------------------------------------------------------------- M4.A
 def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
-    """WARN if any Bowen/emphasis quote is not verbatim-locatable in the source
-    (head- AND tail-matched, so a fabricated tail is caught)."""
+    """FAIL if any Bowen/emphasis quote is not verbatim in the source. Two tests:
+    the fuzzy head/tail match (>= EMPHASIS_QUOTE_PARTIAL_RATIO) AND whole-quote
+    word coverage (>= QUOTE_MIN_WORD_COVERAGE). The coverage test catches an
+    altered or negated middle, which the head/tail probes cannot see."""
     import transcript_utils as tu
     import validation_pipeline as vp
 
@@ -217,16 +290,19 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     if transcript is None:
         return Verdict("verbatim_quotes", Status.ERROR, "source transcript missing")
     problems = []
-    for concept, quote, _ts in tu.load_bowen_references(base_name):
-        if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO:
-            problems.append({"type": "bowen", "label": concept, "quote": quote[:60]})
-    for label, quote, _ts in tu.load_emphasis_items(base_name):
-        if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO:
-            problems.append({"type": "emphasis", "label": label, "quote": quote[:60]})
+    items = ([("bowen", c, q) for c, q, _ts in tu.load_bowen_references(base_name)]
+             + [("emphasis", lab, q) for lab, q, _ts in tu.load_emphasis_items(base_name)])
+    for kind, label, quote in items:
+        ends = vp._emphasis_quote_found_ratio(quote, transcript)
+        coverage = vp._quote_word_coverage(quote, transcript)
+        if ends < config.EMPHASIS_QUOTE_PARTIAL_RATIO or coverage < config.QUOTE_MIN_WORD_COVERAGE:
+            problems.append({"type": kind, "label": label, "quote": quote[:60],
+                             "match": round(ends, 3), "word_coverage": round(coverage, 3)})
     if problems:
-        return Verdict("verbatim_quotes", Status.WARN,
-                       f"{len(problems)} quote(s) not verbatim-locatable", items=problems)
-    return Verdict("verbatim_quotes", Status.PASS, "all quotes verbatim")
+        return Verdict("verbatim_quotes", Status.FAIL,
+                       f"{len(problems)} quote(s) not verbatim in the source — regenerate",
+                       items=problems)
+    return Verdict("verbatim_quotes", Status.PASS, f"all {len(items)} quotes verbatim")
 
 
 # --------------------------------------------------------------------------- M4.B
@@ -518,6 +594,95 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
                    f"all narrative claims entailed by source ({judged} artifact(s) judged)")
 
 
+# --------------------------------------------------------------------------- topics / key terms
+_TOPIC_META_LINE = re.compile(r"^[\W_]*~?\d+\s*%\s+of\s+transcript", re.IGNORECASE)
+
+
+def topics_terms_as_claims(markdown: str) -> str:
+    """Turn a topics or key-terms artifact (``### Title`` + prose) into one claim
+    per line, each prefixed with its title so the judge knows what it is about
+    ("Catatonia: A psychiatric state described ..."). Coverage/section metadata
+    lines ("(~20% of transcript; Sections 1-2)") are dropped — they are not
+    claims about the source."""
+    import faithfulness_judge as fjudge
+
+    lines_out: list = []
+    title = None
+    for raw in markdown.splitlines():
+        line = raw.strip()
+        if not line or line == "---":
+            continue
+        if line.startswith("###"):
+            title = line.lstrip("#").strip()
+            continue
+        if line.startswith("#") or _TOPIC_META_LINE.match(line):
+            continue
+        text = line.replace("**", "").replace("__", "").strip("*_ ").strip()
+        if not text:
+            continue
+        for sentence in fjudge._split_sentences(text):
+            sentence = sentence.strip()
+            if sentence:
+                lines_out.append(f"{title}: {sentence}" if title else sentence)
+    return "\n".join(lines_out)
+
+
+def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
+    """Claim-level faithfulness of topic descriptions and key-term definitions.
+    Both are model-written prose that the keyword-overlap validators cannot
+    check (fabricated statements score like true ones). Same judge, source and
+    fail-closed rules as ``check_faithfulness``; no topics/key-terms artifact at
+    all -> ERROR (nothing verified is not "all faithful")."""
+    if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
+        return Verdict("topic_term_faithfulness", Status.PASS,
+                       "faithfulness judge disabled")
+    import faithfulness_judge as fjudge
+    from transcript_utils import resolve_anthropic_key
+
+    transcript = _source_with_metadata(base_name)
+    if not transcript or not transcript.strip():
+        return Verdict("topic_term_faithfulness", Status.ERROR,
+                       "source transcript missing or empty — cannot verify")
+    api_key = resolve_anthropic_key()
+    if not api_key:
+        return Verdict("topic_term_faithfulness", Status.ERROR,
+                       "no Anthropic API key — cannot run faithfulness judge (fail closed)")
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    proj = config.PROJECTS_DIR / base_name
+    fails, errors = [], []
+    judged = 0
+    for suffix in config.TOPIC_TERM_FAITHFULNESS_SUFFIXES:
+        path = proj / f"{base_name}{suffix}"
+        if not path.exists():
+            continue
+        claims_text = topics_terms_as_claims(path.read_text(encoding="utf-8"))
+        art = suffix.strip(" -").removesuffix(".md")
+        if not claims_text.strip():
+            errors.append({"artifact": art, "detail": "no claims parsed from artifact"})
+            continue
+        judged += 1
+        result = _judge_cached(fjudge, claims_text, transcript, client, logger)
+        if result.status == fjudge.FAIL:
+            fails.append({"artifact": art, "detail": result.detail,
+                          "unfaithful": [c.claim for c in result.unfaithful]})
+        elif result.status == fjudge.ERROR:
+            errors.append({"artifact": art, "detail": result.detail})
+    if fails:
+        arts = ", ".join(f["artifact"] for f in fails)
+        return Verdict("topic_term_faithfulness", Status.FAIL,
+                       f"check failed in {arts} — regenerate and try again",
+                       items=fails + errors)
+    if errors or judged == 0:
+        return Verdict("topic_term_faithfulness", Status.ERROR,
+                       "topics/key-terms could not be verified" if errors
+                       else "no topics or key-terms artifact present to verify",
+                       items=errors)
+    return Verdict("topic_term_faithfulness", Status.PASS,
+                   f"all topic/key-term claims entailed by source ({judged} artifact(s) judged)")
+
+
 # --------------------------------------------------------------------------- theme grounding
 # suffix -> theme kind for the M3 codec.
 _THEME_KIND = {
@@ -630,9 +795,11 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
 # (config.GATE_BLOCKING_CHECKS — not enumerated here so this comment can't drift); the
 # rest are advisory verdicts recorded in the manifest.
 DEFAULT_CHECKS: list = [
+    ("source_fidelity", check_source_fidelity),
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
     ("faithfulness", check_faithfulness),
+    ("topic_term_faithfulness", check_topic_term_faithfulness),
     ("theme_grounding", check_theme_grounding),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),

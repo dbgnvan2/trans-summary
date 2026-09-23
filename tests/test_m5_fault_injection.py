@@ -30,30 +30,42 @@ def cloned_run(tmp_path, monkeypatch):
     return BASE, dst / BASE
 
 
-def _mk_project(tmp_path, monkeypatch, formatted="Some transcript text about anxiety.",
-                abstract="A short neutral summary of the talk."):
+_HEADING = "## Section 1 – Talk About Anxiety and Family ([00:00:00]).\n\n"
+
+
+def _mk_project(tmp_path, monkeypatch, formatted=_HEADING + "Some transcript text about anxiety.",
+                abstract="A short neutral summary of the talk.",
+                raw="Some transcript text about anxiety."):
+    """``raw`` is written as the project's raw-source copy (None = no raw source,
+    so source_fidelity cannot verify and must block)."""
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     base = "T - A - 2025-01-01"
     proj = tmp_path / base
     proj.mkdir(parents=True)
     if formatted is not None:
         (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(formatted)
+    if raw is not None:
+        (proj / f"{base}{config.SUFFIX_RAW_SOURCE}").write_text(raw)
     if abstract is not None:
         (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").write_text(abstract)
     return base, proj
 
 
 # ------------------------------------------------------------------ M5.A inputs
-@pytest.mark.parametrize("formatted,expect_block", [
-    ("", True),                                  # empty source -> ERROR -> BLOCK
-    ("   \n\t\n  ", True),                        # whitespace-only -> ERROR -> BLOCK
-    ("Short talk about anxiety and family.", False),   # short but present
-    ("no section headers here, just prose. " * 80, False),  # malformed (no headers)
-    ("word " * 60000, False),                    # very long (real-scale) — must not hang/crash
+@pytest.mark.parametrize("formatted,raw,expect_block", [
+    ("", "x", True),                             # empty source -> ERROR -> BLOCK
+    ("   \n\t\n  ", "x", True),                   # whitespace-only -> ERROR -> BLOCK
+    (_HEADING + "Short talk about anxiety and family.",
+     "Short talk about anxiety and family.", False),   # short but present and verified
+    (_HEADING + "Short talk about anxiety and family.",
+     None, True),                                # no raw source -> cannot verify -> BLOCK
+    ("no section headers here, just prose. " * 80,
+     "no section headers here, just prose. " * 80, True),  # malformed (no headers) -> BLOCK
+    (_HEADING + "word " * 60000, "word " * 60000, False),  # very long — must not hang/crash
 ])
 def test_m5a1_input_edge_matrix_never_crashes_decision_definite(
-        tmp_path, monkeypatch, formatted, expect_block):
-    base, _ = _mk_project(tmp_path, monkeypatch, formatted=formatted)
+        tmp_path, monkeypatch, formatted, raw, expect_block):
+    base, _ = _mk_project(tmp_path, monkeypatch, formatted=formatted, raw=raw)
     d = rg.run_gate(base, LOG)  # must not raise
     assert d.decision in (Decision.BLOCK, Decision.ALLOW, Decision.ALLOW_WITH_WARNINGS)
     assert (d.decision is Decision.BLOCK) is expect_block

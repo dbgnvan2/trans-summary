@@ -591,6 +591,37 @@ def _load_abstract_content(base_name):
     return None
 
 
+def transcript_text_differences(html_file, formatted_file) -> list:
+    """Word-level differences between the transcript as published in the HTML
+    (the ``div.transcript`` text, headings excluded) and the formatted transcript
+    (heading lines excluded). Highlighting and markdown conversion must not add,
+    drop or alter any transcript word. Returns up to 10 difference descriptions;
+    an empty list means identical."""
+    import formatting_pipeline as fp
+    from transcript_utils import strip_yaml_frontmatter
+
+    soup = BeautifulSoup(Path(html_file).read_text(encoding="utf-8"), "html.parser")
+    container = soup.find("div", class_="transcript")
+    if container is None:
+        return ["no <div class=\"transcript\"> found in HTML"]
+    for heading in container.find_all(["h1", "h2", "h3", "h4"]):
+        heading.decompose()
+    html_words = [w for w in (fp._normalize_word_for_validation(x)
+                              for x in container.get_text(" ").split()) if w]
+    formatted = strip_yaml_frontmatter(Path(formatted_file).read_text(encoding="utf-8"))
+    source_words = [w for w in (fp._normalize_word_for_validation(x)
+                                for line in formatted.splitlines() if not line.startswith("#")
+                                for x in line.split()) if w]
+    diffs = []
+    for tag, i1, i2, j1, j2 in fp._word_opcodes(source_words, html_words):
+        if tag != "equal":
+            diffs.append(f"{tag}: transcript {' '.join(source_words[i1:i2][:8])!r} "
+                         f"-> HTML {' '.join(html_words[j1:j2][:8])!r}")
+            if len(diffs) >= 10:
+                break
+    return diffs
+
+
 def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     """Validate HTML webpage against source materials."""
 
@@ -637,6 +668,16 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     # Validation checks
     issues = []
     warnings = []
+
+    # Transcript body must be word-for-word the formatted transcript.
+    text_diffs = transcript_text_differences(html_file, formatted_file)
+    if text_diffs:
+        print("❌ Transcript text in HTML differs from the formatted transcript:")
+        for d in text_diffs:
+            print(f"   {d}")
+        issues.append(f"Transcript text differs from formatted transcript ({len(text_diffs)}+ difference(s))")
+    else:
+        print("   Transcript text: ✅ identical to formatted transcript")
 
     # 1. Section count validation
     print("📊 Section Count Validation")

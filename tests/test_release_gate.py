@@ -311,7 +311,9 @@ def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS
 
 
-def test_m4a_fabricated_quote_tail_warns(cloned_run):
+def test_m4a_fabricated_quote_tail_blocks(cloned_run):
+    """Quotes are published as quotes, so a non-verbatim quote is a blocking FAIL
+    (policy changed 2026-09-23; previously WARN)."""
     base, proj = cloned_run
     emp = proj / f"{base}{config.SUFFIX_EMPHASIS_SCORED}"
     lines = emp.read_text().splitlines()
@@ -322,8 +324,9 @@ def test_m4a_fabricated_quote_tail_warns(cloned_run):
             break
     emp.write_text("\n".join(lines))
     v = rg.check_verbatim_quotes(base, logging.getLogger("t"))
-    assert v.status is Status.WARN
+    assert v.status is Status.FAIL
     assert v.items
+    assert "verbatim_quotes" in config.GATE_BLOCKING_CHECKS
 
 
 # --------------------------------------------------------------- M4.B timestamps

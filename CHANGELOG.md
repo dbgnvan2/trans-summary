@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-09-23 (reliability, part 2)
+
+- Formatting comparison: procedural-speech stripping removed (on the where_roots fixture it created 2 false insertions and hid deletions; without it, 6 mismatches instead of 8). Near-identical word replacements are accepted only when the raw word never appears in the formatted text, and are recorded as `corrections` (reported in the validation record, log and YAML) instead of being silently accepted.
+- Formatting output budget uses the model's documented max output (`MODEL_OUTPUT_TOKEN_LIMITS`; Haiku 4.5 = 64K per Anthropic's Models overview) instead of a fixed 20,000; transcripts whose estimated output exceeds it fail before the API call.
+- `call_claude_with_retry` no longer retries a response that stopped at `max_tokens`.
+- Echoed prompt title lines before Section 1 are removed after formatting (`strip_leading_title`).
+- YAML `Transcriber` comes from `config.YAML_TRANSCRIBER` (default "Automated"; was a fixed "Automated; human-reviewed").
+- Gate `source_fidelity` fails when the YAML transcript (the file the zip package ships) differs from the formatted transcript.
+- Webpage validation checks the published transcript text word-for-word against the formatted transcript; the GUI now fails the web/PDF stage when webpage validation fails (its result was discarded).
+
+## [Unreleased] - 2026-09-23 (source fidelity + output validation)
+
+Formatting validation:
+- `_compare_transcripts` rewritten as a global word alignment: truncated output, inserted words and substitutions are each counted once (previously truncation counted as 1 mismatch and insertions as 0). New `max_contiguous_run` limit (`VALIDATION_MAX_CONTIGUOUS_RUN`).
+- `strip_sic_annotations` no longer consumes line breaks (it could merge a `## Section` heading into the previous paragraph).
+- Procedural-speech stripping applied to both texts, not only the raw.
+- New deterministic heading checks: format contract, sequential numbering, non-decreasing timestamps, timestamp present in raw, and timestamp matching where the section starts in the raw (`check_heading_timestamp_positions`).
+- `validate_format` writes ` - format-validation.json` and a ` - raw-source.txt` copy. YAML `Authenticity` states "NOT VERIFIED" unless a passing record exists for the exact formatted text, and no longer claims verification against the recording.
+
+Release gate (all new/changed checks are blocking):
+- `source_fidelity` (new): re-verifies the formatted transcript against its raw source. Every other check treats the formatted transcript as ground truth.
+- `verbatim_quotes`: now compares the whole quote (`_quote_word_coverage`, `QUOTE_MIN_WORD_COVERAGE = 1.0`), not only its first/last 12 words; made blocking.
+- `topic_term_faithfulness` (new): topic descriptions and key-term definitions judged claim-by-claim. Not yet calibrated on real runs.
+- Faithfulness claim extraction now judges claim-bearing headings (`FAITHFULNESS_GENERIC_HEADINGS` skipped); `JUDGE_LOGIC_VERSION` bumped, so cached verdicts are re-judged once.
+
+Extraction stage: emphasis, topics, key-terms and summary-coverage validation results now fail the stage instead of only being logged.
+
 ## [Unreleased] - 2026-07-18 (review fixes batch 10: dedups L11/L12/L14)
 
 - **L11** — hoisted `_fill_prompt_template` into `transcript_utils.fill_prompt_template` (extraction uses it; validation's dead copy removed).
