@@ -251,6 +251,11 @@ def test_validate_format_end_to_end(monkeypatch, tmp_path, fixture_texts):
     logger = logging.getLogger("test_validate_format_end_to_end")
 
     formatted_path.write_text(formatted, encoding="utf-8")
+    # Unreviewed differences fail validation ...
+    assert fp.validate_format(f"{STEM}.txt", logger=logger) is False
+    # ... and pass once they are approved (fixture review file).
+    review = FIXTURE_DIR / f"{STEM}{config.SUFFIX_FORMAT_REVIEW}"
+    (proj / review.name).write_text(review.read_text(encoding="utf-8"), encoding="utf-8")
     assert fp.validate_format(f"{STEM}.txt", logger=logger) is True
 
     formatted_path.write_text(formatted[: int(len(formatted) * 0.6)], encoding="utf-8")

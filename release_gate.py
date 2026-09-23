@@ -261,9 +261,14 @@ def check_source_fidelity(base_name: str, logger=None) -> Verdict:
                        "raw source transcript not found (no project raw-source copy and no "
                        "matching file in source/processed) — cannot verify the formatted "
                        "transcript; re-run format validation")
+    import format_review
+    import pattern_sets
+
     best = None
     for path in candidates:
-        outcome = fp.verify_source_fidelity(path.read_text(encoding="utf-8-sig"), formatted)
+        raw = pattern_sets.effective_raw(base_name, path.read_text(encoding="utf-8-sig"))
+        outcome = fp.verify_source_fidelity(
+            raw, formatted, approvals=format_review.load_approvals(base_name, raw))
         if outcome["passed"]:
             return Verdict("source_fidelity", Status.PASS,
                            f"formatted transcript matches raw source {path.name} "

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-09-23 (review of formatting differences + pattern sets)
+
+- Formatting validation no longer tolerates unexplained differences. Every difference between the raw and formatted transcript must be a removed stutter or transcription tag (auto-allowed) or be decided in review; otherwise validation and the release gate fail. The 1.5% / 10-word limits remain as "regenerate, don't review" bounds and now exclude auto-allowed stutters.
+- New review step (`format_review.py`): Accept (keep formatted wording), Reject (restore raw wording in the formatted file), Edit (type the final wording). Decisions and approvals are stored in ` - format-review.json`, bound to the raw text they were made against. Reviewed counts appear in the YAML Authenticity note.
+- New pattern sets (`pattern_sets.py`): named files in `<transcripts>/patterns/` holding approved terms and `wrong = correct` fixes for a group of transcripts. A project records its set, the set's hash and the fixes applied (` - pattern-set.json`); fixes are applied to the raw transcript before formatting. The existing approved-terms file is copied in as the first set. The set last used for a presenter is suggested.
+- GUI: Pattern Set selector (+ New...), Review Differences button, and a review window that opens when format validation needs decisions. "Save as pattern" adds a reviewed change to the project's set (warns on single-word patterns).
+- CLI: `transcript_review_format.py` (review, `--assign`, `--list-sets`, `--new-set`); `transcript_format.py --pattern-set`.
+
 ## [Unreleased] - 2026-09-23 (reliability, part 2)
 
 - Formatting comparison: procedural-speech stripping removed (on the where_roots fixture it created 2 false insertions and hid deletions; without it, 6 mismatches instead of 8). Near-identical word replacements are accepted only when the raw word never appears in the formatted text, and are recorded as `corrections` (reported in the validation record, log and YAML) instead of being silently accepted.

@@ -294,6 +294,36 @@ ruff check .
 ruff format .
 ```
 
+## Reviewing Formatting Differences and Pattern Sets
+
+The formatted transcript must reproduce the raw transcript word for word. After
+formatting, every difference is either allowed automatically (a removed stutter
+such as "I I went", or a tag such as `[crosstalk]`) or must be decided in review:
+
+- **Accept** keeps the formatted wording.
+- **Reject** restores the raw wording in the formatted transcript.
+- **Edit** replaces it with the wording you type.
+- **Save as pattern** (with Accept or Edit) adds `raw = final` to the project's
+  pattern set, so it is fixed in the raw text of future transcripts before formatting.
+
+Until every difference is decided, format validation and the release gate fail.
+If the differences exceed the gross limits (`VALIDATION_MISMATCH_RATIO`,
+`VALIDATION_MAX_CONTIGUOUS_RUN`), re-run formatting instead of reviewing.
+
+**Pattern sets** are named files in `<transcripts>/patterns/`, one per group of
+similar transcripts (for example `kerr_lectures.txt`). Each line is an approved
+term, or a fix written `wrong = correct`. Prefer phrases over single ordinary
+words: a single-word fix replaces that word everywhere.
+
+- GUI: choose the set under *Pattern Set* (or *New...*) before formatting; the set
+  last used for the presenter is suggested. *Review Differences* opens the review
+  window, which also opens automatically when validation needs decisions.
+- CLI: `python transcript_review_format.py "Title - Presenter - Date"` to review;
+  `--assign SET`, `--list-sets`, `--new-set SET`; `python transcript_format.py FILE --pattern-set SET`.
+
+Each project records its set, the set's hash and the fixes applied
+(` - pattern-set.json`), and the review decisions (` - format-review.json`).
+
 ## Validation Pipeline
 
 The system employs a "Trust but Verify" approach:

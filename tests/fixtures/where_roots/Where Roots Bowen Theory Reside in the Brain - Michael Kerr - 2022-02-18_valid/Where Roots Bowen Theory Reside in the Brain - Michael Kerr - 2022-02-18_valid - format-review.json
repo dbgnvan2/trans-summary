@@ -1,0 +1,76 @@
+{
+  "note": "Test fixture: all differences accepted so tests can exercise the passing path. Not a real human review.",
+  "raw_sha256": "babcf9a8c56939f9cba50271366b7098db735694a62b2230195a7059e90c701c",
+  "formatted_sha256": "ed1e47c1f416a10c1d7942bf3e3026cd6f20417704793d69e457556322313746",
+  "approvals": [
+    "1595:1596|phases",
+    "1806:1807|precession",
+    "3694:3695|metazoan",
+    "4506:4508|",
+    "6203:6204|homeostasis",
+    "7832:7833|were"
+  ],
+  "log": [
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "1595:1596|phases",
+      "action": "accept",
+      "section": 17,
+      "raw_text": "faces",
+      "formatted_text": "phases",
+      "edit_text": null
+    },
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "1806:1807|precession",
+      "action": "accept",
+      "section": 19,
+      "raw_text": "procession",
+      "formatted_text": "precession",
+      "edit_text": null
+    },
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "3694:3695|metazoan",
+      "action": "accept",
+      "section": 37,
+      "raw_text": "metazellin",
+      "formatted_text": "metazoan",
+      "edit_text": null
+    },
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "4506:4508|",
+      "action": "accept",
+      "section": 44,
+      "raw_text": "Amy Post.",
+      "formatted_text": "",
+      "edit_text": null
+    },
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "6203:6204|homeostasis",
+      "action": "accept",
+      "section": 56,
+      "raw_text": "homostasis",
+      "formatted_text": "homeostasis",
+      "edit_text": null
+    },
+    {
+      "at": "2026-09-23T19:49:04.332039+00:00",
+      "reviewer": "test fixture",
+      "key": "7832:7833|were",
+      "action": "accept",
+      "section": 70,
+      "raw_text": "was",
+      "formatted_text": "were",
+      "edit_text": null
+    }
+  ],
+  "updated_at": "2026-09-23T19:49:04.332039+00:00"
+}

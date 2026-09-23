@@ -27,6 +27,8 @@ from transcript_utils import (
     validate_input_file,
 )
 
+_TIMESTAMP_PATTERN_SRC = r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?"
+
 
 def strip_sic_annotations(text: str) -> tuple[str, int]:
     """Removes [sic] annotations and returns the cleaned text and count.
@@ -207,10 +209,14 @@ def save_formatted_transcript(content: str, original_filename: str) -> Path:
 
 
 def format_transcript(
-    raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None
+    raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None,
+    pattern_set: Optional[str] = None,
 ) -> bool:
     """
     Orchestrates the transcript formatting process.
+
+    ``pattern_set``: name of the pattern set to assign to this project before
+    formatting ("" clears it; None keeps the project's current assignment).
     """
     if logger is None:
         logger = setup_logging("format_transcript")
@@ -225,6 +231,18 @@ def format_transcript(
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
+
+        # Apply the project's pattern set (group-level fixes) to the raw text
+        # before formatting; what was applied is recorded in the project.
+        import pattern_sets
+        stem = clean_project_name(raw_filename)
+        if pattern_set is not None:
+            pattern_sets.assign_to_project(stem, pattern_set or None)
+        raw_transcript, pattern_record = pattern_sets.apply_to_raw_for_project(stem, raw_transcript)
+        if pattern_record:
+            total = sum(f["count"] for f in pattern_record["applied"])
+            logger.info("Pattern set '%s': %d fix(es) applied to the raw transcript (%d occurrence(s)).",
+                        pattern_record["name"], len(pattern_record["applied"]), total)
         logger.info(
             "Detected transcript source format: %s",
             detect_transcript_source_format(raw_transcript),
@@ -299,13 +317,15 @@ def _generate_yaml_front_matter(
     """
     if validation:
         cmp = validation.get("comparison", {})
-        n_corr = len(cmp.get("corrections", []))
-        corrected = (f" {n_corr} apparent transcription error(s) corrected;" if n_corr else "")
+        review = cmp.get("review", {})
+        reviewed = review.get("accept", 0) + review.get("edit", 0)
+        reviewed_note = (
+            f" {reviewed} difference(s) reviewed and approved by a person"
+            f" ({review.get('edit', 0)} edited)." if reviewed else "")
         authenticity = (
-            "Automated word-level comparison against the source transcript passed\n"
-            f"  ({cmp.get('mismatch_count', '?')} differing words of "
-            f"{cmp.get('checked_words', '?')}).{corrected} Section headings added;\n"
-            "  timestamps, stutters and transcription artifacts removed."
+            "Word-level comparison against the source transcript passed. Every\n"
+            "  difference is a removed stutter or transcription tag, or was approved\n"
+            f"  in review.{reviewed_note} Section headings added; timestamps removed."
         )
     else:
         authenticity = (
@@ -523,9 +543,28 @@ def _compare_transcripts(
     returned list and sets ``stopped_reason`` to "max_mismatches".
     """
     del max_lookahead  # unused; see docstring
+    return _compare_words(raw_text.split(), formatted_text.split(), skip_words,
+                          max_mismatch_ratio, max_mismatches)
 
-    a_words: List[str] = raw_text.split()
-    b_words: List[str] = formatted_text.split()
+
+_ARTIFACT_TAG_RE = re.compile(
+    r"^[\[\(](?:crosstalk|inaudible|audio unclear|static)[\]\)][.,]?$", re.IGNORECASE)
+
+
+def _compare_words(
+    a_words: List[str],
+    b_words: List[str],
+    skip_words: Set[str],
+    max_mismatch_ratio: float = 1.0,
+    max_mismatches: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Core of ``_compare_transcripts`` on pre-split word lists (surface forms).
+
+    Besides per-word ``mismatches`` it returns ``blocks``: one entry per
+    differing stretch, used by the review step. A block is auto-allowed only if
+    it is a deleted immediate repetition (a stutter the prompt allows removing)
+    or a deleted transcription-artifact tag such as ``[crosstalk]``.
+    """
 
     def _checkable(words: List[str]) -> tuple[List[int], List[str]]:
         idx: List[int] = []
@@ -560,10 +599,12 @@ def _compare_transcripts(
     b_exhausted = False
     max_run = 0
     max_run_a_index: Optional[int] = None
+    blocks: List[Dict[str, Any]] = []
     for tag, i1, i2, j1, j2 in _word_opcodes(a_norm, b_norm):
         if tag == "equal":
             continue
         before = len(mismatches)
+        before_corr = len(corrections)
         # Raw words left over at the very end mean the formatted text stopped
         # early (truncation).
         at_end = i2 == len(a_norm) and j2 == len(b_norm) and (i2 - i1) > (j2 - j1)
@@ -595,6 +636,35 @@ def _compare_transcripts(
         if run > max_run:
             max_run = run
             max_run_a_index = a_idx[i1] if i1 < len(a_idx) else None
+
+        seg = a_norm[i1:i2]
+        span = i2 - i1
+        auto = None
+        if tag == "delete":
+            if (i1 - span >= 0 and a_norm[i1 - span:i1] == seg) or a_norm[i2:i2 + span] == seg:
+                auto = "stutter"
+            elif _ARTIFACT_TAG_RE.match(" ".join(a_words[a_idx[k]] for k in range(i1, i2))):
+                auto = "artifact tag"
+        if tag == "delete":
+            kind = "deleted"
+        elif tag == "insert":
+            kind = "inserted"
+        elif len(corrections) - before_corr == span == (j2 - j1) and len(mismatches) == before:
+            kind = "correction"
+        else:
+            kind = "changed"
+        blocks.append({
+            "mismatch_words": len(mismatches) - before,
+            "key": f"{i1}:{i2}|{' '.join(b_norm[j1:j2])}",
+            "kind": kind,
+            "auto": auto,
+            "raw_text": " ".join(a_words[a_idx[k]] for k in range(i1, i2)),
+            "formatted_text": " ".join(b_words[b_idx[k]] for k in range(j1, j2)),
+            "a_word_indices": [a_idx[k] for k in range(i1, i2)],
+            "b_word_indices": [b_idx[k] for k in range(j1, j2)],
+            # formatted word index before which raw words were dropped
+            "b_insert_at": b_idx[j1] if j1 < len(b_idx) else len(b_words),
+        })
 
     mismatches.sort(key=lambda m: (
         m["a_index"] if m["a_index"] is not None else float("inf"),
@@ -630,16 +700,66 @@ def _compare_transcripts(
         # Accepted near-identical replacements of words that never appear in the
         # formatted text (likely transcription errors the formatter corrected).
         "corrections": corrections,
+        "blocks": blocks,
     }
 
 
-_TIMESTAMP_PATTERN = r"[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?"
+_TIMESTAMP_PATTERN = _TIMESTAMP_PATTERN_SRC
 
 
 def _strip_times(text: str) -> str:
     """Remove clock-like tokens (timestamps, times of day)."""
     text = re.sub(_TIMESTAMP_PATTERN, " ", text, flags=re.IGNORECASE)
     return re.sub(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?", " ", text)
+
+
+def _prepare_raw_for_comparison(raw_text: str) -> str:
+    """Raw transcript with wrapper header/footer, speaker prefixes and
+    timestamps removed."""
+    return _prepare_texts_for_comparison(raw_text, "")[0]
+
+
+_FORMATTED_MASK_PATTERNS = [
+    (re.compile(r"^[ \t]*#.*$", re.MULTILINE), 0),
+    (re.compile(r"\*\*[^*\n]+:\*\*"), 0),
+    (re.compile(r"[ \t]*\[sic\](?:[ \t]*\([^)\n]*\))?"), 0),
+    (re.compile(_TIMESTAMP_PATTERN_SRC, re.IGNORECASE), 0),
+    (re.compile(r"(?:^|\s)[\[\(]?:\d{2}\b[\]\)]?"), 0),
+]
+
+
+def formatted_tokens(formatted_text: str) -> List[tuple]:
+    """Words of the formatted transcript that are compared with the raw text,
+    as (surface, start, end) character offsets into ``formatted_text``.
+
+    Excludes the same material as the comparison: heading lines, bold speaker
+    labels, [sic] annotations and clock-like tokens. Offsets let the review step
+    restore or edit exact stretches of the formatted file.
+    """
+    masked = bytearray(len(formatted_text))
+    for pattern, _ in _FORMATTED_MASK_PATTERNS:
+        for m in pattern.finditer(formatted_text):
+            masked[m.start():m.end()] = b"\x01" * (m.end() - m.start())
+    tokens: List[tuple] = []
+    for m in re.finditer(r"\S+", formatted_text):
+        start = None
+        for pos in range(m.start(), m.end() + 1):
+            inside = pos < m.end() and not masked[pos]
+            if inside and start is None:
+                start = pos
+            elif not inside and start is not None:
+                surface = formatted_text[start:pos]
+                if _normalize_word_for_validation(surface):
+                    tokens.append((surface, start, pos))
+                start = None
+    return tokens
+
+
+def span_is_plain_text(formatted_text: str, start: int, end: int) -> bool:
+    """True if [start, end) contains no masked material (headings, speaker
+    labels, annotations) — i.e. it is safe to replace wholesale."""
+    segment = formatted_text[start:end]
+    return "\n#" not in segment and "**" not in segment and "[sic]" not in segment
 
 
 def _prepare_texts_for_comparison(raw_text: str, formatted_text: str) -> tuple[str, str]:
@@ -862,50 +982,127 @@ def check_heading_timestamp_positions(
     return errors, warnings
 
 
+def difference_items(raw_text: str, formatted_text: str,
+                     skip_words: Optional[Set[str]] = None) -> tuple:
+    """Compare raw vs formatted and return (comparison_result, items).
+
+    ``formatted_text`` must have YAML front matter removed. Each item is one
+    differing stretch with: key (stable across edits to other parts of the
+    text), kind, auto (reason it is allowed automatically, or None), raw_text,
+    formatted_text, section number, raw/formatted context, and the character
+    span in ``formatted_text`` (``span``; for a pure deletion an insertion
+    point with start == end).
+    """
+    raw_words = _prepare_raw_for_comparison(raw_text).split()
+    tokens = formatted_tokens(formatted_text)
+    result = _compare_words(raw_words, [t[0] for t in tokens], skip_words or set())
+
+    heading_offsets = [(m.start(), int(m.group(1))) for m in
+                       re.finditer(r"^## Section (\d+)", formatted_text, flags=re.MULTILINE)]
+
+    def _section_at(offset: int) -> Optional[int]:
+        current = None
+        for pos, number in heading_offsets:
+            if pos <= offset:
+                current = number
+            else:
+                break
+        return current
+
+    items = []
+    for block in result["blocks"]:
+        b_idx = block["b_word_indices"]
+        if b_idx:
+            start, end = tokens[b_idx[0]][1], tokens[b_idx[-1]][2]
+        elif block["b_insert_at"] > 0:
+            start = end = tokens[block["b_insert_at"] - 1][2]
+        else:
+            start = end = tokens[0][1] if tokens else 0
+        a_idx = block["a_word_indices"]
+        a_lo = a_idx[0] if a_idx else None
+        b_lo = b_idx[0] if b_idx else block["b_insert_at"]
+        raw_ctx = " ".join(raw_words[max(0, (a_lo or 0) - 8):(a_idx[-1] + 9) if a_idx else 0]) if a_idx else ""
+        fmt_ctx = " ".join(t[0] for t in tokens[max(0, b_lo - 8):b_lo + len(b_idx) + 8])
+        items.append({
+            "key": block["key"],
+            "kind": block["kind"],
+            "auto": block["auto"],
+            "raw_text": block["raw_text"],
+            "formatted_text": block["formatted_text"],
+            "section": _section_at(start),
+            "raw_context": raw_ctx,
+            "formatted_context": fmt_ctx,
+            "span": [start, end],
+            "mismatch_words": block["mismatch_words"],
+        })
+    return result, items
+
+
 def verify_source_fidelity(
-    raw_text: str, formatted_text: str, skip_words: Optional[Set[str]] = None
+    raw_text: str,
+    formatted_text: str,
+    skip_words: Optional[Set[str]] = None,
+    approvals: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """All deterministic checks of a formatted transcript against its raw source.
 
-    ``formatted_text`` may include YAML front matter (it is stripped). Returns a
-    dict with ``passed``, ``errors``, ``warnings`` and ``comparison`` (the
-    ``_compare_transcripts`` result without the per-word mismatch list, plus
-    ``mismatch_sample``: the first 20 mismatches).
+    Passes only if: the heading checks pass; the differences are within the
+    gross limits (VALIDATION_MISMATCH_RATIO, VALIDATION_MAX_CONTIGUOUS_RUN —
+    beyond them the output should be regenerated, not reviewed); and every
+    difference is either auto-allowed (stutter / artifact tag) or has been
+    approved in review (``approvals``: set of item keys).
+
+    ``formatted_text`` may include YAML front matter (it is stripped). Returns
+    ``passed``, ``errors``, ``warnings``, ``comparison`` (counts),
+    ``items`` (all differences) and ``unresolved`` (items needing review).
     """
     formatted_text = strip_yaml_frontmatter(formatted_text)
-    raw_clean, formatted_clean = _prepare_texts_for_comparison(raw_text, formatted_text)
-    result = _compare_transcripts(
-        raw_clean, formatted_clean, skip_words or set(),
-        config.VALIDATION_LOOKAHEAD_WINDOW, 0.05, None,
-    )
+    result, items = difference_items(raw_text, formatted_text, skip_words)
+    approvals = approvals or set()
     errors, warnings = validate_section_headings(formatted_text, raw_text)
     pos_errors, pos_warnings = check_heading_timestamp_positions(formatted_text, raw_text)
     errors += pos_errors
     warnings += pos_warnings
 
-    if result["max_contiguous_run"] > config.VALIDATION_MAX_CONTIGUOUS_RUN:
+    # Gross limits count only differences that are not auto-allowed: removed
+    # stutters are expected and must not push a good transcript over the limit.
+    reviewable = [i for i in items if not i["auto"]]
+    review_words = sum(i["mismatch_words"] for i in reviewable)
+    review_ratio = review_words / result["checked_words"] if result["checked_words"] else 0.0
+    longest = max(reviewable, key=lambda i: i["mismatch_words"], default=None)
+    gross = False
+    if longest and longest["mismatch_words"] > config.VALIDATION_MAX_CONTIGUOUS_RUN:
+        gross = True
         errors.append(
-            f"{result['max_contiguous_run']} consecutive differing words starting at raw "
-            f"word {result['max_run_a_index']} (limit {config.VALIDATION_MAX_CONTIGUOUS_RUN})"
+            f"{longest['mismatch_words']} consecutive differing words in section "
+            f"{longest['section']} (limit {config.VALIDATION_MAX_CONTIGUOUS_RUN}) — re-run formatting"
         )
-    if result["mismatch_ratio"] > config.VALIDATION_MISMATCH_RATIO:
+    if review_ratio > config.VALIDATION_MISMATCH_RATIO:
+        gross = True
         errors.append(
-            f"mismatch ratio {result['mismatch_ratio'] * 100:.2f}% exceeds limit "
-            f"{config.VALIDATION_MISMATCH_RATIO * 100:.1f}%"
+            f"mismatch ratio {review_ratio * 100:.2f}% exceeds limit "
+            f"{config.VALIDATION_MISMATCH_RATIO * 100:.1f}% — re-run formatting"
         )
-    comparison = {k: v for k, v in result.items() if k not in ("mismatches", "corrections")}
+    unresolved = [i for i in items if not i["auto"] and i["key"] not in approvals]
+    if unresolved and not gross:
+        errors.append(f"{len(unresolved)} difference(s) from the source need review")
+
+    comparison = {k: v for k, v in result.items()
+                  if k not in ("mismatches", "corrections", "blocks")}
     comparison["mismatch_sample"] = result["mismatches"][:20]
     comparison["corrections"] = [
         f"{c['a_word']} -> {c['b_word']}" for c in result["corrections"]]
-    if result["corrections"]:
-        warnings.append(
-            f"{len(result['corrections'])} word(s) changed as transcription corrections: "
-            + ", ".join(comparison["corrections"][:10]))
+    comparison["differences"] = len(items)
+    comparison["auto_allowed"] = sum(1 for i in items if i["auto"])
+    comparison["approved"] = sum(1 for i in items if not i["auto"] and i["key"] in approvals)
     return {
         "passed": not errors,
         "errors": errors,
         "warnings": warnings,
         "comparison": comparison,
+        "items": items,
+        "unresolved": unresolved,
+        "review_needed": bool(unresolved) and not gross,
     }
 
 
@@ -996,8 +1193,15 @@ def validate_format(
                 if word and not word.startswith("#")
             }
 
-        outcome = verify_source_fidelity(raw_text, formatted_text, skip_words)
+        import format_review
+        import pattern_sets
+        # Compare against the text the formatter actually received: the raw with
+        # this project's recorded pattern-set fixes applied.
+        raw_text = pattern_sets.effective_raw(stem, raw_text)
+        approvals = format_review.load_approvals(stem, raw_text)
+        outcome = verify_source_fidelity(raw_text, formatted_text, skip_words, approvals)
         comparison = outcome["comparison"]
+        comparison["review"] = format_review.review_counts(stem)
 
         # Keep a copy of the exact raw source just validated against, so the release
         # gate can re-verify later even after the source file is renamed or moved.
@@ -1019,6 +1223,12 @@ def validate_format(
             logger.error("Validation FAILED: %d error(s).", len(outcome["errors"]))
             for error in outcome["errors"][:20]:
                 logger.error("  %s", error)
+            if outcome["review_needed"]:
+                logger.error("  Review the differences (GUI: Review Differences; CLI: "
+                             "python transcript_review_format.py \"%s\").", stem)
+                for item in outcome["unresolved"][:20]:
+                    logger.error("    Section %s, %s: %r -> %r", item["section"], item["kind"],
+                                 item["raw_text"], item["formatted_text"])
             for m in comparison["mismatch_sample"]:
                 logger.error("  Mismatch (%s): A[%s]='%s' vs B[%s]='%s'", m.get(
                     'reason', 'Unknown'), m['a_index'], m['a_word'], m['b_index'], m.get('b_word'))

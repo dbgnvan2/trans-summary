@@ -21,6 +21,8 @@ from tkinter import filedialog, messagebox, scrolledtext, simpledialog, ttk
 import analyze_token_usage
 import cleanup_pipeline
 import config
+import format_review
+import pattern_sets
 import pipeline
 import transcript_config_check
 import transcript_cost_estimator
@@ -400,6 +402,127 @@ class GuiLoggerAdapter:
         print(f"DEBUG: {str(msg) % args if args else str(msg)}")
 
 
+PATTERN_SET_NONE = "(none)"
+
+
+class FormatReviewDialog(tk.Toplevel):
+    """Review differences between the raw and formatted transcript.
+
+    Each difference gets Accept (keep formatted wording), Reject (restore raw
+    wording) or Edit (type the final wording), and optionally "Save as pattern"
+    (adds raw = final to the project's pattern set for future transcripts).
+    Suggested defaults: reject deletions/insertions, accept corrections; plain
+    changes must be decided explicitly.
+    """
+
+    def __init__(self, parent, stem, items, pattern_set_name, apply_callback):
+        super().__init__(parent)
+        self.title(f"Review Formatting Differences — {stem}")
+        self.geometry("1000x700")
+        self.items = items
+        self.apply_callback = apply_callback
+        self.pattern_set_name = pattern_set_name
+        self.rows = []
+
+        header = ttk.Frame(self)
+        header.pack(fill=tk.X, padx=10, pady=(10, 4))
+        ttk.Label(header, text=f"{len(items)} difference(s) between the raw and formatted transcript",
+                  font=("", 12, "bold")).pack(anchor="w")
+        ttk.Label(header, wraplength=960, text=(
+            "Accept keeps the formatted wording. Reject restores the raw wording. Edit replaces it "
+            "with what you type. 'Save as pattern' adds the change to the pattern set "
+            f"'{pattern_set_name or '(none assigned)'}' so it is fixed in the raw text of future "
+            "transcripts before formatting.")).pack(anchor="w")
+
+        outer = ttk.Frame(self)
+        outer.pack(fill=tk.BOTH, expand=True, padx=10)
+        canvas = tk.Canvas(outer)
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        body = ttk.Frame(canvas)
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        self.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)) or
+                                                                (-1 if e.delta > 0 else 1), "units"))
+        self.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+        self.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
+
+        for n, item in enumerate(items, 1):
+            self._add_row(body, n, item)
+
+        buttons = ttk.Frame(self)
+        buttons.pack(fill=tk.X, padx=10, pady=10)
+        ttk.Button(buttons, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(buttons, text="Apply Decisions", command=self.on_apply).pack(side=tk.RIGHT, padx=5)
+
+    def _add_row(self, parent, n, item):
+        frame = ttk.LabelFrame(parent, text=f"{n}. Section {item['section']} — {item['kind']}", padding=6)
+        frame.pack(fill=tk.X, pady=4)
+        ttk.Label(frame, text=f"Raw:        {item['raw_text'] or '(nothing)'}").grid(row=0, column=0, columnspan=5, sticky="w")
+        ttk.Label(frame, text=f"Formatted:  {item['formatted_text'] or '(nothing)'}").grid(row=1, column=0, columnspan=5, sticky="w")
+        ttk.Label(frame, wraplength=900, foreground="gray",
+                  text=f"Raw context: …{item['raw_context']}…").grid(row=2, column=0, columnspan=5, sticky="w")
+        ttk.Label(frame, wraplength=900, foreground="gray",
+                  text=f"Formatted context: …{item['formatted_context']}…").grid(row=3, column=0, columnspan=5, sticky="w")
+        controls = ttk.Frame(frame)
+        controls.grid(row=4, column=0, columnspan=5, sticky="w", pady=(4, 0))
+        default = {"deleted": "reject", "inserted": "reject", "correction": "accept"}.get(item["kind"], "")
+        action = tk.StringVar(value=default)
+        edit_text = tk.StringVar(value=item["formatted_text"])
+        save = tk.BooleanVar(value=False)
+        entry = ttk.Entry(controls, textvariable=edit_text, width=40)
+        save_chk = ttk.Checkbutton(controls, text="Save as pattern", variable=save)
+
+        def refresh(*_):
+            entry.config(state=tk.NORMAL if action.get() == "edit" else tk.DISABLED)
+            can_save = (self.pattern_set_name and item["raw_text"]
+                        and action.get() in ("accept", "edit"))
+            save_chk.config(state=tk.NORMAL if can_save else tk.DISABLED)
+            if not can_save:
+                save.set(False)
+
+        for label, value in (("Accept", "accept"), ("Reject", "reject"), ("Edit", "edit")):
+            ttk.Radiobutton(controls, text=label, variable=action, value=value,
+                            command=refresh).pack(side=tk.LEFT, padx=(0, 10))
+        entry.pack(side=tk.LEFT, padx=(0, 10))
+        save_chk.pack(side=tk.LEFT)
+        refresh()
+        self.rows.append((item, action, edit_text, save))
+
+    def on_apply(self):
+        undecided = [str(n) for n, (_, action, _, _) in enumerate(self.rows, 1) if not action.get()]
+        if undecided:
+            messagebox.showwarning("Decisions needed",
+                                   f"Choose Accept, Reject or Edit for item(s): {', '.join(undecided)}",
+                                   parent=self)
+            return
+        decisions = []
+        for item, action, edit_text, save in self.rows:
+            decision = {"key": item["key"], "action": action.get()}
+            if action.get() == "edit":
+                if not edit_text.get().strip():
+                    messagebox.showwarning("Empty edit", "An Edit needs replacement text.", parent=self)
+                    return
+                decision["edit_text"] = edit_text.get().strip()
+            if save.get():
+                final = decision.get("edit_text", item["formatted_text"])
+                if pattern_sets.is_single_word(item["raw_text"]) and not messagebox.askyesno(
+                        "Single-word pattern",
+                        f"'{item['raw_text']} = {final}' will replace the single word "
+                        f"'{item['raw_text']}' everywhere in future transcripts of this group.\n\n"
+                        "If it is an ordinary word, a phrase pattern is safer. Save anyway?",
+                        parent=self):
+                    return
+                decision["save_pattern"] = True
+            decisions.append(decision)
+        if not messagebox.askyesno("Apply decisions", f"Apply {len(decisions)} decision(s)?", parent=self):
+            return
+        self.destroy()
+        self.apply_callback(decisions)
+
+
 class ValidationReviewDialog(tk.Toplevel):
     """Dialog to review, edit, and accept/reject validation findings."""
 
@@ -666,6 +789,18 @@ class TranscriptProcessorGUI:
             row=0, column=3, sticky=tk.E
         )
 
+        pattern_frame = ttk.Frame(model_selection_frame)
+        pattern_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
+        ttk.Label(pattern_frame, text="Pattern Set:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        self.pattern_set_var = tk.StringVar(value=PATTERN_SET_NONE)
+        self.pattern_set_cb = ttk.Combobox(
+            pattern_frame, textvariable=self.pattern_set_var,
+            values=self._pattern_set_choices(), state="readonly", width=30)
+        self.pattern_set_cb.grid(row=0, column=1, sticky=tk.W)
+        self.pattern_set_cb.bind("<<ComboboxSelected>>", lambda event: self._on_pattern_set_selected())
+        ttk.Button(pattern_frame, text="New...", command=self.create_pattern_set).grid(
+            row=0, column=2, sticky=tk.W, padx=(8, 0))
+
         # Row 2: PanedWindow — all three text panes are drag-resizable
         paned = ttk.PanedWindow(main_frame, orient=tk.VERTICAL)
         paned.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
@@ -777,6 +912,11 @@ class TranscriptProcessorGUI:
         self.cleanup_btn = ttk.Button(
             button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
         self.cleanup_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
+
+        self.review_btn = ttk.Button(
+            button_frame, text="Review Differences", command=self.do_review_differences,
+            state=tk.DISABLED)
+        self.review_btn.grid(row=utility_row, column=5, padx=(0, 5), pady=2)
 
         # Row 5: Run Selected / Manage Selections
         # Spec: docs/spec_stage_selection_2026-07-12.md#SS.9
@@ -1167,6 +1307,7 @@ class TranscriptProcessorGUI:
             return                 # ADDED return
         self.formatted_file = (config.PROJECTS_DIR / self.base_name / \
                                f"{self.base_name}{config.SUFFIX_FORMATTED}")
+        self._sync_pattern_set_for_project()
         self.check_file_status()
         self.update_button_states()
 
@@ -1554,13 +1695,129 @@ class TranscriptProcessorGUI:
 
     def _run_format_and_validate(self):
         # Use config.settings.FORMATTING_MODEL
-        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger, model=config.settings.FORMATTING_MODEL): # MODIFIED
+        pattern_set = self._selected_pattern_set()
+        if not pipeline.format_transcript(self.selected_file.name, logger=self.logger,
+                                          model=config.settings.FORMATTING_MODEL,
+                                          pattern_set=pattern_set or ""):
             return False
+        if pattern_set:
+            self._remember_pattern_set_for_presenter(pattern_set)
         self.log("Format complete. Now validating...")
         if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
             self.log("❌ Validation failed. Please check the logs.")
+            self._open_review_if_needed()
             return False
         return True
+
+    # ------------------------------------------------------------ pattern sets
+    def _pattern_set_choices(self):
+        try:
+            return [PATTERN_SET_NONE] + pattern_sets.list_sets()
+        except Exception as e:  # a bad patterns folder must not break the GUI
+            self.log("⚠️ Could not list pattern sets: %s", e)
+            return [PATTERN_SET_NONE]
+
+    def _selected_pattern_set(self):
+        var = getattr(self, "pattern_set_var", None)
+        value = var.get() if var is not None else PATTERN_SET_NONE
+        return "" if value in ("", PATTERN_SET_NONE) else value
+
+    def _sync_pattern_set_for_project(self):
+        """Show the project's assigned set, or suggest the set last used for
+        this presenter (applied only when the project is formatted)."""
+        if getattr(self, "pattern_set_var", None) is None or not self.base_name:
+            return
+        record = pattern_sets.load_project_record(self.base_name) or {}
+        name = record.get("name")
+        if not name:
+            try:
+                presenter = parse_filename_metadata(self.base_name).get("presenter", "")
+            except ValueError:
+                presenter = ""
+            name = pattern_sets.default_for_presenter(presenter)
+            if name:
+                self.log("Pattern set '%s' suggested (last used for %s); used when you format.",
+                         name, presenter)
+        self.pattern_set_var.set(name or PATTERN_SET_NONE)
+
+    def _on_pattern_set_selected(self):
+        if not self.base_name:
+            return
+        name = self._selected_pattern_set()
+        pattern_sets.assign_to_project(self.base_name, name or None)
+        self.log("Pattern set for this project: %s (applied the next time it is formatted).",
+                 name or "none")
+
+    def _remember_pattern_set_for_presenter(self, name):
+        try:
+            presenter = parse_filename_metadata(self.base_name).get("presenter", "")
+            pattern_sets.remember_for_presenter(presenter, name)
+        except Exception:  # remembering a default is a convenience only
+            pass
+
+    def create_pattern_set(self):
+        name = simpledialog.askstring("New Pattern Set",
+                                      "Name for the new pattern set (letters, numbers, spaces, - _ .):",
+                                      parent=self.root)
+        if not name:
+            return
+        try:
+            path = pattern_sets.create_set(name.strip())
+        except ValueError as e:
+            messagebox.showerror("Invalid name", str(e))
+            return
+        self.pattern_set_cb.config(values=self._pattern_set_choices())
+        self.pattern_set_var.set(name.strip())
+        self._on_pattern_set_selected()
+        self.log("Created pattern set: %s", path)
+
+    # ------------------------------------------------------------ review
+    def do_review_differences(self):
+        if not self.base_name:
+            return
+        try:
+            items = format_review.pending_items(self.base_name)
+        except FileNotFoundError as e:
+            messagebox.showinfo("Review Differences", f"{e}")
+            return
+        if not items:
+            messagebox.showinfo("Review Differences", "No differences need review.")
+            return
+        self._show_review_dialog(items)
+
+    def _open_review_if_needed(self):
+        try:
+            items = format_review.pending_items(self.base_name)
+        except Exception as e:
+            self.log("⚠️ Could not load differences for review: %s", e)
+            return
+        if items:
+            self.log("%d difference(s) need review — opening the review window.", len(items))
+            self.root.after(0, lambda: self._show_review_dialog(items))
+
+    def _show_review_dialog(self, items):
+        record = pattern_sets.load_project_record(self.base_name) or {}
+        FormatReviewDialog(self.root, self.base_name, items, record.get("name"),
+                           self._apply_review_decisions)
+
+    def _apply_review_decisions(self, decisions):
+        self.run_task_in_thread(self._apply_review_task, decisions,
+                                task_name="apply review decisions")
+
+    def _apply_review_task(self, decisions):
+        result = format_review.apply_decisions(self.base_name, decisions)
+        for error in result["errors"]:
+            self.log("⚠️ %s", error)
+        for pattern in result["patterns_saved"]:
+            self.log("Saved pattern: %s", pattern)
+        if result["changed_text"]:
+            self.log("Formatted transcript updated by review; re-run the YAML step afterwards.")
+        ok = pipeline.validate_format(self.selected_file.name, logger=self.logger)
+        if ok:
+            self.log("✅ All differences resolved; format validation passes.")
+        else:
+            self._open_review_if_needed()
+        return ok
 
     def do_validate_headers(self):
         """Run the header validation step."""
@@ -2591,6 +2848,8 @@ class TranscriptProcessorGUI:
         # Manage Selections is always enabled (independent of file selection).
         self.cost_btn.config(state=state)
         self.cleanup_btn.config(state=state) # ADDED
+        if getattr(self, "review_btn", None) is not None:
+            self.review_btn.config(state=state)
         self.bundle_btn.config(state=state)  # launches a background export -> disable while busy
         # Config check button is always enabled
         self.core_emphasis_chk.config(state=state)

@@ -105,8 +105,8 @@ def test_yaml_authenticity_reflects_validation():
     authenticity = unverified.split("Authenticity:", 1)[1].split("\nVersion:", 1)[0]
     assert "recording" not in authenticity.lower()
     verified = fp._generate_yaml_front_matter(
-        meta, "x.mp4", {"comparison": {"mismatch_count": 8, "checked_words": 9966}})
-    assert "8 differing words of 9966" in verified
+        meta, "x.mp4", {"comparison": {"review": {"accept": 5, "edit": 1, "reject": 2}}})
+    assert "6 difference(s) reviewed and approved by a person (1 edited)" in verified
     assert "NOT VERIFIED" not in verified
 
 

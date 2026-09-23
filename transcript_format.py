@@ -30,11 +30,18 @@ def main():
         help=f"Claude model to use (default: {config.FORMATTING_MODEL})",
     )
 
+    parser.add_argument(
+        "--pattern-set",
+        default=None,
+        help="Pattern set to assign and apply to the raw transcript before formatting "
+             "('' clears it; omitted keeps the project's current assignment)",
+    )
+
     args = parser.parse_args()
 
     print(f"Starting transcript formatting for: {args.raw_filename}")
 
-    success = format_transcript(args.raw_filename, model=args.model)
+    success = format_transcript(args.raw_filename, model=args.model, pattern_set=args.pattern_set)
 
     if success:
         print("\nFormatting completed successfully.")

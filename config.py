@@ -467,6 +467,8 @@ SUFFIX_VOICE_AUDIT = " - voice-audit.json"
 SUFFIX_RUN_MANIFEST = " - run-manifest.json"
 SUFFIX_FORMAT_VALIDATION = " - format-validation.json"
 SUFFIX_RAW_SOURCE = " - raw-source.txt"
+SUFFIX_PATTERN_SET = " - pattern-set.json"
+SUFFIX_FORMAT_REVIEW = " - format-review.json"
 SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
 SUFFIX_ZIP = ".zip"
 # MD-collection bundle export (docs/spec_bundle_export_2026-07-16.md). Distinct
