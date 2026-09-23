@@ -46,10 +46,19 @@ def formatted_path(stem: str) -> Path:
 
 
 def _load_review(stem: str) -> dict:
-    try:
-        return json.loads(review_path(stem).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    """The project's review record ({} if none). A present-but-unreadable file
+    raises CorruptRecordError rather than being overwritten or ignored, which
+    would silently discard every approval and the decision log."""
+    path = review_path(stem)
+    if not path.exists():
         return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise pattern_sets.CorruptRecordError(f"cannot read {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise pattern_sets.CorruptRecordError(f"{path} does not contain a JSON object")
+    return data
 
 
 def load_approvals(stem: str, raw_text: str) -> set:
@@ -85,6 +94,17 @@ def pending_items(stem: str, raw_text: Optional[str] = None) -> list:
     formatted = strip_yaml_frontmatter(formatted_path(stem).read_text(encoding="utf-8"))
     outcome = fp.verify_source_fidelity(raw_text, formatted, approvals=load_approvals(stem, raw_text))
     return outcome["unresolved"]
+
+
+def _insertion_point_is_plain(text: str, offset: int) -> bool:
+    """True if restoring words at ``offset`` (end of the previous kept word)
+    stays inside ordinary transcript text: the gap to the next kept word holds
+    no heading or speaker label, so the words cannot land in the wrong section
+    or be attributed to the wrong speaker."""
+    tokens = fp.formatted_tokens(text)
+    following = next((t for t in tokens if t[1] >= offset), None)
+    gap = text[offset:following[1] if following else len(text)]
+    return "#" not in gap and "**" not in gap
 
 
 def apply_decisions(stem: str, decisions: list, raw_text: Optional[str] = None,
@@ -129,6 +149,10 @@ def apply_decisions(stem: str, decisions: list, raw_text: Optional[str] = None,
             errors.append(f"invalid action {action!r} for {key}")
             continue
         start, end = item["span"]
+        if action == "reject" and start == end and not _insertion_point_is_plain(original, start):
+            errors.append(f"cannot restore {item['raw_text']!r} automatically: it falls at a "
+                          "section heading or speaker-label boundary; edit the file by hand")
+            continue
         if action == "accept":
             approvals.add(key)
             final_text = item["formatted_text"]

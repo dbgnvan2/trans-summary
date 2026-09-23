@@ -160,11 +160,23 @@ def project_record_path(stem: str) -> Path:
     return config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_PATTERN_SET}"
 
 
+class CorruptRecordError(ValueError):
+    """A project/review JSON file exists but cannot be read. Raised instead of
+    treating it as absent, which would silently drop the pattern-set assignment
+    or approvals (P2/P8)."""
+
+
 def load_project_record(stem: str) -> Optional[dict]:
-    try:
-        return json.loads(project_record_path(stem).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    path = project_record_path(stem)
+    if not path.exists():
         return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise CorruptRecordError(f"cannot read {path}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise CorruptRecordError(f"{path} does not contain a JSON object")
+    return data
 
 
 def assign_to_project(stem: str, name: Optional[str]) -> None:

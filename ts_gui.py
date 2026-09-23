@@ -519,8 +519,10 @@ class FormatReviewDialog(tk.Toplevel):
             decisions.append(decision)
         if not messagebox.askyesno("Apply decisions", f"Apply {len(decisions)} decision(s)?", parent=self):
             return
-        self.destroy()
-        self.apply_callback(decisions)
+        # The callback returns False if it could not start (e.g. another task is
+        # running); keep the window and the reviewer's choices in that case.
+        if self.apply_callback(decisions) is not False:
+            self.destroy()
 
 
 class ValidationReviewDialog(tk.Toplevel):
@@ -1727,7 +1729,12 @@ class TranscriptProcessorGUI:
         this presenter (applied only when the project is formatted)."""
         if getattr(self, "pattern_set_var", None) is None or not self.base_name:
             return
-        record = pattern_sets.load_project_record(self.base_name) or {}
+        try:
+            record = pattern_sets.load_project_record(self.base_name) or {}
+        except pattern_sets.CorruptRecordError as e:
+            self.log("❌ %s — fix or delete the file, then reselect the transcript.", e)
+            self.pattern_set_var.set(PATTERN_SET_NONE)
+            return
         name = record.get("name")
         if not name:
             try:
@@ -1777,7 +1784,7 @@ class TranscriptProcessorGUI:
             return
         try:
             items = format_review.pending_items(self.base_name)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, pattern_sets.CorruptRecordError) as e:
             messagebox.showinfo("Review Differences", f"{e}")
             return
         if not items:
@@ -1796,13 +1803,23 @@ class TranscriptProcessorGUI:
             self.root.after(0, lambda: self._show_review_dialog(items))
 
     def _show_review_dialog(self, items):
-        record = pattern_sets.load_project_record(self.base_name) or {}
+        try:
+            record = pattern_sets.load_project_record(self.base_name) or {}
+        except pattern_sets.CorruptRecordError as e:
+            self.log("⚠️ %s — pattern saving disabled for this review.", e)
+            record = {}
         FormatReviewDialog(self.root, self.base_name, items, record.get("name"),
                            self._apply_review_decisions)
 
     def _apply_review_decisions(self, decisions):
+        if self.processing:
+            messagebox.showwarning(
+                "Busy", "Another task is still running. Your choices are kept — "
+                        "click Apply Decisions again when it finishes.")
+            return False
         self.run_task_in_thread(self._apply_review_task, decisions,
                                 task_name="apply review decisions")
+        return True
 
     def _apply_review_task(self, decisions):
         result = format_review.apply_decisions(self.base_name, decisions)

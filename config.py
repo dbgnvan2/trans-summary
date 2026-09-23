@@ -828,6 +828,9 @@ YAML_TRANSCRIBER = "Automated"
 # How many formatted words past a heading to search for the first word that
 # aligns with the raw transcript when checking the heading's timestamp position.
 HEADING_TS_LOCATE_WINDOW = 30
+# Words whose immediate repetition can be grammatical ("had had", "that that"):
+# removing one is never auto-allowed as a stutter; it goes to review.
+STUTTER_ALWAYS_REVIEW = {"had", "that"}
 
 # Minimum Generation Lengths
 MIN_EXTRACTS_PERCENT = 0.04  # 4% of transcript word count

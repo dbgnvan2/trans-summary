@@ -641,7 +641,9 @@ def _compare_words(
         span = i2 - i1
         auto = None
         if tag == "delete":
-            if (i1 - span >= 0 and a_norm[i1 - span:i1] == seg) or a_norm[i2:i2 + span] == seg:
+            repeated = (i1 - span >= 0 and a_norm[i1 - span:i1] == seg) or a_norm[i2:i2 + span] == seg
+            grammatical = span == 1 and seg[0] in config.STUTTER_ALWAYS_REVIEW
+            if repeated and not grammatical:
                 auto = "stutter"
             elif _ARTIFACT_TAG_RE.match(" ".join(a_words[a_idx[k]] for k in range(i1, i2))):
                 auto = "artifact tag"

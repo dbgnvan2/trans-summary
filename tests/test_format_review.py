@@ -149,15 +149,38 @@ def test_accept_approves_without_changing_text(project):
 
 def test_reject_restores_raw_wording(project):
     items = fr.pending_items(BASE)
-    decisions = [{"key": _item(items, "was")["key"], "action": "reject"},
-                 {"key": _item(items, "Amy Post.")["key"], "action": "reject"}]
-    result = fr.apply_decisions(BASE, decisions)
+    result = fr.apply_decisions(BASE, [{"key": _item(items, "was")["key"], "action": "reject"}])
     assert result["changed_text"] and not result["errors"]
     remaining = {i["raw_text"] for i in fr.pending_items(BASE)}
-    assert "was" not in remaining and "Amy Post." not in remaining
-    assert len(fr.pending_items(BASE)) == 4
-    text = fr.formatted_path(BASE).read_text()
-    assert "Amy Post." in text
+    assert "was" not in remaining and len(remaining) == 5
+
+
+def test_reject_of_deletion_at_section_boundary_is_refused_on_real_fixture(project):
+    # In the fixture the formatter dropped "Amy Post." where it starts a new
+    # section ("## Section 45 – Q&A: Amy Post on ..."); restoring it
+    # automatically could put it in the wrong section, so it is refused.
+    before = fr.formatted_path(BASE).read_text()
+    key = _item(fr.pending_items(BASE), "Amy Post.")["key"]
+    result = fr.apply_decisions(BASE, [{"key": key, "action": "reject"}])
+    assert result["changed_text"] is False and result["errors"]
+    assert fr.formatted_path(BASE).read_text() == before
+
+
+def test_reject_restores_deleted_words_mid_paragraph(tmp_path, monkeypatch, patterns):
+    projects = tmp_path / "projects"
+    stem = "Talk - A Person - 2021-01-01"
+    (projects / stem).mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects)
+    raw = "Speaker 1  0:01\nWe do not accept that idea here.\n"
+    fmt = "## Section 1 – Accepting That Idea Here ([00:00:01]).\n\nWe do accept that idea here.\n"
+    (projects / stem / f"{stem}{config.SUFFIX_FORMATTED}").write_text(fmt)
+    (projects / stem / f"{stem}{config.SUFFIX_RAW_SOURCE}").write_text(raw)
+    item = fr.pending_items(stem)[0]
+    assert item["raw_text"] == "not" and item["kind"] == "deleted"
+    result = fr.apply_decisions(stem, [{"key": item["key"], "action": "reject"}])
+    assert result["changed_text"] and not result["errors"]
+    assert "We do not accept that idea here." in fr.formatted_path(stem).read_text()
+    assert fr.pending_items(stem) == []
 
 
 def test_edit_is_applied_and_approved(project):
@@ -315,3 +338,64 @@ def test_gui_review_dialog_collects_decisions(project):
         assert kinds[deleted["key"]] == "reject"  # suggested default
     finally:
         root.destroy()
+
+
+# ------------------------------------------------------------------ sweep fixes
+
+
+def test_corrupt_review_file_is_loud_not_ignored(project):
+    fr.review_path(BASE).write_text("{not json")
+    with pytest.raises(ps.CorruptRecordError):
+        fr.pending_items(BASE)
+    with pytest.raises(ps.CorruptRecordError):
+        fr.apply_decisions(BASE, [])
+    assert fr.review_path(BASE).read_text() == "{not json"  # not overwritten
+
+
+def test_corrupt_pattern_record_is_loud(project):
+    ps.project_record_path(BASE).write_text("[]")
+    with pytest.raises(ps.CorruptRecordError):
+        ps.load_project_record(BASE)
+    with pytest.raises(ps.CorruptRecordError):
+        ps.effective_raw(BASE, "text")
+
+
+def test_grammatical_double_goes_to_review():
+    raw = "Speaker 1  0:01\nHe had had enough, and that that was it.\n"
+    fmt = "## Section 1 – He Had Had Enough Then ([00:00:01]).\n\nHe had enough, and that was it.\n"
+    result, items = fp.difference_items(raw, fmt)
+    assert len(items) == 2 and all(i["auto"] is None for i in items)
+    ok_raw = "Speaker 1  0:01\nI I went home.\n"
+    ok_fmt = "## Section 1 – Going Home Right Now ([00:00:01]).\n\nI went home.\n"
+    assert fp.difference_items(ok_raw, ok_fmt)[1][0]["auto"] == "stutter"
+
+
+def test_restore_across_section_boundary_is_refused(tmp_path, monkeypatch, patterns):
+    projects = tmp_path / "projects"
+    stem = "Talk - A Person - 2021-01-01"
+    (projects / stem).mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", projects)
+    raw = "Speaker 1  0:01\nFirst part ends here. Dropped words. Second part starts.\n"
+    fmt = ("## Section 1 – The First Part Ends Here ([00:00:01]).\n\nFirst part ends here.\n\n"
+           "## Section 2 – The Second Part Starts Now ([00:00:01]).\n\nSecond part starts.\n")
+    (projects / stem / f"{stem}{config.SUFFIX_FORMATTED}").write_text(fmt)
+    (projects / stem / f"{stem}{config.SUFFIX_RAW_SOURCE}").write_text(raw)
+    item = fr.pending_items(stem)[0]
+    assert item["raw_text"] == "Dropped words."
+    result = fr.apply_decisions(stem, [{"key": item["key"], "action": "reject"}])
+    assert result["changed_text"] is False
+    assert any("section heading or speaker-label boundary" in e for e in result["errors"])
+
+
+def test_gui_apply_while_busy_keeps_decisions(project):
+    import ts_gui
+    gui = _headless_gui()
+    gui.processing = True
+    gui.run_task_in_thread = MagicMock()
+    with patch.object(ts_gui.messagebox, "showwarning") as warn:
+        assert gui._apply_review_decisions([{"key": "k", "action": "accept"}]) is False
+    warn.assert_called_once()
+    gui.run_task_in_thread.assert_not_called()
+    gui.processing = False
+    assert gui._apply_review_decisions([{"key": "k", "action": "accept"}]) is True
+    gui.run_task_in_thread.assert_called_once()
