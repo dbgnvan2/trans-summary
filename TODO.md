@@ -6,6 +6,18 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-09-23 — Source fidelity, review and pattern sets (open items)
+
+- **Unify Terms File and pattern sets.** Initial Validation still uses the single global Terms File (`VALIDATION_APPROVED_TERMS_PATH`); pattern sets feed formatting. Approved-term lines in a pattern set currently have no effect. Decide whether Initial Validation should read the project's pattern set.
+- **Calibrate the new judge checks on real runs.** `topic_term_faithfulness` and heading claims (faithfulness) are blocking but were never run against real outputs (no API key in the implementing session). Run 3–5 known-good projects; demote to WARN if they false-block.
+- **Calibrate the gross limits.** `VALIDATION_MISMATCH_RATIO` (1.5%) and `VALIDATION_MAX_CONTIGUOUS_RUN` (10) rest on one real transcript (where_roots). Also `QUOTE_MIN_WORD_COVERAGE = 1.0`.
+- **Formatting model retirement.** `FORMATTING_MODEL` is Haiku 4.5; Anthropic lists its retirement as not sooner than 2026-10-15. Evaluate a replacement on the same transcripts (mismatch count, corrections, heading errors, cost). `DEFAULT_MODEL` (Sonnet 4.6) is a legacy model and the faithfulness judge was calibrated on it.
+- **Packaging can ship stale pages.** `package_transcript` zips existing webpage/PDF even if an artifact changed after they were built; regenerate or compare against the run-manifest hashes.
+- **PDF transcript text is not checked** word-for-word (the webpage is).
+- **Review keys and `skip_words_file`.** Approval keys use raw word positions after skip-word filtering; validating with a different skip-words file makes approvals not match (fails closed, but forces re-review).
+- **Review window only verified on a Linux virtual display.** Check layout on macOS; the dialog test is skipped without a display (CI).
+- **Chunked formatting** for transcripts beyond the single-pass limit (~45k words on Haiku 4.5); currently fails early with a message.
+
 ## 2026-07-18 — Adversarial code-review findings
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).

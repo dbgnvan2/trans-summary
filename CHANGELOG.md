@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - New pattern sets (`pattern_sets.py`): named files in `<transcripts>/patterns/` holding approved terms and `wrong = correct` fixes for a group of transcripts. A project records its set, the set's hash and the fixes applied (` - pattern-set.json`); fixes are applied to the raw transcript before formatting. The existing approved-terms file is copied in as the first set. The set last used for a presenter is suggested.
 - GUI: Pattern Set selector (+ New...), Review Differences button, and a review window that opens when format validation needs decisions. "Save as pattern" adds a reviewed change to the project's set (warns on single-word patterns).
 - CLI: `transcript_review_format.py` (review, `--assign`, `--list-sets`, `--new-set`); `transcript_format.py --pattern-set`.
+- Pre-push sweep fixes: corrupt review / pattern-set JSON raises instead of being treated as absent; review decisions are kept if Apply is pressed while another task runs; "had had" / "that that" never auto-allowed; restoring deleted words across a section heading or speaker label is refused (seen on the real fixture: "Amy Post." dropped at "## Section 45 – Q&A: Amy Post on ...").
 
 ## [Unreleased] - 2026-09-23 (reliability, part 2)
 

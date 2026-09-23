@@ -313,7 +313,14 @@ If the differences exceed the gross limits (`VALIDATION_MISMATCH_RATIO`,
 **Pattern sets** are named files in `<transcripts>/patterns/`, one per group of
 similar transcripts (for example `kerr_lectures.txt`). Each line is an approved
 term, or a fix written `wrong = correct`. Prefer phrases over single ordinary
-words: a single-word fix replaces that word everywhere.
+words: a single-word fix replaces that word everywhere. Currently only the fix
+lines are used; approved-term lines are kept for compatibility with the Terms
+File (which still drives Initial Validation) but have no effect in formatting.
+
+Removed repetitions of words that can be doubled grammatically ("had had",
+"that that"; `STUTTER_ALWAYS_REVIEW`) always go to review. Deleted words that
+fell at a section heading or speaker label cannot be restored automatically;
+edit the formatted file by hand, then re-run format validation.
 
 - GUI: choose the set under *Pattern Set* (or *New...*) before formatting; the set
   last used for the presenter is suggested. *Review Differences* opens the review
