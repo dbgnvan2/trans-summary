@@ -1,11 +1,9 @@
 "Pipeline module for extracting insights, summaries, and emphasis items."
 
 import json
-import os
 import re
 from pathlib import Path
 
-import anthropic
 
 import abstract_pipeline
 import config
@@ -13,6 +11,7 @@ import summary_pipeline
 from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
 from bowen_attribution import concept_has_bowen_attribution
 from transcript_utils import (
+    get_anthropic_client,
     call_claude_with_retry,
     clean_project_name,
     create_system_message_with_cache,
@@ -79,10 +78,7 @@ def _generate_summary_with_claude(
     timeout: float = config.TIMEOUT_SUMMARY,
     **kwargs,
 ) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client()
 
     message = call_claude_with_retry(
         client=client,
@@ -1022,11 +1018,7 @@ def generate_structured_summary(
 
         logger.info("Generating summary via API (Target: %d words)...", summary_target_word_count)
         logger.info("Using model: %s", model)  # Log which model we're using
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
-
-        client = anthropic.Anthropic(api_key=api_key)
+        client = get_anthropic_client()
         summary_text = summary_pipeline.generate_summary(
             summary_input, client, model=model, system=transcript_system_message
         )
@@ -1156,10 +1148,7 @@ def generate_structured_abstract(
             transcript_system_message = create_system_message_with_cache(
                 transcript)
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
-        client = anthropic.Anthropic(api_key=api_key)
+        client = get_anthropic_client()
         output_path = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
@@ -1412,10 +1401,7 @@ def summarize_transcript(
                 transcript=transcript,
                 target_word_count=target_word_count,
             )
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY not set")
-            client = anthropic.Anthropic(api_key=api_key)
+            client = get_anthropic_client()
             abstract_output = abstract_pipeline.generate_abstract(
                 abstract_input, client, model=model, system=transcript_system_message
             )

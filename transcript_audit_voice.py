@@ -15,9 +15,7 @@ Example:
 import argparse
 import json
 import logging
-import os
 
-import anthropic
 
 import config
 import transcript_utils
@@ -54,7 +52,7 @@ def load_blog_post(base_name: str) -> str:
 def audit_voice(blog_content: str, api_key: str) -> dict:
     """Audit blog content for Kerr voice characteristics."""
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = transcript_utils.get_anthropic_client(api_key)
 
     print("\n🔍 Evaluating text for Dr. Kerr's voice characteristics...")
     print(f"   Content length: {len(blog_content)} characters\n")
@@ -183,9 +181,9 @@ def main():
     args = parser.parse_args()
 
     # Get API key
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = transcript_utils.resolve_anthropic_key()
     if not api_key:
-        print("❌ Error: ANTHROPIC_API_KEY environment variable not set")
+        print("❌ Error: no Anthropic API key (ANTHROPIC_API_KEY or ~/.config/llm/keys.json)")
         return 1
 
     try:

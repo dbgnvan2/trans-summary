@@ -94,8 +94,8 @@ def main() -> int:
     if not api_key:
         print("No Anthropic API key resolved.", file=sys.stderr)
         return 2
-    import anthropic
-    client = anthropic.Anthropic(api_key=api_key)
+    from transcript_utils import get_anthropic_client
+    client = get_anthropic_client(api_key)
 
     print(f"Judging {len(terms)} real terms + {len(terms)} swapped (incorrect) with model {args.model} ...")
     try:

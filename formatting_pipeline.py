@@ -3,17 +3,16 @@ Pipeline module for transcript formatting and basic validation.
 Extracts raw text, formats it via LLM, and performs word-level validation.
 """
 
-import os
 import re
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-import anthropic
 
 import config
 import transcript_utils
 from transcript_utils import (
+    get_anthropic_client,
     call_claude_with_retry,
     check_token_budget,
     clean_project_name,
@@ -104,11 +103,7 @@ def format_transcript_with_claude(
     logger=None,
 ) -> str:
     """Send transcript to Claude for formatting."""
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
-
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client()
 
     full_prompt = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
 

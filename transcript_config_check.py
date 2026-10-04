@@ -18,10 +18,13 @@ import config
 def check_environment_variables():
     """Check for required environment variables."""
     print("\n--- Environment Variables ---")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    from transcript_utils import resolve_anthropic_key
+
+    api_key = resolve_anthropic_key()
     if api_key:
+        source = "ANTHROPIC_API_KEY" if "ANTHROPIC_API_KEY" in os.environ else "~/.config/llm/keys.json"
         masked_key = f"{api_key[:8]}...{api_key[-4:]}"
-        print(f"✅ ANTHROPIC_API_KEY found: {masked_key}")
+        print(f"✅ Anthropic API key found ({source}): {masked_key}")
         return True
     else:
         print("❌ ANTHROPIC_API_KEY not set.")
@@ -85,9 +88,11 @@ def check_prompt_files():
 def check_model_availability():
     """Check if the configured models are available via the API."""
     print("\n--- Model Availability ---")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    from transcript_utils import get_anthropic_client, resolve_anthropic_key
+
+    api_key = resolve_anthropic_key()
     if not api_key:
-        print("❌ Cannot check model: ANTHROPIC_API_KEY not set.")
+        print("❌ Cannot check model: no Anthropic API key (env or ~/.config/llm/keys.json).")
         return False
 
     models_to_check = []
@@ -101,7 +106,7 @@ def check_model_availability():
             models_to_check.append(model)
 
     all_available = True
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
 
     for model in models_to_check:
         print(f"Checking model: {model:<30} ... ", end="", flush=True)

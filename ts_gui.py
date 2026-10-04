@@ -5,7 +5,6 @@ A graphical interface for the transcript processing pipeline.
 """
 
 import io
-import os
 import re
 import resource
 import shutil
@@ -28,7 +27,12 @@ import transcript_initial_validation
 import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
-from transcript_utils import clean_project_name, parse_filename_metadata
+from transcript_utils import (
+    clean_project_name,
+    get_anthropic_client,
+    parse_filename_metadata,
+    resolve_anthropic_key,
+)
 from validation_learning import (
     append_approved_terms,
     append_validation_aliases,
@@ -1387,9 +1391,9 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_initial_validation)
 
     def _run_initial_validation(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
 
         mode = self.validation_mode_var.get()
@@ -1505,7 +1509,7 @@ class TranscriptProcessorGUI:
             new_filename = f"{base_name}_v{version}{source_file.suffix}"
 
         output_path = source_file.parent / new_filename
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         mode = self.validation_mode_var.get()
 
         if rejected_findings:
@@ -1603,9 +1607,9 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_header_validation)
 
     def _run_header_validation(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
         validator = transcript_validate_headers.HeaderValidator(
             api_key, self.logger)
@@ -1788,14 +1792,11 @@ class TranscriptProcessorGUI:
 
     def _run_drift_check(self):
         import judge_drift_monitor as jdm
-        from transcript_utils import resolve_anthropic_key
-
         key = resolve_anthropic_key()
         if not key:
             self.log("❌ Judge drift check could not run: no Anthropic API key resolved.")
             return False
-        import anthropic
-        client = anthropic.Anthropic(api_key=key)
+        client = get_anthropic_client(key)
         try:
             report, drift = jdm.run_in_process(client, None)
         except Exception as e:  # noqa: BLE001 — an errored check is not a clean pass
@@ -2608,9 +2609,9 @@ class TranscriptProcessorGUI:
 
     def _run_initial_validation_auto(self):
         """Run Init Val without dialogs; auto-apply all findings into a finalized _validated file."""
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
 
         existing_versions = _find_existing_validation_versions(self.selected_file)

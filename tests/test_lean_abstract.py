@@ -114,7 +114,7 @@ def test_la_topics_abstract_filesystem_roundtrip(tmp_path):
     # 2. Abstract: mock ONLY the API calls; real _load_section_from_project_file
     #    must pick up the topics file just written.
     with patch.object(extraction_pipeline, "create_system_message_with_cache", return_value=["SYS"]), \
-         patch.object(extraction_pipeline.anthropic, "Anthropic", return_value=MagicMock()), \
+         patch.object(extraction_pipeline, "get_anthropic_client", return_value=MagicMock()), \
          patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}), \
          patch.object(extraction_pipeline.abstract_pipeline, "extract_opening_purpose", return_value="purpose"), \
          patch.object(extraction_pipeline.abstract_pipeline, "extract_closing_conclusion", return_value="conclusion"), \
@@ -147,7 +147,7 @@ def _patch_abstract_env(tmp_path, topics_section, themes_section):
         patch.object(extraction_pipeline, "load_project_transcript", return_value="word " * 400),
         patch.object(extraction_pipeline, "_load_section_from_project_file", side_effect=fake_load_section),
         patch.object(extraction_pipeline, "create_system_message_with_cache", return_value=["SYS"]),
-        patch.object(extraction_pipeline.anthropic, "Anthropic", return_value=MagicMock()),
+        patch.object(extraction_pipeline, "get_anthropic_client", return_value=MagicMock()),
         patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}),
         # prepare_abstract_input pulls opening/closing from the transcript via
         # their own LLM calls -- stub them so the test stays offline.

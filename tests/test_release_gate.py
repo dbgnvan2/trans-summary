@@ -379,7 +379,7 @@ def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(rg, "_judge_cached", _fake_judge)
     monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
     import anthropic
-    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
 
     v = rg.check_faithfulness(base)
     assert v.status is Status.PASS
@@ -413,7 +413,7 @@ def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, mo
     monkeypatch.setattr(rg, "_judge_cached", lambda *a, **k: _Res())
     monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
     import anthropic
-    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
 
     v = rg.check_faithfulness(base)
     art = suffix.strip(" -").removesuffix(".md")

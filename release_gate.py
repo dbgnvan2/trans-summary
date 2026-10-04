@@ -503,9 +503,9 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         return Verdict("faithfulness", Status.ERROR,
                        "no Anthropic API key (env or shared keys file) — cannot run "
                        "faithfulness judge (fail closed)")
-    import anthropic
+    from transcript_utils import get_anthropic_client
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0
@@ -598,9 +598,9 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
     if not api_key:
         return Verdict("theme_grounding", Status.ERROR,
                        "no Anthropic API key — cannot run theme judge (fail closed)")
-    import anthropic
+    from transcript_utils import get_anthropic_client
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0

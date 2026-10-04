@@ -244,7 +244,7 @@ def test_extract_terms_passes_named_logger(monkeypatch):
         return _FakeMsg()
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(tet.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(tet.transcript_utils, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(tet, "create_system_message_with_cache", lambda *_a, **_k: "sys")
     monkeypatch.setattr(tet, "call_claude_with_retry", fake_call)
     tet.extract_key_terms_with_claude(
@@ -264,7 +264,7 @@ def test_audit_voice_passes_named_logger(monkeypatch):
         captured.update(kwargs)
         return _FakeMsg()
 
-    monkeypatch.setattr(tav.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(tav.transcript_utils, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(tav, "load_prompt", lambda: "{{blog_content}}")
     monkeypatch.setattr(tav, "call_claude_with_retry", fake_call)
     try:

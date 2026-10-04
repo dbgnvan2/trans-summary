@@ -31,8 +31,7 @@ def test_generate_structured_abstract_falls_back_to_split_files(tmp_path, monkey
     monkeypatch.setattr(
         extraction_pipeline, "parse_filename_metadata", lambda _name: {"stem": base_name}
     )
-    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
-    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(extraction_pipeline, "get_anthropic_client", lambda *a, **k: object())
 
     fake_abstract_input = SimpleNamespace(topics=["Topic A"], themes=["Theme A"])
     monkeypatch.setattr(
@@ -79,8 +78,7 @@ def test_generate_structured_abstract_uses_yaml_when_formatted_missing(tmp_path,
     monkeypatch.setattr(
         extraction_pipeline, "parse_filename_metadata", lambda _name: {"stem": base_name}
     )
-    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
-    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(extraction_pipeline, "get_anthropic_client", lambda *a, **k: object())
 
     captured = {}
 
@@ -150,8 +148,7 @@ def test_validate_abstract_coverage_uses_yaml_when_formatted_missing(tmp_path, m
         "validate_and_report",
         lambda *_args, **_kwargs: (True, "ok"),
     )
-    monkeypatch.setattr(validation_pipeline.anthropic, "Anthropic", lambda **_k: object())
-    monkeypatch.setattr(validation_pipeline.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr(validation_pipeline, "get_anthropic_client_or_none", lambda *a, **k: object())
 
     ok = validation_pipeline.validate_abstract_coverage(base_name, logger=MagicMock())
 
@@ -339,8 +336,7 @@ def test_generate_structured_abstract_ignores_contaminated_topics_and_uses_fallb
     )
 
     monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
-    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
-    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(extraction_pipeline, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(
         extraction_pipeline.abstract_pipeline,
         "generate_abstract",

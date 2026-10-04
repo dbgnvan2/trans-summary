@@ -147,8 +147,7 @@ def _patch_pipeline_for_overview(monkeypatch, projects_dir, mock_output):
     """Wire up the monkeypatches shared by the overview integration tests."""
     monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
     monkeypatch.setattr(extraction_pipeline, "validate_input_file", lambda _p: None)
-    monkeypatch.setattr(extraction_pipeline.os, "getenv", lambda _k: "fake-key")
-    monkeypatch.setattr(extraction_pipeline.anthropic, "Anthropic", lambda **_k: object())
+    monkeypatch.setattr(extraction_pipeline, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(
         extraction_pipeline,
         "create_system_message_with_cache",

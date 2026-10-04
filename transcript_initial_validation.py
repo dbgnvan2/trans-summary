@@ -6,13 +6,11 @@ Validates the initial transcript for transcription errors using LLM.
 import argparse
 import json
 import logging
-import os
 import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from anthropic import Anthropic
 
 import config
 import transcript_utils
@@ -27,7 +25,7 @@ class TranscriptValidator:
         self._setup_client()
 
     def _setup_client(self):
-        self.client = Anthropic(api_key=self.api_key)
+        self.client = transcript_utils.get_anthropic_client(self.api_key)
 
     def validate(self, transcript_path: Path, model: str = config.DEFAULT_MODEL) -> List[Dict[str, Any]]:
         """
@@ -392,9 +390,9 @@ def main():
 
     args = parser.parse_args()
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = transcript_utils.resolve_anthropic_key()
     if not api_key:
-        print("❌ Error: ANTHROPIC_API_KEY not set.")
+        print("❌ Error: no Anthropic API key (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
         sys.exit(1)
 
     logging.basicConfig(level=logging.INFO, format='%(message)s')

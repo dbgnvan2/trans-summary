@@ -826,6 +826,11 @@ TEMP_CREATIVE = 0.4
 TIMEOUT_FORMATTING = 1200  # 20 minutes
 TIMEOUT_SUMMARY = 900  # 15 minutes
 TIMEOUT_DEFAULT = 300  # 5 minutes
+# Used by call_claude_with_retry when a caller passes no timeout: the Anthropic
+# SDK's own default, made explicit so timeout escalation starts from a known value.
+TIMEOUT_FALLBACK = 600  # 10 minutes
+# Each timed-out attempt retries with timeout * this factor.
+TIMEOUT_ESCALATION_FACTOR = 1.5
 
 # Prompt Filenames
 PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = (

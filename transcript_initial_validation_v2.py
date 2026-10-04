@@ -6,13 +6,11 @@ Validates the initial transcript for transcription errors using LLM with chunked
 import argparse
 import json
 import logging
-import os
 import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from anthropic import Anthropic
 
 import config
 import model_specs
@@ -104,7 +102,7 @@ class TranscriptValidatorV2:
         self._setup_client()
 
     def _setup_client(self):
-        self.client = Anthropic(api_key=self.api_key)
+        self.client = transcript_utils.get_anthropic_client(self.api_key)
 
     def validate_chunked(self, transcript_path: Path, model: str = config.DEFAULT_MODEL) -> List[Dict[str, Any]]:
         """
@@ -589,14 +587,15 @@ def main():
     
     args = parser.parse_args()
     
-    if not os.getenv("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY not set.")
+    api_key = transcript_utils.resolve_anthropic_key()
+    if not api_key:
+        print("Error: no Anthropic API key (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
         return
 
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     logger = logging.getLogger("TranscriptValidatorV2")
     
-    validator = TranscriptValidatorV2(os.getenv("ANTHROPIC_API_KEY"), logger)
+    validator = TranscriptValidatorV2(api_key, logger)
     validator.run_iterative_validation_v2(args.input_file, args.iterations, model=args.model)
 
 if __name__ == "__main__":

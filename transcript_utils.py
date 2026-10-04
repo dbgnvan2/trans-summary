@@ -15,6 +15,7 @@ from html import escape, unescape
 from pathlib import Path
 from typing import Any, Optional
 
+import anthropic
 from anthropic import (
     APIConnectionError,
     APIError,
@@ -115,6 +116,39 @@ def validate_api_key() -> str:
             "Get your key from: https://console.anthropic.com/"
         )
     return api_key
+
+
+def get_anthropic_client(api_key: Optional[str] = None) -> "anthropic.Anthropic":
+    """Build the Anthropic client every stage uses.
+
+    Purpose: One place that resolves the key (env, then ~/.config/llm/keys.json)
+             and disables the SDK's own retries, so ``call_claude_with_retry`` is
+             the only retry layer (review F12/F14).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R5
+    Tests:   tests/test_client_factory_r5.py::test_r5a_factory_uses_keys_json_when_env_unset
+
+    Raises:
+        ValueError: if no key can be resolved (message says where to put one).
+    """
+    key = api_key or validate_api_key()
+    return anthropic.Anthropic(api_key=key, max_retries=0)
+
+
+def get_anthropic_client_or_none(logger: Optional[logging.Logger] = None):
+    """Like ``get_anthropic_client`` but returns None (with a warning) when no key
+    is available, for callers whose LLM step is optional."""
+    try:
+        return get_anthropic_client()
+    except ValueError:
+        (logger or logging.getLogger(__name__)).warning(
+            "No Anthropic API key found (env or ~/.config/llm/keys.json); "
+            "skipping the optional LLM step.")
+        return None
+
+
+class TruncatedResponseError(RuntimeError):
+    """The model stopped at max_tokens. Deterministic for the same request, so
+    the retry wrapper does not repeat it (review B-11)."""
 
 
 def validate_input_file(file_path: Path) -> None:
@@ -223,7 +257,7 @@ def validate_api_response(
     stop_reason = message.stop_reason
 
     if stop_reason == "max_tokens":
-        raise RuntimeError(
+        raise TruncatedResponseError(
             "Response truncated at token limit - output is incomplete. "
             "Increase max_tokens or process in smaller chunks."
         )
@@ -593,8 +627,9 @@ def call_claude_with_retry(
         RuntimeError: If output is truncated or connection fails
         APIError: If API call fails after retries
     """
-    # Track timeout across retries
-    current_timeout = kwargs.get('timeout')
+    # Track timeout across retries. A call that passes no timeout gets the SDK's
+    # own default explicitly, so escalation starts from a known value (review F12).
+    current_timeout = kwargs.get('timeout') or config.TIMEOUT_FALLBACK
 
     # Handle suppression of caching warnings
     suppress_caching_warnings = kwargs.pop('suppress_caching_warnings', False)
@@ -664,6 +699,15 @@ def call_claude_with_retry(
                 # Validation failed
                 if logger:
                     logger.error("Response validation failed: %s", e)
+                # The tokens were billed even though the response is rejected.
+                usage = getattr(message, "usage", None)
+                if usage is not None:
+                    log_token_usage(script_name or getattr(logger, "name", None)
+                                    or "unknown_script", model, usage,
+                                    f"rejected:{getattr(message, 'stop_reason', '')}")
+                # Truncation at max_tokens repeats on an identical request (B-11).
+                if isinstance(e, TruncatedResponseError):
+                    raise
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
                     if logger:
@@ -763,12 +807,7 @@ def call_claude_with_retry(
 
         except APITimeoutError as e:
             if attempt < max_retries - 1:
-                # Increase timeout by 50%
-                if current_timeout is not None:
-                    current_timeout = float(current_timeout) * 1.5
-                else:
-                    # Default fallback if no timeout specified but timed out
-                    current_timeout = 900.0
+                current_timeout = float(current_timeout) * config.TIMEOUT_ESCALATION_FACTOR
 
                 # Used in print
                 msg = f"Request timed out. Increasing timeout to {current_timeout:.0f}s and retrying ({attempt + 2}/{max_retries})..."
@@ -832,12 +871,17 @@ def call_claude_with_retry(
                 "overloaded" in error_text
                 or body_error_type == "overloaded_error"
             )
+            # 5xx server errors: the SDK used to retry these itself; with SDK
+            # retries off (get_anthropic_client) the wrapper must (review F12).
+            status_code = getattr(e, "status_code", None)
+            is_server_error = isinstance(status_code, int) and status_code >= 500
+            is_retryable = is_overloaded or is_server_error
 
-            if is_overloaded and attempt < max_retries - 1:
+            if is_retryable and attempt < max_retries - 1:
                 wait_time = config.RETRY_BACKOFF_BASE ** attempt
                 if logger:
                     logger.warning(
-                        "API overloaded, retrying in %ds... (%d/%d)",
+                        "API overloaded or server error, retrying in %ds... (%d/%d)",
                         wait_time,
                         attempt + 2,
                         max_retries,

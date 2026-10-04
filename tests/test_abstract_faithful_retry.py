@@ -27,7 +27,7 @@ def _setup(monkeypatch, tmp_path, base="Talk Title - Some Author - 2025-01-01"):
     monkeypatch.setattr(ep.abstract_pipeline, "prepare_abstract_input", lambda **k: _AI())
     monkeypatch.setattr(ep, "create_system_message_with_cache",
                         lambda *a, **k: [{"type": "text", "text": "sys"}])
-    monkeypatch.setattr(ep.anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(ep, "get_anthropic_client", lambda *a, **k: object())
     return base, proj
 
 

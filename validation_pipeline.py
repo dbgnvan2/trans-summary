@@ -2,12 +2,10 @@
 Pipeline module for validation tasks (headers, abstracts, emphasis).
 """
 
-import os
 import re
 from pathlib import Path
 from typing import Optional
 
-import anthropic
 
 import abstract_pipeline
 import abstract_validation
@@ -15,6 +13,8 @@ import config
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
+    get_anthropic_client,
+    get_anthropic_client_or_none,
     call_claude_with_retry,
     cap_max_tokens_for_model,
     count_header_verdicts,
@@ -81,10 +81,7 @@ def _generate_validation_response(
     system: Optional[list] = None,
     **kwargs
 ) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client()
 
     if system:
         kwargs["system"] = system
@@ -752,8 +749,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
             target_word_count=target_word_count,
         )
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        client = anthropic.Anthropic(api_key=api_key) if api_key else None
+        client = get_anthropic_client_or_none(logger)
 
         passed, report = abstract_validation.validate_and_report(
             abstract_text, abstract_input, api_client=client, model=model, logger=logger
@@ -842,8 +838,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             transcript=transcript,
         )
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        client = anthropic.Anthropic(api_key=api_key) if api_key else None
+        client = get_anthropic_client_or_none(logger)
 
         passed, report = summary_validation.validate_and_report(
             summary_text, summary_input, api_client=client, model=model, logger=logger

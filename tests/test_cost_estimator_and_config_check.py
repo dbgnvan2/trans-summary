@@ -32,7 +32,7 @@ def test_check_model_availability_checks_all_active_models(monkeypatch):
     monkeypatch.setattr(
         transcript_config_check.config, "VALIDATION_MODEL", "m-validate"
     )
-    monkeypatch.setattr(transcript_config_check.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "fake-key")
 
     called_models = []
 
@@ -43,7 +43,7 @@ def test_check_model_availability_checks_all_active_models(monkeypatch):
                 called_models.append(model)
                 return SimpleNamespace()
 
-    monkeypatch.setattr(transcript_config_check.anthropic, "Anthropic", lambda api_key: FakeClient())
+    monkeypatch.setattr("transcript_utils.get_anthropic_client", lambda *_a, **_k: FakeClient())
 
     ok = transcript_config_check.check_model_availability()
 

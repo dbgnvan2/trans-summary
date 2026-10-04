@@ -229,8 +229,8 @@ def main() -> int:
     if not api_key:
         print("No Anthropic API key resolved — cannot run the drift monitor.", file=sys.stderr)
         return 2
-    import anthropic
-    client = anthropic.Anthropic(api_key=api_key)
+    from transcript_utils import get_anthropic_client
+    client = get_anthropic_client(api_key)
 
     try:
         results = evaluate(client, args.model)
