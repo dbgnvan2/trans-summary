@@ -3,6 +3,8 @@ orchestrator (which runs each publish step in its own process) doesn't re-run th
 judge N times per publish. A disk memo keyed on content+model+prompt-version backs the
 in-memory cache; a transient ERROR is never persisted (P1); corrupt cache -> empty (P8).
 """
+import pytest
+
 import config
 import faithfulness_judge as fj
 import release_gate as rg
@@ -124,3 +126,33 @@ def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(rg, "_THEME_JUDGE_CACHE", {})  # cold memory (separate subprocess)
     rg._judge_theme_cached(fj, "themes md", "source text", "structural", object(), None)
     assert calls["n"] == 1, "theme judge cold-memory call must hit the DISK cache"
+
+
+# --- R9 (review F4): the cache key covers the code that decides what is judged ---
+
+@pytest.mark.parametrize("fn_name", [
+    "extract_claims", "_is_claim", "_name_shaped_bold_labels", "_strip_scaffolding",
+    "scaffolding_name_spans", "parse_theme_blocks_with_evidence", "_extract_theme_evidence",
+    "with_theme_evidence",
+])
+def test_r9a_component_change_changes_key(monkeypatch, fn_name):
+    import inspect as inspect_mod
+
+    real_getsource = inspect_mod.getsource
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(
+        inspect_mod, "getsource",
+        lambda fn: real_getsource(fn) + ("\n# edited" if fn.__name__ == fn_name else ""))
+    assert rg._judge_logic_version("instructions") != before, fn_name
+
+
+@pytest.mark.parametrize("attr", [
+    "BOWEN_CONCEPT_LABELS", "SCAFFOLDING_HEADING_PHRASES", "THEME_JUDGE_META_LABELS"])
+def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(config, attr, frozenset(getattr(config, attr)) | {"zz new label"})
+    assert rg._judge_logic_version("instructions") != before, attr
+
+
+def test_r9b_logic_version_bumped():
+    assert config.JUDGE_LOGIC_VERSION != "2026-08-22"

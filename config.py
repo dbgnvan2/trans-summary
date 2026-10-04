@@ -616,7 +616,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape
 # / judging strategy (e.g. chunked routing changes the source context a claim is judged
 # against, so a pre-chunk PASS must not be served post-chunk).
-JUDGE_LOGIC_VERSION = "2026-08-22"
+JUDGE_LOGIC_VERSION = "2026-10-04"  # R6/R7/R8: scaffolding names, theme evidence, zero-claims ERROR
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).

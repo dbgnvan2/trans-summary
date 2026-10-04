@@ -392,6 +392,25 @@ def _store_judge_disk_cache(disk_key: str, verdict_dict: dict, logger=None):
             logger.warning("could not persist judge cache: %s", e)
 
 
+def _judge_input_functions() -> list:
+    """Functions whose code decides what the judges see (claims, theme text).
+    Hashed into the judge cache key so editing any of them invalidates cached
+    verdicts without a manual JUDGE_LOGIC_VERSION bump (review F4, plan R9)."""
+    import abstract_validation as av
+    import faithfulness_judge as fjudge
+    import transcript_utils as tu
+
+    return [
+        fjudge.extract_claims, fjudge._split_sentences, fjudge._is_claim,
+        fjudge._name_shaped_bold_labels, fjudge._parse_judge_response,
+        fjudge.with_theme_evidence, fjudge.build_theme_judge_prompt,
+        av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
+        av.scaffolding_name_spans, av.find_ungrounded_names,
+        tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
+        tu._extract_theme_description, tu._extract_theme_evidence,
+    ]
+
+
 def _judge_logic_version(instructions: str) -> str:
     """Version tag folded into the disk-cache key. Captures the judge's PROMPT text, the
     claim-extraction config, AND config.JUDGE_LOGIC_VERSION (bumped on any judge CODE
@@ -428,6 +447,13 @@ def _judge_logic_version(instructions: str) -> str:
         inspect.getsource(fjudge.chunk_source),
         inspect.getsource(fjudge._significant_words),
         repr(sorted(fjudge._STOP_WORDS)),
+        # The code that decides WHAT is judged (review F4, plan R9): claim
+        # extraction, the scaffolding strip it shares with the entity check, the
+        # theme parser/evidence fields, and their vocabularies.
+        *(inspect.getsource(fn) for fn in _judge_input_functions()),
+        repr(sorted(config.BOWEN_CONCEPT_LABELS)),
+        repr(sorted(config.SCAFFOLDING_HEADING_PHRASES)),
+        repr(sorted(config.THEME_JUDGE_META_LABELS)),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
