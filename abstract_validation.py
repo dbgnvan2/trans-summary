@@ -273,7 +273,10 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
     items = []
 
     # Speaker/metadata coverage
-    speaker_name = abstract_input.metadata.get("speaker", "")
+    # Production metadata comes from parse_filename_metadata, which has no
+    # "speaker" key — only "presenter" — so this item was never created (review G6).
+    speaker_name = (abstract_input.metadata.get("speaker")
+                    or abstract_input.metadata.get("presenter", ""))
     if speaker_name:
         # Extract last name for keyword matching
         name_parts = speaker_name.replace("Dr.", "").replace(".", "").split()

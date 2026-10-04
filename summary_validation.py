@@ -167,7 +167,9 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
     items = []
 
     # Speaker/metadata
-    speaker = summary_input.metadata.get("speaker", "")
+    # parse_filename_metadata provides "presenter", not "speaker" (review G6).
+    speaker = (summary_input.metadata.get("speaker")
+               or summary_input.metadata.get("presenter", ""))
     if speaker:
         name_parts = speaker.replace("Dr.", "").replace(".", "").split()
         name_keywords = [n.lower() for n in name_parts if len(n) > 2]
