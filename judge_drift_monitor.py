@@ -81,14 +81,15 @@ def _run_themes(client, model):
             raise ValueError(
                 f"theme gold {ga['source']}/{ga['suffix']} parsed to zero items — "
                 f"contract drift, cannot verify")
-        verdicts = fj.judge_themes(obj["items"], src, client)
-        for t, v in zip(obj["items"], verdicts):
+        items = fj.with_theme_evidence(obj["items"], text)  # as production judges (R7)
+        verdicts = fj.judge_themes(items, src, client, model=model)
+        for t, v in zip(items, verdicts):
             pairs.append(("grounded", v.label))
             rows.append((ga["source"], "grounded", v.label, t["name"][:45]))
     for ut in gold["ungrounded_themes"]:
         src = sources[ut["source"]]
-        v = fj.judge_themes([{"name": ut["name"], "description": ut["description"]}],
-                            src, client)[0]
+        theme = {k: ut[k] for k in ("name", "description", "evidence") if k in ut}
+        v = fj.judge_themes([theme], src, client, model=model)[0]
         pairs.append(("ungrounded", v.label))
         rows.append((ut["source"], "ungrounded", v.label, ut["name"][:45]))
     return pairs, rows

@@ -60,7 +60,8 @@ def test_key_terms_gold_has_correct_and_incorrect_and_parses_terms():
 def test_theme_gold_has_grounded_and_ungrounded():
     gold = _load("theme_gold")
     assert gold["grounded_artifacts"], "theme gold needs grounded (real) themes"
-    assert len(gold["ungrounded_themes"]) == 11, "exact count — the negative set is the judge's statistical power (P29)"
+    # 13 since plan R7 added ug12/ug13 (fabrication only in Key evidence).
+    assert len(gold["ungrounded_themes"]) == 13, "exact count — the negative set is the judge's statistical power (P29)"
 
 
 def test_theme_metrics_counts_a_miss():

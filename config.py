@@ -644,6 +644,15 @@ FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
 # produces false "unsupported" verdicts (e.g. a "Coverage / role: ~55-60%"
 # estimate). Editorial list -> config, not code (rule 9). Matched case-insensitively
 # against the text before the first colon on a line.
+# Theme-block fields that are meta-commentary about the theme, not content claims.
+# The theme judge sees every other field (e.g. "Key evidence"), since those are
+# published with the theme (review F3, plan R7). Matched case-insensitively.
+THEME_JUDGE_META_LABELS = frozenset({
+    "coverage", "coverage / role", "lens fuel", "lens fuel value",
+    "nested under", "nested under structural themes", "status",
+    "document", "prompt version used", "date processed", "source document",
+})
+
 FAITHFULNESS_SKIP_LINE_LABELS = [
     "document", "prompt version used", "date processed", "source document",
     "coverage", "coverage / role", "key evidence", "nested under structural themes",

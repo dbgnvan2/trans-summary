@@ -1405,6 +1405,45 @@ _H3_THEME_RE = (
 )
 
 
+_THEME_FIELD_RE = re.compile(r"(?:^|\n)\*\*([A-Z][^:\n*]+):\*\*[ \t]*")
+
+
+def _extract_theme_evidence(block: str) -> str:
+    """Every ``**Label:**`` field of a theme block except Description and the meta
+    labels in ``config.THEME_JUDGE_META_LABELS``, as ``"Label: text"`` joined by
+    "; ". These fields (e.g. "Key evidence") are published with the theme, so the
+    theme judge must see them (review F3)."""
+    matches = list(_THEME_FIELD_RE.finditer(block))
+    parts = []
+    for i, m in enumerate(matches):
+        label = m.group(1).strip()
+        if label.lower() == "description" or label.lower() in config.THEME_JUDGE_META_LABELS:
+            continue
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(block)
+        body = " ".join(
+            ln.strip() for ln in block[m.end():end].split("\n")
+            if ln.strip() and ln.strip() != "---"
+        ).strip()
+        if body:
+            parts.append(f"{label}: {body}")
+    return "; ".join(parts)
+
+
+def parse_theme_blocks_with_evidence(text: str) -> list:
+    """Like ``parse_bold_numbered_theme_blocks`` but returns
+    ``(name, description, evidence)`` tuples, where ``evidence`` holds the theme's
+    other content fields (see ``_extract_theme_evidence``).
+
+    Purpose: Give the theme judge the full published theme block (review F3).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R7
+    Tests:   tests/test_theme_judge_input_r7.py::test_r7a_key_evidence_included
+    """
+    themes = _theme_blocks(text, _BOLD_THEME_RE)
+    if not themes:
+        themes = _theme_blocks(text, _H3_THEME_RE)
+    return themes
+
+
 def parse_bold_numbered_theme_blocks(text: str) -> list:
     """Parse the real theme formats into ``(name, description)`` tuples in document
     order. Handles BOTH producer formats seen in real runs: ``**N. Title**``
@@ -1417,10 +1456,8 @@ def parse_bold_numbered_theme_blocks(text: str) -> list:
     other legacy shapes; an empty result from *non-empty* input is contract drift
     the caller should surface loudly (P19). Migrating both formats is required by
     AC M3.D.1 (a real 2010-interview structural-themes file used ``### N.``)."""
-    themes = _theme_blocks(text, _BOLD_THEME_RE)
-    if not themes:
-        themes = _theme_blocks(text, _H3_THEME_RE)
-    return themes
+    return [(name, description)
+            for name, description, _ in parse_theme_blocks_with_evidence(text)]
 
 
 def _theme_blocks(text: str, pattern: str) -> list:
@@ -1432,7 +1469,7 @@ def _theme_blocks(text: str, pattern: str) -> list:
             continue
         description = _extract_theme_description(block)
         if description:
-            themes.append((name, description))
+            themes.append((name, description, _extract_theme_evidence(block)))
     return themes
 
 

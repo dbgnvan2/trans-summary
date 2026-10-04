@@ -670,8 +670,11 @@ No prose before or after the JSON."""
 
 
 def build_theme_judge_prompt(themes: list, source: str) -> list:
+    # Evidence fields are published with the theme, so they are judged too (F3).
     numbered = "\n\n".join(
-        f"{i + 1}. {t['name']}\n{t.get('description', '')}" for i, t in enumerate(themes)
+        f"{i + 1}. {t['name']}\n{t.get('description', '')}"
+        + (f"\n{t['evidence']}" if t.get("evidence") else "")
+        for i, t in enumerate(themes)
     )
     tail = f"=== THEMES ({len(themes)}) ===\n{numbered}\n"
     return _cached_judge_content(_THEME_JUDGE_INSTRUCTIONS, source, tail)
@@ -699,6 +702,28 @@ def judge_themes(themes: list, source: str, client, *,
     return _parse_judge_response(message.content[0].text, names, valid_labels=_THEME_LABELS)
 
 
+def with_theme_evidence(items: list, themes_markdown: str) -> list:
+    """Add each theme's other published fields (e.g. "Key evidence") to the codec
+    items as ``evidence``, so the theme judge sees the whole theme block.
+
+    The codec builds its items from the same parser, so order and count match;
+    a mismatch is contract drift and raises (fail closed).
+
+    Purpose: Judge the full published theme, not only its Description (review F3).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R7
+    Tests:   tests/test_theme_judge_input_r7.py::test_r7a_key_evidence_included
+    """
+    from transcript_utils import parse_theme_blocks_with_evidence
+
+    blocks = parse_theme_blocks_with_evidence(themes_markdown)
+    if [b[0] for b in blocks] != [it["name"] for it in items]:
+        raise ValueError("theme evidence parse does not match codec items (contract drift)")
+    out = []
+    for item, (_, _, evidence) in zip(items, blocks):
+        out.append({**item, "evidence": evidence} if evidence else dict(item))
+    return out
+
+
 def judge_themes_artifact(themes_markdown: str, source: str, kind: str, client, *,
                           model: Optional[str] = None, logger=None) -> FaithfulnessResult:
     """Judge one themes artifact for GROUNDING against the source. Parses the themes
@@ -711,7 +736,7 @@ def judge_themes_artifact(themes_markdown: str, source: str, kind: str, client, 
     try:
         import artifact_contracts as ac
         obj = ac.codec("themes").parse_markdown(themes_markdown, kind)
-        themes = obj["items"]
+        themes = with_theme_evidence(obj["items"], themes_markdown)
     except Exception as e:  # noqa: BLE001 — a codec/parse failure must fail closed
         log.error("Theme parse failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"theme parse error: {type(e).__name__}: {e}")
