@@ -52,11 +52,13 @@ def find_ungrounded_names(abstract: str, transcript: str,
     ("Malorni" alone), an ALL-CAPS acronym/org ("ACME"), initials ("J. Ewing"),
     and non-Latin scripts slip through. It caught the shipped "Luciano Malorni"
     (multi-word); adjacent fabrication shapes remain uncovered. Markdown headings
-    and bold concept/term labels are STRIPPED before scanning (so a blog's
-    "## Key Takeaways" or a "**Role Absorption** —" list is not a name), which
-    means a fabricated name that appears INSIDE a heading or as a bold label is
-    invisible to this lexical check — the armed faithfulness judge (M2) is the
-    semantic backstop for those shapes.
+    and bold concept/term labels are stripped from the prose scan, but the
+    multi-word names inside them are collected by ``scaffolding_name_spans`` and
+    grounded the same way (review F2), minus generic heading phrases
+    (``config.SCAFFOLDING_HEADING_PHRASES``). A concept label ("Role Absorption")
+    passes because its words are in the source; a fabricated name in a heading
+    or label is flagged. The faithfulness judge receives the same ungrounded
+    spans as claims (``faithfulness_judge.extract_claims(text, source=...)``).
     """
     # Strip ALL markdown scaffolding — leading YAML/headings AND mid-document
     # headings / bold labels — so a Title-Case heading or concept label in a
@@ -64,9 +66,10 @@ def find_ungrounded_names(abstract: str, transcript: str,
     # fabricated proper name (the false-BLOCK class: "# Abstract" -> "Abstract In",
     # "## Key Takeaways" -> "Key Takeaways"). Pure-prose artifacts (the abstract)
     # carry no mid-document headings, so this is a no-op there.
+    # Names inside the stripped headings/labels are still checked (review F2): they
+    # are collected separately, minus generic heading phrases, then grounded below.
+    scaffold_names = scaffolding_name_spans(abstract)
     abstract = _strip_scaffolding(abstract)
-    # Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
-    name_word = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
     source_tokens = {
         t for t in re.findall(r"[a-zà-öø-ÿ]+", transcript.lower())
         if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
@@ -98,7 +101,7 @@ def find_ungrounded_names(abstract: str, transcript: str,
     # Use [ \t]+ (not \s+) between name words: a real multi-word proper name is
     # on ONE line, so a match must never span a newline/paragraph break (that is
     # what produced the bogus "Abstract\n\nIn" name and a false publish BLOCK).
-    for name in re.findall(rf"\b{name_word}(?:[ \t]+{name_word})+\b", abstract):
+    for name in _NAME_SPAN.findall(abstract) + scaffold_names:
         if name in seen:
             continue
         seen.add(name)
@@ -741,6 +744,70 @@ def validate_and_report(
     return coverage["passed"], "\n".join(report_lines)
 
 
+# Title-case word incl. common Latin accents (À-Ö,Ø-Þ upper / à-ö,ø-ÿ lower).
+_NAME_WORD = r"[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+"
+# Use [ \t]+ (not \s+) between name words: a real multi-word proper name is on
+# ONE line, so a match must never span a newline/paragraph break.
+_NAME_SPAN = re.compile(rf"\b{_NAME_WORD}(?:[ \t]+{_NAME_WORD})+\b")
+
+# Inline leading bold label with an optional bullet: "**Term** — def",
+# "**Term:** def", "- **Topic.** desc". The separator must be present EITHER as
+# trailing punctuation INSIDE the bold (colon/period/dash) OR after the closing
+# "**" (em/en-dash, colon, hyphen) — a bare "**bold** prose" with no separator is
+# NOT a label and is left intact.
+_INLINE_BOLD_LABEL = re.compile(
+    r"^\s*(?:[-*•]\s+)?\*\*(?P<label>[^*\n]+?)(?:[.:—–-]\*\*|\*\*[ \t]*[:—–-])[ \t]*(?P<rest>.*)$"
+)
+_YAML_LINE = re.compile(r"^(?:[A-Za-z_][\w -]*:(?:\s|$)|\s*-\s|\s+\S|#)")
+
+
+def _strip_front_matter(text: str) -> str:
+    """Strip a leading ``---`` … ``---`` block only when every non-blank line in it
+    is YAML-shaped (``key: value``, a list item, an indented continuation, or a
+    comment). A ``---`` horizontal rule followed by prose is NOT front matter;
+    stripping it hid that prose from both blockers (review F2, plan R6.c)."""
+    if not text.startswith("---"):
+        return text
+    end = text.find("\n---", 3)
+    if end == -1:
+        return text
+    body = [ln for ln in text[3:end].split("\n") if ln.strip()]
+    if all(_YAML_LINE.match(ln) for ln in body):
+        return text[end + 4:].lstrip()
+    return text
+
+
+def scaffolding_name_spans(text: str) -> list[str]:
+    """Multi-word Title-Case spans inside the lines ``_strip_scaffolding`` removes
+    (headings, bold-only lines, inline bold labels), excluding generic heading
+    phrases. The entity check and the faithfulness judge ground these the same way
+    as prose names, so a name in a heading or label is not invisible.
+
+    Purpose: Close the scaffolding blind spot of both hard blockers (review F2).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R6
+    Tests:   tests/test_faithfulness_scaffolding_r6.py::test_r6b_entity_grounding_flags_name_in_scaffolding
+    """
+    t = _strip_fenced_block(_strip_front_matter((text or "").strip()))
+    exclude = config.SCAFFOLDING_HEADING_PHRASES
+    spans: list[str] = []
+    for line in t.split("\n"):
+        s = line.strip()
+        heading = re.match(r"^#{1,6}\s+(.*)$", s)
+        if heading:
+            removed = heading.group(1)
+        elif re.match(r"^\*\*[^*\n]+\*\*\s*$", s):
+            removed = s
+        else:
+            label = _INLINE_BOLD_LABEL.match(s)
+            removed = label.group("label") if label else None
+        if removed is None:
+            continue
+        for name in _NAME_SPAN.findall(removed.replace("**", "")):
+            if name.lower() not in exclude and name not in spans:
+                spans.append(name)
+    return spans
+
+
 def _strip_fenced_block(text: str) -> str:
     """Strip a LEADING fenced code block (```yaml … ``` or ``` … ```).
 
@@ -759,11 +826,7 @@ def _strip_leading_scaffolding(text: str) -> str:
     model sometimes emits despite the prompt's "no headers" instruction (e.g. a
     leading ``# Abstract``), so they aren't counted as abstract body (A12).
     """
-    t = (text or "").strip()
-    if t.startswith("---"):
-        end = t.find("\n---", 3)
-        if end != -1:
-            t = t[end + 4:].lstrip()
+    t = _strip_front_matter((text or "").strip())
     t = _strip_fenced_block(t)
     lines = t.split("\n")
     while lines and (
@@ -788,22 +851,10 @@ def _strip_scaffolding(text: str) -> str:
     mid-document headings, so this is a no-op there and the abstract's calibrated
     0-false-positive behaviour is unchanged.
     """
-    t = (text or "").strip()
-    if t.startswith("---"):
-        end = t.find("\n---", 3)
-        if end != -1:
-            t = t[end + 4:].lstrip()
+    t = _strip_front_matter((text or "").strip())
     t = _strip_fenced_block(t)
-    # Inline leading bold label with an optional bullet: "**Term** — def",
-    # "**Term:** def", "- **Topic.** desc" -> keep only the definition/description.
-    # The separator must be present EITHER as trailing punctuation INSIDE the bold
-    # (colon/period: "**Term:**", "**Topic.**") OR after the closing "**"
-    # (em-dash/colon/hyphen: "**Term** — def") — a bare "**bold** prose" with no
-    # separator is NOT a label and is left intact, so a real name rendered as
-    # leading bold emphasis is still detected rather than silently hidden.
-    _inline_bold = re.compile(
-        r"^\s*(?:[-*•]\s+)?\*\*[^*\n]+?(?:[.:—-]\*\*|\*\*[ \t]*[:—-])[ \t]*(.*)$"
-    )
+    # Inline bold labels keep only their definition/description (see
+    # _INLINE_BOLD_LABEL); the label's names are checked via scaffolding_name_spans.
     kept: list[str] = []
     for line in t.split("\n"):
         s = line.strip()
@@ -814,8 +865,8 @@ def _strip_scaffolding(text: str) -> str:
             continue
         if re.match(r"^\*\*[^*\n]+\*\*\s*$", s):   # bold-only label line
             continue
-        m = _inline_bold.match(s)
-        kept.append(m.group(1) if m else line)
+        m = _INLINE_BOLD_LABEL.match(s)
+        kept.append(m.group("rest") if m else line)
     return "\n".join(kept).strip()
 
 

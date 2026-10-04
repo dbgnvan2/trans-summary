@@ -278,13 +278,18 @@ def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tm
     """Headings ('## Key Takeaways', '### Opening Paragraph') and bold concept
     labels ('**Role Absorption** — …') in the scanned prose artifacts must NOT read
     as fabricated names — otherwise extending the blocker would false-BLOCK a good
-    run whose blog/overview/summary legitimately uses those structures."""
+    run whose blog/overview/summary legitimately uses those structures.
+
+    Since plan R6 (review F2) names inside headings/labels ARE grounded: template
+    headings pass via config.SCAFFOLDING_HEADING_PHRASES, and a concept label
+    passes because its words occur in the source (as a real concept does)."""
     base = "A Talk - Jane Doe - 2021-09-10"
     proj = tmp_path / base
     proj.mkdir(parents=True)
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
-        "the speaker discusses family systems differentiation emotional objectivity homeostasis",
+        "the speaker discusses family systems differentiation emotional objectivity "
+        "homeostasis and the role each member plays",
         encoding="utf-8")
     for suffix, body in [
         (config.SUFFIX_SUMMARY_GEN,
@@ -305,12 +310,12 @@ def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tm
 
 
 def test_find_ungrounded_names_skips_headings_and_bold_labels():
-    """Unit-level: the heading/bold-aware stripper drops '## Key Takeaways',
-    '### Opening Paragraph', and '**Role Absorption**' (including the
-    colon-inside-bold and period-inside-bold glossary/topic formats) but still
-    catches a real fabricated name in prose."""
+    """Unit-level: '## Key Takeaways' (a generic heading phrase) and a grounded
+    '**Role Absorption**' label (colon-inside, period-inside and dash formats) are
+    not flagged, and a fabricated name in prose still is. Since plan R6 the label's
+    words must occur in the source — see the test below for the ungrounded case."""
     from abstract_validation import find_ungrounded_names
-    src = "the speaker discusses family systems and differentiation"
+    src = "the speaker discusses family systems, differentiation and the role of each member"
     doc = ("# Title\n\n## Key Takeaways\n\n- A point.\n\n"
            "**Role Absorption** — a concept about roles.\n\n"
            "- **Role Absorption:** The capacity for objectivity.\n\n"
@@ -320,6 +325,17 @@ def test_find_ungrounded_names_skips_headings_and_bold_labels():
     assert "Key Takeaways" not in names
     assert "Role Absorption" not in names
     assert "Luciano Malorni" in names
+
+
+def test_r6b_label_with_no_source_words_is_flagged():
+    """Behaviour change (plan R6): a bold label whose words never occur in the
+    source is treated like any other ungrounded name. Real artifacts had none
+    (tests/fixtures/prose_real); a fabricated name in a label is the case this
+    closes."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems and differentiation"
+    assert "Role Absorption" in find_ungrounded_names(
+        "**Role Absorption** — a concept about roles.", src)
 
 
 def test_find_ungrounded_names_still_catches_bold_name_without_separator():

@@ -110,8 +110,14 @@ def _split_sentences(line: str) -> list:
     return out
 
 
-def extract_claims(text: str) -> list:
+def extract_claims(text: str, source: str = None) -> list:
     """Split a narrative artifact into atomic, judgeable claims (sentence-level).
+
+    With ``source``, also re-emits names from headings / bold labels that the
+    lexical check cannot find in the source (review F2, plan R6), so a fabricated
+    name placed in scaffolding is judged. Only ungrounded spans are added: a
+    grounded concept label ("Allostatic Load") is never sent as a bare claim, which
+    is what false-BLOCKed real artifacts before.
 
     Strips markdown headings, list markers, bold/italic wrappers, and the leading
     ``# Abstract`` / ``**Description:**`` scaffolding — a heading is not a claim.
@@ -176,6 +182,13 @@ def extract_claims(text: str) -> list:
     for label in _name_shaped_bold_labels(text):
         if label not in claims:
             claims.append(label)
+    if source:
+        from abstract_validation import find_ungrounded_names, scaffolding_name_spans
+        spans = scaffolding_name_spans(text)
+        if spans:
+            for name in find_ungrounded_names("\n".join(spans), source):
+                if name not in claims:
+                    claims.append(name)
     return claims
 
 
@@ -544,7 +557,7 @@ def judge_artifact(artifact_text: str, source: str, client, *,
     log = logger or logging.getLogger("faithfulness_judge")
     if not source or not source.strip():
         return FaithfulnessResult(ERROR, "source transcript missing — cannot verify")
-    claims = extract_claims(artifact_text)
+    claims = extract_claims(artifact_text, source=source)
     if not claims:
         return FaithfulnessResult(PASS, "no judgeable claims in artifact")
     try:

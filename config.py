@@ -780,6 +780,25 @@ BOWEN_CONCEPT_LABELS = frozenset({
     "societal regression",
 })
 
+# Generic heading/label phrases that are Title-Case but never a proper name. The
+# entity check now also scans headings and bold labels (review F2, plan R6), so a
+# generic heading that isn't spoken in the talk would otherwise read as an
+# ungrounded name. Includes the output headings the prose prompts instruct
+# (Summary Generation Prompt v1: Opening Paragraph / Body Section / Closing
+# Paragraph; Blog Post v1: Key Takeaways — the only one seen on real artifacts,
+# tests/fixtures/prose_real, 2026-10-04) plus common blog/overview headings.
+# Compared case-insensitively against the whole Title-Case span.
+SCAFFOLDING_HEADING_PHRASES = frozenset({
+    "opening paragraph",
+    "body section",
+    "closing paragraph",
+    "key takeaways",
+    "frequently asked questions",
+    "further reading",
+    "final thoughts",
+    "table of contents",
+})
+
 # Validation learning artifacts
 VALIDATION_MEMORY_FILENAME = "validation_memory.json"
 VALIDATION_APPROVED_TERMS_FILENAME = DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
