@@ -747,3 +747,28 @@ def test_m7_clean_rerun_clears_stale_block_marker(cloned_run):
     ab.write_text(ab.read_text().replace("Luciano Malorni", "Michael Kerr"))
     rg.gate_and_report(base, "t2", logging.getLogger("t"))
     assert not marker.exists()
+
+
+def test_r8d_zero_claims_artifact_blocks(tmp_path, monkeypatch):
+    """Plan R8: a non-empty prose artifact with no extractable claims makes the
+    faithfulness check ERROR, which BLOCKs publication (nothing was verified)."""
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    monkeypatch.setattr(rg, "_store_judge_disk_cache", lambda *a, **k: None)
+    monkeypatch.setattr(rg, "_disk_cached_verdict", lambda *a, **k: None)
+    rg._FAITHFULNESS_CACHE.clear()
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "Spoken words about family systems.", encoding="utf-8")
+    (proj / f"{base}{config.SUFFIX_BLOG}").write_text(
+        "## Key Takeaways\n\n**Family Systems**\n", encoding="utf-8")
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
+
+    v = rg.check_faithfulness(base, suffixes=[config.SUFFIX_BLOG])
+    assert v.status is Status.ERROR
+    assert "0 claims extracted" in str(v.items)
+    assert rg.decide([v]).decision is rg.Decision.BLOCK

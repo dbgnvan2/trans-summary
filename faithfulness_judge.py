@@ -553,12 +553,23 @@ def judge_artifact(artifact_text: str, source: str, client, *,
     * Every claim entailed -> PASS.
     * Any contradicted/unsupported claim -> FAIL, naming the offending sentence(s).
     * Any judge exception (API error/timeout) or unparseable response -> ERROR
-      (fail closed, M2.C) — never silently PASS on a judge failure (P1/P14)."""
+      (fail closed, M2.C) — never silently PASS on a judge failure (P1/P14).
+    * A non-empty artifact that yields zero claims -> ERROR (plan R8); an empty or
+      front-matter-only artifact -> PASS."""
     log = logger or logging.getLogger("faithfulness_judge")
     if not source or not source.strip():
         return FaithfulnessResult(ERROR, "source transcript missing — cannot verify")
     claims = extract_claims(artifact_text, source=source)
     if not claims:
+        # A non-empty artifact that yields no claims was not checked: either all of
+        # it is scaffolding or extraction broke. ERROR (fail closed), not PASS
+        # (author decision, plan R8). Empty / front-matter-only stays PASS.
+        from abstract_validation import _strip_fenced_block, _strip_front_matter
+        body = _strip_fenced_block(_strip_front_matter((artifact_text or "").strip()))
+        if body.strip():
+            return FaithfulnessResult(
+                ERROR, f"0 claims extracted from {len(body.split())}-word artifact — "
+                       "nothing was checked; regenerate or check the artifact format")
         return FaithfulnessResult(PASS, "no judgeable claims in artifact")
     try:
         if _should_chunk(source):

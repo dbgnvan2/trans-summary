@@ -264,9 +264,10 @@ def test_missing_source_is_error_not_pass():
     assert result.status == fj.ERROR
 
 
-def test_no_claims_is_pass():
+def test_r8a_heading_only_artifact_is_error():
+    """Was PASS before plan R8: a non-empty artifact with nothing to judge is ERROR."""
     result = fj.judge_artifact("# Heading only\n", "source", client=None)
-    assert result.status == fj.PASS
+    assert result.status == fj.ERROR
 
 
 # --------------------------------------------------------------------------- M2.B metrics
@@ -383,3 +384,32 @@ def test_theme_gold_set_well_formed():
     assert len(gold["grounded_artifacts"]) >= 4
     for rel in gold["sources"].values():
         assert (FIX / rel).exists(), f"gold source missing: {rel}"
+
+
+# --- R8 (author decision 2026-10-04): non-empty prose with zero claims is ERROR ---
+
+def test_r8a_nonempty_zero_claims_is_error():
+    """All-scaffolding prose (headings + bold-only lines) yields no claims; that is
+    'nothing was checked', not PASS."""
+    text = "## Key Takeaways\n\n**Family Systems**\n\n## Final Thoughts\n"
+    res = fj.judge_artifact(text, "the family systems source transcript", client=object())
+    assert res.status == fj.ERROR
+    assert "0 claims extracted" in res.detail
+
+
+def test_r8b_empty_artifact_pass():
+    for text in ("", "   \n", "---\ntitle: X\nslug: x\n---\n"):
+        assert fj.judge_artifact(text, "source", client=object()).status == fj.PASS, repr(text)
+
+
+def test_r8c_zero_claims_error_not_cached(tmp_path, monkeypatch):
+    import config
+    import release_gate as rg
+
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path, raising=False)
+    stored = []
+    monkeypatch.setattr(rg, "_store_judge_disk_cache", lambda *a, **k: stored.append(a))
+    rg._FAITHFULNESS_CACHE.clear()
+    res = rg._judge_cached(fj, "## Key Takeaways\n\n**Family Systems**\n", "source", object(), None)
+    assert res.status == fj.ERROR
+    assert stored == [] and not rg._FAITHFULNESS_CACHE
