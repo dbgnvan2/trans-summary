@@ -19,6 +19,7 @@ from transcript_utils import (
     extract_bowen_references,
     extract_section,
     fill_prompt_template,
+    placeholder_pattern,
     find_text_in_content,
     load_project_transcript,
     normalize_text,
@@ -239,8 +240,9 @@ def _generate_with_cached_transcript(
     # If prompts do not include placeholders, still provide dynamic context explicitly.
     unresolved = []
     for key, value in replacements.items():
-        pattern = re.compile(r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
-        if not pattern.search(template):
+        # Shared pattern: the old inline regex required a literal backslash and
+        # never matched, so every value was sent twice (review B-05).
+        if not placeholder_pattern(key).search(template):
             unresolved.append((key, value))
     if unresolved:
         context_lines = ["", "", "## Provided Context", ""]

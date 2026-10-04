@@ -871,14 +871,20 @@ def load_prompt(prompt_filename: str) -> str:
     return prompt_path.read_text(encoding="utf-8")
 
 
+def placeholder_pattern(key: str) -> "re.Pattern":
+    """Regex for a ``{{key}}`` prompt placeholder (whitespace-tolerant, case-insensitive).
+    Shared by fill_prompt_template and the unresolved-placeholder check in
+    extraction_pipeline so the two can't disagree (review B-05)."""
+    return re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
+
+
 def fill_prompt_template(template: str, metadata: dict, transcript: str, **kwargs) -> str:
     """Fill a prompt template: substitute {{key}} placeholders from metadata+kwargs
     (case-insensitive), and the transcript into {{insert_transcript_text_here}}. Shared by
     the extraction/validation pipelines (review L11 — was a duplicated private copy)."""
     placeholders = {**metadata, **kwargs}
     for key, value in placeholders.items():
-        pattern = re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
-        template = pattern.sub(lambda m: str(value), template)
+        template = placeholder_pattern(key).sub(lambda m: str(value), template)
     template = template.replace("{{insert_transcript_text_here}}", transcript)
     return template
 
