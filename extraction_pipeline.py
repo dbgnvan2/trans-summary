@@ -1194,7 +1194,9 @@ def generate_structured_abstract(
                      "kept the best draft (%s unresolved issue(s)). The release gate will "
                      "BLOCK publication until it is regenerated or edited.",
                      max_attempts, best_issue_count)
-        return True
+        # The stage failed its purpose; report it as failed so Run Selected stops
+        # here rather than showing green (author decision, plan R11).
+        return False
     except Exception as e:
         logger.error("Error generating structured abstract: %s",
                      e, exc_info=True)
