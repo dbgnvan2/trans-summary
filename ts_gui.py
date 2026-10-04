@@ -1902,6 +1902,10 @@ class TranscriptProcessorGUI:
         # generators each ran the gate and both failed silently).
         decision = release_gate.run_gate(self.base_name, self.logger)
         if decision.decision is release_gate.Decision.BLOCK:
+            # Quarantine the previous bundle, write the marker and manifest (G1):
+            # returning early must not leave an old ALLOW run's webpage/PDF on disk
+            # looking current.
+            release_gate.record_decision(self.base_name, decision, self.logger)
             self.log("  - ❌ Release gate BLOCKED publication — skipping webpage/PDF.")
             for v in decision.blockers:
                 self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")

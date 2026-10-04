@@ -873,9 +873,23 @@ def publish_allowed(base_name: str, logger=None) -> bool:
     artifacts, so the decision is identical. The manifest is a snapshot at gate
     time — bundle files written *after* the guard aren't all captured; a single
     orchestrator-level ``gate_and_report`` call (future wiring) would be exact."""
+    decision = run_gate(base_name, logger)
+    record_decision(base_name, decision, logger)
+    return decision.allowed
+
+
+def record_decision(base_name: str, decision: GateDecision, logger=None) -> None:
+    """Apply a gate decision's side effects: marker, stale-bundle quarantine on
+    BLOCK, and the run manifest.
+
+    Purpose: Let a caller that already ran ``run_gate`` (the GUI webpdf stage)
+             record the decision without losing the F4 quarantine / marker /
+             manifest that ``publish_allowed`` performs (review G1).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R1
+    Tests:   tests/test_ts_gui_web_generation.py::test_r1a_gui_block_quarantines_stale_bundle
+    """
     from datetime import datetime
 
-    decision = run_gate(base_name, logger)
     generated_at = datetime.now().isoformat(timespec="seconds")
     _update_block_marker(base_name, decision, generated_at)
     if decision.decision is Decision.BLOCK:
@@ -884,7 +898,6 @@ def publish_allowed(base_name: str, logger=None) -> bool:
             logger.error("Release gate BLOCKED publication of %s — skipping bundle.", base_name)
     # After any quarantine, so the recorded artifact state matches what remains.
     write_manifest(base_name, decision, generated_at, logger)
-    return decision.allowed
 
 
 def gate_and_report(base_name: str, generated_at: str, logger=None) -> GateDecision:
