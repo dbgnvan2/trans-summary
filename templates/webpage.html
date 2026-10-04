@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block styles %}
-{{ common_css }}
+{{ common_css|safe }}
 
-{{ webpage_css }}
+{{ webpage_css|safe }}
 {% endblock %}
 
 {% block body %}
