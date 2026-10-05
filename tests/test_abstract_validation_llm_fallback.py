@@ -41,7 +41,9 @@ def test_verify_with_llm_uses_reasonable_token_budget(monkeypatch):
     assert captured["max_tokens"] >= 512
 
 
-def test_verify_with_llm_fallback_on_exception(monkeypatch):
+def test_r14a_verify_with_llm_reports_unverified_on_exception(monkeypatch):
+    """A failed call returns None per item ("could not verify"), not False
+    ("missing") — plan R14 / review C-07. Was [False] before."""
     def fake_call_claude_with_retry(**_kwargs):
         raise RuntimeError("Response truncated at token limit")
 
@@ -62,4 +64,4 @@ def test_verify_with_llm_fallback_on_exception(monkeypatch):
         "abstract text", items, api_client=MagicMock(), model="claude-3-5-haiku-20241022", logger=MagicMock()
     )
 
-    assert out == [False]
+    assert out == [None]

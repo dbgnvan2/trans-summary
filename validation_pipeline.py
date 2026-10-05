@@ -2,6 +2,7 @@
 Pipeline module for validation tasks (headers, abstracts, emphasis).
 """
 
+import functools
 import re
 from pathlib import Path
 from typing import Optional
@@ -234,6 +235,35 @@ def _best_local_grounding(definition: str, term: str, transcript: str) -> Option
     return best
 
 
+_VERSUS_RE = re.compile(r"\s+(?:versus|vs\.?)\s+", re.IGNORECASE)
+
+
+def _key_term_alternatives(term: str) -> list:
+    """Forms of a key-term label to ground against the transcript: the label, a
+    trailing parenthetical and the text before it, each side of "X / Y", and a
+    "versus" -> "and" variant. Never splits into single words, so a generic word
+    alone cannot ground a term.
+
+    Purpose: Ground terms whose label adds an expansion or alias (decision 2a).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_validator_gating_r15.py::test_r15_key_term_alternatives
+    """
+    candidates = [term]
+    paren = re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", term)
+    if paren:
+        candidates += [paren.group(1), paren.group(2)]
+    out: list = []
+    for cand in candidates:
+        for part in re.split(r"\s*/\s*", cand):
+            part = part.strip()
+            if not part:
+                continue
+            for form in (part, _VERSUS_RE.sub(" and ", part)):
+                if form not in out:
+                    out.append(form)
+    return out or [term]
+
+
 def validate_key_terms_fidelity(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -276,13 +306,13 @@ def validate_key_terms_fidelity(
     ]
 
     for term, definition in terms:
-        # A term is often a slash-joined alias pair ("Symbiosis / Symbiotic
-        # Relationship") that never appears verbatim as one string, though each
-        # alias does. Ground on the best-matching alias part.
-        term_parts = [p.strip() for p in re.split(r"\s*/\s*", term) if p.strip()] or [term]
-        term_ratio = max(
-            find_text_in_content(part, transcript, aggressive_normalization=True)[2]
-            for part in term_parts
+        # A term label often names alternatives that never appear verbatim as one
+        # string, though one of them does: "Symbiosis / Symbiotic Relationship",
+        # "OCD (Obsessive-Compulsive Disorder)", "Wanting versus Liking" (spoken as
+        # "wanting and liking"). Ground on the best-matching alternative.
+        term_ratio, best_part = max(
+            (find_text_in_content(part, transcript, aggressive_normalization=True)[2], part)
+            for part in _key_term_alternatives(term)
         )
         # The definition is the model's synthesized paraphrase, NOT a transcript
         # quote — so grounding is driven by the TERM appearing in the transcript,
@@ -294,7 +324,7 @@ def validate_key_terms_fidelity(
         # is high for almost any on-topic text, so a definition describing the
         # wrong concept still scored EXACT (P7). Also require LOCAL grounding —
         # overlap in the window around where the term actually appears.
-        def_local = _best_local_grounding(definition, term, transcript)
+        def_local = _best_local_grounding(definition, best_part, transcript)
         # Benefit of the doubt when the term can't be localised at all: term_ratio
         # (fuzzy) may ground a term that the exact-sequence locator can't pin
         # (reordered/compound wording). Only DOWNGRADE when we DID locate the term
@@ -411,6 +441,55 @@ def _keyword_grounding_ratio(probe: str, haystack: str) -> float:
     return matched / max(1, len(set(keywords)))
 
 
+def _grade_topics(topics: list, transcript: str, sections_map: dict) -> list:
+    """Grade each topic against the transcript. Returns
+    ``(name, title_ratio, desc_ratio, section_ratio, result, has_sections)`` rows,
+    result in EXACT / PARTIAL / WEAK / FAIL. Pure (no report written), so the
+    release gate can run it too (plan R15)."""
+    rows = []
+    for topic in topics:
+        name = topic.get("name", "").strip()
+        description = topic.get("description", "").strip()
+        sections_str = topic.get("sections", "").strip()
+        if not name:
+            continue
+
+        # Each ratio is max(keyword grounding, fuzzy match). The fuzzy scan is
+        # O(transcript) per call (20-50 s per real project) and can only RAISE the
+        # ratio, so skip it once keyword grounding already reaches the top tier:
+        # the tier is identical (plan R15 — the gate runs this on every publish).
+        title_ratio = _keyword_grounding_ratio(name, transcript)
+        if title_ratio < 0.65:
+            title_ratio = max(title_ratio, find_text_in_content(
+                name, transcript, aggressive_normalization=True)[2])
+
+        desc_probe = " ".join(description.split()[:40])
+        desc_ratio = _keyword_grounding_ratio(desc_probe, transcript) if desc_probe else 0.0
+        if desc_probe and desc_ratio < 0.55:
+            desc_ratio = max(desc_ratio, find_text_in_content(
+                desc_probe, transcript, aggressive_normalization=True)[2])
+
+        section_ratio = 0.0
+        if sections_str:
+            nums = summary_pipeline.parse_section_range(sections_str)
+            section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
+            if section_text:
+                section_ratio = _keyword_grounding_ratio(
+                    f"{name} {desc_probe}", section_text
+                )
+
+        if title_ratio >= 0.65 and desc_ratio >= 0.55:
+            result = "EXACT"
+        elif title_ratio >= 0.45 and desc_ratio >= 0.35:
+            result = "PARTIAL"
+        elif title_ratio >= 0.25 or desc_ratio >= 0.20:
+            result = "WEAK"
+        else:
+            result = "FAIL"
+        rows.append((name, title_ratio, desc_ratio, section_ratio, result, bool(sections_str)))
+    return rows
+
+
 def validate_topics_lightweight(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -454,53 +533,18 @@ def validate_topics_lightweight(
         "|---|---:|---:|---:|---|",
     ]
 
-    for topic in topics:
-        name = topic.get("name", "").strip()
-        description = topic.get("description", "").strip()
-        sections_str = topic.get("sections", "").strip()
-        if not name:
-            continue
-
-        title_fuzzy = find_text_in_content(
-            name, transcript, aggressive_normalization=True
-        )[2]
-        title_ground = _keyword_grounding_ratio(name, transcript)
-        title_ratio = max(title_fuzzy, title_ground)
-
-        desc_probe = " ".join(description.split()[:40])
-        desc_fuzzy = find_text_in_content(
-            desc_probe, transcript, aggressive_normalization=True
-        )[2] if desc_probe else 0.0
-        desc_ground = _keyword_grounding_ratio(desc_probe, transcript) if desc_probe else 0.0
-        desc_ratio = max(desc_fuzzy, desc_ground)
-
-        section_ratio = 0.0
-        if sections_str:
-            nums = summary_pipeline.parse_section_range(sections_str)
-            section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
-            if section_text:
-                section_ratio = _keyword_grounding_ratio(
-                    f"{name} {desc_probe}", section_text
-                )
-            else:
-                section_ratio = 0.0
-
-        if title_ratio >= 0.65 and desc_ratio >= 0.55:
-            result = "EXACT"
+    for name, title_ratio, desc_ratio, section_ratio, result, has_sections in _grade_topics(
+            topics, transcript, sections_map):
+        if result == "EXACT":
             exact += 1
-        elif title_ratio >= 0.45 and desc_ratio >= 0.35:
-            result = "PARTIAL"
+        elif result == "PARTIAL":
             partial += 1
-        elif title_ratio >= 0.25 or desc_ratio >= 0.20:
-            result = "WEAK"
+        elif result == "WEAK":
             weak += 1
         else:
-            result = "FAIL"
             failed += 1
-
-        if sections_str and section_ratio < 0.60:
+        if has_sections and section_ratio < 0.60:
             section_mismatch += 1
-
         lines.append(
             f"| {name} | {title_ratio:.2f} | {desc_ratio:.2f} | {section_ratio:.2f} | {result} |"
         )
@@ -532,6 +576,31 @@ def validate_topics_lightweight(
     return failed == 0
 
 
+@functools.lru_cache(maxsize=8)
+def _without_disfluencies(text: str) -> str:
+    """Lower-cased word sequence with filler words (config.QUOTE_FILLER_WORDS)
+    removed and immediate repeats of 1-3 words collapsed, so "my uh my my degrees"
+    and "my degrees" compare equal. Applied to both quote and transcript.
+
+    Purpose: Stop a quote that only dropped disfluencies failing verbatim checks.
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15 (decision 1a)
+    Tests:   tests/test_validator_gating_r15.py::test_r15_emphasis_ignores_disfluencies
+    """
+    words = re.findall(r"[a-z0-9']+", text.lower().replace("\u2019", "'"))
+    words = [w for w in words if w not in config.QUOTE_FILLER_WORDS]
+    out: list = []
+    i = 0
+    while i < len(words):
+        for n in (3, 2, 1):
+            if len(out) >= n and words[i:i + n] == out[-n:]:
+                i += n
+                break
+        else:
+            out.append(words[i])
+            i += 1
+    return " ".join(out)
+
+
 def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     """
     Grounding ratio for one emphasis quote against the transcript.
@@ -543,6 +612,8 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     head/tail window) are matched whole. Reflow across timestamp markers in the
     middle of a long quote is tolerated because only the ends are probed.
     """
+    quote = _without_disfluencies(quote)
+    formatted_content = _without_disfluencies(formatted_content)
     words = quote.split()
     n = config.EMPHASIS_HEADTAIL_WORDS
     if len(words) <= 2 * n:
@@ -798,8 +869,45 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         return False
 
 
+def summary_coverage_key(base_name: str) -> Optional[str]:
+    """sha256 over the summary, topics, interpretive themes and transcript files —
+    the inputs summary coverage is computed from. None when there is no summary.
+    A stored verdict whose key differs from this is stale (P6)."""
+    import hashlib
+
+    proj = config.PROJECTS_DIR / base_name
+    summary = proj / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
+    if not summary.exists():
+        return None
+    h = hashlib.sha256()
+    for suffix in (config.SUFFIX_SUMMARY_GEN, config.SUFFIX_TOPICS,
+                   config.SUFFIX_INTERPRETIVE_THEMES, config.SUFFIX_FORMATTED,
+                   config.SUFFIX_YAML):
+        path = proj / f"{base_name}{suffix}"
+        h.update(suffix.encode("utf-8"))
+        h.update(path.read_bytes() if path.exists() else b"<absent>")
+    return h.hexdigest()
+
+
+def _write_summary_coverage_verdict(base_name: str, status: str, detail: str) -> None:
+    import json
+
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
+    if status == "ERROR":
+        # Never store a could-not-verify result (P1): the next gate run retries.
+        path.unlink(missing_ok=True)
+        return
+    path.write_text(json.dumps({"status": status, "key": summary_coverage_key(base_name),
+                                "detail": detail}, indent=2), encoding="utf-8")
+
+
 def validate_summary_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
-    """Validate the summary using the coverage validation module."""
+    """Validate the summary using the coverage validation module.
+
+    Also stores the gate verdict (PASS / FAIL; ERROR is not stored) keyed to
+    ``summary_coverage_key`` for ``release_gate.check_summary_coverage``.
+    Spec: docs/plan_review_fixes_2026-10-04.md#R15
+    """
     if logger is None:
         logger = setup_logging("validate_summary_coverage")
 
@@ -840,7 +948,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
 
         client = get_anthropic_client_or_none(logger)
 
-        passed, report = summary_validation.validate_and_report(
+        status, passed, report = summary_validation.validate_and_report_status(
             summary_text, summary_input, api_client=client, model=model, logger=logger
         )
 
@@ -849,6 +957,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
         )
         report_path.write_text(report, encoding="utf-8")
+        _write_summary_coverage_verdict(base_name, status, report.splitlines()[0])
 
         logger.info("Validation Report saved to %s", report_path)
         logger.info("Validation Passed: %s", passed)

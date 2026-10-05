@@ -444,7 +444,7 @@ def test_m4a_verbatim_quotes_pass_on_real_run(real_run):
     assert rg.check_verbatim_quotes(real_run, logging.getLogger("t")).status is Status.PASS
 
 
-def test_m4a_fabricated_quote_tail_warns(cloned_run):
+def test_r15c_emphasis_fail_blocks(cloned_run):
     base, proj = cloned_run
     emp = proj / f"{base}{config.SUFFIX_EMPHASIS_SCORED}"
     lines = emp.read_text().splitlines()
@@ -454,9 +454,13 @@ def test_m4a_fabricated_quote_tail_warns(cloned_run):
             lines[i] = '"' + head + ' and a fabricated tail that appears nowhere in the source at all."'
             break
     emp.write_text("\n".join(lines))
-    v = rg.check_verbatim_quotes(base, logging.getLogger("t"))
-    assert v.status is Status.WARN
+    # Plan R15: emphasis quotes moved from the WARN-only verbatim_quotes check to
+    # the blocking emphasis_grounding check.
+    v = rg.check_emphasis_grounding(base, logging.getLogger("t"))
+    assert v.status is Status.FAIL
     assert v.items
+    assert rg.check_verbatim_quotes(base, logging.getLogger("t")).status is Status.PASS
+    assert "emphasis_grounding" in config.GATE_BLOCKING_CHECKS
 
 
 # --------------------------------------------------------------- M4.B timestamps

@@ -209,8 +209,9 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
 
 # --------------------------------------------------------------------------- M4.A
 def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
-    """WARN if any Bowen/emphasis quote is not verbatim-locatable in the source
-    (head- AND tail-matched, so a fabricated tail is caught)."""
+    """WARN if any Bowen quote is not verbatim-locatable in the source (head- AND
+    tail-matched, so a fabricated tail is caught). Emphasis quotes moved to the
+    blocking ``check_emphasis_grounding`` (plan R15)."""
     import transcript_utils as tu
     import validation_pipeline as vp
 
@@ -221,13 +222,110 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     for concept, quote, _ts in tu.load_bowen_references(base_name):
         if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO:
             problems.append({"type": "bowen", "label": concept, "quote": quote[:60]})
-    for label, quote, _ts in tu.load_emphasis_items(base_name):
-        if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO:
-            problems.append({"type": "emphasis", "label": label, "quote": quote[:60]})
     if problems:
         return Verdict("verbatim_quotes", Status.WARN,
                        f"{len(problems)} quote(s) not verbatim-locatable", items=problems)
     return Verdict("verbatim_quotes", Status.PASS, "all quotes verbatim")
+
+
+# --------------------------------------------------------------- R15 validator gates
+def check_emphasis_grounding(base_name: str, logger=None) -> Verdict:
+    """FAIL if any emphasis quote is not locatable in the source (filler words and
+    stutters ignored on both sides). Same test as validate_emphasis_items.
+
+    Purpose: Gate publication on the emphasis validator (author decision 1a).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_release_gate.py::test_r15c_emphasis_fail_blocks
+    """
+    import transcript_utils as tu
+    import validation_pipeline as vp
+
+    transcript = _load_source_transcript(base_name)
+    if transcript is None:
+        return Verdict("emphasis_grounding", Status.ERROR, "source transcript missing")
+    missing = [
+        {"label": label, "quote": quote[:60]}
+        for label, quote, _ts in tu.load_emphasis_items(base_name)
+        if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO
+    ]
+    if missing:
+        return Verdict("emphasis_grounding", Status.FAIL,
+                       f"{len(missing)} emphasis quote(s) not found in the transcript — "
+                       "regenerate emphasis", items=missing)
+    return Verdict("emphasis_grounding", Status.PASS, "all emphasis quotes found")
+
+
+def check_topics_grounding(base_name: str, logger=None) -> Verdict:
+    """FAIL if any topic grades FAIL against the transcript (the
+    validate_topics_lightweight test, run live). No topics artifact -> PASS
+    (nothing published); a non-empty artifact that parses to nothing -> ERROR.
+
+    Purpose: Gate publication on the topics validator (plan R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_release_gate.py::test_r15c_topics_fail_blocks
+    """
+    import validation_pipeline as vp
+
+    topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
+    if not topics_file.exists():
+        return Verdict("topics_grounding", Status.PASS, "no topics artifact")
+    transcript = _load_source_transcript(base_name)
+    if transcript is None:
+        return Verdict("topics_grounding", Status.ERROR, "source transcript missing")
+    topics = vp._load_topics_for_validation(base_name, transcript)
+    if not topics:
+        if topics_file.read_text(encoding="utf-8").strip():
+            return Verdict("topics_grounding", Status.ERROR,
+                           "topics artifact has content but parsed to no topics")
+        return Verdict("topics_grounding", Status.PASS, "topics artifact empty")
+    rows = vp._grade_topics(topics, transcript, vp._extract_transcript_sections(transcript))
+    failed = [{"topic": r[0], "title": round(r[1], 2), "description": round(r[2], 2)}
+              for r in rows if r[4] == "FAIL"]
+    if failed:
+        return Verdict("topics_grounding", Status.FAIL,
+                       f"{len(failed)} of {len(rows)} topic(s) not grounded in the transcript",
+                       items=failed)
+    return Verdict("topics_grounding", Status.PASS, f"all {len(rows)} topic(s) grounded")
+
+
+def check_summary_coverage(base_name: str, logger=None) -> Verdict:
+    """Summary coverage verdict (required topic / closing items, decision 3a).
+    Uses the stored verdict when its key matches the current inputs; otherwise
+    runs the validation now (which stores a fresh verdict). No summary -> PASS.
+
+    Purpose: Gate publication on summary coverage (plan R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_release_gate.py::test_r15c_summary_stale_verdict_revalidated
+    """
+    import json
+
+    import validation_pipeline as vp
+
+    key = vp.summary_coverage_key(base_name)
+    if key is None:
+        return Verdict("summary_coverage", Status.PASS, "no structured summary")
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
+
+    def _stored():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if isinstance(data, dict) and data.get("key") == key else None
+
+    verdict = _stored()
+    if verdict is None:
+        vp.validate_summary_coverage(base_name, logger=logger)
+        verdict = _stored()
+    if verdict is None:
+        return Verdict("summary_coverage", Status.ERROR,
+                       "summary coverage could not be verified — see the summary "
+                       "validation report and retry")
+    status = {"PASS": Status.PASS, "FAIL": Status.FAIL}.get(verdict.get("status"), Status.ERROR)
+    detail = verdict.get("detail") or "summary coverage"
+    if status is Status.FAIL:
+        detail = f"{detail} — see the summary validation report"
+    return Verdict("summary_coverage", status, detail)
 
 
 # --------------------------------------------------------------------------- M4.B
@@ -724,6 +822,9 @@ DEFAULT_CHECKS: list = [
     ("theme_grounding", check_theme_grounding),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
+    ("emphasis_grounding", check_emphasis_grounding),
+    ("topics_grounding", check_topics_grounding),
+    ("summary_coverage", check_summary_coverage),
     ("timestamp_citations", check_timestamp_citations),
     ("entity_consistency", check_entity_consistency),
     ("consistency", check_consistency),

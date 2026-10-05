@@ -453,6 +453,9 @@ SUFFIX_ABSTRACT_INIT = " - abstract-initial.md"
 SUFFIX_SUMMARY_INIT = " - summary-initial.md"
 SUFFIX_SUMMARY_GEN = " - summary-generated.md"
 SUFFIX_SUMMARY_VAL = " - summary-validation.txt"
+# Gate verdict for summary coverage, keyed to the inputs it was computed from
+# (plan R15). Read by release_gate.check_summary_coverage.
+SUFFIX_SUMMARY_COVERAGE_VERDICT = " - summary-coverage-verdict.json"
 SUFFIX_ABSTRACT_GEN = " - abstract-generated.md"
 SUFFIX_ABSTRACT_VAL = " - abstract-validation.txt"
 SUFFIX_KEY_TERMS_VAL = " - key-terms-validation.md"
@@ -535,8 +538,13 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   dedicated artifact lost it (a lost signal, not a cosmetic gap). Only its FAIL
 #   findings block; its heuristic WARNs (orphan key-term, topic coverage, the
 #   fuzzy specific-recollection drop) stay advisory.
+#   emphasis_grounding / topics_grounding / summary_coverage (plan R15, author
+#   decisions 2026-10-05): the emphasis, topics and summary-coverage validators
+#   gate publication. Key terms stay advisory: two trusted samples still fail on
+#   paraphrased term labels (see docs/plan_review_fixes_2026-10-04.md).
 GATE_BLOCKING_CHECKS = {"entity_grounding", "artifact_contracts", "faithfulness",
-                        "theme_grounding", "consistency"}
+                        "theme_grounding", "consistency", "emphasis_grounding",
+                        "topics_grounding", "summary_coverage"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the
@@ -975,6 +983,18 @@ LENS_STOPWORDS = frozenset({
 EMPHASIS_HEADTAIL_WORDS = 12
 EMPHASIS_QUOTE_FOUND_RATIO = 0.95
 EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
+# Spoken filler words ignored on BOTH sides when matching a quote to the
+# transcript; immediate repeats of 1-3 words ("my my", "it was, it was") are
+# also collapsed. A quote that only tidied disfluencies is still verbatim; one
+# with wording absent from the source still fails (author decision 2026-10-05,
+# plan R15). Editorial list -> config (rule 9).
+# Summary-coverage item categories that gate publication (author decision 3a,
+# 2026-10-05): required topic and closing (conclusion) items. Speaker ("metadata")
+# and stated purpose ("opening") stay in the report as warnings — the presenter
+# field is sometimes an organisation (KCFC) and purpose extraction is unreliable.
+SUMMARY_COVERAGE_GATING_CATEGORIES = frozenset({"topic", "closing"})
+
+QUOTE_FILLER_WORDS = frozenset({"uh", "um", "uhm", "umm", "er", "erm", "ah", "hmm", "mm"})
 
 # Key-terms definition grounding: the definition is a synthesized paraphrase, so
 # it is checked for topical keyword overlap, never verbatim. Global overlap with

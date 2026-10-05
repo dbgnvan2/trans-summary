@@ -6,7 +6,19 @@ app-wide; emphasis/topics/key-terms/summary-coverage validators should gate; kee
 prose artifact with zero claims → ERROR; Gen Abstract fails when every attempt fails faithfulness; no
 token report on halted runs.
 
-Status: **PLAN — awaiting approval. No code changed.**
+Status: **APPROVED 2026-10-04** — D1 = (b) block at publish; D2 = copy real fixtures from the KCFC projects folder; D3 = run live re-calibration; B-11 included in R5.
+
+**R15.e decisions (2026-10-05)**, after the dry run on 5 trusted samples (topics passed all 5;
+emphasis failed 2, key terms 2, summary coverage 1):
+- Emphasis (1a): ignore filler words when matching quotes, then gate.
+- Key terms (2a): ground a term on its main part or any alternative (parenthetical, "X / Y",
+  "versus"/"and"); gate only if all trusted samples then pass, otherwise report back.
+- Summary coverage (3a): gate on required topic / theme / conclusion items only; speaker and
+  stated-purpose items stay in the report as warnings.
+- Design change from R15.a: the three deterministic validators (emphasis, topics, key terms) run
+  live inside the release gate instead of writing stored verdicts — no stale-verdict problem and no
+  need for every producing stage to run them. Only summary coverage (LLM) stores a verdict, keyed to
+  the summary's sha256.
 
 ---
 

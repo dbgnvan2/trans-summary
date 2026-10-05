@@ -2271,10 +2271,19 @@ class TranscriptProcessorGUI:
         )
 
     def _run_stage_structured_summary(self):
-        """Runner for the 'structured_summary' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
-        return pipeline.generate_structured_summary(
+        """Runner for the 'structured_summary' stage: generate, then validate
+        coverage so the result is visible now (the release gate re-uses the stored
+        verdict; plan R15.b). A coverage miss does not halt the run — publication
+        is what it blocks. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        ok = pipeline.generate_structured_summary(
             self.base_name, logger=self.logger, model=config.settings.AUX_MODEL
         )
+        if ok and not pipeline.validate_summary_coverage(
+                self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
+            self.log(
+                "⚠️ Summary coverage did not pass — publication will be blocked until "
+                "it does. See '%s%s'.", self.base_name, config.SUFFIX_SUMMARY_VAL)
+        return ok
 
     def _run_stage_gen_abstract(self):
         """Runner for the 'gen_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""

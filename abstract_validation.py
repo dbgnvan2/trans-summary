@@ -479,9 +479,7 @@ def validate_abstract_coverage(
         if low_confidence_required:
             llm_results = verify_with_llm(
                 abstract, low_confidence_required, api_client, model=model, logger=logger)
-            for item, result in zip(low_confidence_required, llm_results):
-                item.covered = result
-                item.confidence = "llm_verified"
+            apply_llm_results(low_confidence_required, llm_results)
 
     # Compile results
     required_items = [item for item in items if item.required]
@@ -514,6 +512,8 @@ def validate_abstract_coverage(
 
     return {
         "passed": passed,
+        "status": coverage_status(items),
+        "llm_unavailable": any(i.confidence == "llm_unavailable" for i in items),
         "required_coverage": f"{required_covered}/{len(required_items)}",
         "optional_coverage": f"{optional_covered}/{len(optional_items)}",
         "items": [
@@ -534,15 +534,27 @@ def validate_abstract_coverage(
     }
 
 
-def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list[bool]:
-    """
-    Use LLM to verify coverage of specific items.
+# Item confidences meaning "could not be verified" (transient / upstream failure),
+# as opposed to a verified miss. A required item left uncovered only for these
+# reasons makes the coverage status ERROR (retry), not FAIL (review C-07 / P1).
+UNVERIFIED_CONFIDENCES = ("llm_unavailable", "extraction_failed")
 
-    Batches items into single API call for efficiency.
+
+def verify_items_with_llm(content: str, items: list, api_client, content_type: str,
+                          model: str = config.AUX_MODEL, logger=None,
+                          source_text_limit: Optional[int] = None) -> list:
+    """Ask the LLM whether ``content`` covers each item. Returns one entry per item:
+    True / False, or None for every item when the call fails (API error, timeout,
+    truncation), so the caller can report "could not verify" instead of "missing".
+
+    Purpose: One LLM-rescue implementation for abstract and summary coverage
+             (review F13 / STRUCT-04) that keeps a failed call distinct (C-07).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R13 / #R14
+    Tests:   tests/test_validator_gating_r15.py::test_r13a_short_yes_no_reply_accepted
     """
     items_text = "\n".join(
-        [f'{i + 1}. {item.label}: "{item.source_text}"' for i,
-            item in enumerate(items)]
+        f'{i + 1}. {item.label}: "{item.source_text[:source_text_limit]}"'
+        for i, item in enumerate(items)
     )
 
     prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
@@ -554,17 +566,15 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
     template = prompt_path.read_text(encoding="utf-8")
 
     prompt = (
-        template.replace("{{content_type}}", "abstract")
-        .replace("{{content_type_upper}}", "ABSTRACT")
-        .replace("{{content}}", abstract)
+        template.replace("{{content_type}}", content_type)
+        .replace("{{content_type_upper}}", content_type.upper())
+        .replace("{{content}}", content)
         .replace("{{items_text}}", items_text)
     )
 
     requested_max_tokens = max(512, 80 * len(items) + 64)
     max_tokens = cap_max_tokens_for_model(model, requested_max_tokens, logger=logger)
 
-    # Use centralized call with retry. If verification fails (e.g., truncation),
-    # degrade gracefully to keyword-only coverage rather than failing the whole step.
     try:
         response = call_claude_with_retry(
             client=api_client,
@@ -573,20 +583,16 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
             max_tokens=max_tokens,
             temperature=0.0,  # Strict for validation
             logger=logger,
-            min_length=2,
+            min_length=2,  # a "YES\nNO" reply is legitimately short (review F13)
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reported as "could not verify", not a miss
         if logger:
-            logger.warning(
-                "LLM verification unavailable (%s). Falling back to keyword-only coverage.",
-                e,
-            )
-        return [False] * len(items)
+            logger.warning("LLM coverage verification unavailable (%s); the affected "
+                           "items are reported as unverified — retry.", e)
+        return [None] * len(items)
 
-    response_text = response.content[0].text.strip()
-    lines = response_text.upper().split("\n")
-
-    results = []
+    lines = response.content[0].text.strip().upper().split("\n")
+    results: list = []
     for line in lines:
         if "YES" in line:
             results.append(True)
@@ -598,6 +604,47 @@ def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model:
         results.append(False)
 
     return results[: len(items)]
+
+
+def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list:
+    """Abstract LLM coverage rescue (see ``verify_items_with_llm``)."""
+    return verify_items_with_llm(abstract, items, api_client, "abstract",
+                                 model=model, logger=logger)
+
+
+def apply_llm_results(items: list, llm_results: list) -> None:
+    """Record LLM rescue results on the items: None -> "llm_unavailable" (the
+    keyword result stands, marked unverified); True/False -> "llm_verified"."""
+    for item, result in zip(items, llm_results):
+        if result is None:
+            item.confidence = "llm_unavailable"
+        else:
+            item.covered = result
+            item.confidence = "llm_verified"
+
+
+def coverage_status(items: list, gating_categories=None) -> str:
+    """PASS / FAIL / ERROR over the required items (restricted to
+    ``gating_categories`` when given).
+
+    FAIL needs at least one required item that was checked and found missing;
+    when every missing item is unverified (``UNVERIFIED_CONFIDENCES``) the status
+    is ERROR (retryable). No required items at all is ERROR: nothing was checked.
+
+    Purpose: A gate-readable verdict for coverage validation (plan R14/R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_validator_gating_r15.py::test_r14b_unavailable_is_error
+    """
+    required = [i for i in items if i.required
+                and (gating_categories is None or i.category in gating_categories)]
+    if not required:
+        return "ERROR"
+    missing = [i for i in required if not i.covered]
+    if not missing:
+        return "PASS"
+    if any(i.confidence not in UNVERIFIED_CONFIDENCES for i in missing):
+        return "FAIL"
+    return "ERROR"
 
 
 def format_review_checklist(items: list[CoverageItem]) -> str:
@@ -735,6 +782,8 @@ def validate_and_report(
         f"Optional coverage: {coverage['optional_coverage']}",
         f"Word count: {structural['word_count']}",
     ]
+    if coverage["llm_unavailable"]:
+        report_lines.append("LLM verification unavailable — some items are unverified; retry.")
 
     # Add structural warnings to report
     if structural["warnings"]:
