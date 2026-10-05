@@ -31,6 +31,11 @@ summary-coverage gates (R15).
   not mis-sectioned or partly-fabricated ones.
 - **Stated-purpose extraction** picked "I'm going to be presenting from PowerPoints."
   on a real run; summary/abstract coverage reports it as missing (advisory under 3a).
+- **Emphasis "verbatim" threshold is fuzzy (sweep note, pre-existing).** A quote passes
+  at `EMPHASIS_QUOTE_PARTIAL_RATIO` 0.80, so "the family is a rational unit" against
+  "…an emotional unit" scores 0.919. Now that emphasis gates publication, consider a
+  stricter threshold — check it against the real fixtures first.
+- **Mutation gate not re-run** after `_emphasis_quote_found_ratio` changed (R15).
 
 ### Not fixed (minor findings in the report)
 All other minor findings in the report remain open (e.g. F5 mutation-harness baseline,
