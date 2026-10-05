@@ -21,11 +21,11 @@ judge flags pinned), Q6 (Gen Abstract fails when unfaithful), emphasis / topics 
 summary-coverage gates (R15).
 
 ### ⏸ Open — needs a decision
-- **Key-terms gate.** After alternative-label grounding, `dave_g_test2` still FAILs two
-  paraphrased labels ("Verbal and Physical Abuse", "Foster Care / Adoption Agency
-  Work"). Per decision 2a key terms stay advisory. Options: accept those as WEAK via a
-  semantic check (the key-terms judge, `KEY_TERMS_JUDGE_ENABLED`, is uncalibrated), or
-  gate and regenerate such terms.
+- **Key-terms gate — decided 2026-10-05: stays advisory.** After alternative-label
+  grounding, `dave_g_test2` still FAILs two paraphrased labels ("Verbal and Physical
+  Abuse", "Foster Care / Adoption Agency Work"); the author chose to keep key terms as a
+  report-only check. Revisit only with a calibrated semantic check
+  (`KEY_TERMS_JUDGE_ENABLED`).
 - **Topics gate is lenient (review G9).** A topic FAILs only when title < 0.25 AND
   description < 0.20 against the whole transcript; the gate catches nonsense topics,
   not mis-sectioned or partly-fabricated ones.
