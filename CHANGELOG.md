@@ -2,6 +2,49 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-05 (full-repo review fixes)
+
+Fixes from `REVIEW-trans-summary-2026-10-04.md`, per `docs/plan_review_fixes_2026-10-04.md`.
+
+**Publish gate**
+- **GUI BLOCK now quarantines the stale bundle (G1).** The webpdf stage returned early on
+  BLOCK without the quarantine / PUBLISH-BLOCKED marker / manifest; it now calls
+  `release_gate.record_decision`.
+- **Names in headings, bold labels and `---` regions are checked (F2).** Both hard blockers
+  stripped these before checking. Generic headings are excluded via
+  `config.SCAFFOLDING_HEADING_PHRASES`. Behaviour change: a bold label whose words never occur
+  in the source is now an ungrounded name.
+- **Theme judge sees the whole theme (F3)**, including Key evidence (gold set: +2 cases).
+- **Zero claims from a non-empty prose artifact is ERROR**, not PASS (author decision).
+- **Judge cache key hashes the extraction code (F4)**; `JUDGE_LOGIC_VERSION` = 2026-10-04.
+- **New blocking checks** `emphasis_grounding`, `topics_grounding`, `summary_coverage`
+  (author decisions 2026-10-05). Emphasis matching ignores filler words and stutters;
+  summary coverage gates on topic / closing items only. Key terms stay advisory.
+- Live re-calibration 2026-10-04 passed: faithfulness gold 1.0/1.0, real abstracts as
+  expected, theme judge (with evidence) 1.0/1.0.
+
+**LLM calls**
+- **One client factory (F12/F14).** `transcript_utils.get_anthropic_client()` resolves the key
+  from env or `~/.config/llm/keys.json` for every stage and disables SDK retries
+  (`max_retries=0`); the wrapper retries 5xx and applies `config.TIMEOUT_FALLBACK`.
+- **`max_tokens` truncation is not retried (B-11)**; rejected responses are logged to
+  `token_usage.csv`.
+- **Resolved prompt placeholders are no longer sent twice (B-05).**
+
+**Validators**
+- Summary LLM coverage rescue works (F13); a failed rescue is "unverified" (ERROR), not
+  "missing" (C-07). The required "Speaker identified" item is created again (G6).
+- Key terms ground on alternative label forms (parenthetical, `X / Y`, versus → and).
+- Topic grading skips the fuzzy scan when keyword grounding already decides the tier
+  (20–50 s → under 1 s per real project; same tiers).
+- Gen Abstract returns failure when no attempt is faithful (author decision).
+
+**Other**
+- Cleanup deletes only `{base}_vN.txt`, not another transcript's versions (G11).
+- Repo CSS is no longer HTML-escaped inside `<style>` (D-09).
+- README install and key setup corrected (G19); ARCHITECTURE §4.3 lists the blocking checks.
+- Real prose fixtures: `tests/fixtures/prose_real/` (3 projects).
+
 ## [Unreleased] - 2026-08-22 (close three non-blocking follow-ups)
 
 Three items previously deferred as non-blocking (from the full-run review) are now fixed:

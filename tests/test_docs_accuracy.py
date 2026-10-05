@@ -38,3 +38,17 @@ def test_m4_architecture_documents_release_gate_layer():
     assert "release_gate.py" in arch, "ARCHITECTURE_DESIGN omits the release-gate layer"
     assert "faithfulness" in arch.lower(), "ARCHITECTURE_DESIGN omits the faithfulness judge"
 
+
+
+def test_r16_readme_install_and_key_setup_match_code():
+    """G19 (review 2026-10-04): the install line must install the real deps, and the
+    key setup must not claim a .env file the pipeline never reads."""
+    assert "pip install -r requirements.txt" in README
+    assert "pip install anthropic python-dotenv weasyprint beautifulsoup4" not in README
+    assert "keys.json" in README
+
+
+def test_r16_architecture_lists_every_blocking_check():
+    arch = (ROOT / "ARCHITECTURE_DESIGN.md").read_text(encoding="utf-8")
+    for check in config.GATE_BLOCKING_CHECKS:
+        assert f"`{check}`" in arch, f"ARCHITECTURE_DESIGN omits blocking check {check}"

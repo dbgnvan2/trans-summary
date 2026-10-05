@@ -45,17 +45,20 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 2.  **Install dependencies**:
 
     ```bash
-    pip install anthropic python-dotenv weasyprint beautifulsoup4
+    pip install -r requirements.txt
     ```
 
     _Note: `weasyprint` may require additional system libraries (e.g., Pango, Cairo) depending on your OS._
 
     _Optional: **pandoc** is required only for **DOCX** bundle export (`brew install pandoc` / apt `pandoc`). PDF bundles work without it; a DOCX request without pandoc reports the missing binary cleanly._
 
-3.  **Configuration**:
-    Create a `.env` file in the project root:
-    ```env
-    ANTHROPIC_API_KEY=your_api_key_here
+3.  **API key**: every stage resolves the Anthropic key the same way
+    (`transcript_utils.get_anthropic_client`): the `ANTHROPIC_API_KEY` environment
+    variable first, then the shared keys file `~/.config/llm/keys.json` (or the path in
+    `$LLM_KEYS_FILE`) under `providers.anthropic.api_key`. A `.env` file is **not**
+    read by the pipeline.
+    ```bash
+    export ANTHROPIC_API_KEY=your_api_key_here
     ```
 
 ## Usage

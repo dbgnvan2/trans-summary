@@ -6,6 +6,38 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-04 — Full-repo review (`REVIEW-trans-summary-2026-10-04.md`)
+
+Plan: `docs/plan_review_fixes_2026-10-04.md` (R1–R18). Fixed on branch
+`validation-hardening` 2026-10-04/05 — see CHANGELOG.
+
+### ✅ Fixed
+G1 (GUI BLOCK side effects), G11 (cleanup deletes sibling `_vN`), B-05 (placeholder
+re-append), D-09 (escaped CSS), F12/F14/B-11 (client factory, retries, timeouts,
+max_tokens), F2 (names in headings/labels/`---`), F3 (theme evidence judged), A-08
+(zero claims → ERROR), F4 (judge cache key), F6 (drift monitor `--model` for themes),
+G6 (speaker item), F13 (summary LLM rescue), C-07 (unverified ≠ missing), G14 (shipped
+judge flags pinned), Q6 (Gen Abstract fails when unfaithful), emphasis / topics /
+summary-coverage gates (R15).
+
+### ⏸ Open — needs a decision
+- **Key-terms gate.** After alternative-label grounding, `dave_g_test2` still FAILs two
+  paraphrased labels ("Verbal and Physical Abuse", "Foster Care / Adoption Agency
+  Work"). Per decision 2a key terms stay advisory. Options: accept those as WEAK via a
+  semantic check (the key-terms judge, `KEY_TERMS_JUDGE_ENABLED`, is uncalibrated), or
+  gate and regenerate such terms.
+- **Topics gate is lenient (review G9).** A topic FAILs only when title < 0.25 AND
+  description < 0.20 against the whole transcript; the gate catches nonsense topics,
+  not mis-sectioned or partly-fabricated ones.
+- **Stated-purpose extraction** picked "I'm going to be presenting from PowerPoints."
+  on a real run; summary/abstract coverage reports it as missing (advisory under 3a).
+
+### Not fixed (minor findings in the report)
+All other minor findings in the report remain open (e.g. F5 mutation-harness baseline,
+F11 manifest model provenance, G2/G13 other discarded return values, G8/G9, STRUCT-*).
+
+---
+
 ## 2026-07-18 — Adversarial code-review findings
 
 Full report: `docs/CODE_REVIEW_2026-07-18.md` (45-agent adversarial review, refute-first verified). Being worked through in `/csdp` batches of 5. `verify:` is the independent verification verdict (`→X` = re-rated severity).
