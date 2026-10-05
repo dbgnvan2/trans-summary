@@ -104,3 +104,12 @@ def test_r6e_real_prose_reemits_no_scaffolding_claims():
     cannot introduce a false BLOCK on them."""
     for name, text, transcript in _real_prose():
         assert fj.extract_claims(text, source=transcript) == fj.extract_claims(text), name
+
+
+def test_r6a_name_inside_title_case_heading_with_grounded_words():
+    """Sweep finding: a Title-Case heading is one span, and one grounded word
+    ('Family') used to clear it. The ungrounded run is what gets checked."""
+    src = "Today we discuss how family therapy changed and the family emotional system."
+    text = "## How Jane Doerfler Changed Family Therapy\n\nThe family emotional system matters."
+    assert av.find_ungrounded_names(text, src) == ["Jane Doerfler"]
+    assert "Jane Doerfler" in fj.extract_claims(text, source=src)

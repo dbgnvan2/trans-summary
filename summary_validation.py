@@ -450,10 +450,17 @@ def validate_summary_coverage(
         item.confidence = confidence
 
     # LLM verification for low-confidence required items
-    if use_llm_verification and api_client:
+    if use_llm_verification:
         low_confidence_required = [
             item for item in items if item.required and item.confidence == "low"
         ]
+        if low_confidence_required and not api_client:
+            # No client (no API key): these items could not be checked. Mark them
+            # unverified so the status is ERROR (retry, never stored) rather than a
+            # stored FAIL that outlives the missing key (sweep finding, P1).
+            abstract_validation.apply_llm_results(
+                low_confidence_required, [None] * len(low_confidence_required))
+            low_confidence_required = []
 
         if low_confidence_required:
             llm_results = verify_with_llm(
@@ -499,12 +506,23 @@ def validate_summary_coverage(
         s for s in proportionality["sections"] if not s["within_tolerance"]
     ]
 
+    # Gate verdict over topic/closing items only; speaker and stated purpose stay
+    # advisory (author decision 3a, plan R15). No gating item at all is decided
+    # here, deterministically: topics parsed but none required (all < 10%, no
+    # stated conclusion) -> PASS; no topics parsed -> FAIL (upstream drift, A9).
+    status = abstract_validation.coverage_status(
+        items, config.SUMMARY_COVERAGE_GATING_CATEGORIES)
+    status_reason = ""
+    if status == "NONE":
+        if summary_input.body.topics:
+            status, status_reason = "PASS", "no required topic/closing items to check"
+        else:
+            status, status_reason = "FAIL", "no topics parsed — cannot check coverage"
+
     return {
         "passed": passed,
-        # Gate verdict over topic/closing items only; speaker and stated purpose
-        # stay advisory (author decision 3a, plan R15).
-        "status": abstract_validation.coverage_status(
-            items, config.SUMMARY_COVERAGE_GATING_CATEGORIES),
+        "status": status,
+        "status_reason": status_reason,
         "llm_unavailable": any(i.confidence == "llm_unavailable" for i in items),
         "coverage_passed": coverage_passed,
         "proportionality_passed": proportionality["proportionality_ok"],
@@ -769,7 +787,7 @@ def validate_and_report_status(
     coverage = validate_summary_coverage(
         summary,
         summary_input,
-        use_llm_verification=api_client is not None,
+        use_llm_verification=True,  # no client -> items reported unverified
         api_client=api_client,
         model=model,
         logger=logger,
@@ -782,7 +800,8 @@ def validate_and_report_status(
         f"Word count: {coverage['word_count']['actual']}/{coverage['word_count']['target']} ({coverage['word_count']['deviation']} deviation)",
         f"Proportionality: {'OK' if coverage['proportionality_passed'] else 'ISSUES'}",
         f"Gate status: {coverage['status']} (gating on: "
-        f"{', '.join(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES))} items)",
+        f"{', '.join(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES))} items)"
+        + (f" — {coverage['status_reason']}" if coverage["status_reason"] else ""),
     ]
     if coverage["llm_unavailable"]:
         report_lines.append("LLM verification unavailable — some items are unverified; retry.")

@@ -183,12 +183,12 @@ def extract_claims(text: str, source: str = None) -> list:
         if label not in claims:
             claims.append(label)
     if source:
-        from abstract_validation import find_ungrounded_names, scaffolding_name_spans
-        spans = scaffolding_name_spans(text)
-        if spans:
-            for name in find_ungrounded_names("\n".join(spans), source):
-                if name not in claims:
-                    claims.append(name)
+        # Ungrounded names the prose claims don't already carry are the ones in
+        # headings / labels (stripped above); judge them as claims.
+        from abstract_validation import find_ungrounded_names
+        for name in find_ungrounded_names(text, source):
+            if not any(name in c for c in claims):
+                claims.append(name)
     return claims
 
 

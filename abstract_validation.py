@@ -96,6 +96,33 @@ def find_ungrounded_names(abstract: str, transcript: str,
     def _known_name(name: str) -> bool:
         return " ".join(name.lower().split()) in known_full
 
+    def _ungrounded_runs(span: str) -> list[str]:
+        """Split a heading/label span at grounded words. A Title-Case heading is
+        ALL capitalised, so "How Jane Doerfler Changed Family Therapy" is one span
+        that one grounded word ("family") would clear; its ungrounded run "Jane
+        Doerfler" is what must be checked (sweep finding, P7)."""
+        min_len = config.ABSTRACT_NAME_TOKEN_MIN_LEN
+        runs, cur = [], []
+        for word in span.split():
+            if len(word) >= min_len and _grounded(word):
+                runs.append(cur)
+                cur = []
+            else:
+                cur.append(word)
+        runs.append(cur)
+        out = []
+        for run in runs:
+            while run and len(run[0]) < min_len:
+                run = run[1:]
+            while run and len(run[-1]) < min_len:
+                run = run[:-1]
+            text = " ".join(run)
+            if len(run) >= 2 and text.lower() not in config.SCAFFOLDING_HEADING_PHRASES:
+                out.append(text)
+        return out
+
+    scaffold_names = [run for span in scaffold_names for run in _ungrounded_runs(span)]
+
     ungrounded: list[str] = []
     seen: set[str] = set()
     # Use [ \t]+ (not \s+) between name words: a real multi-word proper name is
@@ -471,10 +498,17 @@ def validate_abstract_coverage(
         item.confidence = confidence
 
     # Second pass: LLM verification for low-confidence required items
-    if use_llm_verification and api_client:
+    if use_llm_verification:
         low_confidence_required = [
             item for item in items if item.required and item.confidence == "low"
         ]
+        if low_confidence_required and not api_client:
+            # No client (no API key): these items could not be checked. Mark them
+            # unverified so the status is ERROR (retry, never stored) rather than a
+            # stored FAIL that outlives the missing key (sweep finding, P1).
+            apply_llm_results(
+                low_confidence_required, [None] * len(low_confidence_required))
+            low_confidence_required = []
 
         if low_confidence_required:
             llm_results = verify_with_llm(
@@ -512,7 +546,8 @@ def validate_abstract_coverage(
 
     return {
         "passed": passed,
-        "status": coverage_status(items),
+        # Abstract coverage is advisory; zero required items is the A9 fail-closed case.
+        "status": {"NONE": "FAIL"}.get(coverage_status(items), coverage_status(items)),
         "llm_unavailable": any(i.confidence == "llm_unavailable" for i in items),
         "required_coverage": f"{required_covered}/{len(required_items)}",
         "optional_coverage": f"{optional_covered}/{len(optional_items)}",
@@ -591,19 +626,21 @@ def verify_items_with_llm(content: str, items: list, api_client, content_type: s
                            "items are reported as unverified — retry.", e)
         return [None] * len(items)
 
-    lines = response.content[0].text.strip().upper().split("\n")
+    # One YES/NO answer per line, matched as whole words ("NOTE"/"NONE" in a
+    # preamble must not count). If the number of answers doesn't match the number
+    # of items, the mapping is unknown: every item is unverified, never a padded
+    # False that would read as a checked miss (sweep finding, P1/P2).
     results: list = []
-    for line in lines:
-        if "YES" in line:
-            results.append(True)
-        elif "NO" in line:
-            results.append(False)
-
-    # Pad with False if response incomplete
-    while len(results) < len(items):
-        results.append(False)
-
-    return results[: len(items)]
+    for line in response.content[0].text.strip().upper().split("\n"):
+        m = re.search(r"\b(YES|NO)\b", line)
+        if m:
+            results.append(m.group(1) == "YES")
+    if len(results) != len(items):
+        if logger:
+            logger.warning("LLM coverage reply had %d answers for %d items; treating "
+                           "them as unverified.", len(results), len(items))
+        return [None] * len(items)
+    return results
 
 
 def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list:
@@ -629,7 +666,9 @@ def coverage_status(items: list, gating_categories=None) -> str:
 
     FAIL needs at least one required item that was checked and found missing;
     when every missing item is unverified (``UNVERIFIED_CONFIDENCES``) the status
-    is ERROR (retryable). No required items at all is ERROR: nothing was checked.
+    is ERROR (retryable). No required items at all is NONE — a deterministic
+    condition the caller turns into PASS or FAIL with a reason (an ERROR here
+    would re-run and block forever; sweep finding).
 
     Purpose: A gate-readable verdict for coverage validation (plan R14/R15).
     Spec:    docs/plan_review_fixes_2026-10-04.md#R15
@@ -638,7 +677,7 @@ def coverage_status(items: list, gating_categories=None) -> str:
     required = [i for i in items if i.required
                 and (gating_categories is None or i.category in gating_categories)]
     if not required:
-        return "ERROR"
+        return "NONE"
     missing = [i for i in required if not i.covered]
     if not missing:
         return "PASS"
@@ -770,7 +809,7 @@ def validate_and_report(
     coverage = validate_abstract_coverage(
         abstract,
         abstract_input,
-        use_llm_verification=api_client is not None,
+        use_llm_verification=True,  # no client -> items reported unverified
         api_client=api_client,
         model=model,
         logger=logger,

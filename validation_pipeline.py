@@ -235,6 +235,13 @@ def _best_local_grounding(definition: str, term: str, transcript: str) -> Option
     return best
 
 
+_KEY_TERM_STOPWORDS = frozenset({"with", "from", "into", "about", "their", "within"})
+
+
+def _initials(text: str) -> str:
+    return "".join(w[0] for w in re.split(r"[\s-]+", text) if w and w[0].isalpha()).upper()
+
+
 _VERSUS_RE = re.compile(r"\s+(?:versus|vs\.?)\s+", re.IGNORECASE)
 
 
@@ -251,7 +258,16 @@ def _key_term_alternatives(term: str) -> list:
     candidates = [term]
     paren = re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", term)
     if paren:
-        candidates += [paren.group(1), paren.group(2)]
+        main, inner = paren.group(1).strip(), paren.group(2).strip()
+        candidates.append(main)
+        # The parenthetical counts only when it is an expansion or acronym of the
+        # main part, or has 2+ significant words of its own — "(Bowen)" or "(in
+        # families)" must not ground a term (sweep finding, P7).
+        if (_initials(inner) == main.replace(".", "").upper()
+                or _initials(main) == inner.replace(".", "").upper()
+                or len([w for w in re.findall(r"[A-Za-z]+", inner)
+                        if len(w) >= 4 and w.lower() not in _KEY_TERM_STOPWORDS]) >= 2):
+            candidates.append(inner)
     out: list = []
     for cand in candidates:
         for part in re.split(r"\s*/\s*", cand):
@@ -613,6 +629,8 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     middle of a long quote is tolerated because only the ends are probed.
     """
     quote = _without_disfluencies(quote)
+    if not quote:
+        return 0.0  # an empty or filler-only "quote" grounds nothing (sweep finding)
     formatted_content = _without_disfluencies(formatted_content)
     words = quote.split()
     n = config.EMPHASIS_HEADTAIL_WORDS
@@ -869,6 +887,29 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         return False
 
 
+def _summary_coverage_logic_version() -> str:
+    import inspect
+
+    prompt = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
+    parts = [
+        config.AUX_MODEL,
+        repr(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES)),
+        prompt.read_text(encoding="utf-8") if prompt.exists() else "<no prompt>",
+        *(inspect.getsource(fn) for fn in (
+            summary_validation.generate_coverage_items,
+            summary_validation.check_keyword_coverage,
+            summary_validation.extract_keywords,
+            summary_validation.validate_summary_coverage,
+            summary_validation.validate_and_report_status,
+            abstract_validation.coverage_status,
+            abstract_validation.apply_llm_results,
+            abstract_validation.verify_items_with_llm,
+            summary_pipeline.prepare_summary_input,
+        )),
+    ]
+    return "|".join(parts)
+
+
 def summary_coverage_key(base_name: str) -> Optional[str]:
     """sha256 over the summary, topics, interpretive themes and transcript files —
     the inputs summary coverage is computed from. None when there is no summary.
@@ -880,6 +921,9 @@ def summary_coverage_key(base_name: str) -> Optional[str]:
     if not summary.exists():
         return None
     h = hashlib.sha256()
+    # The verdict also depends on the coverage logic, prompt, model and gating
+    # policy, not only the input files (sweep finding, P6).
+    h.update(_summary_coverage_logic_version().encode("utf-8"))
     for suffix in (config.SUFFIX_SUMMARY_GEN, config.SUFFIX_TOPICS,
                    config.SUFFIX_INTERPRETIVE_THEMES, config.SUFFIX_FORMATTED,
                    config.SUFFIX_YAML):

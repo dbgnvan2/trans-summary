@@ -59,9 +59,10 @@ class TestAPIExceptions(unittest.TestCase):
         self.assertEqual(response, success_response)
         self.assertEqual(self.mock_client.messages.create.call_count, 3)
         
-        # Verify backoff sleeps: 2^0=1s, 2^1=2s
-        mock_sleep.assert_any_call(1)
-        mock_sleep.assert_any_call(2)
+        # Rate-limit backoff (no retry-after header): RATE_LIMIT_BACKOFF_SECONDS *
+        # (attempt + 1) — 10s, 20s since SDK retries are off (sweep finding).
+        mock_sleep.assert_any_call(transcript_utils.config.RATE_LIMIT_BACKOFF_SECONDS)
+        mock_sleep.assert_any_call(2 * transcript_utils.config.RATE_LIMIT_BACKOFF_SECONDS)
 
     def test_timeout_retry(self):
         """Test that APITimeoutError triggers retries and increases timeout."""
@@ -172,7 +173,18 @@ class TestAPIExceptions(unittest.TestCase):
 
         self.assertEqual(response, success_response)
         self.assertEqual(self.mock_client.messages.create.call_count, 2)
-        mock_sleep.assert_called_with(1)
+        mock_sleep.assert_called_with(transcript_utils.config.RATE_LIMIT_BACKOFF_SECONDS)
+
+    def test_rate_limit_honours_retry_after_header(self):
+        """The API's retry-after header sets the wait (capped)."""
+        error_response = MagicMock()
+        error_response.headers = {"retry-after": "37"}
+        self.assertEqual(transcript_utils._retry_wait_seconds(
+            RateLimitError(message="x", response=error_response, body={}), 0), 37.0)
+        error_response.headers = {"retry-after": "9999"}
+        self.assertEqual(transcript_utils._retry_wait_seconds(
+            RateLimitError(message="x", response=error_response, body={}), 0),
+            transcript_utils.config.MAX_RETRY_AFTER_SECONDS)
 
 if __name__ == "__main__":
     unittest.main()

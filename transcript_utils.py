@@ -590,6 +590,21 @@ def cap_max_tokens_for_model(
     return capped_max_tokens
 
 
+def _retry_wait_seconds(error, attempt: int) -> float:
+    """Seconds to wait before retrying a 429 / 529 / 5xx: the response's
+    ``retry-after`` header when present (capped at config.MAX_RETRY_AFTER_SECONDS),
+    else config.RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)."""
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None) or {}
+    try:
+        after = float(headers.get("retry-after"))
+    except (TypeError, ValueError):
+        after = None
+    if after is not None and after >= 0:
+        return min(after, config.MAX_RETRY_AFTER_SECONDS)
+    return config.RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)
+
+
 def call_claude_with_retry(
     client,
     model: str,
@@ -842,9 +857,9 @@ def call_claude_with_retry(
                     "Check your internet connection."
                 ) from e
 
-        except RateLimitError:
+        except RateLimitError as e:
             if attempt < max_retries - 1:
-                wait_time = config.RETRY_BACKOFF_BASE ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = _retry_wait_seconds(e, attempt)
                 # Used in print
                 msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
                 if logger:
@@ -878,7 +893,7 @@ def call_claude_with_retry(
             is_retryable = is_overloaded or is_server_error
 
             if is_retryable and attempt < max_retries - 1:
-                wait_time = config.RETRY_BACKOFF_BASE ** attempt
+                wait_time = _retry_wait_seconds(e, attempt)
                 if logger:
                     logger.warning(
                         "API overloaded or server error, retrying in %ds... (%d/%d)",

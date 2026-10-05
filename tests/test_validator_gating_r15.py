@@ -63,8 +63,8 @@ def test_r14b_verified_miss_is_fail_even_with_unavailable_sibling():
     assert av.coverage_status(items) == "FAIL"
 
 
-def test_r14b_no_required_items_is_error_and_all_covered_is_pass():
-    assert av.coverage_status([_item("topic", required=False)]) == "ERROR"
+def test_r14b_no_required_items_is_none_and_all_covered_is_pass():
+    assert av.coverage_status([_item("topic", required=False)]) == "NONE"
     assert av.coverage_status([_item("topic", covered=True)]) == "PASS"
 
 
@@ -266,3 +266,57 @@ def test_r15b_structured_summary_stage_validates(monkeypatch):
     assert gui._run_stage_structured_summary() is True  # a miss blocks publish, not the run
     assert calls == ["Sample"]
     assert any("publication will be blocked" in line for line in logs)
+
+
+# --- learning-qa sweep findings (2026-10-05) -------------------------------------
+
+def test_sweep1_no_api_key_is_error_not_a_stored_fail(project, monkeypatch):
+    """No client: a required topic the keywords can't confirm is unverified ->
+    ERROR, never stored, so it can't outlive a missing key."""
+    base, proj = project()
+    topics = proj / f"{base}{config.SUFFIX_TOPICS}"
+    topics.write_text(topics.read_text(encoding="utf-8") + (
+        "\n### Byzantine Numismatics and Viking Longship Rigging\n"
+        "Gilded solidus hoards alongside walrus-ivory chess pieces from Lewis.\n"
+        "*_(~30% of transcript; Sections 2-3)_*\n"), encoding="utf-8")
+    monkeypatch.setattr(vp, "get_anthropic_client_or_none", lambda *a, **k: None)
+    vp.validate_summary_coverage(base, logger=logging.getLogger("t"))
+    assert not (proj / f"{base}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}").exists()
+    report = (proj / f"{base}{config.SUFFIX_SUMMARY_VAL}").read_text(encoding="utf-8")
+    assert "Gate status: ERROR" in report and "unverified" in report
+
+
+@pytest.mark.parametrize("reply, expected", [
+    ("1. YES\n2. NO", [True, False]),
+    ("NOTE: answers follow\nYES", [None, None]),     # preamble 'NOTE' is not a NO
+    ("YES", [None, None]),                            # short reply: unknown mapping
+    ("YES\nNO\nYES", [None, None]),                   # too many answers
+])
+def test_sweep2_reply_parsing_never_pads_a_miss(monkeypatch, reply, expected):
+    monkeypatch.setattr(av, "call_claude_with_retry", lambda **_k: _reply(reply))
+    items = [_item("topic"), _item("closing")]
+    assert av.verify_items_with_llm("text", items, object(), "summary") == expected
+
+
+def test_sweep3_emphasis_parsed_to_nothing_is_error(project):
+    base, proj = project()
+    (proj / f"{base}{config.SUFFIX_EMPHASIS_SCORED}").write_text(
+        "Some reformatted emphasis output the parser no longer reads.\n", encoding="utf-8")
+    for legacy in proj.glob(f"*{config.SUFFIX_EMPHASIS}"):
+        legacy.unlink()
+    assert rg.check_emphasis_grounding(base).status is Status.ERROR
+
+
+@pytest.mark.parametrize("term, generic", [
+    ("Sibling Position (Bowen)", "Bowen"),
+    ("Multigenerational Transmission (in families)", "in families"),
+])
+def test_sweep8_generic_parenthetical_is_not_an_alternative(term, generic):
+    alts = vp._key_term_alternatives(term)
+    assert generic not in alts
+    assert term.split(" (")[0] in alts
+
+
+def test_sweep_empty_or_filler_only_quote_grounds_nothing():
+    assert vp._emphasis_quote_found_ratio("", "any text") == 0.0
+    assert vp._emphasis_quote_found_ratio("Uh, um.", "uh um the family") == 0.0

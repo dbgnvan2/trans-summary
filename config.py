@@ -964,6 +964,11 @@ ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
 # (review M6 / P4). max_retries default and the exponential-backoff base.
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2  # wait = RETRY_BACKOFF_BASE ** attempt seconds (1s, 2s, 4s, …)
+# Rate-limit (429) / overloaded (529) / 5xx waits: the API's retry-after header
+# when present (capped), else RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1). Longer
+# than the connection backoff because SDK retries are off (get_anthropic_client).
+RATE_LIMIT_BACKOFF_SECONDS = 10
+MAX_RETRY_AFTER_SECONDS = 120
 
 # Lens-title stopwords for the grounding check — editorial vocabulary belongs in
 # config, not source (review L7 / rule 9). Consumed by

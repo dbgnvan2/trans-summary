@@ -231,7 +231,8 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
 # --------------------------------------------------------------- R15 validator gates
 def check_emphasis_grounding(base_name: str, logger=None) -> Verdict:
     """FAIL if any emphasis quote is not locatable in the source (filler words and
-    stutters ignored on both sides). Same test as validate_emphasis_items.
+    stutters ignored on both sides) — the quote test validate_emphasis_items uses.
+    A scored-emphasis file with content that parses to no items is ERROR.
 
     Purpose: Gate publication on the emphasis validator (author decision 1a).
     Spec:    docs/plan_review_fixes_2026-10-04.md#R15
@@ -243,9 +244,18 @@ def check_emphasis_grounding(base_name: str, logger=None) -> Verdict:
     transcript = _load_source_transcript(base_name)
     if transcript is None:
         return Verdict("emphasis_grounding", Status.ERROR, "source transcript missing")
+    items = tu.load_emphasis_items(base_name)
+    if not items:
+        scored = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+        body = tu.strip_yaml_frontmatter(scored.read_text(encoding="utf-8")) if scored.exists() else ""
+        if body.strip():
+            # Content that parses to nothing is format drift, not "all found" (P19).
+            return Verdict("emphasis_grounding", Status.ERROR,
+                           "emphasis artifact has content but parsed to no items")
+        return Verdict("emphasis_grounding", Status.PASS, "no emphasis items")
     missing = [
         {"label": label, "quote": quote[:60]}
-        for label, quote, _ts in tu.load_emphasis_items(base_name)
+        for label, quote, _ts in items
         if vp._emphasis_quote_found_ratio(quote, transcript) < config.EMPHASIS_QUOTE_PARTIAL_RATIO
     ]
     if missing:
@@ -509,6 +519,18 @@ def _judge_input_functions() -> list:
     ]
 
 
+def _judge_input_patterns() -> list:
+    """Module-level regex patterns read by ``_judge_input_functions``."""
+    import abstract_validation as av
+    import faithfulness_judge as fjudge
+    import transcript_utils as tu
+
+    patterns = [av._NAME_SPAN, av._INLINE_BOLD_LABEL, av._YAML_LINE,
+                fjudge._SENTENCE_SPLIT, fjudge._NAME_SHAPE, fjudge._SCAFFOLDING_LABEL_RE,
+                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._THEME_FIELD_RE]
+    return [repr(getattr(p, "pattern", p)) for p in patterns]
+
+
 def _judge_logic_version(instructions: str) -> str:
     """Version tag folded into the disk-cache key. Captures the judge's PROMPT text, the
     claim-extraction config, AND config.JUDGE_LOGIC_VERSION (bumped on any judge CODE
@@ -549,6 +571,11 @@ def _judge_logic_version(instructions: str) -> str:
         # extraction, the scaffolding strip it shares with the entity check, the
         # theme parser/evidence fields, and their vocabularies.
         *(inspect.getsource(fn) for fn in _judge_input_functions()),
+        # ...and the module-level patterns / thresholds those functions read,
+        # which getsource does not capture (sweep finding).
+        *_judge_input_patterns(),
+        str(config.ABSTRACT_NAME_TOKEN_MIN_LEN),
+        str(config.ABSTRACT_NAME_FUZZY_MIN),
         repr(sorted(config.BOWEN_CONCEPT_LABELS)),
         repr(sorted(config.SCAFFOLDING_HEADING_PHRASES)),
         repr(sorted(config.THEME_JUDGE_META_LABELS)),

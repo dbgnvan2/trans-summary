@@ -10,7 +10,6 @@ Usage:
 import os
 import sys
 
-import anthropic
 
 import config
 
@@ -88,7 +87,12 @@ def check_prompt_files():
 def check_model_availability():
     """Check if the configured models are available via the API."""
     print("\n--- Model Availability ---")
-    from transcript_utils import get_anthropic_client, resolve_anthropic_key
+    from transcript_utils import (
+        TruncatedResponseError,
+        call_claude_with_retry,
+        get_anthropic_client,
+        resolve_anthropic_key,
+    )
 
     api_key = resolve_anthropic_key()
     if not api_key:
@@ -110,16 +114,26 @@ def check_model_availability():
 
     for model in models_to_check:
         print(f"Checking model: {model:<30} ... ", end="", flush=True)
+        # Through the retry wrapper (SDK retries are off), so one transient
+        # 429/529 doesn't report a working model as broken (sweep finding).
         try:
-            client.messages.create(
+            call_claude_with_retry(
+                client=client,
                 model=model,
                 max_tokens=config.MAX_TOKENS_MODEL_PROBE,
                 messages=[{"role": "user", "content": "Hi"}],
+                min_length=1,
+                script_name="config_check",
             )
             print("✅ Available")
-        except anthropic.NotFoundError:
-            print("❌ Not Found (404)")
-            print(f"   The model '{model}' does not exist or you don't have access.")
+        except TruncatedResponseError:
+            print("✅ Available")  # it answered; the probe's tiny max_tokens cut it off
+        except ValueError as e:
+            if "(404)" in str(e):
+                print("❌ Not Found (404)")
+                print(f"   The model '{model}' does not exist or you don't have access.")
+            else:
+                print(f"❌ Error: {e}")
             all_available = False
         except Exception as e:
             print(f"❌ Error: {e}")
