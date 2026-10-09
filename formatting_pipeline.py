@@ -285,6 +285,15 @@ def format_transcript(
         if removed:
             logger.info("Removed %d title line(s) before Section 1: %s", len(removed), removed[0])
 
+        formatted_content, rewrites = normalize_heading_timestamps(
+            formatted_content, raw_transcript)
+        if rewrites:
+            total = sum(1 for line in formatted_content.splitlines()
+                        if _HEADING_RE.match(line))
+            logger.info(
+                "Corrected %d of %d heading timestamp(s) (raw m:ss read as h:mm), "
+                "e.g. Section %d %s -> %s.", len(rewrites), total, *rewrites[0])
+
         output_path = save_formatted_transcript(
             formatted_content, raw_filename)
 
@@ -794,6 +803,47 @@ def _raw_timestamp_seconds(raw_text: str) -> Set[int]:
         else:
             found.add(int(first) * 60 + int(second))
     return found
+
+
+def normalize_heading_timestamps(formatted_text: str, raw_text: str) -> tuple:
+    """Correct heading timestamps where the model read the raw ``m:ss`` as ``h:mm``.
+
+    The raw transcript writes 33 seconds as ``0:33``; the model has written that
+    heading as ``[00:33:00]`` (33 minutes). A heading ``hh:mm:00`` is rewritten to
+    ``hh*60+mm`` seconds only when the written value does not occur in the raw
+    transcript and the corrected value does. Headings that match the raw, the
+    ``00:00:00`` fallback, and values that match neither reading are left for
+    ``validate_section_headings`` to report.
+
+    Returns ``(text, rewrites)`` where ``rewrites`` is a list of
+    ``(section_number, old, new)``.
+
+    Purpose: Make heading timestamps follow the raw transcript, not the model's
+             reading of it.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.A.1
+    Tests:   tests/test_run_fixes_rf.py::test_rfa1_mss_read_as_hmm_is_rewritten
+    """
+    raw_seconds = _raw_timestamp_seconds(raw_text)
+    if not raw_seconds:
+        return formatted_text, []
+    rewrites = []
+    lines = formatted_text.split("\n")
+    for idx, line in enumerate(lines):
+        match = _HEADING_RE.match(line)
+        if not match:
+            continue
+        hh, mm, ss = (int(match.group(g)) for g in (3, 4, 5))
+        seconds = hh * 3600 + mm * 60 + ss
+        if seconds == 0 or seconds in raw_seconds or ss != 0 or mm > 59:
+            continue
+        corrected = hh * 60 + mm
+        if corrected not in raw_seconds:
+            continue
+        old = f"{hh:02d}:{mm:02d}:{ss:02d}"
+        new = f"{corrected // 3600:02d}:{corrected % 3600 // 60:02d}:{corrected % 60:02d}"
+        lines[idx] = line.replace(f"([{old}]).", f"([{new}]).", 1)
+        rewrites.append((int(match.group(1)), old, new))
+    return "\n".join(lines), rewrites
 
 
 def validate_section_headings(

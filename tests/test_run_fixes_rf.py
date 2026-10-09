@@ -5,6 +5,7 @@ verbatim quote that only changed the inner quotation marks; the blog stage stopp
 without a recorded reason, and the GUI offered no Simple Web stage.
 """
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import config
 import validation_pipeline as vp
@@ -64,3 +65,74 @@ def test_rfb1_quote_ending_inside_a_repeat_is_verbatim():
 def test_rfb1_trailing_word_kept_when_no_repeat_was_collapsed():
     # P7: "the dog the" is not a repeat; the final word must not be dropped.
     assert vp._collapse_disfluencies("i saw the dog the".split()) == ["i", "saw", "the", "dog", "the"]
+
+
+# --- RF.A: heading timestamps match the raw transcript ---------------------------
+
+import re  # noqa: E402
+
+import formatting_pipeline as fp  # noqa: E402
+
+
+def _raw():
+    return (FIX / f"{BASE}.txt").read_text(encoding="utf-8-sig")
+
+
+def _timestamp_errors(formatted, raw):
+    errors, _ = fp.validate_section_headings(formatted, raw)
+    return [e for e in errors if "does not occur in the raw" in e]
+
+
+def test_rfa1_mss_read_as_hmm_is_rewritten():
+    # Real Kerr output: raw "0:33" (33 s) was written as [00:33:00] (33 min).
+    formatted, raw = _formatted(), _raw()
+    assert _timestamp_errors(formatted, raw)  # the defect is present in the fixture
+    fixed, rewrites = fp.normalize_heading_timestamps(formatted, raw)
+    assert _timestamp_errors(fixed, raw) == []
+    assert ("00:33:00", "00:00:33") in [(old, new) for _n, old, new in rewrites]
+    assert "## Section 2 – Introduction to Michael Kerr and Bowen Theory ([00:00:33])." in fixed
+    # Only the heading timestamps changed.
+    strip = lambda t: re.sub(r"\(\[\d\d:\d\d:\d\d\]\)", "", t)  # noqa: E731
+    assert strip(fixed) == strip(formatted)
+
+
+def test_rfa1_heading_present_in_raw_is_not_rewritten():
+    # P7: an h:mm:ss raw where 0:33:00 really is 33 minutes keeps its heading.
+    raw = "0:00\nHello there.\n0:33:00\nLater words here.\n"
+    formatted = ("## Section 1 – Opening Words Here Now ([00:00:00]).\n\nHello there.\n\n"
+                 "## Section 2 – Later Words Here Now ([00:33:00]).\n\nLater words here.\n")
+    fixed, rewrites = fp.normalize_heading_timestamps(formatted, raw)
+    assert fixed == formatted and rewrites == []
+
+
+def test_rfa1_unmatched_timestamp_left_for_validator():
+    raw = "0:00\nHello there.\n0:33\nLater words here.\n"
+    formatted = ("## Section 1 – Opening Words Here Now ([00:00:00]).\n\nHello there.\n\n"
+                 "## Section 2 – Later Words Here Now ([00:47:00]).\n\nLater words here.\n")
+    fixed, rewrites = fp.normalize_heading_timestamps(formatted, raw)
+    assert fixed == formatted and rewrites == []
+    assert _timestamp_errors(fixed, raw)  # still reported
+
+
+def test_rfa2_format_transcript_saves_corrected_headings(tmp_path, monkeypatch):
+    src = tmp_path / "source"
+    src.mkdir()
+    name = f"{BASE}.txt"
+    (src / name).write_text(_raw(), encoding="utf-8")
+    monkeypatch.setattr(config, "SOURCE_DIR", src)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(config, "PATTERNS_DIR", tmp_path / "patterns", raising=False)
+    monkeypatch.setattr(fp, "format_transcript_with_claude",
+                        lambda raw, prompt, model=None, logger=None: _formatted())
+    monkeypatch.setattr(fp, "load_prompt", lambda: "PROMPT")
+    logger = MagicMock()
+    assert fp.format_transcript(name, model="claude-sonnet-4-6", logger=logger)
+    saved = (tmp_path / "projects" / BASE / f"{BASE}{config.SUFFIX_FORMATTED}").read_text(encoding="utf-8")
+    assert _timestamp_errors(saved, _raw()) == []
+    logged = " ".join(str(c.args) for c in logger.info.call_args_list)
+    assert "heading timestamp(s)" in logged
+
+
+def test_rfa3_prompt_states_mss_rule():
+    prompt = (Path(config.PROMPTS_DIR) / "Transcript Formatting Prompt v12-Lite.md").read_text(encoding="utf-8")
+    assert "`0:33` becomes `[00:00:33]`" in prompt

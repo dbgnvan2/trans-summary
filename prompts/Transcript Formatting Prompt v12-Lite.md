@@ -71,6 +71,7 @@ Sections rarely exceed 400 words. If exceeded, review for hidden theme shifts an
 - Use Markdown level-2 heading (`##`)
 - Heading must be 3–12 words
 - Include the first timestamp from the section in brackets, padded to `[hh:mm:ss]` format
+- Raw timestamps written `m:ss` or `mm:ss` are minutes:seconds: `0:33` becomes `[00:00:33]`, `12:05` becomes `[00:12:05]`. Only `h:mm:ss` has an hours part: `1:02:10` becomes `[01:02:10]`
 - End with `]).` – this delimiter pattern signals end of heading for downstream parsing
 - If no timestamp is available for a section, use `([00:00:00]).`
 
