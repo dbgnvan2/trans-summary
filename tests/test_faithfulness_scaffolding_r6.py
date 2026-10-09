@@ -96,7 +96,8 @@ def test_r6e_real_prose_artifacts_no_new_ungrounded():
         seen += 1
         got = av.find_ungrounded_names(text, transcript, known_names=["Michael Kerr"])
         assert got == EXPECTED_UNGROUNDED.get(name, []), (name, got)
-    assert seen == 7, f"expected 7 real prose artifacts, found {seen}"
+    # 9 since 2026-10-09: + the 2026-10-08 run (summary, overview).
+    assert seen == 9, f"expected 9 real prose artifacts, found {seen}"
 
 
 def test_r6e_real_prose_reemits_no_scaffolding_claims():

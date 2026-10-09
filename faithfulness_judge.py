@@ -285,10 +285,27 @@ _STOP_WORDS = {
 }
 
 
+# Suffixes removed (longest first) so word forms route together: society / societal /
+# societies -> "societ"; family / families -> "famil". A stem shorter than 4 letters
+# keeps the whole word, so "news" is not merged with "new" (plan J2).
+_ROUTING_SUFFIXES = ("ies", "al", "es", "ing", "ed", "s", "y")
+
+
+def _stem(word: str) -> str:
+    for suffix in _ROUTING_SUFFIXES:
+        if word.endswith(suffix) and len(word) - len(suffix) >= 4:
+            return word[: -len(suffix)]
+    return word
+
+
 def _significant_words(text: str) -> set:
-    """Lowercased, stopword-free words of length >= 4 — the vocabulary used for
-    lexical claim->window routing (a deterministic relevance proxy)."""
-    return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP_WORDS}
+    """Lowercased, stopword-free, stemmed words of length >= 4 — the vocabulary used
+    for lexical claim->window routing (a deterministic relevance proxy).
+
+    Spec:    docs/plan_judge_routing_fix_2026-10-09.md#J2
+    Tests:   tests/test_judge_routing_j.py::test_j2a_stem_variants_match
+    """
+    return {_stem(w) for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP_WORDS}
 
 
 def chunk_source(source: str, *, chunk_words: Optional[int] = None,
@@ -335,6 +352,7 @@ def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tu
     routed: dict = {}
     unrouted: list = []
     chunk_words = [_significant_words(c) for c in chunks]
+    common = set.intersection(*chunk_words) if chunk_words else set()
     for ci, claim in enumerate(claims):
         cw = _significant_words(claim)
         if not cw:
@@ -352,14 +370,16 @@ def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tu
             # No significant word appears anywhere -> judge against the full source.
             unrouted.append(ci)
             continue
-        best_idx = max(range(len(chunks)), key=lambda k: per_chunk[k])
-        # Route only if the best window holds EVERY anchored word (no spread) AND the
-        # claim is non-trivially present in the source (min_overlap floor on the
-        # anchored fraction). Any anchored word outside the best window means the
-        # claim's content spans windows -> full source.
-        if per_chunk[best_idx] == len(anchored) and \
-                (per_chunk[best_idx] / len(cw)) >= min_overlap:
-            routed.setdefault(best_idx, []).append(ci)
+        # Route only if exactly ONE window holds every anchored word (no spread, no
+        # tie), at least one anchored word is distinctive (absent from some window —
+        # words present everywhere say nothing about where the claim comes from), and
+        # the claim is non-trivially present in the source (min_overlap floor).
+        # Anything else is judged against the full source (plan J1).
+        holders = [k for k in range(len(chunks)) if per_chunk[k] == len(anchored)]
+        distinctive = anchored - common
+        if len(holders) == 1 and distinctive \
+                and (len(anchored) / len(cw)) >= min_overlap:
+            routed.setdefault(holders[0], []).append(ci)
         else:
             unrouted.append(ci)
     return routed, unrouted
@@ -368,8 +388,12 @@ def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tu
 def judge_claims_chunked(claims: list, source: str, client, *,
                          model: Optional[str] = None, logger=None) -> list:
     """Judge claims against bounded source windows (long transcripts), returning
-    verdicts in the ORIGINAL claim order. Routed claims -> their best window;
-    low-overlap claims -> the full source."""
+    verdicts in the ORIGINAL claim order. Routed claims -> their window; unrouted
+    claims, and routed claims the window does not entail, -> the full source.
+
+    Spec:    docs/plan_judge_routing_fix_2026-10-09.md#J3
+    Tests:   tests/test_judge_routing_j.py::test_j3a_window_fail_is_rejudged_on_full_source
+    """
     chunks = chunk_source(source)
     routed, unrouted = route_claims_to_chunks(
         claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
@@ -379,10 +403,17 @@ def judge_claims_chunked(claims: list, source: str, client, *,
                            model=model, logger=logger)
         for local, ci in enumerate(idxs):
             verdicts[ci] = sub[local]
-    if unrouted:
-        sub = judge_claims([claims[i] for i in unrouted], source, client,
+    # No claim FAILs on one window alone (plan J3): a routed claim the window does
+    # not entail is judged again, with the claims sent to the full source, and the
+    # full-source verdict is final. Routing picks a window by shared vocabulary, so
+    # the window can lack the passage the claim summarises (run 2026-10-08).
+    recheck = [ci for idxs in routed.values() for ci in idxs
+               if verdicts[ci] is not None and verdicts[ci].label != ENTAILED]
+    full = sorted(set(unrouted) | set(recheck))
+    if full:
+        sub = judge_claims([claims[i] for i in full], source, client,
                            model=model, logger=logger)
-        for local, ci in enumerate(unrouted):
+        for local, ci in enumerate(full):
             verdicts[ci] = sub[local]
     # Fail-closed reassembly guard (P2/P14): a future routing or judge_claims change
     # that dropped/reordered a verdict would otherwise surface as an unhandled

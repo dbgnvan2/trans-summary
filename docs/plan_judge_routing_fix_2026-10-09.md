@@ -1,6 +1,6 @@
 # Plan — faithfulness judge routing fix (and heading claims)
 
-Status: **PLAN — awaiting approval. No code changed.**
+Status: **APPROVED 2026-10-09** — D1 = (a) full-source confirmation + ambiguity + stemming; D2 = (a) headings judged only with a digit, month or ungrounded name; quote typo: allow a 1-character difference in words of 4+ letters (J8).
 Base: local `main` at `9a21c9f` (merge of `validation-hardening`, not pushed).
 
 ## Problem
@@ -111,6 +111,13 @@ new functions.
 - J6.c Re-judge the 10 real prose fixtures' heading claims: no false heading flags; "(June
   video)" still flagged.
 - Results recorded in CHANGELOG and the project memory note.
+
+**J8 — quote typo tolerance (decision 2026-10-09).** In `_quote_word_coverage`, a quote word
+of 4+ letters that differs from the aligned transcript word by one character (insert, delete or
+substitute) counts as matched; shorter words must match exactly. →
+`tests/test_validator_gating_r15.py::test_j8a_one_letter_typo_allowed` ("bird"/"birdd"),
+`::test_j8b_changed_word_still_fails` ("rational"/"emotional"), `::test_j8c_short_words_exact`
+("is"/"in"); Societal Emotional back to PASS in `test_r15e_quotes_on_trusted_samples`.
 
 **J7 — sweep and push.** `learning-qa` over the diff; fix findings; then push `main` (includes the
 merge) and `validation-hardening`.
