@@ -54,6 +54,9 @@ def test_h2_corrupt_or_nondict_cache_is_ignored(tmp_path, monkeypatch):
 def test_h2_fail_verdict_roundtrips_its_unfaithful_claims(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
     monkeypatch.setattr(rg, "_FAITHFULNESS_CACHE", {})
+    # judge_artifact's source is part of the cache key (J5 sweep), and this test
+    # swaps it for stubs; fix the logic version so only the disk round trip is tested.
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _instructions: "fixed")
     monkeypatch.setattr(
         fj, "judge_artifact",
         lambda a, s, c, logger=None: _result(fj.FAIL, "1 unfaithful", ["fabricated claim"]))

@@ -338,8 +338,20 @@ def test_j8b_changed_word_still_fails():
     assert vp._quote_word_coverage("the family is an rational unit", SRC) < 1.0
 
 
-def test_j8c_short_words_exact():
-    assert not vp._one_letter_apart("is", "in")
-    assert not vp._one_letter_apart("unit", "unit")
-    assert vp._one_letter_apart("bird", "birdd")
-    assert vp._one_letter_apart("their", "thier") is False  # transposition is 2 edits
+def test_j8c_short_words_and_shapes():
+    counts = {"birdd": 1, "fell": 1, "where": 1, "would": 3}
+    assert vp._doubled_letter_typo("bird", "birdd", counts)
+    assert not vp._doubled_letter_typo("fall", "fell", counts)      # substitution
+    assert not vp._doubled_letter_typo("were", "where", counts)     # inserted 'h'
+    assert not vp._doubled_letter_typo("bird", "birdd", {"birdd": 2})  # not a one-off
+
+
+@pytest.mark.parametrize("transcript, quote", [
+    ("the mother would not accept the child and the father could see",
+     "the mother could not accept the child and the father would see"),
+    ("they were here before the war ended", "they where here before the war ended"),
+    ("better than nothing at all for them", "better then nothing at all for them"),
+])
+def test_j8d_adversarial_real_word_changes_fail(transcript, quote):
+    """Sweep 2026-10-09: one-letter word swaps are misquotes, not typos."""
+    assert vp._quote_word_coverage(quote, transcript) < 1.0

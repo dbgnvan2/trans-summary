@@ -619,15 +619,28 @@ def _transcript_matcher(transcript_words: tuple) -> SequenceMatcher:
     return SequenceMatcher(None, (), transcript_words, autojunk=False)
 
 
-def _one_letter_apart(a: str, b: str) -> bool:
-    """True when two words of 4+ letters differ by one inserted, deleted or
-    substituted letter. Shorter words must match exactly ("is" vs "in")."""
-    if min(len(a), len(b)) < 4 or abs(len(a) - len(b)) > 1 or a == b:
+def _doubled_letter_typo(quote_word: str, transcript_word: str, counts) -> bool:
+    """True when the transcript word is a one-off misspelling the quote corrected:
+    the two differ only by a doubled letter ("birdd" / "bird"), both have 4+
+    letters, and the transcript spelling occurs exactly once in the transcript.
+
+    Narrow on purpose (sweep 2026-10-09): any one-letter difference also accepted
+    real word changes — would/could, were/where, than/then — and a misquote passed
+    the blocking verbatim_quotes check."""
+    a, b = quote_word, transcript_word
+    if min(len(a), len(b)) < 4 or abs(len(a) - len(b)) != 1 or counts.get(b, 0) != 1:
         return False
-    if len(a) == len(b):
-        return sum(x != y for x, y in zip(a, b)) == 1
     longer, shorter = (a, b) if len(a) > len(b) else (b, a)
-    return any(longer[:k] + longer[k + 1:] == shorter for k in range(len(longer)))
+    return any(longer[:k] + longer[k + 1:] == shorter
+               for k in range(1, len(longer)) if longer[k] == longer[k - 1])
+
+
+@functools.lru_cache(maxsize=4)
+def _word_counts(transcript_words: tuple) -> dict:
+    counts: dict = {}
+    for w in transcript_words:
+        counts[w] = counts.get(w, 0) + 1
+    return counts
 
 
 def _quote_word_coverage(quote: str, transcript: str) -> float:
@@ -637,7 +650,7 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     Locates the quote by its longest verbatim run of words, then aligns the whole
     quote against a window around that spot. Words the quote omits from the source
     (e.g. an ellipsis) do not lower the score; words the quote adds or changes do —
-    except a one-letter difference in a word of 4+ letters (a corrected typo, J8).
+    except a corrected one-off doubled-letter typo (J8, ``_doubled_letter_typo``).
     """
     q = list(_normalized_word_tuple(quote))
     if not q:
@@ -658,8 +671,10 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
             matched += i2 - i1
         elif op == "replace" and i2 - i1 == j2 - j1:
             # A transcription typo the quote corrected ("birdd" -> "bird") is not a
-            # misquotation: one letter apart, 4+ letters (decision 2026-10-09, J8).
-            matched += sum(1 for a, b in zip(q[i1:i2], window[j1:j2]) if _one_letter_apart(a, b))
+            # misquotation (decision 2026-10-09, J8; narrowed after the sweep).
+            counts = _word_counts(t)
+            matched += sum(1 for a, b in zip(q[i1:i2], window[j1:j2])
+                           if _doubled_letter_typo(a, b, counts))
     return matched / len(q)
 
 

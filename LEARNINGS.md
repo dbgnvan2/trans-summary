@@ -53,6 +53,13 @@ Pull from the global catalogue; the ones that bite this repo most:
   Covered by `test_key_terms_ungrounded_term_with_ontopic_definition_still_fails`
   (`validation_pipeline.py:255`).
 
+- ~~**Quote typo tolerance credits real word changes (P7, review 2026-10-09).**~~ **Resolved**
+  same session: J8 first accepted any one-letter difference in a 4+ letter word, so would/could,
+  were/where, than/then swaps passed the blocking `verbatim_quotes` check. Now only a corrected
+  one-off doubled-letter typo counts (`_doubled_letter_typo`: transcript spelling occurs once).
+  Rule: a tolerance added for one real typo must be tested against real-word near-misses (P7),
+  not only against a far-apart word. Covered by `test_j8d_adversarial_real_word_changes_fail`.
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**
