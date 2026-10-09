@@ -1282,8 +1282,51 @@ def _validate_themes_and_lenses(
             "interpretive_themes_valid": False,
             "confirmed_lenses": [],
             "top_lens": {},
+            "parse_error": True,
         }
     return parsed
+
+
+def _select_blog_lens(
+    model: str,
+    logger,
+    transcript_system_message,
+    structural_themes: str,
+    interpretive_themes: str,
+    lenses: str,
+) -> tuple:
+    """Validate the on-disk themes/lenses and return a top lens that is grounded
+    in ``lenses``, retrying up to ``config.THEME_LENS_VALIDATION_ATTEMPTS`` times.
+
+    Used by the Blog-only stage, where themes and lenses come from an earlier Core
+    run and are not regenerated here. Returns ``(top_lens, reasons)``: the lens
+    (``{}`` if none qualified) and one reason per failed attempt.
+
+    Purpose: Give the Blog-only stage the same retry and lens check as Core.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.C.2
+    Tests:   tests/test_run_fixes_rf.py::test_rfc2_blog_retries_until_grounded_lens
+    """
+    attempts = config.THEME_LENS_VALIDATION_ATTEMPTS
+    reasons = []
+    for attempt in range(attempts):
+        validation = _validate_themes_and_lenses(
+            model, logger, transcript_system_message,
+            structural_themes, interpretive_themes, lenses,
+        )
+        top_lens = validation.get("top_lens", {}) or {}
+        if validation.get("parse_error"):
+            reason = "validator output was not JSON"
+        elif not top_lens:
+            reason = "validator returned no top lens"
+        elif not _top_lens_is_grounded(top_lens, lenses):
+            reason = (f"top lens '{top_lens.get('title', '')}' is not among the "
+                      "generated lenses")
+        else:
+            logger.info("✓ Top-ranked lens validated: %s", top_lens.get("title", ""))
+            return top_lens, reasons
+        reasons.append(f"attempt {attempt + 1}/{attempts}: {reason}")
+        logger.warning("Blog lens not validated (%s).", reasons[-1])
+    return {}, reasons
 
 
 def summarize_transcript(
@@ -1327,6 +1370,7 @@ def summarize_transcript(
             transcript)
 
         top_lens = {}
+        lens_reasons: list = []
         abstract_output = ""
         structural_output = ""
         interpretive_output = ""
@@ -1444,7 +1488,7 @@ def summarize_transcript(
                 "--- PART 8b: Validating Structural/Interpretive Themes and Top Lens ---"
             )
             # Back-validation and regeneration loop: ensure lens #1 is valid.
-            max_attempts = 3
+            max_attempts = config.THEME_LENS_VALIDATION_ATTEMPTS
             validated = False  # A8: only ship if a grounded top lens was achieved.
             for attempt in range(max_attempts):
                 logger.info(
@@ -1615,22 +1659,28 @@ def summarize_transcript(
                 )
                 _save_summary(lenses_output, formatted_filename, "lenses-ranked")
 
-            if structural_output and interpretive_output and lenses_output:
-                validation = _validate_themes_and_lenses(
-                    model,
-                    logger,
-                    transcript_system_message,
-                    structural_output,
-                    interpretive_output,
-                    lenses_output,
-                )
-                top_lens = validation.get("top_lens", {}) or {}
-
+            if not skip_blog:
+                missing = [name for name, text in (
+                    ("structural themes", structural_output),
+                    ("interpretive themes", interpretive_output),
+                    ("ranked lenses", lenses_output)) if not text]
+                if missing:
+                    lens_reasons = [f"missing on disk: {', '.join(missing)} (run Core)"]
+                else:
+                    top_lens, lens_reasons = _select_blog_lens(
+                        model,
+                        logger,
+                        transcript_system_message,
+                        structural_output,
+                        interpretive_output,
+                        lenses_output,
+                    )
 
         if not skip_blog:
             if not top_lens:
                 logger.error(
-                    "No validated top-ranked lens available; blog generation aborted by policy."
+                    "No validated top-ranked lens available; blog generation aborted "
+                    "by policy. %s", "; ".join(lens_reasons)
                 )
                 return False
             logger.info("\n--- PART 8: Generating Blog Post from Lens #1 ---")

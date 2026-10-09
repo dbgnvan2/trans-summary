@@ -263,7 +263,9 @@ def test_summarize_transcript_blog_recovers_when_lens_missing(tmp_path, monkeypa
         extraction_pipeline,
         "_generate_with_cached_transcript",
         lambda prompt_filename, *_args, **_kwargs: (
-            "## Lenses (Ranked)\n\n1. Lens A\nRationale."
+            # Real producer format (N. **Title**): the Blog-only path now checks the
+            # validator's top lens against these titles (RF.C.2).
+            "## Lenses (Ranked)\n\n1. **Lens A**\nRationale."
             if prompt_filename == config.PROMPT_LENS_GENERATION_FILENAME
             else ""
         ),

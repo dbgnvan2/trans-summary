@@ -1036,6 +1036,10 @@ MAX_RETRY_AFTER_SECONDS = 120
 # Lens-title stopwords for the grounding check — editorial vocabulary belongs in
 # config, not source (review L7 / rule 9). Consumed by
 # extraction_pipeline._top_lens_is_grounded.
+# Theme/lens back-validation calls before giving up on a grounded top lens, used
+# by Core (with regeneration between attempts) and by the Blog-only stage (RF.C).
+THEME_LENS_VALIDATION_ATTEMPTS = 3
+
 LENS_STOPWORDS = frozenset({
     "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
     "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",

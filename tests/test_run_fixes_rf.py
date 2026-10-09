@@ -136,3 +136,89 @@ def test_rfa2_format_transcript_saves_corrected_headings(tmp_path, monkeypatch):
 def test_rfa3_prompt_states_mss_rule():
     prompt = (Path(config.PROMPTS_DIR) / "Transcript Formatting Prompt v12-Lite.md").read_text(encoding="utf-8")
     assert "`0:33` becomes `[00:00:33]`" in prompt
+
+
+# --- RF.C: Blog-only stage retries lens validation and checks the lens -----------
+
+import extraction_pipeline as ep  # noqa: E402
+
+GOOD_LENS = {"title": "Lens A", "description": "d", "rationale": "r",
+             "evidence": "Section 1", "hooks": ["h"]}
+
+
+def _blog_project(tmp_path, monkeypatch, validations):
+    """A project with Core artifacts on disk; ``validations`` is the sequence the
+    theme/lens validator returns. Returns (project_dir, stem, calls, logger)."""
+    stem = "Blog-Lens-Test"
+    proj = tmp_path / "projects" / stem
+    proj.mkdir(parents=True)
+    for suffix, text in (
+        (config.SUFFIX_STRUCTURAL_THEMES, "## Structural Themes\n\n1. **Structure A**: x.\n"),
+        (config.SUFFIX_INTERPRETIVE_THEMES, "## Interpretive Themes\n\n1. **Interp A**: y.\n"),
+        (config.SUFFIX_TOPICS, "## Topics\n\n### Topic A\nD.\n*_(~20% of transcript; Sections 1)_*\n"),
+        (config.SUFFIX_KEY_TERMS, "## Key Terms\n\n### Term A\nDef.\n"),
+        (config.SUFFIX_LENSES, "## Lenses (Ranked)\n\n1. **Lens A**\nRationale.\n"),
+    ):
+        (proj / f"{stem}{suffix}").write_text(text, encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path / "projects")
+    monkeypatch.setattr(config, "SOURCE_DIR", tmp_path / "source")
+    monkeypatch.setattr(ep, "_load_formatted_transcript", lambda _f: "## Section 1\nText.\n")
+    monkeypatch.setattr(ep, "parse_filename_metadata", lambda f: {
+        "stem": stem, "title": stem, "presenter": "P", "author": "P",
+        "date": "1980-00-00", "filename": f})
+    monkeypatch.setattr(ep, "create_system_message_with_cache", lambda _t: [{"type": "text", "text": "c"}])
+    monkeypatch.setattr(ep, "_load_summary_prompt", lambda _n: "Blog for {{top_lens_title}}")
+    monkeypatch.setattr(ep, "_generate_summary_with_claude", lambda *a, **k: "Generated blog post.")
+    calls = []
+    seq = list(validations)
+
+    def _validate(*_a, **_k):
+        calls.append(1)
+        return seq.pop(0) if seq else validations[-1]
+
+    monkeypatch.setattr(ep, "_validate_themes_and_lenses", _validate)
+    return proj, stem, calls, MagicMock()
+
+
+def _run_blog(stem, logger):
+    return ep.summarize_transcript(
+        f"{stem}{config.SUFFIX_YAML}", config.DEFAULT_MODEL, "Family Systems",
+        "General public", True, True, True, False, logger=logger)
+
+
+def test_rfc1_attempts_from_config(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "THEME_LENS_VALIDATION_ATTEMPTS", 2)
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": {}}])
+    assert _run_blog(stem, logger) is False
+    assert len(calls) == 2
+    # Core reads the same setting (no second literal).
+    import inspect
+    assert "max_attempts = config.THEME_LENS_VALIDATION_ATTEMPTS" in inspect.getsource(ep.summarize_transcript)
+
+
+def test_rfc2_blog_retries_until_grounded_lens(tmp_path, monkeypatch):
+    proj, stem, calls, logger = _blog_project(
+        tmp_path, monkeypatch, [{"top_lens": {}}, {"top_lens": GOOD_LENS}])
+    assert _run_blog(stem, logger) is True
+    assert len(calls) == 2
+    assert "Generated blog post." in (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8")
+
+
+def test_rfc2_blog_rejects_ungrounded_lens(tmp_path, monkeypatch):
+    # P7: a lens the validator names that was never generated must not be used.
+    ghost = dict(GOOD_LENS, title="A Completely Different Invented Framing")
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": ghost}])
+    assert _run_blog(stem, logger) is False
+    assert not (proj / f"{stem}{config.SUFFIX_BLOG}").exists()
+    assert len(calls) == config.THEME_LENS_VALIDATION_ATTEMPTS
+
+
+def test_rfc3_blog_failure_reason_logged(tmp_path, monkeypatch):
+    ghost = dict(GOOD_LENS, title="A Completely Different Invented Framing")
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [
+        {"top_lens": {}, "parse_error": True}, {"top_lens": {}}, {"top_lens": ghost}])
+    assert _run_blog(stem, logger) is False
+    message = logger.error.call_args.args[0] % logger.error.call_args.args[1:]
+    assert "attempt 1/3: validator output was not JSON" in message
+    assert "attempt 2/3: validator returned no top lens" in message
+    assert "is not among the generated lenses" in message
