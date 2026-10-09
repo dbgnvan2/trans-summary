@@ -81,8 +81,14 @@ MUTATION_GATE = [
     ("validation_pipeline.py",
      ["_keyword_grounding_ratio"], 0.5),
     ("transcript_utils.py",
-     ["load_bowen_references"], 0.4),
+     ["parse_bowen_references_text"], 0.4),
 ]
+
+
+def _defined_functions(path) -> set:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return {n.name for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
 
 def run_mutation_gate(stream=print) -> bool:
@@ -91,11 +97,27 @@ def run_mutation_gate(stream=print) -> bool:
 
     ok = True
     for module, funcs, floor in MUTATION_GATE:
+        missing = sorted(set(funcs) - _defined_functions(REPO / module))
+        if missing:
+            # A renamed/deleted target would otherwise be scored on what remains
+            # (or on nothing) and could pass without testing it.
+            stream(f"[FAIL] {module}: gate target(s) not found: {missing} "
+                   f"-> fix MUTATION_GATE")
+            ok = False
+            continue
         res = mut_harness.run_campaign(
             REPO / module, set(funcs), mut_harness.run_suite, stream=stream
         )
         score = res["score"]
-        status = "OK" if (score is not None and score >= floor) else "FAIL"
+        if score is None:
+            # 0 mutants: nothing was tested, so the gate cannot pass on it. This is
+            # a gate-config error (a target with no mutation operators), reported
+            # as FAIL with the cause — never a silent SKIP (sweep 2026-10-09, P2/P7).
+            stream(f"[FAIL] {module}:{','.join(funcs)} has 0 mutation operators "
+                   f"-> not a valid target; fix MUTATION_GATE (floor={floor})")
+            ok = False
+            continue
+        status = "OK" if score >= floor else "FAIL"
         if status == "FAIL":
             ok = False
         stream(f"[{status}] {module}:{','.join(funcs)} score={score} floor={floor}")

@@ -341,3 +341,115 @@ def test_edge_keyterms_dirty_rerun_is_idempotent(cloned_run):
     vp.validate_key_terms_fidelity(_fmt(proj), base, logging.getLogger("t"))
     second = (proj / f"{base}{config.SUFFIX_KEY_TERMS_VAL}").read_text()
     assert first == second
+
+
+# ------------------------------------------------------ mutation-gate coverage
+# Focused cases that kill surviving mutants in _best_local_grounding (the
+# mutation gate's F1 target). Each pins one branch/constant the harness mutates.
+
+
+def test_edge_best_local_grounding_split_vs_fallback():
+    """The `[...] or [term]` fallback. A composite term grounds on its SPLIT
+    parts (non-empty list) and a term whose only split part is <=3 chars grounds
+    on the FULL term; flipping `or`->`and` breaks both directions."""
+    # (a) non-empty split: "differentiation" is present but the full phrase
+    # "differentiation versus reactivity" is not -> must ground on the parts.
+    split_r = vp._best_local_grounding(
+        "the process by which an individual manages emotional reactivity",
+        "differentiation versus reactivity",
+        "the process of differentiation shapes how each person relates",
+    )
+    assert split_r is not None
+    # (b) empty split (every part <=3 chars): must fall back to [term].
+    fallback_r = vp._best_local_grounding(
+        "a definition with words", "top",
+        "the top of the list of items",
+    )
+    assert fallback_r is not None
+
+
+def test_edge_best_local_grounding_alias_length_threshold():
+    """The `len(p.strip()) > 3` alias filter: a 4-char part is kept, a 3-char
+    part is dropped. The two scenarios pin the boundary in both directions."""
+    # 4-char part ("self") present -> grounds via the KEPT part.
+    kept = vp._best_local_grounding(
+        "the process of differentiation", "self and ego",
+        "the self is central to the theory",
+    )
+    assert kept is not None
+    # Only the 3-char part ("ego") is present -> correct code drops it, so the
+    # kept part ("self") is absent and the term is unlocatable.
+    dropped = vp._best_local_grounding(
+        "the process of differentiation", "self and ego",
+        "the ego is central to the theory",
+    )
+    assert dropped is None
+
+
+def test_edge_best_local_grounding_aggressive_compound_normalization():
+    """Aggressive normalization joins hyphenated compounds, so a hyphenated
+    transcript token matches a space-separated term and vice versa. Flipping
+    either `aggressive=True` (transcript side or part side) breaks the match."""
+    # Transcript-side hyphen: "self-differentiation" must match term
+    # "self differentiation" only under aggressive transcript normalization.
+    transcript_hyphen = vp._best_local_grounding(
+        "the process of differentiation", "self differentiation",
+        "the concept of self-differentiation is central",
+    )
+    assert transcript_hyphen is not None
+    # Term-side hyphen: term "self-differentiation" must match a space-separated
+    # transcript occurrence only under aggressive part normalization.
+    term_hyphen = vp._best_local_grounding(
+        "the process of differentiation", "self-differentiation",
+        "the concept of self differentiation is central",
+    )
+    assert term_hyphen is not None
+
+
+def test_edge_best_local_grounding_term_at_final_window():
+    """A term whose last token is the LAST token of the transcript exercises the
+    final window boundary: range(len - span + 1) must include i = len - span.
+    Kills the `+1 -> 0` mutant; `+1 -> 2` is equivalent (an extra step yields a
+    short slice that can never equal the part) and cannot be killed."""
+    r = vp._best_local_grounding(
+        "the process of differentiation", "differentiation",
+        "the central concept of this talk is differentiation",
+    )
+    assert r is not None
+
+
+def test_edge_best_local_grounding_term_at_left_clamp():
+    """A term at index 0 exercises the left clamp max(0, i - window): the first
+    token must stay inside the grounding window."""
+    r = vp._best_local_grounding(
+        "the process of differentiation", "differentiation",
+        "differentiation starts the analysis",
+    )
+    assert r == 1.0
+
+
+def test_edge_bowen_parse_dedup_merge_and_timestamp():
+    """parse_bowen_references_text contract under mutation: dedupe on aggressive
+    normalization (hyphen vs space), merge a same-concept repeat without
+    duplicating the label, and preserve the timestamp on a distinct entry."""
+    content = (
+        "### Differentiation\n"
+        '> "Self differentiation is key."\n'
+        "\n"
+        "### Anxiety\n"
+        '> "Self-differentiation is key."\n'
+        "\n"
+        "### Triangles [00:12:34]\n"
+        '> "A three-person emotional configuration."\n'
+        "\n"
+        "### Differentiation\n"
+        '> "Self differentiation is key."\n'
+    )
+    refs = tu.parse_bowen_references_text(content)
+    assert len(refs) == 2
+    merged, distinct = refs[0], refs[1]
+    # hyphen-vs-space duplicate collapsed; the later label merged (no dup label).
+    assert merged[0] == "Differentiation; Anxiety"
+    # the distinct timestamped entry keeps its timestamp, not None.
+    assert distinct[2] == "00:12:34"
+

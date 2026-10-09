@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+import mut_harness
 import quality_gates
 
 REPO = Path(__file__).resolve().parent.parent
@@ -34,6 +35,11 @@ def test_m6a1_mutation_gate_config_is_valid():
         }
         missing = set(funcs) - defined
         assert not missing, f"mutation-gate functions not found in {module}: {missing}"
+        for fn in funcs:
+            assert len(mut_harness.count_ops(tree, {fn})) >= 1, (
+                f"mutation-gate target has no mutation operators (would always "
+                f"score None): {module}::{fn}"
+            )
 
 
 # --------------------------------------------------------------- M6.B
@@ -83,3 +89,38 @@ def test_m6c1_real_format_fixtures_exist():
     assert where_roots.is_dir()
     md = list(where_roots.rglob("*formatted.md"))
     assert md, "where_roots real-artifact fixtures missing (formatted transcript)"
+
+
+
+# --- sweep 2026-10-09: a gate target that tests nothing must FAIL, not pass ---
+
+def _run_gate_with(monkeypatch, gate, campaign_result):
+    from unittest.mock import patch
+
+    monkeypatch.setattr(quality_gates, "MUTATION_GATE", gate)
+    lines = []
+    with patch.object(mut_harness, "run_campaign", return_value=campaign_result):
+        ok = quality_gates.run_mutation_gate(stream=lines.append)
+    return ok, lines
+
+
+def test_m6a2_zero_mutants_fails(monkeypatch):
+    ok, lines = _run_gate_with(
+        monkeypatch, [("quality_gates.py", ["run_mutation_gate"], 0.5)],
+        {"score": None, "mutants": 0})
+    assert ok is False
+    assert any("[FAIL]" in line and "0 mutation operators" in line for line in lines)
+
+
+def test_m6a2_missing_target_fails_without_running(monkeypatch):
+    ok, lines = _run_gate_with(
+        monkeypatch, [("quality_gates.py", ["no_such_function"], 0.5)],
+        {"score": 1.0, "mutants": 4})
+    assert ok is False
+    assert any("not found" in line for line in lines)
+
+
+def test_m6a2_below_floor_fails_and_at_floor_passes(monkeypatch):
+    gate = [("quality_gates.py", ["run_mutation_gate"], 0.5)]
+    assert _run_gate_with(monkeypatch, gate, {"score": 0.4, "mutants": 5})[0] is False
+    assert _run_gate_with(monkeypatch, gate, {"score": 0.5, "mutants": 4})[0] is True

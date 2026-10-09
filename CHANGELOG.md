@@ -113,6 +113,27 @@ Release gate (all new/changed checks are blocking):
 
 Extraction stage: emphasis, topics, key-terms and summary-coverage validation results now fail the stage instead of only being logged.
 
+## [Unreleased] - 2026-09-11 (mutation-gate fix)
+
+The nightly `mutation-gate` job had failed five nights running. Gate-config and
+test-strength fixes only — no production logic changed:
+
+- **`load_bowen_references` targeted a no-surface loader** — it has zero mutation
+  operators, so the gate scored `None` and failed its 0.4 floor every night. The
+  gate now targets `parse_bowen_references_text` (the real F5 parser) and the
+  gate-config test asserts every listed function is actually mutable. A target
+  with 0 mutation operators, or one that no longer exists in its module, is a
+  FAIL that names the cause (a SKIP would let a broken config pass; learning-qa
+  sweep 2026-10-09), covered by the `test_m6a2_*` tests.
+- **`_best_local_grounding` mutated weakly (2/12)** — added edge-case tests for the
+  split-vs-fallback, alias-length threshold, aggressive compound normalization,
+  final-window, and left-clamp branches, lifting it to 11/12 (the lone survivor is
+  an equivalent `range(+1)->(+2)` mutant, behaviorally identical).
+
+`quality_gates.py mutation` exits 0 (re-run 2026-10-09 on main): F1/F2 target 0.762,
+keyword-grounding 0.714, Bowen parser 1.0. Offline suite: 1081 passed / 18 skipped /
+3 xfailed.
+
 ## [Unreleased] - 2026-08-22 (close three non-blocking follow-ups)
 
 Three items previously deferred as non-blocking (from the full-run review) are now fixed:
