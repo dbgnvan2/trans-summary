@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-import anthropic
 
 import config
 
@@ -14,6 +13,7 @@ sys.path.append(str(Path(__file__).parent))
 
 try:
     from transcript_utils import (
+        get_anthropic_client,
         cap_max_tokens_for_model,
         call_claude_with_retry,
         count_header_verdicts,
@@ -34,7 +34,7 @@ BATCH_SIZE = 5
 
 class HeaderValidator:
     def __init__(self, api_key: str, logger):
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = get_anthropic_client(api_key)
         self.logger = logger
 
         # Resolve paths dynamically from config to respect GUI selection

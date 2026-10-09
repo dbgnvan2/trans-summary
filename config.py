@@ -453,6 +453,9 @@ SUFFIX_ABSTRACT_INIT = " - abstract-initial.md"
 SUFFIX_SUMMARY_INIT = " - summary-initial.md"
 SUFFIX_SUMMARY_GEN = " - summary-generated.md"
 SUFFIX_SUMMARY_VAL = " - summary-validation.txt"
+# Gate verdict for summary coverage, keyed to the inputs it was computed from
+# (plan R15). Read by release_gate.check_summary_coverage.
+SUFFIX_SUMMARY_COVERAGE_VERDICT = " - summary-coverage-verdict.json"
 SUFFIX_ABSTRACT_GEN = " - abstract-generated.md"
 SUFFIX_ABSTRACT_VAL = " - abstract-validation.txt"
 SUFFIX_KEY_TERMS_VAL = " - key-terms-validation.md"
@@ -538,24 +541,40 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   source (word comparison, heading contract, heading timestamp positions).
 #   verbatim_quotes (made blocking 2026-09-23): Bowen/emphasis quotes are published
 #   AS quotes; a quote whose wording is not in the source is a misquotation. The
-#   check now compares the whole quote, not only its first/last words.
-#   topic_term_faithfulness (added 2026-09-23): topic descriptions and key-term
-#   definitions are model-written prose; judged claim-by-claim like the narrative
-#   artifacts. NOT YET CALIBRATED on real runs — see FAITHFULNESS notes below.
+#   check compares the whole quote, not only its first/last words, ignoring filler
+#   words and stutters (author decision 2a, 2026-10-09).
+#   consistency (added 2026-08-22): an EMPTY bowen-references.md while the
+#   transcript (or abstract) recounts Bowen the person >= BOWEN_PERSON_MIN_MARKERS
+#   times is a DROPPED RECOLLECTION — the pipeline surfaced a recollection and the
+#   dedicated artifact lost it (a lost signal, not a cosmetic gap). Only its FAIL
+#   findings block; its heuristic WARNs (orphan key-term, topic coverage, the
+#   fuzzy specific-recollection drop) stay advisory.
+#   topics_grounding / summary_coverage (plan R15, author decisions 2026-10-05):
+#   the topics and summary-coverage validators gate publication. Key terms stay
+#   advisory: two trusted samples still fail on paraphrased term labels.
+#   topic_term_faithfulness (added 2026-09-23) is NOT blocking: it is not yet
+#   calibrated on real runs, so it WARNs (author decision 3a, 2026-10-09).
 GATE_BLOCKING_CHECKS = {"source_fidelity", "entity_grounding", "artifact_contracts",
                         "faithfulness", "theme_grounding", "verbatim_quotes",
-                        "topic_term_faithfulness"}
+                        "consistency", "topics_grounding", "summary_coverage"}
 GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
-# entity check (M4.C). Scoped to the ABSTRACT only, on purpose: the name detector
-# was calibrated on abstract prose (0 false positives across 3 real runs, and it
-# catches the shipped 'Luciano Malorni'). Synthesized artifacts (blog, themes,
-# topics, key-terms) carry Title-Case HEADINGS and CONCEPT phrases the detector
-# can't tell from names ("Key Takeaways", "Role Absorption") — scanning them as a
-# BLOCKER would false-BLOCK good runs (a hard stop). Grounding those needs the
-# semantic judge (M2, deferred), not this lexical detector.
+# entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the
+# original, calibrated 0-false-positive scope) plus the other prose outputs
+# (summary, overview, blog), where a fabricated person/org/place name would appear
+# in running text. The detector is heading/bold-aware (find_ungrounded_names strips
+# markdown headings and bold concept/term labels), so a blog's "## Key Takeaways"
+# or a "**Term** — definition" list no longer reads as a fabricated name.
+#
+# The heading-heavy STRUCTURED artifacts (themes, topics, key-terms) stay OUT: their
+# Title-Case concept labels ("Role Absorption") are the artifact's *content*, not
+# proper names, and their fabrication mode is semantic (an invented theme/key-term
+# subject) — that is the theme/key-term judge's domain, not this lexical detector.
 GATE_ENTITY_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
+    SUFFIX_SUMMARY_GEN,
+    SUFFIX_OVERVIEW,
+    SUFFIX_BLOG,
 ]
 # Broader set for the WARN-only cross-artifact consistency check (M4.D). A false
 # positive here is advisory noise, not a hard stop, so it can safely scan the
@@ -614,8 +633,12 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
 # the extraction config still invalidates stale verdicts — a stricter judge must NEVER
 # serve a laxer cached PASS on the armed gate (H2 finding 1, a fail-open). BUMP THIS on
-# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape.
-JUDGE_LOGIC_VERSION = "2026-09-23"  # headings now judged as claims
+# any change to faithfulness_judge.extract_claims / _parse_judge_response / prompt shape
+# / judging strategy (e.g. chunked routing changes the source context a claim is judged
+# against, so a pre-chunk PASS must not be served post-chunk).
+# 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
+# theme evidence, zero-claims ERROR).
+JUDGE_LOGIC_VERSION = "2026-10-09"
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
@@ -627,6 +650,22 @@ FAITHFULNESS_GENERIC_HEADINGS = [
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).
 FAITHFULNESS_MIN_CLAIM_CHARS = 25
+# Chunked faithfulness judging (long-transcript attention, gap #1): above this source
+# word count the judge routes each claim to its most lexically-similar source window
+# instead of one batched call over the whole transcript. Below it, the single-call path
+# (cheaper, already accurate for short sources) is used unchanged.
+FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS = 3000
+# A claim whose best lexical overlap with any source window is below this is a
+# summary-level inference claim (it connects material spread across the source), so it
+# is judged against the FULL source rather than one window — routing it to a single
+# window would falsely mark a faithful abstraction "unsupported".
+FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
+# Spread across windows is detected STRUCTURALLY, not by a best-vs-second overlap
+# margin: a claim routes to a window only if that window contains EVERY significant
+# word of the claim that appears anywhere in the source. A margin only catches a
+# *balanced* split; an unbalanced 5:3 split would still route to the dominant window
+# and drop the minority element from the judge's context (a false-BLOCK). See
+# faithfulness_judge.route_claims_to_chunks.
 # Structured-artifact SCAFFOLDING / META field labels whose line is NOT a claim
 # about the source and must be skipped by claim extraction (esp. the themes
 # artifacts). These are the model's own meta-commentary or document boilerplate,
@@ -634,6 +673,15 @@ FAITHFULNESS_MIN_CLAIM_CHARS = 25
 # produces false "unsupported" verdicts (e.g. a "Coverage / role: ~55-60%"
 # estimate). Editorial list -> config, not code (rule 9). Matched case-insensitively
 # against the text before the first colon on a line.
+# Theme-block fields that are meta-commentary about the theme, not content claims.
+# The theme judge sees every other field (e.g. "Key evidence"), since those are
+# published with the theme (review F3, plan R7). Matched case-insensitively.
+THEME_JUDGE_META_LABELS = frozenset({
+    "coverage", "coverage / role", "lens fuel", "lens fuel value",
+    "nested under", "nested under structural themes", "status",
+    "document", "prompt version used", "date processed", "source document",
+})
+
 FAITHFULNESS_SKIP_LINE_LABELS = [
     "document", "prompt version used", "date processed", "source document",
     "coverage", "coverage / role", "key evidence", "nested under structural themes",
@@ -704,6 +752,28 @@ THEME_ARTIFACT_SUFFIXES = [
 THEME_JUDGE_MIN_RECALL_UNGROUNDED = 0.90
 THEME_JUDGE_MIN_PRECISION_UNGROUNDED = 0.70
 
+# Key-terms domain-semantic judge (gap #4) — BUILT, NOT yet armed. The lexical
+# key-terms validator (validate_key_terms_fidelity) cannot catch a lexically-
+# plausible but semantically-WRONG definition (a term defined as the wrong concept,
+# or swapped with a sibling, while still using transcript vocabulary). This judge
+# asks, per term, whether the DEFINITION correctly captures the term's Bowen-theory
+# meaning — a question the groundedness judges (faithfulness/theme) cannot answer,
+# because both a correct and a swapped definition are grounded. DISABLED until it
+# clears a labeled head-to-head (correct vs swapped definitions); same build ->
+# calibrate -> arm path as the faithfulness/theme judges.
+KEY_TERMS_JUDGE_ENABLED = False
+KEY_TERMS_JUDGE_MODEL = "claude-sonnet-4-6"
+KEY_TERMS_JUDGE_MAX_TOKENS = 2048
+# The judge ships only if it clears these on the key-terms gold set (recall on the
+# INCORRECT class is load-bearing — a swapped definition must not pass).
+KEY_TERMS_JUDGE_MIN_RECALL_INCORRECT = 0.90
+KEY_TERMS_JUDGE_MIN_PRECISION_INCORRECT = 0.70
+# Head-to-head labeled-set construction: a swap between two terms whose definitions
+# overlap at least this much (symmetric keyword overlap) is ambiguous (near-synonym),
+# not clearly wrong, and is skipped rather than polluting the recall-on-INCORRECT
+# metric. Promoted to config per the tier-threshold convention (not hardcoded).
+KEY_TERMS_JUDGE_AMBIGUOUS_OVERLAP = 0.6
+
 # Distinct sentinel for a TRANSIENT/config failure of opening-purpose extraction
 # (no API key, prompt file missing, API error) — must NOT be confused with a
 # genuine "speaker did not state a purpose" (which demotes the check to optional).
@@ -732,6 +802,47 @@ ABSTRACT_CONCLUSION_PATTERNS = [
 THEME_SCAFFOLDING_LABELS = frozenset(
     {"summary paragraph", "summary", "conclusion"}
 )
+
+# Canonical Bowen Family Systems Theory concepts (editorial — rule #9: content,
+# not code). Used by faithfulness_judge._name_shaped_bold_labels to keep a
+# connective-less Title-Case concept label rendered in the repo's own
+# "**Term**: def" shape from being re-emitted as a fabricated name. Best-effort:
+# a LECTURE-SPECIFIC concept label not in this set (e.g. "Emergent Features") is a
+# residual false-positive of the regex name backstop — a fully-general
+# name-vs-concept discriminator needs the semantic judge, not a list. Compared
+# case-insensitively against the bold label's lowercased text.
+BOWEN_CONCEPT_LABELS = frozenset({
+    "chronic anxiety",
+    "emotional cutoff",
+    "emotional fusion",
+    "emotional reactivity",
+    "emotional system",
+    "family projection process",
+    "multigenerational transmission process",
+    "nuclear family emotional system",
+    "sibling position",
+    "societal emotional process",
+    "societal regression",
+})
+
+# Generic heading/label phrases that are Title-Case but never a proper name. The
+# entity check now also scans headings and bold labels (review F2, plan R6), so a
+# generic heading that isn't spoken in the talk would otherwise read as an
+# ungrounded name. Includes the output headings the prose prompts instruct
+# (Summary Generation Prompt v1: Opening Paragraph / Body Section / Closing
+# Paragraph; Blog Post v1: Key Takeaways — the only one seen on real artifacts,
+# tests/fixtures/prose_real, 2026-10-04) plus common blog/overview headings.
+# Compared case-insensitively against the whole Title-Case span.
+SCAFFOLDING_HEADING_PHRASES = frozenset({
+    "opening paragraph",
+    "body section",
+    "closing paragraph",
+    "key takeaways",
+    "frequently asked questions",
+    "further reading",
+    "final thoughts",
+    "table of contents",
+})
 
 # Validation learning artifacts
 VALIDATION_MEMORY_FILENAME = "validation_memory.json"
@@ -789,6 +900,11 @@ TEMP_CREATIVE = 0.4
 TIMEOUT_FORMATTING = 1200  # 20 minutes
 TIMEOUT_SUMMARY = 900  # 15 minutes
 TIMEOUT_DEFAULT = 300  # 5 minutes
+# Used by call_claude_with_retry when a caller passes no timeout: the Anthropic
+# SDK's own default, made explicit so timeout escalation starts from a known value.
+TIMEOUT_FALLBACK = 600  # 10 minutes
+# Each timed-out attempt retries with timeout * this factor.
+TIMEOUT_ESCALATION_FACTOR = 1.5
 
 # Prompt Filenames
 PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = (
@@ -900,6 +1016,11 @@ ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
 # (review M6 / P4). max_retries default and the exponential-backoff base.
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2  # wait = RETRY_BACKOFF_BASE ** attempt seconds (1s, 2s, 4s, …)
+# Rate-limit (429) / overloaded (529) / 5xx waits: the API's retry-after header
+# when present (capped), else RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1). Longer
+# than the connection backoff because SDK retries are off (get_anthropic_client).
+RATE_LIMIT_BACKOFF_SECONDS = 10
+MAX_RETRY_AFTER_SECONDS = 120
 
 # Lens-title stopwords for the grounding check — editorial vocabulary belongs in
 # config, not source (review L7 / rule 9). Consumed by
@@ -924,6 +1045,17 @@ EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
 # quote omits, e.g. at an ellipsis, do not count against it). All 36 quotes in the
 # where_roots fixture score 1.0; one changed word in a 40-word quote scores 0.975.
 QUOTE_MIN_WORD_COVERAGE = 1.0
+# Spoken filler words ignored on BOTH sides when matching a quote to the
+# transcript; immediate repeats of 1-3 words ("my my", "it was, it was") are
+# also collapsed. A quote that only tidied disfluencies is still verbatim; one
+# with wording absent from the source still fails (author decisions 2026-10-05 /
+# 2026-10-09). Editorial list -> config (rule 9).
+QUOTE_FILLER_WORDS = frozenset({"uh", "um", "uhm", "umm", "er", "erm", "ah", "hmm", "mm"})
+# Summary-coverage item categories that gate publication (author decision 3a,
+# 2026-10-05): required topic and closing (conclusion) items. Speaker ("metadata")
+# and stated purpose ("opening") stay in the report as warnings — the presenter
+# field is sometimes an organisation (KCFC) and purpose extraction is unreliable.
+SUMMARY_COVERAGE_GATING_CATEGORIES = frozenset({"topic", "closing"})
 
 # Key-terms definition grounding: the definition is a synthesized paraphrase, so
 # it is checked for topical keyword overlap, never verbatim. Global overlap with

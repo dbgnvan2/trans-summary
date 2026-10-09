@@ -22,6 +22,7 @@ def mock_project_dirs(tmp_path):
 
     config.set_transcripts_base(tmp_path)
     config.settings.PROMPTS_DIR = tmp_path / "prompts"
+    config.PROMPTS_DIR = tmp_path / "prompts"  # module attr (production read site, config.py:327)
     config.settings.PROMPTS_DIR.mkdir()
 
     # Create necessary subdirectories within the mock transcripts base
@@ -34,6 +35,7 @@ def mock_project_dirs(tmp_path):
     # Restore original config paths
     config.set_transcripts_base(original_transcripts_base)
     config.settings.PROMPTS_DIR = original_prompts_dir
+    config.PROMPTS_DIR = original_prompts_dir
 
 
 @pytest.fixture
@@ -59,7 +61,11 @@ def mock_transcript_file(mock_project_dirs):
 
 @pytest.fixture
 def mock_bowen_prompt_file(mock_project_dirs):
-    """Create a mock bowen extraction prompt file."""
+    """Create a mock Bowen extraction prompt file.
+
+    Writes into the redirected ``config.PROMPTS_DIR`` (the tmp dir set by
+    ``mock_project_dirs``), so the real repo prompt file is never touched.
+    """
     prompt_content = """# BOWEN REFERENCE EXTRACTION
 Your task is to extract direct quotes or close paraphrases.
 ## OUTPUT FORMAT
@@ -210,3 +216,126 @@ def test_bowen_references_fallback_to_primary_when_filter_invalid(
 
     assert len(extracted) == 3
     assert extracted[0][0] == "On Triangles and Emotional Forces"
+
+
+def test_extract_bowen_references_rejects_prose():
+    """The model's "no references" PROSE must not parse into a garbage candidate
+    (concept='There are no instances of', quote='Bowen said,') — the shipped bug
+    that produced a confusing '0 grounded refs from 1 candidate' diagnostic."""
+    from transcript_utils import extract_bowen_references
+    prose = '## Bowen References\n\n> There are no instances of "Bowen said," in this transcript.\n'
+    assert extract_bowen_references(prose) == []
+    prose2 = '## Bowen References\n\nThe input contains only a label and a fragment ("Bowen said,").\n'
+    assert extract_bowen_references(prose2) == []
+
+
+def test_extract_bowen_references_parses_bold_format():
+    """The prompt's bold format (`> **Concept:** "quote"`, colon inside or outside
+    the bold) still parses correctly after the prose-rejection tightening."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Triangles:** "Murray Bowen said triangles are molecules of an emotional system."\n'
+        '> **On Differentiation**: "Bowen stressed the importance of differentiation of self."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
+        ("On Differentiation", "Bowen stressed the importance of differentiation of self."),
+    ]
+
+
+def test_extract_bowen_references_non_bold_fallback():
+    """A real reference the model emitted WITHOUT the bold format (`Label: "quote"`)
+    must still parse — requiring bold alone silently dropped it (P19)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> On Triangles: "Murray Bowen said triangles are molecules of an emotional system."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Triangles", "Murray Bowen said triangles are molecules of an emotional system."),
+    ]
+
+
+def test_extract_bowen_references_keeps_quote_containing_no():
+    """A real quote whose body contains 'there are no ...' must NOT be dropped by
+    the 'no references' prose guard (the guard runs only post-parse)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Differentiation:** "Bowen said there are no isolated individuals in an emotional system."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Differentiation", "Bowen said there are no isolated individuals in an emotional system."),
+    ]
+
+
+def test_extract_bowen_references_rejects_prose_colon_quote_without_attribution():
+    """Prose with a 'Label: "quote"' shape but NO Bowen attribution must not parse
+    into a garbage candidate (structural test, not a keyword blocklist)."""
+    from transcript_utils import extract_bowen_references
+    prose = '## Bowen References\n\nSummary: "differentiation of self is discussed at length."\n'
+    assert extract_bowen_references(prose) == []
+
+
+def test_extract_bowen_references_long_label_not_dropped():
+    """A long non-bold concept label is not silently dropped (no 60-char cap)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> On Differentiation of Self in the Context of Family Emotional Process: "Bowen said triangles are molecules."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs and refs[0][0].startswith("On Differentiation of Self")
+
+
+def test_extract_bowen_references_concept_attributed_non_bold():
+    """A non-bold ref whose attribution lives in the CONCEPT label (not the quote)
+    must parse — quote-only attribution would drop it, contradicting the rule filter."""
+    from transcript_utils import extract_bowen_references
+    content = '## Bowen References\n\n> Bowen\'s Timeline Prediction: "this would take 20 years."\n'
+    refs = extract_bowen_references(content)
+    assert refs == [("Bowen's Timeline Prediction", "this would take 20 years.")]
+
+
+def test_extract_bowen_references_drops_bold_wrapped_no_refs_prose():
+    """A bold-wrapped prose 'no references' explanation must be dropped, not parsed
+    into a garbage candidate via the bold path."""
+    from transcript_utils import extract_bowen_references
+    content = '## Bowen References\n\n> **Note:** "There are no explicit references to Bowen in this transcript."\n'
+    refs = extract_bowen_references(content)
+    assert refs == []
+
+
+def test_extract_bowen_references_keeps_quote_with_content_negation():
+    """A real Bowen-attributed quote whose body contains a content negation
+    ('no direct causal link') is a CONTENT fact, not a 'no references found'
+    meta-statement — the guard must bind to reference-absence OBJECTS
+    (references/instances/quotes), never a free-standing 'direct'/'explicit' (P2)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Cancer Etiology:** "Bowen said there is no direct causal link between stress and cancer."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Cancer Etiology", "Bowen said there is no direct causal link between stress and cancer."),
+    ]
+
+
+def test_extract_bowen_references_keeps_attributed_quote_with_meta_shaped_negation():
+    """An ATTRIBUTED quote whose body contains a reference-absence-shaped negation
+    ('no instances of ...') is a real recollection, not a meta-statement — the guard
+    is INVERTED: keep if Bowen-attributed, drop only an UNATTRIBUTED meta (P2)."""
+    from transcript_utils import extract_bowen_references
+    content = (
+        '## Bowen References\n\n'
+        '> **On Emotional Cutoff:** "Bowen said there are no instances of emotional cutoff in this family."\n'
+    )
+    refs = extract_bowen_references(content)
+    assert refs == [
+        ("On Emotional Cutoff", "Bowen said there are no instances of emotional cutoff in this family."),
+    ]

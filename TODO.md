@@ -6,6 +6,44 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-04 — Full-repo review (`REVIEW-trans-summary-2026-10-04.md`)
+
+Plan: `docs/plan_review_fixes_2026-10-04.md` (R1–R18). Fixed on branch
+`validation-hardening` 2026-10-04/05 — see CHANGELOG.
+
+### ✅ Fixed
+G1 (GUI BLOCK side effects), G11 (cleanup deletes sibling `_vN`), B-05 (placeholder
+re-append), D-09 (escaped CSS), F12/F14/B-11 (client factory, retries, timeouts,
+max_tokens), F2 (names in headings/labels/`---`), F3 (theme evidence judged), A-08
+(zero claims → ERROR), F4 (judge cache key), F6 (drift monitor `--model` for themes),
+G6 (speaker item), F13 (summary LLM rescue), C-07 (unverified ≠ missing), G14 (shipped
+judge flags pinned), Q6 (Gen Abstract fails when unfaithful), emphasis / topics /
+summary-coverage gates (R15).
+
+### ⏸ Open — needs a decision
+- **Key-terms gate — decided 2026-10-05: stays advisory.** After alternative-label
+  grounding, `dave_g_test2` still FAILs two paraphrased labels ("Verbal and Physical
+  Abuse", "Foster Care / Adoption Agency Work"); the author chose to keep key terms as a
+  report-only check. Revisit only with a calibrated semantic check
+  (`KEY_TERMS_JUDGE_ENABLED`).
+- **Topics gate is lenient (review G9).** A topic FAILs only when title < 0.25 AND
+  description < 0.20 against the whole transcript; the gate catches nonsense topics,
+  not mis-sectioned or partly-fabricated ones.
+- **Stated-purpose extraction** picked "I'm going to be presenting from PowerPoints."
+  on a real run; summary/abstract coverage reports it as missing (advisory under 3a).
+- **Emphasis "verbatim" threshold is fuzzy (sweep note, pre-existing).** A quote passes
+  at `EMPHASIS_QUOTE_PARTIAL_RATIO` 0.80, so "the family is a rational unit" against
+  "…an emotional unit" scores 0.919. Now that emphasis gates publication, consider a
+  stricter threshold — check it against the real fixtures first.
+- **Mutation gate not re-run** after `_emphasis_quote_found_ratio` changed (R15).
+
+### Not fixed (minor findings in the report)
+All other minor findings in the report remain open (e.g. F5 mutation-harness baseline,
+F11 manifest model provenance, G2/G13 other discarded return values, G8/G9, STRUCT-*).
+
+---
+
+
 ## 2026-09-23 — Source fidelity, review and pattern sets (open items)
 
 - **Unify Terms File and pattern sets.** Initial Validation still uses the single global Terms File (`VALIDATION_APPROVED_TERMS_PATH`); pattern sets feed formatting. Approved-term lines in a pattern set currently have no effect. Decide whether Initial Validation should read the project's pattern set.
@@ -126,7 +164,7 @@ still won't match), but the gold set should be re-verified before relying on it.
 
 ---
 
-## 2026-07-17 — Init Val fuzzy matcher (follow-up)
+## 2026-07-17 — Init Val fuzzy matcher (follow-up) ✅ FIXED 2026-08-22
 
 The span-match guard (`transcript_utils.span_matches_original`) now makes Init Val
 auto-apply *safe* against mis-located spans, but it does so by **skipping** them —
@@ -136,11 +174,15 @@ offsets (double spaces, timestamps, punctuation inside the phrase). Root cause:
 normalized-word indices / first-prefix occurrence, so its offsets don't map back
 to the raw text when normalization changed lengths.
 
-- **Follow-up:** fix `find_text_in_content` to return correct *raw-text* offsets
-  (e.g. re-locate the matched window in the original string), so legitimate fuzzy
-  corrections apply again while the span guard still blocks mis-locations.
-  Verified empirically 2026-07-17: `find_text_in_content("beta gamma", "beta   gamma")`
-  returns a misaligned slice, which the guard correctly skips.
+- **Follow-up:** ✅ **FIXED 2026-08-22.** `find_text_in_content` now re-locates the
+  matched window in the RAW haystack via `_locate_raw_span` (a case-insensitive,
+  whitespace-flexible `\b…\b` regex) in both the exact and fuzzy branches, so a
+  whitespace/case-only difference returns correct raw offsets and a legitimate
+  fuzzy correction applies again — while the span guard still blocks a true
+  mis-location (a typo/timestamp-split word, where `_locate_raw_span` returns None
+  and the prior heuristic + guard keep the safe skip). Tests: `find_text_in_content`
+  raw-offset cases in `test_fuzzy_grounding_prefilter.py`; the v1/v2 span-guard
+  tests now assert the correction APPLIES for a double-space difference.
 - **Adjacent (not fixed):** the multi-match branch still applies a ≥7-word
   correction to *all* occurrences of its `original_text` — intended, but noted.
 
@@ -585,11 +627,14 @@ late-only stages (package/webpdf/bowen_emphasis) that don't read the raw source.
 Matches prior `do_all` behaviour (spec SS.10) — not a regression. Revisit if it
 causes spurious "run Init Val first" blocks. Ref: `ts_gui.py` `do_run_selected`.
 
-### Redundant Emphasis+Bowen double-run
+### Redundant Emphasis+Bowen double-run ✅ FIXED 2026-08-22
 Selecting **Core** (with Include Emphasis/Bowen) *and* the standalone
 **Bowen + Emphasis** stage runs both twice (wasted cost + overwrite). A workflow
 choice, not a bug — a heads-up warning when both are selected would help.
 Ref: `ts_gui.py` `_run_selected_stages`.
+✅ `_run_selected_stages` now logs a heads-up warning (via the unit-tested
+`_duplicate_bowen_emphasis` predicate) when both are selected and at least one of
+Bowen/Emphasis is included in Core.
 
 ---
 

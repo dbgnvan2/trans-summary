@@ -3,6 +3,8 @@ orchestrator (which runs each publish step in its own process) doesn't re-run th
 judge N times per publish. A disk memo keyed on content+model+prompt-version backs the
 in-memory cache; a transient ERROR is never persisted (P1); corrupt cache -> empty (P8).
 """
+import pytest
+
 import config
 import faithfulness_judge as fj
 import release_gate as rg
@@ -91,6 +93,22 @@ def test_h2_logic_version_change_invalidates_cached_pass(tmp_path, monkeypatch):
     assert calls["n"] == 2, "logic-version change must force a re-judge, not serve stale PASS"
 
 
+def test_h2_routing_code_change_invalidates_by_construction(monkeypatch):
+    """The routing ALGORITHM (margin-vs-second heuristic vs structural all-anchored) is
+    folded into the cache key as its source, so a code-only routing change invalidates a
+    cached verdict even if the developer forgets to bump JUDGE_LOGIC_VERSION (P6/P4)."""
+    import inspect as inspect_mod
+
+    real_getsource = inspect_mod.getsource
+    before = rg._judge_logic_version("instructions")
+    # simulate a routing-code edit: the function source text changes
+    monkeypatch.setattr(
+        inspect_mod, "getsource",
+        lambda fn: real_getsource(fn) + "\n# simulated routing-code change")
+    after = rg._judge_logic_version("instructions")
+    assert before != after, "routing-code change must change the cache key (by construction)"
+
+
 def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     """The theme judge (the other armed hard blocker) gets the same cross-process disk
     memo (H2 finding 2 / P5)."""
@@ -108,3 +126,33 @@ def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(rg, "_THEME_JUDGE_CACHE", {})  # cold memory (separate subprocess)
     rg._judge_theme_cached(fj, "themes md", "source text", "structural", object(), None)
     assert calls["n"] == 1, "theme judge cold-memory call must hit the DISK cache"
+
+
+# --- R9 (review F4): the cache key covers the code that decides what is judged ---
+
+@pytest.mark.parametrize("fn_name", [
+    "extract_claims", "_is_claim", "_name_shaped_bold_labels", "_strip_scaffolding",
+    "scaffolding_name_spans", "parse_theme_blocks_with_evidence", "_extract_theme_evidence",
+    "with_theme_evidence",
+])
+def test_r9a_component_change_changes_key(monkeypatch, fn_name):
+    import inspect as inspect_mod
+
+    real_getsource = inspect_mod.getsource
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(
+        inspect_mod, "getsource",
+        lambda fn: real_getsource(fn) + ("\n# edited" if fn.__name__ == fn_name else ""))
+    assert rg._judge_logic_version("instructions") != before, fn_name
+
+
+@pytest.mark.parametrize("attr", [
+    "BOWEN_CONCEPT_LABELS", "SCAFFOLDING_HEADING_PHRASES", "THEME_JUDGE_META_LABELS"])
+def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(config, attr, frozenset(getattr(config, attr)) | {"zz new label"})
+    assert rg._judge_logic_version("instructions") != before, attr
+
+
+def test_r9b_logic_version_bumped():
+    assert config.JUDGE_LOGIC_VERSION != "2026-08-22"

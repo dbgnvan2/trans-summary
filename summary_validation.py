@@ -22,8 +22,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
+import abstract_validation
 import config
-from transcript_utils import call_claude_with_retry
 
 
 @dataclass
@@ -167,7 +167,9 @@ def generate_coverage_items(summary_input) -> list[CoverageItem]:
     items = []
 
     # Speaker/metadata
-    speaker = summary_input.metadata.get("speaker", "")
+    # parse_filename_metadata provides "presenter", not "speaker" (review G6).
+    speaker = (summary_input.metadata.get("speaker")
+               or summary_input.metadata.get("presenter", ""))
     if speaker:
         name_parts = speaker.replace("Dr.", "").replace(".", "").split()
         name_keywords = [n.lower() for n in name_parts if len(n) > 2]
@@ -448,17 +450,22 @@ def validate_summary_coverage(
         item.confidence = confidence
 
     # LLM verification for low-confidence required items
-    if use_llm_verification and api_client:
+    if use_llm_verification:
         low_confidence_required = [
             item for item in items if item.required and item.confidence == "low"
         ]
+        if low_confidence_required and not api_client:
+            # No client (no API key): these items could not be checked. Mark them
+            # unverified so the status is ERROR (retry, never stored) rather than a
+            # stored FAIL that outlives the missing key (sweep finding, P1).
+            abstract_validation.apply_llm_results(
+                low_confidence_required, [None] * len(low_confidence_required))
+            low_confidence_required = []
 
         if low_confidence_required:
             llm_results = verify_with_llm(
                 summary, low_confidence_required, api_client, model=model, logger=logger)
-            for item, result in zip(low_confidence_required, llm_results):
-                item.covered = result
-                item.confidence = "llm_verified"
+            abstract_validation.apply_llm_results(low_confidence_required, llm_results)
 
     # Proportionality check
     proportionality = check_proportionality(summary, summary_input)
@@ -499,8 +506,24 @@ def validate_summary_coverage(
         s for s in proportionality["sections"] if not s["within_tolerance"]
     ]
 
+    # Gate verdict over topic/closing items only; speaker and stated purpose stay
+    # advisory (author decision 3a, plan R15). No gating item at all is decided
+    # here, deterministically: topics parsed but none required (all < 10%, no
+    # stated conclusion) -> PASS; no topics parsed -> FAIL (upstream drift, A9).
+    status = abstract_validation.coverage_status(
+        items, config.SUMMARY_COVERAGE_GATING_CATEGORIES)
+    status_reason = ""
+    if status == "NONE":
+        if summary_input.body.topics:
+            status, status_reason = "PASS", "no required topic/closing items to check"
+        else:
+            status, status_reason = "FAIL", "no topics parsed — cannot check coverage"
+
     return {
         "passed": passed,
+        "status": status,
+        "status_reason": status_reason,
+        "llm_unavailable": any(i.confidence == "llm_unavailable" for i in items),
         "coverage_passed": coverage_passed,
         "proportionality_passed": proportionality["proportionality_ok"],
         "required_coverage": f"{required_covered}/{len(required_items)}",
@@ -534,54 +557,14 @@ def validate_summary_coverage(
     }
 
 
-def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list[bool]:
-    """Use LLM to verify coverage of specific items."""
-    items_text = "\n".join(
-        [
-            f'{i + 1}. {item.label}: "{item.source_text[:100]}"'
-            for i, item in enumerate(items)
-        ]
-    )
-
-    prompt_path = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\n"
-            f"Expected location: {config.PROMPTS_DIR}/{config.PROMPT_VALIDATION_COVERAGE_FILENAME}"
-        )
-    template = prompt_path.read_text(encoding="utf-8")
-
-    prompt = (
-        template.replace("{{content_type}}", "summary")
-        .replace("{{content_type_upper}}", "SUMMARY")
-        .replace("{{content}}", summary)
-        .replace("{{items_text}}", items_text)
-    )
-
-    # Use centralized call with retry
-    response = call_claude_with_retry(
-        client=api_client,
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=config.MAX_TOKENS_VALIDATION_VERIFY,
-        temperature=0.0,  # Strict for validation
-        logger=logger,
-    )
-
-    response_text = response.content[0].text.strip()
-    lines = response_text.upper().split("\n")
-
-    results = []
-    for line in lines:
-        if "YES" in line:
-            results.append(True)
-        elif "NO" in line:
-            results.append(False)
-
-    while len(results) < len(items):
-        results.append(False)
-
-    return results[: len(items)]
+def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list:
+    """Summary LLM coverage rescue. Shares the abstract implementation, which
+    accepts a short YES/NO reply and reports a failed call as unverified (review
+    F13: this copy lacked min_length=2 and the error fallback, so every call
+    failed after 3 paid attempts and no report was written)."""
+    return abstract_validation.verify_items_with_llm(
+        summary, items, api_client, "summary", model=model, logger=logger,
+        source_text_limit=100)
 
 
 def format_review_checklist(
@@ -775,6 +758,21 @@ def validate_and_report(
     """
     Validate summary and return pass/fail with report.
     """
+    _status, passed, report = validate_and_report_status(
+        summary, summary_input, api_client=api_client, model=model, logger=logger)
+    return passed, report
+
+
+def validate_and_report_status(
+    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL, logger=None
+) -> tuple[str, bool, str]:
+    """``validate_and_report`` plus the gate status (PASS / FAIL / ERROR) over the
+    gating categories (config.SUMMARY_COVERAGE_GATING_CATEGORIES).
+
+    Purpose: Give the release gate a summary-coverage verdict (plan R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_validator_gating_r15.py::test_r15_summary_status_ignores_speaker_and_purpose
+    """
     # Structural validation
     structural = validate_structural(summary, summary_input.target_word_count)
 
@@ -783,13 +781,13 @@ def validate_and_report(
         report = "Structural validation failed:\n" + "\n".join(
             f"  - {i}" for i in structural["issues"]
         )
-        return False, report
+        return "FAIL", False, report
 
     # Coverage validation
     coverage = validate_summary_coverage(
         summary,
         summary_input,
-        use_llm_verification=api_client is not None,
+        use_llm_verification=True,  # no client -> items reported unverified
         api_client=api_client,
         model=model,
         logger=logger,
@@ -801,7 +799,12 @@ def validate_and_report(
         f"Optional coverage: {coverage['optional_coverage']}",
         f"Word count: {coverage['word_count']['actual']}/{coverage['word_count']['target']} ({coverage['word_count']['deviation']} deviation)",
         f"Proportionality: {'OK' if coverage['proportionality_passed'] else 'ISSUES'}",
+        f"Gate status: {coverage['status']} (gating on: "
+        f"{', '.join(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES))} items)"
+        + (f" — {coverage['status_reason']}" if coverage["status_reason"] else ""),
     ]
+    if coverage["llm_unavailable"]:
+        report_lines.append("LLM verification unavailable — some items are unverified; retry.")
 
     # Add structural warnings to report
     if structural["warnings"]:
@@ -811,7 +814,7 @@ def validate_and_report(
     if coverage["human_review_checklist"]:
         report_lines.extend(["", coverage["human_review_checklist"]])
 
-    return coverage["passed"], "\n".join(report_lines)
+    return coverage["status"], coverage["passed"], "\n".join(report_lines)
 
 
 # === Example Usage ===

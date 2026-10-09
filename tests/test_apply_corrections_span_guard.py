@@ -45,11 +45,13 @@ def test_v2_skips_mislocated_fuzzy_span_mocked(tmp_path):
     assert any("mis-located" in s.lower() for s in skipped)
 
 
-def test_v2_skips_real_misaligned_fuzzy_span(tmp_path):
-    """Real-path (no mock): a normalization-affecting difference (double space)
-    makes the exact match miss; the REAL find_text_in_content returns a
-    misaligned span, and the guard skips it — no corruption. This exercises the
-    actual offset behavior that caused the production bug."""
+def test_v2_applies_whitespace_difference_correction(tmp_path):
+    """A normalization-affecting whitespace difference (double space) used to make
+    the REAL find_text_in_content return a misaligned span, so the guard skipped a
+    LEGITIMATE correction (recall loss, not corruption). With raw-text offset
+    re-location, the correction now APPLIES to the exact span (replacing
+    'beta   gamma' with 'XXX'); a true mis-location is still skipped (see the mocked
+    test above)."""
     content = "Alpha beta   gamma delta epsilon."   # double space inside the phrase
     f = tmp_path / "t.txt"
     f.write_text(content, encoding="utf-8")
@@ -57,12 +59,13 @@ def test_v2_skips_real_misaligned_fuzzy_span(tmp_path):
     corr = [{"original_text": "beta gamma",
              "suggested_correction": "XXX", "error_type": "spelling"}]
     _p, applied, _sk = _v2().apply_corrections_safe(f, corr, out)
-    assert out.read_text(encoding="utf-8") == content   # transcript NOT corrupted
-    assert applied == 0
+    assert out.read_text(encoding="utf-8") == "Alpha XXX delta epsilon."
+    assert applied == 1
 
 
-def test_v1_skips_real_misaligned_fuzzy_span(tmp_path):
-    """The v1 validator's apply_corrections carries the same guard (F1)."""
+def test_v1_applies_whitespace_difference_correction(tmp_path):
+    """The v1 validator's apply_corrections applies the same whitespace-difference
+    correction (F1)."""
     content = "Alpha beta   gamma delta epsilon."
     f = tmp_path / "t.txt"
     f.write_text(content, encoding="utf-8")
@@ -70,7 +73,7 @@ def test_v1_skips_real_misaligned_fuzzy_span(tmp_path):
     corr = [{"original_text": "beta gamma",
              "suggested_correction": "XXX", "error_type": "spelling"}]
     result = _v1().apply_corrections(f, corr, out)
-    assert Path(result).read_text(encoding="utf-8") == content   # not corrupted
+    assert Path(result).read_text(encoding="utf-8") == "Alpha XXX delta epsilon."
 
 
 def test_v2_applies_exact_match(tmp_path):

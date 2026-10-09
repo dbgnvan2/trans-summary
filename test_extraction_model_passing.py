@@ -21,7 +21,7 @@ class TestExtractionModelPassing(unittest.TestCase):
     @patch('extraction_pipeline.validate_input_file')
     @patch('extraction_pipeline.parse_filename_metadata')
     @patch('extraction_pipeline.config.PROJECTS_DIR')
-    @patch('extraction_pipeline.anthropic.Anthropic')
+    @patch('extraction_pipeline.get_anthropic_client')
     @patch('os.getenv')
     def test_generate_structured_summary_passes_model(
         self, mock_getenv, mock_anthropic, mock_projects_dir,
@@ -61,7 +61,7 @@ class TestExtractionModelPassing(unittest.TestCase):
     @patch('extraction_pipeline.validate_input_file')
     @patch('extraction_pipeline.parse_filename_metadata')
     @patch('extraction_pipeline.config.PROJECTS_DIR')
-    @patch('extraction_pipeline.anthropic.Anthropic')
+    @patch('extraction_pipeline.get_anthropic_client')
     @patch('os.getenv')
     def test_generate_structured_abstract_passes_model(
         self, mock_getenv, mock_anthropic, mock_projects_dir,

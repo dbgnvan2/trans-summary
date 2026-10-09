@@ -100,9 +100,11 @@ def _keyterms_report(proj: Path) -> str:
 
 
 def test_f1_keyterms_real_run_tiers_pinned(cloned_run):
-    """Pin the tier outcome on the real artifact: the 8 grounded terms with
-    matching definitions are EXACT; the two composite names FAIL on term
-    grounding. This pins the 0.50/0.80/0.90/0.35 + local thresholds.
+    """Pin the tier outcome on the real artifact: all 10 terms are EXACT. The two
+    composite names ("Wanting versus Liking", "Counterbalancing Life Forces
+    (Individuality and Togetherness)") FAILed before plan R15 decision 2a; they now
+    ground on an alternative form ("wanting and liking", the text before the
+    parenthetical). This pins the 0.50/0.80/0.90/0.35 + local thresholds.
 
     Uses a writable clone (not the read-only fixture) because the validator
     writes its report next to the artifacts.
@@ -111,8 +113,8 @@ def test_f1_keyterms_real_run_tiers_pinned(cloned_run):
     vp.validate_key_terms_fidelity(_fmt(proj), base, logging.getLogger("t"))
     report = _keyterms_report(proj)
     assert "Def Locality" in report  # new column present
-    assert report.count("| EXACT ") == 8
-    assert report.count("| FAIL ") == 2
+    assert report.count("| EXACT ") == 10
+    assert report.count("| FAIL ") == 0
     assert "Homeostasis" in report and "EXACT" in report
 
 
@@ -244,7 +246,7 @@ def test_extract_terms_passes_named_logger(monkeypatch):
         return _FakeMsg()
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(tet.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(tet.transcript_utils, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(tet, "create_system_message_with_cache", lambda *_a, **_k: "sys")
     monkeypatch.setattr(tet, "call_claude_with_retry", fake_call)
     tet.extract_key_terms_with_claude(
@@ -264,7 +266,7 @@ def test_audit_voice_passes_named_logger(monkeypatch):
         captured.update(kwargs)
         return _FakeMsg()
 
-    monkeypatch.setattr(tav.anthropic, "Anthropic", lambda **k: object())
+    monkeypatch.setattr(tav.transcript_utils, "get_anthropic_client", lambda *a, **k: object())
     monkeypatch.setattr(tav, "load_prompt", lambda: "{{blog_content}}")
     monkeypatch.setattr(tav, "call_claude_with_retry", fake_call)
     try:

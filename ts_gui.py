@@ -5,7 +5,6 @@ A graphical interface for the transcript processing pipeline.
 """
 
 import io
-import os
 import re
 import resource
 import shutil
@@ -30,7 +29,12 @@ import transcript_initial_validation
 import transcript_initial_validation_v2  # ADDED V2 module
 import transcript_validate_headers
 import transcript_validate_webpage
-from transcript_utils import clean_project_name, parse_filename_metadata
+from transcript_utils import (
+    clean_project_name,
+    get_anthropic_client,
+    parse_filename_metadata,
+    resolve_anthropic_key,
+)
 from validation_learning import (
     append_approved_terms,
     append_validation_aliases,
@@ -40,6 +44,23 @@ from validation_learning import (
 
 INIT_VAL_FILTER_VERSION = "compact-v3"
 _GIT_REVISION_CACHE = None
+
+# Help text surfaced when the judge drift check detects drift (the semantic
+# safety net scoring below its calibrated bars). Shown in the log and a dialog.
+DRIFT_HELP_TEXT = (
+    "Judge drift detected — the semantic judges (faithfulness / theme / key-terms)\n"
+    "are not scoring at their calibrated accuracy. They are the safety net that\n"
+    "catches hallucinations, so do NOT run the pipeline until this is resolved.\n\n"
+    "What to do:\n"
+    "1. Re-run 'Test Drift' once to confirm (a single draw can be unlucky).\n"
+    "2. Ask what changed — judge model, a prompt, or a threshold?\n"
+    "   • If you changed one of those intentionally, re-calibrate the judge and\n"
+    "     update its gold set if any example is now genuinely wrong.\n"
+    "   • If nothing changed, the provider likely updated the model alias. Pin the\n"
+    "     judge model to a dated snapshot (e.g. 'claude-sonnet-4-6-YYYYMMDD') and\n"
+    "     re-run the check.\n"
+    "3. Only resume processing once all three judges clear their bars again."
+)
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.5
 # Fixed pipeline execution order for the 13 selectable stages. Also drives
@@ -65,6 +86,16 @@ STAGE_DEFINITIONS = [
     ("package", "Package"),
     ("bundle", "Bundle (DOC/PDF)"),
 ]
+
+
+def _duplicate_bowen_emphasis(selected_keys, include_bowen: bool, include_emphasis: bool) -> bool:
+    """True when the 'core' stage (with Bowen/Emphasis included) AND the standalone
+    'bowen_emphasis' stage are BOTH selected — the same Bowen/Emphasis extraction
+    then runs twice (duplicate API cost, and the later stage overwrites the earlier
+    output). Purely a heads-up signal; it never changes what runs."""
+    if "core" not in selected_keys or "bowen_emphasis" not in selected_keys:
+        return False
+    return bool(include_bowen or include_emphasis)
 
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.6 / §2.1
 # {stage_key: [group, ...]} where each group is a list of
@@ -903,17 +934,21 @@ class TranscriptProcessorGUI:
             button_frame, text="Config Check", command=self.do_config_check)
         self.config_btn.grid(row=utility_row, column=1, padx=(0, 5), pady=2)
 
+        self.drift_btn = ttk.Button(
+            button_frame, text="Test Drift", command=self.do_drift_check)
+        self.drift_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
+
         self.clean_logs_btn = ttk.Button(
             button_frame, text="Clean Logs...", command=self.do_clean_logs)
-        self.clean_logs_btn.grid(row=utility_row, column=2, padx=(0, 5), pady=2)
+        self.clean_logs_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
 
         self.clear_btn = ttk.Button(
             button_frame, text="Clear Log", command=self.clear_log)
-        self.clear_btn.grid(row=utility_row, column=3, padx=(0, 5), pady=2)
+        self.clear_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
 
         self.cleanup_btn = ttk.Button(
             button_frame, text="Cleanup Source", command=self.do_cleanup, state=tk.DISABLED)
-        self.cleanup_btn.grid(row=utility_row, column=4, padx=(0, 5), pady=2)
+        self.cleanup_btn.grid(row=utility_row, column=5, padx=(0, 5), pady=2)
 
         self.review_btn = ttk.Button(
             button_frame, text="Review Differences", command=self.do_review_differences,
@@ -1499,9 +1534,9 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_initial_validation)
 
     def _run_initial_validation(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
 
         mode = self.validation_mode_var.get()
@@ -1617,7 +1652,7 @@ class TranscriptProcessorGUI:
             new_filename = f"{base_name}_v{version}{source_file.suffix}"
 
         output_path = source_file.parent / new_filename
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         mode = self.validation_mode_var.get()
 
         if rejected_findings:
@@ -1846,9 +1881,9 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_header_validation)
 
     def _run_header_validation(self):
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
         validator = transcript_validate_headers.HeaderValidator(
             api_key, self.logger)
@@ -2022,6 +2057,38 @@ class TranscriptProcessorGUI:
         self.log("STEP: Checking Configuration...")
         self.run_task_in_thread(self._run_config_check)
 
+    def do_drift_check(self):
+        """Run the judge drift monitor — a pre-flight self-test of the semantic
+        judges. Costs a small amount of API; run before processing to confirm the
+        hallucination safety net is still at calibrated accuracy."""
+        self.log("STEP: Testing judges for drift (small API spend)…")
+        self.run_task_in_thread(self._run_drift_check, task_name="Judge Drift Check")
+
+    def _run_drift_check(self):
+        import judge_drift_monitor as jdm
+        key = resolve_anthropic_key()
+        if not key:
+            self.log("❌ Judge drift check could not run: no Anthropic API key resolved.")
+            return False
+        client = get_anthropic_client(key)
+        try:
+            report, drift = jdm.run_in_process(client, None)
+        except Exception as e:  # noqa: BLE001 — an errored check is not a clean pass
+            self.log("❌ Judge drift check errored (not a clean pass): %s: %s",
+                     type(e).__name__, e)
+            return False
+        self.log(report)
+        if drift:
+            self.set_final_status("Judge drift detected", "red")
+            self.log(DRIFT_HELP_TEXT)
+            # Tk is not thread-safe: marshal the dialog to the main thread, like
+            # every other dialog in this file (P15), instead of calling
+            # messagebox.showwarning from the worker thread.
+            self.root.after(0, lambda: messagebox.showwarning(
+                "Judge Drift Detected", DRIFT_HELP_TEXT))
+            return False
+        return True
+
     def _run_config_check(self):
         try:
             f = io.StringIO()
@@ -2098,6 +2165,30 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_web_pdf_generation)
 
     def _run_web_pdf_generation(self):
+        import release_gate
+
+        if not self.base_name:
+            return False
+
+        # Run the release gate ONCE, up-front, so a publication BLOCK surfaces its
+        # real reason ("faithfulness: check failed in summary-generated, overview,
+        # blog") instead of the opaque "Full webpage generation failed", and so no
+        # web/PDF work is attempted when publication is refused (previously both
+        # generators each ran the gate and both failed silently).
+        decision = release_gate.run_gate(self.base_name, self.logger)
+        if decision.decision is release_gate.Decision.BLOCK:
+            # Quarantine the previous bundle, write the marker and manifest (G1):
+            # returning early must not leave an old ALLOW run's webpage/PDF on disk
+            # looking current.
+            release_gate.record_decision(self.base_name, decision, self.logger)
+            self.log("  - ❌ Release gate BLOCKED publication — skipping webpage/PDF.")
+            for v in decision.blockers:
+                self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")
+            for v in decision.verdicts:
+                if v.status is release_gate.Status.WARN:
+                    self.log(f"      [WARN] {v.check}: {v.detail}")
+            return False
+
         success = True
         self.log("  - Generating full webpage...")
         if not pipeline.generate_webpage(self.base_name):
@@ -2379,6 +2470,22 @@ class TranscriptProcessorGUI:
         self.log("\n--- Run plan ---")
         self._log_selective_run_plan(selected_keys)
 
+        # Heads-up (TODO.md "Redundant Emphasis+Bowen double-run"): Core with
+        # Bowen/Emphasis included PLUS the standalone Bowen+Emphasis stage runs the
+        # same extraction twice. Surface it so the operator can deselect one before
+        # paying for a duplicate run (it never changes what actually runs).
+        if _duplicate_bowen_emphasis(
+            selected_keys,
+            self._get_bool_var("include_bowen_core", default=True),
+            self._get_bool_var("include_emphasis_core", default=True),
+        ):
+            self.log(
+                "⚠️ Heads-up: 'Core' is set to include Bowen/Emphasis AND the "
+                "standalone 'Bowen + Emphasis' stage is also selected — those "
+                "extractions will run twice (duplicate cost; the later stage "
+                "overwrites the earlier output). Deselect one to avoid the duplicate."
+            )
+
         # Bottom status bar tracks the current major step (SB.1); the final
         # message is set by _execute_task on completion/failure.
         selected_labels = [l for k, l in STAGE_DEFINITIONS if k in selected_keys]
@@ -2442,10 +2549,19 @@ class TranscriptProcessorGUI:
         )
 
     def _run_stage_structured_summary(self):
-        """Runner for the 'structured_summary' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
-        return pipeline.generate_structured_summary(
+        """Runner for the 'structured_summary' stage: generate, then validate
+        coverage so the result is visible now (the release gate re-uses the stored
+        verdict; plan R15.b). A coverage miss does not halt the run — publication
+        is what it blocks. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        ok = pipeline.generate_structured_summary(
             self.base_name, logger=self.logger, model=config.settings.AUX_MODEL
         )
+        if ok and not pipeline.validate_summary_coverage(
+                self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
+            self.log(
+                "⚠️ Summary coverage did not pass — publication will be blocked until "
+                "it does. See '%s%s'.", self.base_name, config.SUFFIX_SUMMARY_VAL)
+        return ok
 
     def _run_stage_gen_abstract(self):
         """Runner for the 'gen_abstract' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
@@ -2780,9 +2896,9 @@ class TranscriptProcessorGUI:
 
     def _run_initial_validation_auto(self):
         """Run Init Val without dialogs; auto-apply all findings into a finalized _validated file."""
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = resolve_anthropic_key()
         if not api_key:
-            self.log("❌ Error: ANTHROPIC_API_KEY not found.")
+            self.log("❌ Error: no Anthropic API key found (ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
             return False
 
         existing_versions = _find_existing_validation_versions(self.selected_file)

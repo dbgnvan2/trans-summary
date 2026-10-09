@@ -54,6 +54,16 @@
     {"id": "ug11", "source": "roots_bowen",
      "name": "Differentiation of Self as Emotional Objectivity Plus Action",
      "description": "Kerr develops the DOS = EO + A formulation, grounding it in the 2018 Georgetown longitudinal study that measured emotional neutrality across 400 families over a decade.",
-     "note": "PARTIAL FABRICATION — the DOS=EO+A formulation is grounded, but the '2018 Georgetown longitudinal study of 400 families' is an invented cited study/date/institution"}
+     "note": "PARTIAL FABRICATION — the DOS=EO+A formulation is grounded, but the '2018 Georgetown longitudinal study of 400 families' is an invented cited study/date/institution"},
+    {"id": "ug12", "source": "roots_bowen",
+     "name": "The Extraordinary Duration of Paradigm Shifts in Science",
+     "description": "The central organizing argument of the first mini-lecture is that genuinely transformative scientific ideas can remain suppressed or ignored for astonishing lengths of time — in this case, approximately 2,000 years elapsed between Aristarchus's heliocentric model and its eventual vindication through Copernicus, Kepler, Galileo, and Newton. Kerr uses this historical arc not merely as intellectual history but as a direct analogy for the trajectory he anticipates for Bowen Family Systems Theory: a paradigm shift that challenges deeply held assumptions (religious, cultural, psychological) will face prolonged resistance before achieving dominance in public consciousness.",
+     "evidence": "Key evidence: Kerr cites Luciano Malorni's 1975 survey of 400 astronomers, which found that 80% rejected heliocentrism until 1850 (Section 9); the walk from Aristotle to Einstein (Sections 3-18).",
+     "note": "REAL name+description; fabricated specific (Luciano Malorni, the 1975 survey, its figures) ONLY in Key evidence (plan R7.c)"},
+    {"id": "ug13", "source": "dave_g",
+     "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy",
+     "description": "The entire presentation is organized around a single multigenerational case in which the central question is how a self forms — or fails to form — under conditions of chronic anxiety, alcohol, and relational instability. The client's trajectory from catatonic hospitalization to professional competence is framed explicitly as a story of differentiation: finding a \"nubbin of self\" (walking out of the hospital, refusing to pay his daughter's rent) amid a family system characterized by fusion, reactivity, and emotional cutoff. The same differentiation question then extends forward to his daughter, whose susceptibility to others' opinions and financial dependency become the presenting concern.",
+     "evidence": "Key evidence: the client's two years of combat service in Vietnam, which he named as the origin of his emotional suppression; the \"nubbin of self\" language used twice (hospital walk-out; rent boundary).",
+     "note": "REAL name+description; fabricated specific (Vietnam combat service — see ug1) ONLY in Key evidence (plan R7.c)"}
   ]
 }

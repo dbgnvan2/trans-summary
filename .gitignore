@@ -20,6 +20,7 @@ logs/archives/
 logs/token_usage.csv
 logs/runtime_settings.json
 logs/validation_memory.json
+logs/gate_judge_cache.json
 
 # Archived prompt templates (not part of active runtime prompt set)
 prompts/old\ prompts/

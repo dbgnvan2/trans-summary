@@ -66,12 +66,13 @@ def cleanup_transcript_files(base_name: str, logger=None) -> bool:
     # Escape glob special characters in base_name if any (brackets etc)
     # Using simple iteration is safer than complex globs if filenames have special chars
     
-    intermediate_files = []
-    for f in source_dir.glob(f"*.txt"):
-        if f.name.startswith(base_name):
-            # Check for _vN pattern
-            if re.search(r'_v\d+\.txt$', f.name):
-                intermediate_files.append(f)
+    # Exact match only: a prefix match also caught another transcript's versions,
+    # e.g. "<base> Part 2_v3.txt" (review G11). Every producer writes
+    # "{base}_vN.txt" (ts_gui, transcript_initial_validation{,_v2}).
+    version_re = re.compile(re.escape(base_name) + r"_v\d+\.txt")
+    intermediate_files = [
+        f for f in source_dir.glob("*.txt") if version_re.fullmatch(f.name)
+    ]
     
     # 2. Move critical files
     moved_count = 0

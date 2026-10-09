@@ -1,22 +1,24 @@
 "Pipeline module for extracting insights, summaries, and emphasis items."
 
 import json
-import os
 import re
 from pathlib import Path
 
-import anthropic
 
 import abstract_pipeline
 import config
 import summary_pipeline
+from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
+from bowen_attribution import concept_has_bowen_attribution
 from transcript_utils import (
+    get_anthropic_client,
     call_claude_with_retry,
     clean_project_name,
     create_system_message_with_cache,
     extract_bowen_references,
     extract_section,
     fill_prompt_template,
+    placeholder_pattern,
     find_text_in_content,
     load_project_transcript,
     normalize_text,
@@ -76,10 +78,7 @@ def _generate_summary_with_claude(
     timeout: float = config.TIMEOUT_SUMMARY,
     **kwargs,
 ) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client()
 
     message = call_claude_with_retry(
         client=client,
@@ -237,8 +236,9 @@ def _generate_with_cached_transcript(
     # If prompts do not include placeholders, still provide dynamic context explicitly.
     unresolved = []
     for key, value in replacements.items():
-        pattern = re.compile(r"{{{{\s*{}\\s*}}}}".format(re.escape(key)), re.IGNORECASE)
-        if not pattern.search(template):
+        # Shared pattern: the old inline regex required a literal backslash and
+        # never matched, so every value was sent twice (review B-05).
+        if not placeholder_pattern(key).search(template):
             unresolved.append((key, value))
     if unresolved:
         context_lines = ["", "", "## Provided Context", ""]
@@ -361,76 +361,11 @@ def _compact_bowen_quote(quote: str, max_words: int = 140) -> str:
     return compact
 
 
-def _has_bowen_source_attribution(quote: str) -> bool:
-    """
-    Return True only when quote text itself contains attribution language that
-    clearly ties the statement to Murray/Dr. Bowen as the source.
-    """
-    if not quote:
-        return False
-
-    quote_l = " ".join(str(quote).split()).strip().lower()
-    if not quote_l:
-        return False
-
-    # Explicitly reject non-source actor patterns.
-    if re.search(r"\bbowen\s+theorists?\b", quote_l):
-        return False
-    if re.search(r"\bbowen\s+theory\b", quote_l) and not re.search(
-        r"\b(?:murray|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
-        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
-        r"referred|called|commented|noted|observed|argued|stated|told|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        quote_l,
-    ):
-        return False
-
-    attribution_patterns = [
-        # "Bowen said / wrote / believed / described / did / predicted ..." etc.
-        r"\b(?:murray(?:\s+bowen)?|dr\.?\s*bowen|bowen(?!\s+theory)(?:'s)?)\b[^.!?\n]{0,80}\b"
-        r"(?:said|says|saying|wrote|writes|thought|believed|described|"
-        r"referred|called|commented|noted|observed|argued|stated|told|did|does|do|"
-        r"predicted|switched|shifted|suggested|concluded|found|identified|saw|"
-        r"quoted?|talk(?:ed)?\s+about|used\s+to\s+talk|was\s+very\s+clear\s+about)\b",
-        # "to quote Bowen" / "quote from Bowen"
-        r"\b(?:to\s+quote\s+bowen|quote\s+from\s+bowen)\b",
-        # Possessive attribution: "Bowen's [adjectives] idea/observation/insight/…"
-        # Allow up to two intervening words so "Bowen's basic ideas", "Bowen's very
-        # insightful observation", "all Bowen's key points" all match — previously
-        # only an immediately-adjacent noun (or "key") was recognised, so a common
-        # phrasing like "Bowen's basic ideas" was silently dropped.
-        r"\bbowen'?s\s+(?:\w+\s+){0,2}"
-        r"(?:ideas?|concepts?|points?|observations?|insights?|views?|"
-        r"approach|framework|thinking|conclusions?|predictions?|comments?|"
-        r"quotes?|switch|work|writings?|teachings?)\b",
-        # "I remember (talking to) Murray ... he said"
-        r"\bi\s+remember\s+(?:talking\s+to\s+)?murray\b[^.!?\n]{0,120}\bhe\s+said\b",
-        # "a tape / video / recording Murray Bowen made / did"
-        r"\b(?:tape|video|recording|session)\s+(?:\w+\s+){0,4}murray\s+bowen\b",
-        # "What did Bowen do / say"
-        r"\bwhat\s+did\s+bowen\b",
-        # "favorite Bowen quotes"
-        r"\bbowen\s+quotes?\b",
-    ]
-    return any(re.search(p, quote_l) for p in attribution_patterns)
-
-
 def _concept_has_bowen_attribution(concept: str) -> bool:
-    """Return True when the concept name itself names Bowen as the source.
-
-    Handles cases like "Bowen's Timeline Prediction" or "Bowen's War on Cancer
-    Comment" where the attribution is in the label, not the quote body.
-    """
-    if not concept:
-        return False
-    c = concept.lower().strip()
-    # Possessive "Bowen's X" (exclude "Bowen theory" / "Bowen theorist")
-    if re.search(r"\bbowen'?s\b", c) and not re.search(r"\bbowen\s+theor", c):
-        return True
-    # "Murray Bowen" or "Dr. Bowen" in the concept name
-    if re.search(r"\b(?:murray\s+bowen|dr\.?\s*bowen)\b", c):
-        return True
-    return False
+    """(alias) See ``bowen_attribution.concept_has_bowen_attribution`` — single
+    source of truth, shared with the Bowen parser's fallback so the two cannot
+    drift."""
+    return concept_has_bowen_attribution(concept)
 
 
 def _rule_filter_bowen_references(
@@ -805,6 +740,16 @@ def extract_bowen_references_from_transcript(
         parsed_refs = extract_bowen_references(
             "## Bowen References\n\n" + final_content
         )
+        if final_content.strip() and not parsed_refs:
+            # The extraction returned a non-empty response that parsed to 0 refs.
+            # Either a "no references" prose response (legitimate empty) OR format
+            # drift the parser could not read — surface it loudly rather than let a
+            # dropped-format extraction read as a silent, indistinguishable 0.
+            logger.warning(
+                "Bowen extraction response was non-empty but parsed to 0 "
+                "references (prose 'none found' or unrecognised format): %.120s",
+                final_content,
+            )
         filtered_refs = _filter_bowen_references_semantically(
             parsed_refs, model, logger
         )
@@ -1073,11 +1018,7 @@ def generate_structured_summary(
 
         logger.info("Generating summary via API (Target: %d words)...", summary_target_word_count)
         logger.info("Using model: %s", model)  # Log which model we're using
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
-
-        client = anthropic.Anthropic(api_key=api_key)
+        client = get_anthropic_client()
         summary_text = summary_pipeline.generate_summary(
             summary_input, client, model=model, system=transcript_system_message
         )
@@ -1207,10 +1148,7 @@ def generate_structured_abstract(
             transcript_system_message = create_system_message_with_cache(
                 transcript)
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
-        client = anthropic.Anthropic(api_key=api_key)
+        client = get_anthropic_client()
         output_path = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_ABSTRACT_GEN}"
@@ -1256,7 +1194,9 @@ def generate_structured_abstract(
                      "kept the best draft (%s unresolved issue(s)). The release gate will "
                      "BLOCK publication until it is regenerated or edited.",
                      max_attempts, best_issue_count)
-        return True
+        # The stage failed its purpose; report it as failed so Run Selected stops
+        # here rather than showing green (author decision, plan R11).
+        return False
     except Exception as e:
         logger.error("Error generating structured abstract: %s",
                      e, exc_info=True)
@@ -1463,10 +1403,7 @@ def summarize_transcript(
                 transcript=transcript,
                 target_word_count=target_word_count,
             )
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY not set")
-            client = anthropic.Anthropic(api_key=api_key)
+            client = get_anthropic_client()
             abstract_output = abstract_pipeline.generate_abstract(
                 abstract_input, client, model=model, system=transcript_system_message
             )
@@ -1783,21 +1720,22 @@ def summarize_transcript(
                 logger.error("VALIDATION: formatted transcript not found at %s — "
                              "extracted items cannot be validated.", formatted_path)
                 return False
-            # Results are enforced: previously the return values were discarded,
-            # so a failed check only appeared in the log.
+            # Validation results do not fail this stage (author decisions 2026-10-05 /
+            # 2026-10-09): emphasis and topics block PUBLICATION through the release
+            # gate (verbatim_quotes, topics_grounding); key terms are advisory. A
+            # failure is reported here so it is visible during the run.
             failed_checks = []
             if not validate_emphasis_items(formatted_path, formatted_path, logger):
-                failed_checks.append("emphasis quotes")
+                failed_checks.append("emphasis quotes (blocks publication)")
             logger.info("VALIDATION: Checking Topics (lightweight)...")
             if not validate_topics_lightweight(formatted_path, stem, logger):
-                failed_checks.append("topics")
+                failed_checks.append("topics (blocks publication)")
             logger.info("VALIDATION: Checking Key Terms...")
             if not validate_key_terms_fidelity(formatted_path, stem, logger):
-                failed_checks.append("key terms")
+                failed_checks.append("key terms (advisory)")
             if failed_checks:
-                logger.error("VALIDATION FAILED: %s — see the validation reports; "
-                             "regenerate before publishing.", ", ".join(failed_checks))
-                return False
+                logger.warning("VALIDATION: %s did not pass — see the validation "
+                               "reports.", ", ".join(failed_checks))
 
         if generate_structured:
             logger.info("Generating structured summary...")
@@ -1811,8 +1749,8 @@ def summarize_transcript(
             if structured_success:
                 logger.info("Validating structured summary...")
                 if not validate_summary_coverage(base_name=stem, logger=logger):
-                    logger.error("Structured summary failed coverage validation.")
-                    return False
+                    logger.warning("Structured summary did not pass coverage validation "
+                                   "— publication will be blocked until it does.")
             else:
                 logger.error("Structured summary generation failed.")
                 return False

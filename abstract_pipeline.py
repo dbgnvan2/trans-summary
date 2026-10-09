@@ -17,18 +17,17 @@ Usage:
 """
 
 import json
-import os
 import re
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-import anthropic
 
 import logging
 
 import config
 import transcript_utils
 from transcript_utils import (
+    get_anthropic_client_or_none,
     call_claude_with_retry,
     is_scaffolding_theme_name,
     parse_bold_numbered_theme_blocks,
@@ -256,12 +255,10 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
 
     # 3. Call the LLM
     try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
+        client = get_anthropic_client_or_none()
+        if client is None:
             # Config/transient — do NOT masquerade as genuine-absent (A10/P1).
             return config.PURPOSE_EXTRACTION_FAILED
-
-        client = anthropic.Anthropic(api_key=api_key)
         
         message = call_claude_with_retry(
             client=client,

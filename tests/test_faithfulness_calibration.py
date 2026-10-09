@@ -150,16 +150,17 @@ def test_theme_judge_meets_gold_thresholds():
         src = (FIX / gold["sources"][ga["source"]]).read_text(encoding="utf-8")
         text = (FIX / ga["dir"] / f"{ga['suffix']}.md").read_text(encoding="utf-8")
         obj = ac.codec("themes").parse_markdown(text, ga["kind"])
-        verdicts = fj.judge_themes(obj["items"], src, client)
-        for t, v in zip(obj["items"], verdicts):
+        items = fj.with_theme_evidence(obj["items"], text)  # as production judges (R7)
+        verdicts = fj.judge_themes(items, src, client)
+        for t, v in zip(items, verdicts):
             pairs.append(("grounded", v.label))
             rows.append((ga["source"], "grounded", v.label, t["name"][:45]))
 
     # ungrounded truth: curated fabricated themes
     for ut in gold["ungrounded_themes"]:
         src = (FIX / gold["sources"][ut["source"]]).read_text(encoding="utf-8")
-        v = fj.judge_themes([{"name": ut["name"], "description": ut["description"]}],
-                            src, client)[0]
+        theme = {k: ut[k] for k in ("name", "description", "evidence") if k in ut}
+        v = fj.judge_themes([theme], src, client)[0]
         pairs.append(("ungrounded", v.label))
         rows.append((ut["source"], "ungrounded", v.label, ut["name"][:45]))
 

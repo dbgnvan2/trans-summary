@@ -97,11 +97,13 @@ def test_m1_clean_run_allows(cloned_run):
     assert rg.run_gate(base, logging.getLogger("t")).decision is not Decision.BLOCK
 
 
-def test_m4c_blocker_scoped_to_abstract_not_synthesized_headings(cloned_run):
+def test_m4c_blocker_scoped_to_prose_not_synthesized_headings(cloned_run):
     """The blocker must NOT fire on Title-Case headings/concepts in synthesized
     artifacts ('Key Takeaways', 'Role Absorption') — verified as false positives
     on real runs; blocking them would refuse to publish a good run. Only the
-    abstract is scanned (config.GATE_ENTITY_ARTIFACT_SUFFIXES)."""
+    NARRATIVE PROSE artifacts (abstract/summary/overview/blog) are scanned
+    (config.GATE_ENTITY_ARTIFACT_SUFFIXES); the heading-heavy structured artifacts
+    (themes/topics/key-terms) are not."""
     base, proj = cloned_run
     ab = proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}"
     ab.write_text(ab.read_text().replace("Luciano Malorni", "Michael Kerr"))  # clean abstract
@@ -180,6 +182,39 @@ def test_real_fabricated_name_still_caught_after_fix():
         "# Abstract\n\nThe work of Luciano Malorni is central.", source)
 
 
+def test_presenter_name_known_not_flagged():
+    """A correct attribution to the presenter (named in the filename, absent from
+    the transcript body) must not be flagged as a hallucinated name."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses bowen theory and systems biology"
+    abstract = "In this lecture, Michael Kerr argues for a systems view of cancer."
+    # without a known name, "Kerr" is absent from the source -> flagged
+    assert "Michael Kerr" in find_ungrounded_names(abstract, source)
+    # with the presenter/author as a known name -> the attribution is not flagged
+    assert "Michael Kerr" not in find_ungrounded_names(
+        abstract, source, known_names=["Michael Kerr"])
+
+
+def test_known_name_does_not_hide_adjacent_fabrication():
+    """A stray token (Kerrstone) is not the known name (Kerr), so an adjacent
+    fabricated name is still flagged even when a known name is supplied."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses systems biology"
+    abstract = "Michael Kerrstone argues for a systems view."
+    names = find_ungrounded_names(abstract, source, known_names=["Michael Kerr"])
+    assert "Michael Kerrstone" in names
+
+
+def test_known_name_does_not_hide_short_fabricated_surname():
+    """A fabricated surname shorter than the min token length ("Li") must not be
+    hidden by matching only the shared known first name ("Michael")."""
+    from abstract_validation import find_ungrounded_names
+    source = "the presenter discusses systems biology"
+    abstract = "Michael Li argues for a systems view."
+    names = find_ungrounded_names(abstract, source, known_names=["Michael Kerr"])
+    assert "Michael Li" in names
+
+
 def test_entity_grounding_presenter_name_grounded_via_metadata(tmp_path, monkeypatch):
     """The presenter's own name (from the filename) must NOT be flagged as
     ungrounded just because the transcript never says it — that was a false
@@ -214,6 +249,104 @@ def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path
     assert "check failed in" in v.detail
     assert "regenerate and try again" in v.detail.lower()
     assert ".md" not in v.detail
+
+
+def test_entity_grounding_scans_summary_overview_blog(tmp_path, monkeypatch):
+    """The extended blocker scans the narrative prose artifacts (summary, overview,
+    blog) — not just the abstract — so a fabricated name smuggled into one of them
+    FAILs the gate with an actionable message naming the artifact."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems and differentiation", encoding="utf-8")
+    # A fabricated name in BLOG prose (with real headings + a grounded bold term
+    # present) must FAIL and name the blog artifact.
+    blog = proj / f"{base}{config.SUFFIX_BLOG}"
+    blog.write_text(
+        "# Title\n\n## Key Takeaways\n\nThe work of Luciano Malorni is central.\n\n"
+        "## Glossary of Terms\n\n- **Differentiation of Self:** The capacity for objectivity.\n",
+        encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.FAIL
+    assert "Luciano Malorni" in v.detail
+    assert "blog" in v.detail.lower()
+
+
+def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tmp_path, monkeypatch):
+    """Headings ('## Key Takeaways', '### Opening Paragraph') and bold concept
+    labels ('**Role Absorption** — …') in the scanned prose artifacts must NOT read
+    as fabricated names — otherwise extending the blocker would false-BLOCK a good
+    run whose blog/overview/summary legitimately uses those structures.
+
+    Since plan R6 (review F2) names inside headings/labels ARE grounded: template
+    headings pass via config.SCAFFOLDING_HEADING_PHRASES, and a concept label
+    passes because its words occur in the source (as a real concept does)."""
+    base = "A Talk - Jane Doe - 2021-09-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "the speaker discusses family systems differentiation emotional objectivity "
+        "homeostasis and the role each member plays",
+        encoding="utf-8")
+    for suffix, body in [
+        (config.SUFFIX_SUMMARY_GEN,
+         "### Opening Paragraph\n\nJane Doe presents on family systems.\n\n### Body Section\n\n"
+         "She discusses differentiation of self.\n\n### Closing Paragraph\n\nThe talk concludes with homeostasis.\n"),
+        (config.SUFFIX_OVERVIEW,
+         "# A Talk\n\nA Talk is a lecture by Jane Doe about family systems.\n\n## TL;DR\n\n"
+         "Family systems and differentiation.\n\n## Key terms and definitions\n\n"
+         "**Differentiation of Self** — the capacity for emotional objectivity.\n\n"
+         "**Role Absorption** — a concept about family roles.\n"),
+        (config.SUFFIX_BLOG,
+         "# Title\n\n## Key Takeaways\n\n- Differentiation is central.\n\n## Glossary of Terms\n\n"
+         "- **Role Absorption:** The capacity for objectivity.\n"),
+    ]:
+        (proj / f"{base}{suffix}").write_text(body, encoding="utf-8")
+    v = rg.check_entity_grounding(base)
+    assert v.status is Status.PASS, v.detail
+
+
+def test_find_ungrounded_names_skips_headings_and_bold_labels():
+    """Unit-level: '## Key Takeaways' (a generic heading phrase) and a grounded
+    '**Role Absorption**' label (colon-inside, period-inside and dash formats) are
+    not flagged, and a fabricated name in prose still is. Since plan R6 the label's
+    words must occur in the source — see the test below for the ungrounded case."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems, differentiation and the role of each member"
+    doc = ("# Title\n\n## Key Takeaways\n\n- A point.\n\n"
+           "**Role Absorption** — a concept about roles.\n\n"
+           "- **Role Absorption:** The capacity for objectivity.\n\n"
+           "- **Role Absorption.** Kerr describes family roles.\n\n"
+           "The work of Luciano Malorni is central.\n")
+    names = find_ungrounded_names(doc, src)
+    assert "Key Takeaways" not in names
+    assert "Role Absorption" not in names
+    assert "Luciano Malorni" in names
+
+
+def test_r6b_label_with_no_source_words_is_flagged():
+    """Behaviour change (plan R6): a bold label whose words never occur in the
+    source is treated like any other ungrounded name. Real artifacts had none
+    (tests/fixtures/prose_real); a fabricated name in a label is the case this
+    closes."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems and differentiation"
+    assert "Role Absorption" in find_ungrounded_names(
+        "**Role Absorption** — a concept about roles.", src)
+
+
+def test_find_ungrounded_names_still_catches_bold_name_without_separator():
+    """A fabricated name rendered as leading bold emphasis WITHOUT a label
+    separator ('**Luciano Malorni** wrote…') must still be detected — the
+    stripper removes only bold labels carrying a ':'/'-'/'.' separator, not bare
+    bold emphasis (the over-strip fix from the re-sweep)."""
+    from abstract_validation import find_ungrounded_names
+    src = "the speaker discusses family systems"
+    assert "Luciano Malorni" in find_ungrounded_names(
+        "**Luciano Malorni** wrote about Bowen.", src)
 
 
 def test_entity_grounding_shared_token_name_is_a_known_lexical_gap():
@@ -262,7 +395,7 @@ def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     monkeypatch.setattr(rg, "_judge_cached", _fake_judge)
     monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
     import anthropic
-    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
 
     v = rg.check_faithfulness(base)
     assert v.status is Status.PASS
@@ -296,7 +429,7 @@ def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, mo
     monkeypatch.setattr(rg, "_judge_cached", lambda *a, **k: _Res())
     monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
     import anthropic
-    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
 
     v = rg.check_faithfulness(base)
     art = suffix.strip(" -").removesuffix(".md")
@@ -617,3 +750,28 @@ def test_m7_clean_rerun_clears_stale_block_marker(cloned_run):
     ab.write_text(ab.read_text().replace("Luciano Malorni", "Michael Kerr"))
     rg.gate_and_report(base, "t2", logging.getLogger("t"))
     assert not marker.exists()
+
+
+def test_r8d_zero_claims_artifact_blocks(tmp_path, monkeypatch):
+    """Plan R8: a non-empty prose artifact with no extractable claims makes the
+    faithfulness check ERROR, which BLOCKs publication (nothing was verified)."""
+    base = "Sample Talk - Jane Doe - 2021-05-10"
+    proj = tmp_path / base
+    proj.mkdir(parents=True)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    monkeypatch.setattr(rg, "_store_judge_disk_cache", lambda *a, **k: None)
+    monkeypatch.setattr(rg, "_disk_cached_verdict", lambda *a, **k: None)
+    rg._FAITHFULNESS_CACHE.clear()
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "Spoken words about family systems.", encoding="utf-8")
+    (proj / f"{base}{config.SUFFIX_BLOG}").write_text(
+        "## Key Takeaways\n\n**Family Systems**\n", encoding="utf-8")
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
+
+    v = rg.check_faithfulness(base, suffixes=[config.SUFFIX_BLOG])
+    assert v.status is Status.ERROR
+    assert "0 claims extracted" in str(v.items)
+    assert rg.decide([v]).decision is rg.Decision.BLOCK

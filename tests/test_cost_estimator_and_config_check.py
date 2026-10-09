@@ -32,18 +32,25 @@ def test_check_model_availability_checks_all_active_models(monkeypatch):
     monkeypatch.setattr(
         transcript_config_check.config, "VALIDATION_MODEL", "m-validate"
     )
-    monkeypatch.setattr(transcript_config_check.os, "getenv", lambda _k: "fake-key")
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "fake-key")
 
     called_models = []
 
     class FakeClient:
         class messages:
             @staticmethod
-            def create(model, max_tokens, messages):
+            def create(model, max_tokens, messages, **_kw):
                 called_models.append(model)
-                return SimpleNamespace()
+                return SimpleNamespace(
+                    type="message", role="assistant", stop_reason="end_turn", model=model,
+                    content=[SimpleNamespace(type="text", text="OK")],
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1,
+                                          cache_creation_input_tokens=0,
+                                          cache_read_input_tokens=0))
 
-    monkeypatch.setattr(transcript_config_check.anthropic, "Anthropic", lambda api_key: FakeClient())
+    monkeypatch.setattr("transcript_utils.log_token_usage", lambda *a, **k: None)
+
+    monkeypatch.setattr("transcript_utils.get_anthropic_client", lambda *_a, **_k: FakeClient())
 
     ok = transcript_config_check.check_model_availability()
 

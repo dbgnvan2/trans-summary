@@ -12,7 +12,6 @@ Example:
 
 import argparse
 import logging
-import os
 from pathlib import Path
 
 import anthropic
@@ -58,14 +57,7 @@ def extract_key_terms_with_claude(
     transcript: str, metadata: dict, prompt_template: str
 ) -> str:
     """Send transcript to Claude for key terms extraction."""
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Set it with: export ANTHROPIC_API_KEY='your-api-key'"
-        )
-
-    client = anthropic.Anthropic(api_key=api_key)
+    client = transcript_utils.get_anthropic_client()
 
     # Create cached system message for transcript
     system_message = create_system_message_with_cache(transcript)

@@ -3,13 +3,11 @@ Pipeline module for validation tasks (headers, abstracts, emphasis).
 """
 
 import functools
-import os
 import re
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Optional
 
-import anthropic
 
 import abstract_pipeline
 import abstract_validation
@@ -17,6 +15,8 @@ import config
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
+    get_anthropic_client,
+    get_anthropic_client_or_none,
     call_claude_with_retry,
     cap_max_tokens_for_model,
     count_header_verdicts,
@@ -83,10 +83,7 @@ def _generate_validation_response(
     system: Optional[list] = None,
     **kwargs
 ) -> str:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY environment variable not set.")
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client()
 
     if system:
         kwargs["system"] = system
@@ -239,6 +236,51 @@ def _best_local_grounding(definition: str, term: str, transcript: str) -> Option
     return best
 
 
+_KEY_TERM_STOPWORDS = frozenset({"with", "from", "into", "about", "their", "within"})
+
+
+def _initials(text: str) -> str:
+    return "".join(w[0] for w in re.split(r"[\s-]+", text) if w and w[0].isalpha()).upper()
+
+
+_VERSUS_RE = re.compile(r"\s+(?:versus|vs\.?)\s+", re.IGNORECASE)
+
+
+def _key_term_alternatives(term: str) -> list:
+    """Forms of a key-term label to ground against the transcript: the label, a
+    trailing parenthetical and the text before it, each side of "X / Y", and a
+    "versus" -> "and" variant. Never splits into single words, so a generic word
+    alone cannot ground a term.
+
+    Purpose: Ground terms whose label adds an expansion or alias (decision 2a).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_validator_gating_r15.py::test_r15_key_term_alternatives
+    """
+    candidates = [term]
+    paren = re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", term)
+    if paren:
+        main, inner = paren.group(1).strip(), paren.group(2).strip()
+        candidates.append(main)
+        # The parenthetical counts only when it is an expansion or acronym of the
+        # main part, or has 2+ significant words of its own — "(Bowen)" or "(in
+        # families)" must not ground a term (sweep finding, P7).
+        if (_initials(inner) == main.replace(".", "").upper()
+                or _initials(main) == inner.replace(".", "").upper()
+                or len([w for w in re.findall(r"[A-Za-z]+", inner)
+                        if len(w) >= 4 and w.lower() not in _KEY_TERM_STOPWORDS]) >= 2):
+            candidates.append(inner)
+    out: list = []
+    for cand in candidates:
+        for part in re.split(r"\s*/\s*", cand):
+            part = part.strip()
+            if not part:
+                continue
+            for form in (part, _VERSUS_RE.sub(" and ", part)):
+                if form not in out:
+                    out.append(form)
+    return out or [term]
+
+
 def validate_key_terms_fidelity(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -281,13 +323,13 @@ def validate_key_terms_fidelity(
     ]
 
     for term, definition in terms:
-        # A term is often a slash-joined alias pair ("Symbiosis / Symbiotic
-        # Relationship") that never appears verbatim as one string, though each
-        # alias does. Ground on the best-matching alias part.
-        term_parts = [p.strip() for p in re.split(r"\s*/\s*", term) if p.strip()] or [term]
-        term_ratio = max(
-            find_text_in_content(part, transcript, aggressive_normalization=True)[2]
-            for part in term_parts
+        # A term label often names alternatives that never appear verbatim as one
+        # string, though one of them does: "Symbiosis / Symbiotic Relationship",
+        # "OCD (Obsessive-Compulsive Disorder)", "Wanting versus Liking" (spoken as
+        # "wanting and liking"). Ground on the best-matching alternative.
+        term_ratio, best_part = max(
+            (find_text_in_content(part, transcript, aggressive_normalization=True)[2], part)
+            for part in _key_term_alternatives(term)
         )
         # The definition is the model's synthesized paraphrase, NOT a transcript
         # quote — so grounding is driven by the TERM appearing in the transcript,
@@ -299,7 +341,7 @@ def validate_key_terms_fidelity(
         # is high for almost any on-topic text, so a definition describing the
         # wrong concept still scored EXACT (P7). Also require LOCAL grounding —
         # overlap in the window around where the term actually appears.
-        def_local = _best_local_grounding(definition, term, transcript)
+        def_local = _best_local_grounding(definition, best_part, transcript)
         # Benefit of the doubt when the term can't be localised at all: term_ratio
         # (fuzzy) may ground a term that the exact-sequence locator can't pin
         # (reordered/compound wording). Only DOWNGRADE when we DID locate the term
@@ -416,6 +458,55 @@ def _keyword_grounding_ratio(probe: str, haystack: str) -> float:
     return matched / max(1, len(set(keywords)))
 
 
+def _grade_topics(topics: list, transcript: str, sections_map: dict) -> list:
+    """Grade each topic against the transcript. Returns
+    ``(name, title_ratio, desc_ratio, section_ratio, result, has_sections)`` rows,
+    result in EXACT / PARTIAL / WEAK / FAIL. Pure (no report written), so the
+    release gate can run it too (plan R15)."""
+    rows = []
+    for topic in topics:
+        name = topic.get("name", "").strip()
+        description = topic.get("description", "").strip()
+        sections_str = topic.get("sections", "").strip()
+        if not name:
+            continue
+
+        # Each ratio is max(keyword grounding, fuzzy match). The fuzzy scan is
+        # O(transcript) per call (20-50 s per real project) and can only RAISE the
+        # ratio, so skip it once keyword grounding already reaches the top tier:
+        # the tier is identical (plan R15 — the gate runs this on every publish).
+        title_ratio = _keyword_grounding_ratio(name, transcript)
+        if title_ratio < 0.65:
+            title_ratio = max(title_ratio, find_text_in_content(
+                name, transcript, aggressive_normalization=True)[2])
+
+        desc_probe = " ".join(description.split()[:40])
+        desc_ratio = _keyword_grounding_ratio(desc_probe, transcript) if desc_probe else 0.0
+        if desc_probe and desc_ratio < 0.55:
+            desc_ratio = max(desc_ratio, find_text_in_content(
+                desc_probe, transcript, aggressive_normalization=True)[2])
+
+        section_ratio = 0.0
+        if sections_str:
+            nums = summary_pipeline.parse_section_range(sections_str)
+            section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
+            if section_text:
+                section_ratio = _keyword_grounding_ratio(
+                    f"{name} {desc_probe}", section_text
+                )
+
+        if title_ratio >= 0.65 and desc_ratio >= 0.55:
+            result = "EXACT"
+        elif title_ratio >= 0.45 and desc_ratio >= 0.35:
+            result = "PARTIAL"
+        elif title_ratio >= 0.25 or desc_ratio >= 0.20:
+            result = "WEAK"
+        else:
+            result = "FAIL"
+        rows.append((name, title_ratio, desc_ratio, section_ratio, result, bool(sections_str)))
+    return rows
+
+
 def validate_topics_lightweight(
     formatted_file_path: Path, base_name: str, logger
 ) -> bool:
@@ -459,53 +550,18 @@ def validate_topics_lightweight(
         "|---|---:|---:|---:|---|",
     ]
 
-    for topic in topics:
-        name = topic.get("name", "").strip()
-        description = topic.get("description", "").strip()
-        sections_str = topic.get("sections", "").strip()
-        if not name:
-            continue
-
-        title_fuzzy = find_text_in_content(
-            name, transcript, aggressive_normalization=True
-        )[2]
-        title_ground = _keyword_grounding_ratio(name, transcript)
-        title_ratio = max(title_fuzzy, title_ground)
-
-        desc_probe = " ".join(description.split()[:40])
-        desc_fuzzy = find_text_in_content(
-            desc_probe, transcript, aggressive_normalization=True
-        )[2] if desc_probe else 0.0
-        desc_ground = _keyword_grounding_ratio(desc_probe, transcript) if desc_probe else 0.0
-        desc_ratio = max(desc_fuzzy, desc_ground)
-
-        section_ratio = 0.0
-        if sections_str:
-            nums = summary_pipeline.parse_section_range(sections_str)
-            section_text = " ".join(sections_map.get(n, "") for n in nums).strip()
-            if section_text:
-                section_ratio = _keyword_grounding_ratio(
-                    f"{name} {desc_probe}", section_text
-                )
-            else:
-                section_ratio = 0.0
-
-        if title_ratio >= 0.65 and desc_ratio >= 0.55:
-            result = "EXACT"
+    for name, title_ratio, desc_ratio, section_ratio, result, has_sections in _grade_topics(
+            topics, transcript, sections_map):
+        if result == "EXACT":
             exact += 1
-        elif title_ratio >= 0.45 and desc_ratio >= 0.35:
-            result = "PARTIAL"
+        elif result == "PARTIAL":
             partial += 1
-        elif title_ratio >= 0.25 or desc_ratio >= 0.20:
-            result = "WEAK"
+        elif result == "WEAK":
             weak += 1
         else:
-            result = "FAIL"
             failed += 1
-
-        if sections_str and section_ratio < 0.60:
+        if has_sections and section_ratio < 0.60:
             section_mismatch += 1
-
         lines.append(
             f"| {name} | {title_ratio:.2f} | {desc_ratio:.2f} | {section_ratio:.2f} | {result} |"
         )
@@ -551,7 +607,9 @@ def _normalized_word_tuple(text: str) -> tuple:
     searched once per quote)."""
     text = text.translate(_QUOTE_CHAR_MAP)
     text = normalize_text(text, aggressive=True)
-    return tuple(re.sub(r"[^\w\s]", " ", text).split())
+    # Filler words and stutters are ignored on both sides (author decision 2a,
+    # 2026-10-09): a quote that only tidied "my uh my my degrees" is verbatim.
+    return tuple(_collapse_disfluencies(re.sub(r"[^\w\s]", " ", text).lower().split()))
 
 
 @functools.lru_cache(maxsize=4)
@@ -585,6 +643,37 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     return sum(b.size for b in blocks) / len(q)
 
 
+@functools.lru_cache(maxsize=8)
+def _without_disfluencies(text: str) -> str:
+    """Lower-cased word sequence with filler words (config.QUOTE_FILLER_WORDS)
+    removed and immediate repeats of 1-3 words collapsed, so "my uh my my degrees"
+    and "my degrees" compare equal. Applied to both quote and transcript.
+
+    Purpose: Stop a quote that only dropped disfluencies failing verbatim checks.
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15 (decision 1a)
+    Tests:   tests/test_validator_gating_r15.py::test_r15_emphasis_ignores_disfluencies
+    """
+    words = re.findall(r"[a-z0-9']+", text.lower().replace("\u2019", "'"))
+    return " ".join(_collapse_disfluencies(words))
+
+
+def _collapse_disfluencies(words) -> list:
+    """Drop filler words (config.QUOTE_FILLER_WORDS) and collapse immediate
+    repeats of 1-3 words in a lower-cased word sequence."""
+    words = [w for w in words if w not in config.QUOTE_FILLER_WORDS]
+    out: list = []
+    i = 0
+    while i < len(words):
+        for n in (3, 2, 1):
+            if len(out) >= n and words[i:i + n] == out[-n:]:
+                i += n
+                break
+        else:
+            out.append(words[i])
+            i += 1
+    return out
+
+
 def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     """
     Grounding ratio for one emphasis quote against the transcript.
@@ -594,6 +683,10 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     (``_quote_word_coverage``). Probing only the head and tail let a quote with a
     fabricated or negated middle score 1.0; the coverage term catches that.
     """
+    quote = _without_disfluencies(quote)
+    if not quote:
+        return 0.0  # an empty or filler-only "quote" grounds nothing (sweep finding)
+    formatted_content = _without_disfluencies(formatted_content)
     words = quote.split()
     n = config.EMPHASIS_HEADTAIL_WORDS
     if len(words) <= 2 * n:
@@ -801,8 +894,7 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
             target_word_count=target_word_count,
         )
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        client = anthropic.Anthropic(api_key=api_key) if api_key else None
+        client = get_anthropic_client_or_none(logger)
 
         passed, report = abstract_validation.validate_and_report(
             abstract_text, abstract_input, api_client=client, model=model, logger=logger
@@ -810,9 +902,15 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
 
         # Advisory (P2): surface abstract proper-names absent from the source.
         # No gate previously checked this, and a real run shipped a fabricated
-        # researcher name ("Luciano Malorni") into the published HTML.
+        # researcher name ("Luciano Malorni") into the published HTML. The
+        # presenter/author is passed as a KNOWN name so a correct attribution to
+        # the speaker (named in the filename, not spoken in their own talk) is not
+        # flagged as a hallucination ("Michael Kerr" false-positive).
+        known_names = [
+            n for n in (metadata.get("presenter"), metadata.get("author")) if n
+        ]
         ungrounded_names = abstract_validation.find_ungrounded_names(
-            abstract_text, transcript
+            abstract_text, transcript, known_names=known_names
         )
         if ungrounded_names:
             logger.warning(
@@ -845,8 +943,71 @@ def validate_abstract_coverage(base_name: str, logger=None, model: str = config.
         return False
 
 
+def _summary_coverage_logic_version() -> str:
+    import inspect
+
+    prompt = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
+    parts = [
+        config.AUX_MODEL,
+        repr(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES)),
+        prompt.read_text(encoding="utf-8") if prompt.exists() else "<no prompt>",
+        *(inspect.getsource(fn) for fn in (
+            summary_validation.generate_coverage_items,
+            summary_validation.check_keyword_coverage,
+            summary_validation.extract_keywords,
+            summary_validation.validate_summary_coverage,
+            summary_validation.validate_and_report_status,
+            abstract_validation.coverage_status,
+            abstract_validation.apply_llm_results,
+            abstract_validation.verify_items_with_llm,
+            summary_pipeline.prepare_summary_input,
+        )),
+    ]
+    return "|".join(parts)
+
+
+def summary_coverage_key(base_name: str) -> Optional[str]:
+    """sha256 over the summary, topics, interpretive themes and transcript files —
+    the inputs summary coverage is computed from. None when there is no summary.
+    A stored verdict whose key differs from this is stale (P6)."""
+    import hashlib
+
+    proj = config.PROJECTS_DIR / base_name
+    summary = proj / f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
+    if not summary.exists():
+        return None
+    h = hashlib.sha256()
+    # The verdict also depends on the coverage logic, prompt, model and gating
+    # policy, not only the input files (sweep finding, P6).
+    h.update(_summary_coverage_logic_version().encode("utf-8"))
+    for suffix in (config.SUFFIX_SUMMARY_GEN, config.SUFFIX_TOPICS,
+                   config.SUFFIX_INTERPRETIVE_THEMES, config.SUFFIX_FORMATTED,
+                   config.SUFFIX_YAML):
+        path = proj / f"{base_name}{suffix}"
+        h.update(suffix.encode("utf-8"))
+        h.update(path.read_bytes() if path.exists() else b"<absent>")
+    return h.hexdigest()
+
+
+def _write_summary_coverage_verdict(base_name: str, status: str, detail: str) -> None:
+    import json
+
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
+    if status == "ERROR":
+        # Never store a could-not-verify result (P1): the next gate run retries.
+        path.unlink(missing_ok=True)
+        return
+    path.write_text(json.dumps({"status": status, "key": summary_coverage_key(base_name),
+                                "detail": detail}, indent=2), encoding="utf-8")
+
+
 def validate_summary_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
-    """Validate the summary using the coverage validation module."""
+    """Validate the summary using the coverage validation module.
+
+    Also stores the gate verdict (PASS / FAIL; ERROR is not stored) keyed to
+    ``summary_coverage_key`` for ``release_gate.check_summary_coverage``.
+    Spec: docs/plan_review_fixes_2026-10-04.md#R15
+    """
     if logger is None:
         logger = setup_logging("validate_summary_coverage")
 
@@ -885,10 +1046,9 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             transcript=transcript,
         )
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        client = anthropic.Anthropic(api_key=api_key) if api_key else None
+        client = get_anthropic_client_or_none(logger)
 
-        passed, report = summary_validation.validate_and_report(
+        status, passed, report = summary_validation.validate_and_report_status(
             summary_text, summary_input, api_client=client, model=model, logger=logger
         )
 
@@ -897,6 +1057,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: str = config.A
             f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
         )
         report_path.write_text(report, encoding="utf-8")
+        _write_summary_coverage_verdict(base_name, status, report.splitlines()[0])
 
         logger.info("Validation Report saved to %s", report_path)
         logger.info("Validation Passed: %s", passed)

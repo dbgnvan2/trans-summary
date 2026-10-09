@@ -52,10 +52,11 @@ class ClaimVerdict:
 
     @property
     def faithful(self) -> bool:
-        # A "passing" verdict for EITHER judge: the faithfulness judge's ENTAILED or
-        # the theme judge's GROUNDED. (Without "grounded" here, `unfaithful` would
-        # list every theme — grounded ones included — in a theme FAIL report.)
-        return self.label in ("entailed", "grounded")
+        # A "passing" verdict for EITHER judge: the faithfulness judge's ENTAILED, the
+        # theme judge's GROUNDED, or the key-terms semantic judge's CORRECT. (Without
+        # the theme/key-terms labels here, `unfaithful` would list every verdict —
+        # grounded ones included — in a theme/key-terms FAIL report.)
+        return self.label in ("entailed", "grounded", "correct")
 
 
 @dataclass
@@ -109,13 +110,17 @@ def _split_sentences(line: str) -> list:
     return out
 
 
-def extract_claims(text: str) -> list:
+def extract_claims(text: str, source: str = None) -> list:
     """Split a narrative artifact into atomic, judgeable claims (sentence-level).
 
     Strips list markers, bold/italic wrappers, and ``**Description:**``-style
     scaffolding. Headings are judged as claims when they are long enough to
     assert something or contain a number, unless they are generic scaffolding
     (``config.FAITHFULNESS_GENERIC_HEADINGS``).
+
+    With ``source``, also re-emits names from headings / bold labels that the
+    lexical check cannot find in the source (review F2, plan R6), so a fabricated
+    name placed in scaffolding is judged.
     Returns claims long enough to carry a verifiable assertion (>= config bound),
     in document order. Deterministic: no LLM call here (cost + reproducibility)."""
     if not text:
@@ -124,23 +129,37 @@ def extract_claims(text: str) -> list:
     dropped = 0
     skip_labels = {s.lower() for s in config.FAITHFULNESS_SKIP_LINE_LABELS}
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
-    for raw_line in _strip_frontmatter(text).splitlines():
+    # Strip markdown scaffolding — ``---``/fenced ```yaml front matter, heading
+    # lines, bold-only label lines, and leading bold labels — via the SAME helper
+    # the entity/name detector uses (single source of truth, P19). Without this, a
+    # Title-Case topic/term label ("**Systems Biology and Cancer Niche Theory.**")
+    # or a ```yaml metadata block (slug:/focus_keyword:/q:/a:) is extracted and
+    # judged as an "unsupported" claim and false-BLOCKs the faithful artifact.
+    from abstract_validation import (
+        _strip_fenced_block,
+        _strip_front_matter,
+        _strip_scaffolding,
+    )
+    # Claim-bearing headings (main, 2026-09-23): the scaffolding strip below removes
+    # every heading, so they are taken from the original text in a first pass. A
+    # heading counts when it is long enough to assert something or states a
+    # number, and is not generic scaffolding ("Abstract", "Key Takeaways").
+    generic = ({h.lower() for h in config.FAITHFULNESS_GENERIC_HEADINGS}
+               | set(config.SCAFFOLDING_HEADING_PHRASES))
+    for raw_line in _strip_fenced_block(_strip_front_matter(text.strip())).splitlines():
         line = raw_line.strip()
-        if not line or line == "---":
+        if not line.startswith("#"):
             continue
-        if line.startswith("#"):
-            # A heading can carry a claim ("Bowen's 1954 Study at Harvard"), which
-            # was previously never judged. Judge headings that are long enough to
-            # assert something or that state a number; skip generic scaffolding
-            # headings ("Abstract", "Key Takeaways").
-            heading = line.lstrip("#").replace("**", "").replace("__", "").strip()
-            generic = {h.lower() for h in config.FAITHFULNESS_GENERIC_HEADINGS}
-            if (heading and heading.lower().rstrip(":") not in generic
-                    and (len(heading) >= config.FAITHFULNESS_MIN_CLAIM_CHARS
-                         or re.search(r"\d", heading))):
-                claims.append(heading)
+        heading = line.lstrip("#").replace("**", "").replace("__", "").strip()
+        if (heading and heading.lower().rstrip(":") not in generic
+                and (len(heading) >= config.FAITHFULNESS_MIN_CLAIM_CHARS
+                     or re.search(r"\d", heading))):
+            claims.append(heading)
+    for raw_line in _strip_scaffolding(text).splitlines():
+        line = raw_line.strip()
+        if not line:
             continue
-        # drop list markers, blockquote markers, and a leading bold field label
+        # drop list markers, blockquote markers, and any residual bold field label
         line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)
         line = line.replace("**", "").replace("__", "").strip()
         # skip a structured-artifact scaffolding / meta line ("Coverage / role:",
@@ -172,7 +191,69 @@ def extract_claims(text: str) -> list:
         logging.getLogger("faithfulness_judge").debug(
             "extract_claims: dropped %d non-claim fragment(s) of %d",
             dropped, dropped + len(claims))
+    # Re-emit name-shaped bold labels (see _name_shaped_bold_labels): the
+    # scaffolding strip removed them, but a fabricated name rendered as a leading
+    # bold label ("**Luciano Malorni:** ...") is the one shape the judge must still
+    # see — it is the semantic backstop for the entity check's own bold-label blind
+    # spot. A grounded name re-emitted here is judged "entailed" (the judge's
+    # source includes the presenter via metadata framing), so only fabrications
+    # surface as FAILs.
+    for label in _name_shaped_bold_labels(text):
+        if label not in claims:
+            claims.append(label)
+    if source:
+        # Ungrounded names the prose claims don't already carry are the ones in
+        # headings / labels (stripped above); judge them as claims.
+        from abstract_validation import find_ungrounded_names
+        for name in find_ungrounded_names(text, source):
+            if not any(name in c for c in claims):
+                claims.append(name)
     return claims
+
+
+_NAME_SHAPE = re.compile(r"^[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+(?: [A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]+)+$")
+
+# Structural/generic bold labels that are never a person name. The repo's own
+# key-terms/theme/topic formats use the "**Term**: def" colon-outside shape, so a
+# connective-less Title-Case label here ("Theme One", "Term Two") would otherwise
+# be re-emitted as a fabricated name and false-BLOCK (P3/P7).
+_SCAFFOLDING_LABEL_RE = re.compile(
+    r"^(?:theme|term|topic|section|frame|phase|stage|part)\b", re.IGNORECASE
+)
+
+# Canonical Bowen Family Systems Theory concepts (see config.BOWEN_CONCEPT_LABELS).
+# Connective-less AND Title-Case — the "and"/"of" connectives that already exclude
+# "Systems Biology and Cancer Niche Theory" / "Differentiation of Self" are absent
+# here, so _NAME_SHAPE matches them. Best-effort editorial vocabulary: a
+# LECTURE-SPECIFIC concept label not in the set ("Emergent Features") is a residual
+# false-positive of the name backstop — a fully-general name-vs-concept discriminator
+# needs the semantic judge, not a regex (see CHANGELOG). Rule #9: editorial content
+# lives in config.py, not code.
+_BOWEN_CONCEPT_LABELS = config.BOWEN_CONCEPT_LABELS
+
+
+def _name_shaped_bold_labels(text: str) -> list:
+    """Bold labels that are the ATTRIBUTION shape ``**Name:** <claim>`` or
+    ``**Name**: <claim>`` (a colon inside OR outside the bold) AND look like a
+    proper NAME (2+ Title-Case words, no lowercase connective). A concept/term
+    label uses a period or stands alone (\"**Family Projection Process.**\",
+    \"**Differentiation of Self**\") and is NOT re-emitted — so the topic-label
+    false-BLOCK fix is preserved while a fabricated name (\"**Luciano Malorni:** ...\")
+    still reaches the judge (its backstop role). The connective-less colon-outside
+    concept shape (\"**Family Projection Process**: …\") is excluded via the Bowen
+    concept vocabulary + scaffolding-label regex (see constants above)."""
+    labels: list = []
+    for m in re.finditer(r"\*\*([^*\n]+?)(?::\*\*|\*\*[ \t]*:)", text):
+        label = m.group(1).strip().rstrip(".")
+        if not _NAME_SHAPE.match(label):
+            continue
+        lowered = label.lower()
+        if _SCAFFOLDING_LABEL_RE.match(lowered):
+            continue
+        if lowered in _BOWEN_CONCEPT_LABELS:
+            continue
+        labels.append(label)
+    return labels
 
 
 def _is_claim(s: str) -> bool:
@@ -189,9 +270,134 @@ def _is_claim(s: str) -> bool:
     return any(w[:1].isupper() for w in s.split()[1:])
 
 
-def _strip_frontmatter(content: str) -> str:
-    m = re.match(r"^\s*---\s*\n.*?\n---\s*\n", content, re.DOTALL)
-    return content[m.end():] if m else content
+# --------------------------------------------------------------------------- chunked judging (long transcripts)
+# A single batched judge call over a LONG source degrades attention, especially the
+# middle of the transcript, and can near the context limit (gap #1). Instead, split the
+# source into overlapping word-windows and judge each claim against the window it most
+# lexically resembles; a claim that resembles no single window (a summary-level
+# inference connecting material across the source) is judged against the FULL source.
+_STOP_WORDS = {
+    "about", "also", "among", "and", "are", "as", "at", "been", "being", "but",
+    "can", "could", "for", "from", "had", "has", "have", "her", "his", "how",
+    "into", "its", "not", "our", "out", "she", "that", "the", "their", "them",
+    "they", "this", "was", "were", "what", "when", "which", "who", "will",
+    "with", "would", "your",
+}
+
+
+def _significant_words(text: str) -> set:
+    """Lowercased, stopword-free words of length >= 4 — the vocabulary used for
+    lexical claim->window routing (a deterministic relevance proxy)."""
+    return {w for w in re.findall(r"[a-z]{4,}", text.lower()) if w not in _STOP_WORDS}
+
+
+def chunk_source(source: str, *, chunk_words: Optional[int] = None,
+                 overlap_words: Optional[int] = None) -> list:
+    """Split the source transcript into overlapping word-windows. Reuses the same
+    windowing as the lexical validators (config.VALIDATION_CHUNK_SIZE/OVERLAP), read
+    at call time so a test (or runtime) config change is honoured."""
+    chunk_words = chunk_words or config.VALIDATION_CHUNK_SIZE
+    overlap_words = overlap_words or config.VALIDATION_CHUNK_OVERLAP
+    words = source.split()
+    total = len(words)
+    if total <= chunk_words:
+        return [source]
+    chunks = []
+    start = 0
+    while start < total:
+        end = min(start + chunk_words, total)
+        # merge a small trailing remainder into the prior window (no stub window)
+        if 0 < total - end < chunk_words * 0.3:
+            end = total
+        chunks.append(" ".join(words[start:end]))
+        if end >= total:
+            break
+        start = max(end - overlap_words, start + 1)
+    return chunks
+
+
+def route_claims_to_chunks(claims: list, chunks: list, min_overlap: float) -> tuple:
+    """Return ``(routed, unrouted)``.
+
+    ``routed`` maps window-index -> [claim-index] for claims whose source-anchored
+    content lives entirely within ONE window. ``unrouted`` lists claim-indexes that
+    must be judged against the FULL source: either the claim's significant words barely
+    appear in the source (below ``min_overlap``), or they are SPREAD across windows — a
+    cross-window summary-level inference no single window can fairly verify.
+
+    Spread is detected structurally, not by a best-vs-second margin: a claim routes to a
+    window only if that window contains EVERY significant word of the claim that appears
+    anywhere in the source. A margin only catches a *balanced* split; an unbalanced
+    split (5 words in window A, 3 in window B) still routes to the dominant window and
+    drops the minority element from the judge's context, which can false-BLOCK a
+    faithful abstraction (precision).
+    """
+    routed: dict = {}
+    unrouted: list = []
+    chunk_words = [_significant_words(c) for c in chunks]
+    for ci, claim in enumerate(claims):
+        cw = _significant_words(claim)
+        if not cw:
+            unrouted.append(ci)
+            continue
+        # The claim's significant words that appear somewhere in the source
+        # ("source-anchored"). Per-chunk counts tell us where each is found.
+        anchored: set = set()
+        per_chunk: list = []
+        for kw in chunk_words:
+            hit = cw & kw
+            per_chunk.append(len(hit))
+            anchored |= hit
+        if not anchored:
+            # No significant word appears anywhere -> judge against the full source.
+            unrouted.append(ci)
+            continue
+        best_idx = max(range(len(chunks)), key=lambda k: per_chunk[k])
+        # Route only if the best window holds EVERY anchored word (no spread) AND the
+        # claim is non-trivially present in the source (min_overlap floor on the
+        # anchored fraction). Any anchored word outside the best window means the
+        # claim's content spans windows -> full source.
+        if per_chunk[best_idx] == len(anchored) and \
+                (per_chunk[best_idx] / len(cw)) >= min_overlap:
+            routed.setdefault(best_idx, []).append(ci)
+        else:
+            unrouted.append(ci)
+    return routed, unrouted
+
+
+def judge_claims_chunked(claims: list, source: str, client, *,
+                         model: Optional[str] = None, logger=None) -> list:
+    """Judge claims against bounded source windows (long transcripts), returning
+    verdicts in the ORIGINAL claim order. Routed claims -> their best window;
+    low-overlap claims -> the full source."""
+    chunks = chunk_source(source)
+    routed, unrouted = route_claims_to_chunks(
+        claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
+    verdicts: list = [None] * len(claims)
+    for k, idxs in routed.items():
+        sub = judge_claims([claims[i] for i in idxs], chunks[k], client,
+                           model=model, logger=logger)
+        for local, ci in enumerate(idxs):
+            verdicts[ci] = sub[local]
+    if unrouted:
+        sub = judge_claims([claims[i] for i in unrouted], source, client,
+                           model=model, logger=logger)
+        for local, ci in enumerate(unrouted):
+            verdicts[ci] = sub[local]
+    # Fail-closed reassembly guard (P2/P14): a future routing or judge_claims change
+    # that dropped/reordered a verdict would otherwise surface as an unhandled
+    # AttributeError on None downstream — raise here so the gate maps it to ERROR.
+    if len(verdicts) != len(claims) or any(v is None for v in verdicts):
+        raise ValueError(
+            f"chunked judge returned {sum(1 for v in verdicts if v is not None)}/"
+            f"{len(claims)} verdicts — reassembly contract violated")
+    return verdicts
+
+
+def _should_chunk(source: str) -> bool:
+    """Use the chunked path only for a genuinely long source; short transcripts are
+    cheaply and accurately judged in one call."""
+    return len(source.split()) >= config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS
 
 
 # --------------------------------------------------------------------------- the judge
@@ -238,6 +444,24 @@ source). This holds even when the claim names no specific entity.
 When unsure whether the source supports a claim built from grounded elements, prefer \
 "entailed". Reserve "unsupported" for a claim introducing substance the source does \
 not contain, and "contradicted" for a direct factual clash.
+
+EDITORIAL / RHETORICAL FRAMING IS "entailed", NOT "unsupported". A blog, overview, \
+or summary sentence that merely EMPHASIZES, RESTATES, or FRAMES grounded material — \
+without introducing a NEW specific fact, name, date, number, study, causal claim, or \
+attribution — is faithful. Examples that are "entailed" when their underlying content \
+is in the source: "It was a logical approach, and it produced genuine discoveries."; \
+"The environment is not incidental."; "They are looking at the parts when the \
+explanation lives in the pattern."; "That kind of reckoning is rare in science." \
+Reserve "unsupported" for a sentence that ADDS substance the source does not contain \
+— a fabricated concrete specific, or a specific conclusion / stance / causal claim / \
+attribution with no basis in the source (e.g. "attributes recovery to medication" when \
+medication is never mentioned). A rhetorical flourish on top of grounded material is \
+still "entailed"; a NEW factual claim the source does not support is "unsupported". \
+Careful with strength escalations: a claim that the source is TENTATIVE about (\"may\", \
+\"perhaps\", \"remains unclear\") is NOT entailed when restated as settled fact — \
+\"definitively proven\" or \"conclusively established\" asserts a specific factual stance \
+the source does not take, and is \"unsupported\" (or \"contradicted\" if the source says \
+the opposite).
 
 Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]
@@ -310,6 +534,14 @@ def _parse_judge_response(response_text: str, claims: list,
     return verdicts
 
 
+# Public names for cross-module reuse — the key-terms domain-semantic judge imports
+# these to reuse the fail-closed parse + the cache-breakpoint prompt. The underscore
+# names stay canonical (in-module call sites are unchanged); these aliases are the
+# stable cross-module surface.
+parse_judge_response = _parse_judge_response
+cached_judge_content = _cached_judge_content
+
+
 def judge_claims(claims: list, source: str, client, *,
                  model: Optional[str] = None, logger=None) -> list:
     """Judge every claim against the source in ONE batched call. Returns a list of
@@ -340,15 +572,32 @@ def judge_artifact(artifact_text: str, source: str, client, *,
     * Every claim entailed -> PASS.
     * Any contradicted/unsupported claim -> FAIL, naming the offending sentence(s).
     * Any judge exception (API error/timeout) or unparseable response -> ERROR
-      (fail closed, M2.C) — never silently PASS on a judge failure (P1/P14)."""
+      (fail closed, M2.C) — never silently PASS on a judge failure (P1/P14).
+    * A non-empty artifact that yields zero claims -> ERROR (plan R8); an empty or
+      front-matter-only artifact -> PASS."""
     log = logger or logging.getLogger("faithfulness_judge")
     if not source or not source.strip():
         return FaithfulnessResult(ERROR, "source transcript missing — cannot verify")
-    claims = extract_claims(artifact_text)
+    claims = extract_claims(artifact_text, source=source)
     if not claims:
+        # A non-empty artifact that yields no claims was not checked: either all of
+        # it is scaffolding or extraction broke. ERROR (fail closed), not PASS
+        # (author decision, plan R8). Empty / front-matter-only stays PASS.
+        from abstract_validation import _strip_fenced_block, _strip_front_matter
+        body = _strip_fenced_block(_strip_front_matter((artifact_text or "").strip()))
+        if body.strip():
+            return FaithfulnessResult(
+                ERROR, f"0 claims extracted from {len(body.split())}-word artifact — "
+                       "nothing was checked; regenerate or check the artifact format")
         return FaithfulnessResult(PASS, "no judgeable claims in artifact")
     try:
-        verdicts = judge_claims(claims, source, client, model=model, logger=log)
+        if _should_chunk(source):
+            # Long source: judge each claim against its most-relevant window (and
+            # summary-level inference claims against the full source) — bounded
+            # per-call attention instead of one giant call over the whole transcript.
+            verdicts = judge_claims_chunked(claims, source, client, model=model, logger=log)
+        else:
+            verdicts = judge_claims(claims, source, client, model=model, logger=log)
     except Exception as e:  # noqa: BLE001 — judge failure must fail closed, not pass
         log.error("Faithfulness judge failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"judge error: {type(e).__name__}: {e}")
@@ -451,8 +700,11 @@ No prose before or after the JSON."""
 
 
 def build_theme_judge_prompt(themes: list, source: str) -> list:
+    # Evidence fields are published with the theme, so they are judged too (F3).
     numbered = "\n\n".join(
-        f"{i + 1}. {t['name']}\n{t.get('description', '')}" for i, t in enumerate(themes)
+        f"{i + 1}. {t['name']}\n{t.get('description', '')}"
+        + (f"\n{t['evidence']}" if t.get("evidence") else "")
+        for i, t in enumerate(themes)
     )
     tail = f"=== THEMES ({len(themes)}) ===\n{numbered}\n"
     return _cached_judge_content(_THEME_JUDGE_INSTRUCTIONS, source, tail)
@@ -480,6 +732,28 @@ def judge_themes(themes: list, source: str, client, *,
     return _parse_judge_response(message.content[0].text, names, valid_labels=_THEME_LABELS)
 
 
+def with_theme_evidence(items: list, themes_markdown: str) -> list:
+    """Add each theme's other published fields (e.g. "Key evidence") to the codec
+    items as ``evidence``, so the theme judge sees the whole theme block.
+
+    The codec builds its items from the same parser, so order and count match;
+    a mismatch is contract drift and raises (fail closed).
+
+    Purpose: Judge the full published theme, not only its Description (review F3).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R7
+    Tests:   tests/test_theme_judge_input_r7.py::test_r7a_key_evidence_included
+    """
+    from transcript_utils import parse_theme_blocks_with_evidence
+
+    blocks = parse_theme_blocks_with_evidence(themes_markdown)
+    if [b[0] for b in blocks] != [it["name"] for it in items]:
+        raise ValueError("theme evidence parse does not match codec items (contract drift)")
+    out = []
+    for item, (_, _, evidence) in zip(items, blocks):
+        out.append({**item, "evidence": evidence} if evidence else dict(item))
+    return out
+
+
 def judge_themes_artifact(themes_markdown: str, source: str, kind: str, client, *,
                           model: Optional[str] = None, logger=None) -> FaithfulnessResult:
     """Judge one themes artifact for GROUNDING against the source. Parses the themes
@@ -492,7 +766,7 @@ def judge_themes_artifact(themes_markdown: str, source: str, kind: str, client, 
     try:
         import artifact_contracts as ac
         obj = ac.codec("themes").parse_markdown(themes_markdown, kind)
-        themes = obj["items"]
+        themes = with_theme_evidence(obj["items"], themes_markdown)
     except Exception as e:  # noqa: BLE001 — a codec/parse failure must fail closed
         log.error("Theme parse failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"theme parse error: {type(e).__name__}: {e}")

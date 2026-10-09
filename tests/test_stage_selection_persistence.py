@@ -288,3 +288,19 @@ def test_apply_default_stage_selection_reduced_to_empty_after_filtering(scratch_
 
     assert all(v.get() is False for v in gui.stage_vars.values())
     gui.run_task_in_thread.assert_not_called()
+
+
+def test_duplicate_bowen_emphasis_detection():
+    """Selecting Core (with Bowen/Emphasis included) AND the standalone Bowen+Emphasis
+    stage runs the same extraction twice — the heads-up helper must flag it, and
+    only when both are selected AND at least one of Bowen/Emphasis is included."""
+    from ts_gui import _duplicate_bowen_emphasis
+    # both selected + one extra included -> warn
+    assert _duplicate_bowen_emphasis({"core", "bowen_emphasis"}, True, False) is True
+    assert _duplicate_bowen_emphasis({"core", "bowen_emphasis"}, False, True) is True
+    # both selected but neither included -> no duplicate
+    assert _duplicate_bowen_emphasis({"core", "bowen_emphasis"}, False, False) is False
+    # only one of the two stages selected -> never a duplicate
+    assert _duplicate_bowen_emphasis({"core"}, True, True) is False
+    assert _duplicate_bowen_emphasis({"bowen_emphasis"}, True, True) is False
+    assert _duplicate_bowen_emphasis(set(), True, True) is False

@@ -224,7 +224,7 @@ def _stub_judge(monkeypatch, status):
     monkeypatch.setattr(rg, "_judge_cached", _fake)
     monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
     import anthropic
-    monkeypatch.setattr(anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
     return seen
 
 
@@ -255,12 +255,15 @@ def test_topic_term_faithfulness_pass(tmp_path, monkeypatch):
     assert "of transcript" not in seen[0]
 
 
-def test_topic_term_faithfulness_fail_blocks(tmp_path, monkeypatch):
+def test_topic_term_faithfulness_fail_is_advisory_until_calibrated(tmp_path, monkeypatch):
+    """The check still FAILs, but it is not blocking until calibrated (author
+    decision 3a, 2026-10-09): a FAIL WARNs, it does not block publication."""
     base = _topic_project(tmp_path, monkeypatch)
     _stub_judge(monkeypatch, fj.FAIL)
     v = rg.check_topic_term_faithfulness(base, LOG)
     assert v.status is Status.FAIL
-    assert "topic_term_faithfulness" in config.GATE_BLOCKING_CHECKS
+    assert "topic_term_faithfulness" not in config.GATE_BLOCKING_CHECKS
+    assert rg.decide([v]).decision is not rg.Decision.BLOCK
 
 
 def test_topic_term_faithfulness_nothing_to_judge_is_error(tmp_path, monkeypatch):

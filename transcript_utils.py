@@ -15,6 +15,7 @@ from html import escape, unescape
 from pathlib import Path
 from typing import Any, Optional
 
+import anthropic
 from anthropic import (
     APIConnectionError,
     APIError,
@@ -115,6 +116,39 @@ def validate_api_key() -> str:
             "Get your key from: https://console.anthropic.com/"
         )
     return api_key
+
+
+def get_anthropic_client(api_key: Optional[str] = None) -> "anthropic.Anthropic":
+    """Build the Anthropic client every stage uses.
+
+    Purpose: One place that resolves the key (env, then ~/.config/llm/keys.json)
+             and disables the SDK's own retries, so ``call_claude_with_retry`` is
+             the only retry layer (review F12/F14).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R5
+    Tests:   tests/test_client_factory_r5.py::test_r5a_factory_uses_keys_json_when_env_unset
+
+    Raises:
+        ValueError: if no key can be resolved (message says where to put one).
+    """
+    key = api_key or validate_api_key()
+    return anthropic.Anthropic(api_key=key, max_retries=0)
+
+
+def get_anthropic_client_or_none(logger: Optional[logging.Logger] = None):
+    """Like ``get_anthropic_client`` but returns None (with a warning) when no key
+    is available, for callers whose LLM step is optional."""
+    try:
+        return get_anthropic_client()
+    except ValueError:
+        (logger or logging.getLogger(__name__)).warning(
+            "No Anthropic API key found (env or ~/.config/llm/keys.json); "
+            "skipping the optional LLM step.")
+        return None
+
+
+class TruncatedResponseError(RuntimeError):
+    """The model stopped at max_tokens. Deterministic for the same request, so
+    the retry wrapper does not repeat it (review B-11)."""
 
 
 def validate_input_file(file_path: Path) -> None:
@@ -223,7 +257,7 @@ def validate_api_response(
     stop_reason = message.stop_reason
 
     if stop_reason == "max_tokens":
-        raise RuntimeError(
+        raise TruncatedResponseError(
             "Response truncated at token limit - output is incomplete. "
             "Increase max_tokens or process in smaller chunks."
         )
@@ -556,6 +590,21 @@ def cap_max_tokens_for_model(
     return capped_max_tokens
 
 
+def _retry_wait_seconds(error, attempt: int) -> float:
+    """Seconds to wait before retrying a 429 / 529 / 5xx: the response's
+    ``retry-after`` header when present (capped at config.MAX_RETRY_AFTER_SECONDS),
+    else config.RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)."""
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None) or {}
+    try:
+        after = float(headers.get("retry-after"))
+    except (TypeError, ValueError):
+        after = None
+    if after is not None and after >= 0:
+        return min(after, config.MAX_RETRY_AFTER_SECONDS)
+    return config.RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)
+
+
 def call_claude_with_retry(
     client,
     model: str,
@@ -593,8 +642,9 @@ def call_claude_with_retry(
         RuntimeError: If output is truncated or connection fails
         APIError: If API call fails after retries
     """
-    # Track timeout across retries
-    current_timeout = kwargs.get('timeout')
+    # Track timeout across retries. A call that passes no timeout gets the SDK's
+    # own default explicitly, so escalation starts from a known value (review F12).
+    current_timeout = kwargs.get('timeout') or config.TIMEOUT_FALLBACK
 
     # Handle suppression of caching warnings
     suppress_caching_warnings = kwargs.pop('suppress_caching_warnings', False)
@@ -664,9 +714,14 @@ def call_claude_with_retry(
                 # Validation failed
                 if logger:
                     logger.error("Response validation failed: %s", e)
-                # Hitting max_tokens is deterministic for the same request: a retry
-                # would be truncated again and billed again. Fail immediately.
-                if getattr(message, "stop_reason", None) == "max_tokens":
+                # The tokens were billed even though the response is rejected.
+                usage = getattr(message, "usage", None)
+                if usage is not None:
+                    log_token_usage(script_name or getattr(logger, "name", None)
+                                    or "unknown_script", model, usage,
+                                    f"rejected:{getattr(message, 'stop_reason', '')}")
+                # Truncation at max_tokens repeats on an identical request (B-11).
+                if isinstance(e, TruncatedResponseError):
                     raise
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
@@ -767,12 +822,7 @@ def call_claude_with_retry(
 
         except APITimeoutError as e:
             if attempt < max_retries - 1:
-                # Increase timeout by 50%
-                if current_timeout is not None:
-                    current_timeout = float(current_timeout) * 1.5
-                else:
-                    # Default fallback if no timeout specified but timed out
-                    current_timeout = 900.0
+                current_timeout = float(current_timeout) * config.TIMEOUT_ESCALATION_FACTOR
 
                 # Used in print
                 msg = f"Request timed out. Increasing timeout to {current_timeout:.0f}s and retrying ({attempt + 2}/{max_retries})..."
@@ -807,9 +857,9 @@ def call_claude_with_retry(
                     "Check your internet connection."
                 ) from e
 
-        except RateLimitError:
+        except RateLimitError as e:
             if attempt < max_retries - 1:
-                wait_time = config.RETRY_BACKOFF_BASE ** attempt  # Exponential backoff: 1s, 2s, 4s
+                wait_time = _retry_wait_seconds(e, attempt)
                 # Used in print
                 msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
                 if logger:
@@ -836,12 +886,17 @@ def call_claude_with_retry(
                 "overloaded" in error_text
                 or body_error_type == "overloaded_error"
             )
+            # 5xx server errors: the SDK used to retry these itself; with SDK
+            # retries off (get_anthropic_client) the wrapper must (review F12).
+            status_code = getattr(e, "status_code", None)
+            is_server_error = isinstance(status_code, int) and status_code >= 500
+            is_retryable = is_overloaded or is_server_error
 
-            if is_overloaded and attempt < max_retries - 1:
-                wait_time = config.RETRY_BACKOFF_BASE ** attempt
+            if is_retryable and attempt < max_retries - 1:
+                wait_time = _retry_wait_seconds(e, attempt)
                 if logger:
                     logger.warning(
-                        "API overloaded, retrying in %ds... (%d/%d)",
+                        "API overloaded or server error, retrying in %ds... (%d/%d)",
                         wait_time,
                         attempt + 2,
                         max_retries,
@@ -875,14 +930,20 @@ def load_prompt(prompt_filename: str) -> str:
     return prompt_path.read_text(encoding="utf-8")
 
 
+def placeholder_pattern(key: str) -> "re.Pattern":
+    """Regex for a ``{{key}}`` prompt placeholder (whitespace-tolerant, case-insensitive).
+    Shared by fill_prompt_template and the unresolved-placeholder check in
+    extraction_pipeline so the two can't disagree (review B-05)."""
+    return re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
+
+
 def fill_prompt_template(template: str, metadata: dict, transcript: str, **kwargs) -> str:
     """Fill a prompt template: substitute {{key}} placeholders from metadata+kwargs
     (case-insensitive), and the transcript into {{insert_transcript_text_here}}. Shared by
     the extraction/validation pipelines (review L11 — was a duplicated private copy)."""
     placeholders = {**metadata, **kwargs}
     for key, value in placeholders.items():
-        pattern = re.compile(r"{{\s*" + re.escape(key) + r"\s*}}", re.IGNORECASE)
-        template = pattern.sub(lambda m: str(value), template)
+        template = placeholder_pattern(key).sub(lambda m: str(value), template)
     template = template.replace("{{insert_transcript_text_here}}", transcript)
     return template
 
@@ -1070,11 +1131,21 @@ def parse_filename_metadata(filename: str) -> dict:
         raise ValueError(f"Date must contain a 4-digit year, got: {date}")
     year = year_match.group(1)
 
+    # The lecture date is the leading YYYY-MM-DD. A trailing `_YYYYMMDD_HHMMSS`
+    # is an INTERNAL processing timestamp (added for filename uniqueness), not
+    # part of the lecture date — strip it from the ``date`` field so the YAML
+    # "Lecture date" and any prompt context show the talk's date, not the ingest
+    # timestamp. ``stem`` still carries the full unique segment.
+    clean_date = date
+    dm = re.match(r"(\d{4}-\d{2}-\d{2})", date)
+    if dm:
+        clean_date = dm.group(1)
+
     return {
         "title": title,
         "presenter": presenter,
         "author": presenter,  # for backward compatibility
-        "date": date,
+        "date": clean_date,
         "year": year,
         "filename": safe_filename,  # Return sanitized filename
         "stem": stem
@@ -1220,13 +1291,51 @@ def extract_bowen_references(content: str) -> list:
     if not target_content:
         return []
 
-    # Relaxed pattern using MULTILINE mode
-    # Handles:
-    # - **Label:** "Quote" (colon inside bold)
-    # - **Label**: "Quote" (colon outside bold)
-    # - Label: "Quote" (no bold)
-    quote_pattern = r'^\s*(?:[-*>]+\s+)?(?:\*\*)?([^*\n]+?)(?:\*\*)?:?\s*["“](.+?)["”]'  # noqa
-    quotes = re.findall(quote_pattern, target_content, flags=re.MULTILINE)
+    from bowen_attribution import has_bowen_source_attribution, concept_has_bowen_attribution
+
+    # A Bowen reference is a concept label + a quoted body. Parse the prompt's
+    # BOLD format first ("**Concept:**"/"**Concept**:"); the model sometimes
+    # drifts to a bare "Label: \"quote\"", so fall back to a non-bold form.
+    quote_pattern = re.compile(
+        r'^\s*(?:[-*>]+\s+)?\*\*([^*\n]+?)(?:[.:\u2014-]\*\*|\*\*[ \t]*[:\u2014-])[ \t]*["\u201c](.+?)["\u201d]',
+        re.MULTILINE,
+    )
+    quotes = quote_pattern.findall(target_content)
+    if not quotes:
+        # Non-bold fallback: keep a candidate only when it carries a Bowen
+        # attribution in the QUOTE OR the CONCEPT label (the prompt's INCLUDE
+        # criteria). This rejects prose like 'Summary: "differentiation of self is
+        # discussed"' (no attribution) while still reading a real ref the model
+        # emitted without bold ('On Triangles: "Bowen said ..."', or "Bowen's
+        # Timeline Prediction: \"this would take 20 years.\"). Single source of
+        # truth: bowen_attribution.
+        quotes = [
+            (c, q) for c, q in re.findall(
+                r'^\s*(?:[-*>]+\s+)?([^*\n]+?):[ \t]*["\u201c](.+?)["\u201d]',
+                target_content, re.MULTILINE,
+            ) if has_bowen_source_attribution(q) or concept_has_bowen_attribution(c)
+        ]
+
+    # Drop a candidate that is itself a "no references found" meta-statement
+    # ('**Note:** "There are no explicit references to Bowen ..."'), but ONLY when
+    # the quote carries NO Bowen attribution. A quote that names Bowen as the source
+    # ("Bowen said there are no instances of ...") is a real recollection, not a
+    # meta-statement, even when its body contains a negation — so the guard is
+    # INVERTED: KEEP if attributed (quote OR concept), else drop only if meta-shaped.
+    # This is robust to the negation vocabulary drifting, because a false-drop can
+    # only hit an UNATTRIBUTED quote, which the rule filter discards anyway (P2).
+    meta_absence = re.compile(
+        r"\b(?:no|zero|none)\s+(?:(?:explicit|direct|grounded|qualifying)\s+)?"
+        r"(?:references|instances|quotes)\b"
+        r"|\bno\s+bowen\b|\bnone\s+found\b|\bdoes\s+not\s+contain\b|\bnot\s+found\b",
+        re.IGNORECASE,
+    )
+    quotes = [
+        (c, q) for c, q in quotes
+        if has_bowen_source_attribution(q)
+        or concept_has_bowen_attribution(c)
+        or not meta_absence.search(q)
+    ]
 
     return [(concept.strip().rstrip(':'), quote.strip()) for concept, quote in quotes]
 
@@ -1311,6 +1420,45 @@ _H3_THEME_RE = (
 )
 
 
+_THEME_FIELD_RE = re.compile(r"(?:^|\n)\*\*([A-Z][^:\n*]+):\*\*[ \t]*")
+
+
+def _extract_theme_evidence(block: str) -> str:
+    """Every ``**Label:**`` field of a theme block except Description and the meta
+    labels in ``config.THEME_JUDGE_META_LABELS``, as ``"Label: text"`` joined by
+    "; ". These fields (e.g. "Key evidence") are published with the theme, so the
+    theme judge must see them (review F3)."""
+    matches = list(_THEME_FIELD_RE.finditer(block))
+    parts = []
+    for i, m in enumerate(matches):
+        label = m.group(1).strip()
+        if label.lower() == "description" or label.lower() in config.THEME_JUDGE_META_LABELS:
+            continue
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(block)
+        body = " ".join(
+            ln.strip() for ln in block[m.end():end].split("\n")
+            if ln.strip() and ln.strip() != "---"
+        ).strip()
+        if body:
+            parts.append(f"{label}: {body}")
+    return "; ".join(parts)
+
+
+def parse_theme_blocks_with_evidence(text: str) -> list:
+    """Like ``parse_bold_numbered_theme_blocks`` but returns
+    ``(name, description, evidence)`` tuples, where ``evidence`` holds the theme's
+    other content fields (see ``_extract_theme_evidence``).
+
+    Purpose: Give the theme judge the full published theme block (review F3).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R7
+    Tests:   tests/test_theme_judge_input_r7.py::test_r7a_key_evidence_included
+    """
+    themes = _theme_blocks(text, _BOLD_THEME_RE)
+    if not themes:
+        themes = _theme_blocks(text, _H3_THEME_RE)
+    return themes
+
+
 def parse_bold_numbered_theme_blocks(text: str) -> list:
     """Parse the real theme formats into ``(name, description)`` tuples in document
     order. Handles BOTH producer formats seen in real runs: ``**N. Title**``
@@ -1323,10 +1471,8 @@ def parse_bold_numbered_theme_blocks(text: str) -> list:
     other legacy shapes; an empty result from *non-empty* input is contract drift
     the caller should surface loudly (P19). Migrating both formats is required by
     AC M3.D.1 (a real 2010-interview structural-themes file used ``### N.``)."""
-    themes = _theme_blocks(text, _BOLD_THEME_RE)
-    if not themes:
-        themes = _theme_blocks(text, _H3_THEME_RE)
-    return themes
+    return [(name, description)
+            for name, description, _ in parse_theme_blocks_with_evidence(text)]
 
 
 def _theme_blocks(text: str, pattern: str) -> list:
@@ -1338,7 +1484,7 @@ def _theme_blocks(text: str, pattern: str) -> list:
             continue
         description = _extract_theme_description(block)
         if description:
-            themes.append((name, description))
+            themes.append((name, description, _extract_theme_evidence(block)))
     return themes
 
 
@@ -1540,8 +1686,14 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
     (Location)
     """
     def _parse_score(score_str: str) -> int:
-        nums = [int(n) for n in re.findall(r'\d+', score_str or '')]
-        return int(sum(nums) / len(nums)) if nums else 0
+        # The score field is a single percentage, possibly decimal ("92.9"). The
+        # old digit-averaging (sum(int(n) for n in findall(r'\d+'))/count) split
+        # "92.9" into ["92", "9"] and averaged them to 50 — silently mis-scoring a
+        # decimal rank. Parse the FIRST number as a float and round to int instead
+        # (P2: a wrong score both mis-displays and mis-validates against the
+        # category range).
+        m = re.search(r'\d+(?:\.\d+)?', score_str or '')
+        return int(round(float(m.group()))) if m else 0
 
     def _clean_field(value: str) -> str:
         return re.sub(r'\s+', ' ', (value or '').replace('*', '').strip())
@@ -1671,6 +1823,15 @@ def validate_emphasis_item(item: dict) -> tuple[bool, list[str]]:
             issues.append(
                 f"Score {score}% outside expected range [{min_rank}-{max_rank}] for category {category}")
 
+    # 4. Reject an unrecognized emphasis TYPE. The parse's lenient bracket pattern
+    # captures any type token the model emits (e.g. "UNRECOGNIZED"), which then
+    # leaked verbatim into the saved artifact header. The prompt only defines
+    # Explicit/Implicit/Clinical; anything else is format drift and must be
+    # filtered here (fail-closed) rather than written through.
+    item_type = str(item.get('type', '')).strip().lower()
+    if item_type not in {'explicit', 'implicit', 'clinical'}:
+        issues.append(f"Unrecognized emphasis type: '{item.get('type')}'")
+
     return len(issues) == 0, issues
 
 
@@ -1774,6 +1935,39 @@ def normalize_text(text: str, aggressive: bool = False) -> str:
     return text.lower()
 
 
+def _locate_raw_span(words: list, haystack: str) -> tuple[Optional[int], Optional[int]]:
+    """Locate ``words`` in the RAW ``haystack``, tolerating the case and whitespace
+    differences that ``normalize_text`` removes, and return raw char offsets
+    ``(start, end)``.
+
+    ``normalize_text`` (non-aggressive) lowercases, collapses whitespace, and strips
+    HTML tags and [hh:mm:ss] timestamps — so the normalized-space match position does
+    NOT map 1:1 back to the raw string. Re-searching the raw haystack with a
+    case-insensitive regex whose between-word separator mirrors those strips returns
+    offsets that correctly bound the words in the original text. Returns ``(None, None)``
+    when the words can't be re-located (a residual normalize_text strip this separator
+    does NOT mirror — a bare-colon ":MM" minutes marker or an HTML entity), so callers
+    keep their safe fallback — a first-prefix span the downstream span-guard rejects.
+    """
+    words = [w for w in words if w.strip()]
+    if not words:
+        return (None, None)
+    # Between-word separators mirror the MAIN things normalize_text (non-aggressive)
+    # strips — whitespace, HTML tags, and [hh:mm:ss]/mm:ss timestamps — so the raw
+    # regex finds the SAME (first) occurrence the normalized `in` check matched (a
+    # timestamp-split occurrence is otherwise invisible and a LATER verbatim copy
+    # silently returned — P11). Not mirrored: normalize_text's second bare-colon
+    # ":MM" pass (`:\d{2}`) and HTML entities — those fall through to the safe
+    # prefix-find fallback — a first-prefix span the downstream span-guard rejects. (A bare 2-digit NUMBER with
+    # no colon is NOT stripped by normalize_text either, so it never reaches here.)
+    sep = r"(?:<[^>]+>|[\[\(]?\b\d+:\d{2}(?::\d{2})?(?:[ap]m)?[\]\)]?|\s)+"
+    pattern = r"\b" + sep.join(re.escape(w) for w in words) + r"\b"
+    m = re.search(pattern, haystack, re.IGNORECASE)
+    if m is None:
+        return (None, None)
+    return (m.start(), m.end())
+
+
 def find_text_in_content(needle: str, haystack: str, aggressive_normalization: bool = False,
                          haystack_normalized: Optional[str] = None) -> tuple[Optional[int], Optional[int], float]:
     """
@@ -1802,8 +1996,17 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
 
     # Try exact match first
     if needle_normalized in haystack_normalized:
-        # Find position in original (non-normalized) text
-        # Use first 20 chars to locate in original
+        # Re-locate the needle in the RAW (non-normalized) haystack with a case-
+        # and whitespace-tolerant search, so the returned offsets bound the needle
+        # in the original text — the old `find(needle_prefix)` + `pos + len(needle)`
+        # returned a misaligned span when normalization changed the raw length
+        # (double spaces), which made the span guard skip a legitimate correction.
+        raw_span = _locate_raw_span(needle.split(), haystack)
+        if raw_span[0] is not None:
+            return (raw_span[0], raw_span[1], 1.0)
+        # Rare fallback (a bare-colon ":MM" minutes marker / HTML entity between the
+        # needle's words, which the separator above does not mirror): locate by the
+        # first prefix as before.
         search_start = needle[:min(
             config.FUZZY_MATCH_PREFIX_LEN, len(needle))].strip()
         pos = haystack.lower().find(search_start.lower())
@@ -1849,8 +2052,11 @@ def find_text_in_content(needle: str, haystack: str, aggressive_normalization: b
                 break
 
     if best_pos is not None:
-        # Approximate position in original text
-        # This is rough but works for highlighting
+        # Approximate position in original text. A true fuzzy (typo) match cannot
+        # be re-located by _locate_raw_span — its words don't appear verbatim, and
+        # if they did the exact branch would already have fired — so the normalized-
+        # word approximation is the only option here, and the span guard remains the
+        # safety net against a misaligned slice.
         words_before = ' '.join(haystack_words[:best_pos])
         approx_start = len(words_before)
         approx_end = approx_start + \

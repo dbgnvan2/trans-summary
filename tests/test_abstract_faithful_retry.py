@@ -27,7 +27,7 @@ def _setup(monkeypatch, tmp_path, base="Talk Title - Some Author - 2025-01-01"):
     monkeypatch.setattr(ep.abstract_pipeline, "prepare_abstract_input", lambda **k: _AI())
     monkeypatch.setattr(ep, "create_system_message_with_cache",
                         lambda *a, **k: [{"type": "text", "text": "sys"}])
-    monkeypatch.setattr(ep.anthropic, "Anthropic", lambda api_key=None: object())
+    monkeypatch.setattr(ep, "get_anthropic_client", lambda *a, **k: object())
     return base, proj
 
 
@@ -61,7 +61,9 @@ def test_retries_then_passes_feeding_issues_back(monkeypatch, tmp_path):
     assert calls == [None, ["claim X is unsupported"]]
 
 
-def test_all_attempts_fail_keeps_least_bad_draft(monkeypatch, tmp_path):
+def test_r11a_all_attempts_fail_returns_false_and_keeps_least_bad_draft(monkeypatch, tmp_path):
+    """Plan R11: an abstract that never passes faithfulness fails the stage; the
+    least-bad draft is still saved for editing."""
     base, proj = _setup(monkeypatch, tmp_path)
     texts = iter(["draft-1", "draft-2-best", "draft-3"])
     monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
@@ -70,12 +72,12 @@ def test_all_attempts_fail_keeps_least_bad_draft(monkeypatch, tmp_path):
     seq = iter([("fail", ["a", "b", "c"]), ("fail", ["a"]), ("fail", ["a", "b"])])
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
 
-    assert ep.generate_structured_abstract(base, logger=_log()) is True
+    assert ep.generate_structured_abstract(base, logger=_log()) is False
     saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
     assert saved == "draft-2-best"  # kept the draft with the fewest issues
 
 
-def test_unavailable_check_generates_once(monkeypatch, tmp_path):
+def test_r11b_unavailable_check_generates_once_and_succeeds(monkeypatch, tmp_path):
     base, _ = _setup(monkeypatch, tmp_path)
     calls = []
     monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",

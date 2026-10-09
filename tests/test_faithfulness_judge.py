@@ -84,6 +84,93 @@ def test_extract_claims_does_not_strip_fabricated_attribution_prefix():
     assert not any(c.lower().startswith("description:") for c in claims), claims
 
 
+def test_extract_claims_strips_fenced_yaml_metadata():
+    """A fenced ```yaml metadata block (slug/focus_keyword/FAQ) is metadata, not a
+    claim — judging it produced the shipped false-BLOCK on overview/blog (every
+    ``target_audience:``/``q:`` line was flagged "unsupported")."""
+    text = (
+        "```yaml\n"
+        'slug: "cancer-biology-niche-paradigm-shift"\n'
+        'focus_keyword: "Family Systems"\n'
+        'target_audience: "General public"\n'
+        'process_stage: "overview_post"\n'
+        "faq:\n"
+        '  - q: "Who are the key researchers cited in this lecture?"\n'
+        '    a: "Michael Kerr draws primarily on the work of Mina Bissell."\n'
+        "```\n\n"
+        "Kerr argues that cancer arises from a broken tissue niche, not a bad gene.\n"
+    )
+    claims = fj.extract_claims(text)
+    for meta in ("slug", "focus_keyword", "target_audience", "process_stage",
+                 "Who are the key researchers"):
+        assert not any(meta in c for c in claims), (meta, claims)
+    # the body prose is still judged
+    assert any("broken tissue niche" in c for c in claims), claims
+
+
+def test_extract_claims_strips_bold_topic_label():
+    """A leading bold topic label ("**Systems Biology and Cancer Niche Theory.**")
+    is a label, not a claim — only the prose after it is judged."""
+    text = (
+        "**Systems Biology and Cancer Niche Theory.** Kerr describes how cancer "
+        "arises when a healthy niche breaks down.\n"
+    )
+    claims = fj.extract_claims(text)
+    assert not any(c == "Systems Biology and Cancer Niche Theory." for c in claims), claims
+    assert any(c.startswith("Kerr describes") for c in claims), claims
+
+
+def test_extract_claims_reemits_name_shaped_bold_label():
+    """A fabricated NAME rendered as a bold label must still reach the judge — the
+    scaffolding strip hides it, but the judge is the semantic backstop for exactly
+    that shape (P7/P20)."""
+    text = "**Luciano Malorni:** his dynamic relational view of cancer is central.\n"
+    claims = fj.extract_claims(text)
+    assert any("Luciano Malorni" in c for c in claims), claims
+
+
+def test_extract_claims_reemits_name_shaped_bold_label_colon_outside():
+    """The colon-OUTSIDE attribution shape ("**Name**: claim") is equivalent to the
+    colon-inside form and must also re-emit the name (P3)."""
+    text = "**Luciano Malorni**: his dynamic relational view of cancer is central.\n"
+    claims = fj.extract_claims(text)
+    assert any("Luciano Malorni" in c for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_concept_bold_label():
+    """A concept label with a lowercase connective ("and") is not a name and stays
+    stripped (no topic-label false-BLOCK regression)."""
+    text = "**Systems Biology and Cancer Niche Theory.** Kerr describes the niche.\n"
+    claims = fj.extract_claims(text)
+    assert not any(c == "Systems Biology and Cancer Niche Theory." for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_connective_less_concept_label():
+    """A connective-LESS Bowen concept label ("Family Projection Process") is not an
+    attribution shape (period, not colon) and must stay stripped — the name-shape
+    backstop only re-emits the '**Name:**' attribution shape."""
+    text = "**Family Projection Process.** Kerr describes how anxiety is projected.\n"
+    claims = fj.extract_claims(text)
+    assert not any(c == "Family Projection Process" for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_connective_less_concept_label_colon_outside():
+    """A connective-less Bowen concept label rendered in the repo's own
+    '**Term**: def' colon-outside shape must NOT be re-emitted as a fabricated name
+    (P3/P7) — the vocabulary exclusion (not the period discriminator) catches the
+    colon form, which _NAME_SHAPE would otherwise match."""
+    text = "**Family Projection Process**: anxiety is projected from parent to child.\n"
+    claims = fj.extract_claims(text)
+    assert not any("Family Projection Process" in c for c in claims), claims
+
+
+def test_extract_claims_does_not_reemit_scaffolding_label():
+    """A generic scaffolding label ('**Theme One**: ...') is never a person name."""
+    text = "**Theme One**: a structural anchor in the talk.\n"
+    claims = fj.extract_claims(text)
+    assert not any("Theme One" in c for c in claims), claims
+
+
 # --------------------------------------------------------------------------- parse contract
 def test_parse_judge_response_maps_by_index():
     claims = ["A.", "B.", "C."]
@@ -177,9 +264,10 @@ def test_missing_source_is_error_not_pass():
     assert result.status == fj.ERROR
 
 
-def test_no_claims_is_pass():
+def test_r8a_heading_only_artifact_is_error():
+    """Was PASS before plan R8: a non-empty artifact with nothing to judge is ERROR."""
     result = fj.judge_artifact("# Heading only\n", "source", client=None)
-    assert result.status == fj.PASS
+    assert result.status == fj.ERROR
 
 
 # --------------------------------------------------------------------------- M2.B metrics
@@ -296,3 +384,32 @@ def test_theme_gold_set_well_formed():
     assert len(gold["grounded_artifacts"]) >= 4
     for rel in gold["sources"].values():
         assert (FIX / rel).exists(), f"gold source missing: {rel}"
+
+
+# --- R8 (author decision 2026-10-04): non-empty prose with zero claims is ERROR ---
+
+def test_r8a_nonempty_zero_claims_is_error():
+    """All-scaffolding prose (headings + bold-only lines) yields no claims; that is
+    'nothing was checked', not PASS."""
+    text = "## Key Takeaways\n\n**Family Systems**\n\n## Final Thoughts\n"
+    res = fj.judge_artifact(text, "the family systems source transcript", client=object())
+    assert res.status == fj.ERROR
+    assert "0 claims extracted" in res.detail
+
+
+def test_r8b_empty_artifact_pass():
+    for text in ("", "   \n", "---\ntitle: X\nslug: x\n---\n"):
+        assert fj.judge_artifact(text, "source", client=object()).status == fj.PASS, repr(text)
+
+
+def test_r8c_zero_claims_error_not_cached(tmp_path, monkeypatch):
+    import config
+    import release_gate as rg
+
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path, raising=False)
+    stored = []
+    monkeypatch.setattr(rg, "_store_judge_disk_cache", lambda *a, **k: stored.append(a))
+    rg._FAITHFULNESS_CACHE.clear()
+    res = rg._judge_cached(fj, "## Key Takeaways\n\n**Family Systems**\n", "source", object(), None)
+    assert res.status == fj.ERROR
+    assert stored == [] and not rg._FAITHFULNESS_CACHE

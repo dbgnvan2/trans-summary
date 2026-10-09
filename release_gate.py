@@ -10,8 +10,9 @@ Key invariants:
   * A check that raises becomes an ERROR verdict — it is never silently skipped
     (M1.C). ERROR blocks by default (a run we couldn't verify must not ship, P1).
   * A FAIL blocks only if its check is in ``config.GATE_BLOCKING_CHECKS``; all
-    other FAIL/WARN ship as ALLOW_WITH_WARNINGS. The elected hard blocker is
-    ``entity_grounding`` (fabricated names).
+    other FAIL/WARN ship as ALLOW_WITH_WARNINGS. The hard blockers are enumerated
+    in ``config.GATE_BLOCKING_CHECKS`` (never re-listed here, so the two cannot
+    drift).
 """
 from __future__ import annotations
 
@@ -287,7 +288,9 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     """FAIL if any Bowen/emphasis quote is not verbatim in the source. Two tests:
     the fuzzy head/tail match (>= EMPHASIS_QUOTE_PARTIAL_RATIO) AND whole-quote
     word coverage (>= QUOTE_MIN_WORD_COVERAGE). The coverage test catches an
-    altered or negated middle, which the head/tail probes cannot see."""
+    altered or negated middle, which the head/tail probes cannot see. Filler words
+    and stutters are ignored on both sides (author decision 2a, 2026-10-09). A
+    scored-emphasis file with content that parses to no items is ERROR."""
     import transcript_utils as tu
     import validation_pipeline as vp
 
@@ -295,8 +298,16 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     if transcript is None:
         return Verdict("verbatim_quotes", Status.ERROR, "source transcript missing")
     problems = []
+    emphasis = tu.load_emphasis_items(base_name)
+    if not emphasis:
+        scored = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_EMPHASIS_SCORED}"
+        body = tu.strip_yaml_frontmatter(scored.read_text(encoding="utf-8")) if scored.exists() else ""
+        if body.strip():
+            # Content that parses to nothing is format drift, not "all verbatim" (P19).
+            return Verdict("verbatim_quotes", Status.ERROR,
+                           "emphasis artifact has content but parsed to no items")
     items = ([("bowen", c, q) for c, q, _ts in tu.load_bowen_references(base_name)]
-             + [("emphasis", lab, q) for lab, q, _ts in tu.load_emphasis_items(base_name)])
+             + [("emphasis", lab, q) for lab, q, _ts in emphasis])
     for kind, label, quote in items:
         ends = vp._emphasis_quote_found_ratio(quote, transcript)
         coverage = vp._quote_word_coverage(quote, transcript)
@@ -308,6 +319,80 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
                        f"{len(problems)} quote(s) not verbatim in the source — regenerate",
                        items=problems)
     return Verdict("verbatim_quotes", Status.PASS, f"all {len(items)} quotes verbatim")
+
+
+# --------------------------------------------------------------- R15 validator gates
+def check_topics_grounding(base_name: str, logger=None) -> Verdict:
+    """FAIL if any topic grades FAIL against the transcript (the
+    validate_topics_lightweight test, run live). No topics artifact -> PASS
+    (nothing published); a non-empty artifact that parses to nothing -> ERROR.
+
+    Purpose: Gate publication on the topics validator (plan R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_release_gate.py::test_r15c_topics_fail_blocks
+    """
+    import validation_pipeline as vp
+
+    topics_file = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_TOPICS}"
+    if not topics_file.exists():
+        return Verdict("topics_grounding", Status.PASS, "no topics artifact")
+    transcript = _load_source_transcript(base_name)
+    if transcript is None:
+        return Verdict("topics_grounding", Status.ERROR, "source transcript missing")
+    topics = vp._load_topics_for_validation(base_name, transcript)
+    if not topics:
+        if topics_file.read_text(encoding="utf-8").strip():
+            return Verdict("topics_grounding", Status.ERROR,
+                           "topics artifact has content but parsed to no topics")
+        return Verdict("topics_grounding", Status.PASS, "topics artifact empty")
+    rows = vp._grade_topics(topics, transcript, vp._extract_transcript_sections(transcript))
+    failed = [{"topic": r[0], "title": round(r[1], 2), "description": round(r[2], 2)}
+              for r in rows if r[4] == "FAIL"]
+    if failed:
+        return Verdict("topics_grounding", Status.FAIL,
+                       f"{len(failed)} of {len(rows)} topic(s) not grounded in the transcript",
+                       items=failed)
+    return Verdict("topics_grounding", Status.PASS, f"all {len(rows)} topic(s) grounded")
+
+
+def check_summary_coverage(base_name: str, logger=None) -> Verdict:
+    """Summary coverage verdict (required topic / closing items, decision 3a).
+    Uses the stored verdict when its key matches the current inputs; otherwise
+    runs the validation now (which stores a fresh verdict). No summary -> PASS.
+
+    Purpose: Gate publication on summary coverage (plan R15).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15
+    Tests:   tests/test_release_gate.py::test_r15c_summary_stale_verdict_revalidated
+    """
+    import json
+
+    import validation_pipeline as vp
+
+    key = vp.summary_coverage_key(base_name)
+    if key is None:
+        return Verdict("summary_coverage", Status.PASS, "no structured summary")
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
+
+    def _stored():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return data if isinstance(data, dict) and data.get("key") == key else None
+
+    verdict = _stored()
+    if verdict is None:
+        vp.validate_summary_coverage(base_name, logger=logger)
+        verdict = _stored()
+    if verdict is None:
+        return Verdict("summary_coverage", Status.ERROR,
+                       "summary coverage could not be verified — see the summary "
+                       "validation report and retry")
+    status = {"PASS": Status.PASS, "FAIL": Status.FAIL}.get(verdict.get("status"), Status.ERROR)
+    detail = verdict.get("detail") or "summary coverage"
+    if status is Status.FAIL:
+        detail = f"{detail} — see the summary validation report"
+    return Verdict("summary_coverage", status, detail)
 
 
 # --------------------------------------------------------------------------- M4.B
@@ -472,18 +557,85 @@ def _store_judge_disk_cache(disk_key: str, verdict_dict: dict, logger=None):
             logger.warning("could not persist judge cache: %s", e)
 
 
+def _judge_input_functions() -> list:
+    """Functions whose code decides what the judges see (claims, theme text).
+    Hashed into the judge cache key so editing any of them invalidates cached
+    verdicts without a manual JUDGE_LOGIC_VERSION bump (review F4, plan R9)."""
+    import abstract_validation as av
+    import faithfulness_judge as fjudge
+    import transcript_utils as tu
+
+    return [
+        fjudge.extract_claims, fjudge._split_sentences, fjudge._is_claim,
+        fjudge._name_shaped_bold_labels, fjudge._parse_judge_response,
+        fjudge.with_theme_evidence, fjudge.build_theme_judge_prompt,
+        av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
+        av.scaffolding_name_spans, av.find_ungrounded_names,
+        tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
+        tu._extract_theme_description, tu._extract_theme_evidence,
+    ]
+
+
+def _judge_input_patterns() -> list:
+    """Module-level regex patterns read by ``_judge_input_functions``."""
+    import abstract_validation as av
+    import faithfulness_judge as fjudge
+    import transcript_utils as tu
+
+    patterns = [av._NAME_SPAN, av._INLINE_BOLD_LABEL, av._YAML_LINE,
+                fjudge._SENTENCE_SPLIT, fjudge._NAME_SHAPE, fjudge._SCAFFOLDING_LABEL_RE,
+                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._THEME_FIELD_RE]
+    return [repr(getattr(p, "pattern", p)) for p in patterns]
+
+
 def _judge_logic_version(instructions: str) -> str:
     """Version tag folded into the disk-cache key. Captures the judge's PROMPT text, the
     claim-extraction config, AND config.JUDGE_LOGIC_VERSION (bumped on any judge CODE
     change) — so a stricter judge can NEVER serve a laxer cached PASS on the armed gate
     (H2 finding 1, a fail-open). Over-invalidation just triggers a safe re-judge."""
     import hashlib
+    import inspect
+    import faithfulness_judge as fjudge
     material = "|".join([
         config.JUDGE_LOGIC_VERSION,
         instructions,
         repr(sorted(config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES)),
         repr(sorted(config.FAITHFULNESS_SKIP_LINE_LABELS)),
         str(config.FAITHFULNESS_MIN_CLAIM_CHARS),
+        # The chunked-routing strategy changes WHICH source context each claim is
+        # judged against, so its thresholds must invalidate a cached PASS too — else a
+        # future tune serves a stale verdict (H2 fail-open) unless the developer
+        # remembers to bump JUDGE_LOGIC_VERSION by hand (P6/P4).
+        str(config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS),
+        str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
+        str(config.VALIDATION_CHUNK_SIZE),
+        str(config.VALIDATION_CHUNK_OVERLAP),
+        # The routing ALGORITHM itself (e.g. the earlier margin-vs-second heuristic vs
+        # the current structural "all source-anchored words in one window") changes the
+        # source context a claim is judged against but is NOT a config constant, so a
+        # code-only change would otherwise escape the manual JUDGE_LOGIC_VERSION bump
+        # and serve a stale verdict. Hash the routing function AND its behaviour-
+        # determining helpers (word windowing, the significance filter, the stopword
+        # set) so routing-code changes invalidate by construction (P6/P4). NOTE: these
+        # read the on-disk source, so after editing faithfulness_judge.py you MUST
+        # restart any long-lived process (Tk GUI) before judging, or the key can drift
+        # ahead of the still-in-memory code (P16).
+        inspect.getsource(fjudge.route_claims_to_chunks),
+        inspect.getsource(fjudge.chunk_source),
+        inspect.getsource(fjudge._significant_words),
+        repr(sorted(fjudge._STOP_WORDS)),
+        # The code that decides WHAT is judged (review F4, plan R9): claim
+        # extraction, the scaffolding strip it shares with the entity check, the
+        # theme parser/evidence fields, and their vocabularies.
+        *(inspect.getsource(fn) for fn in _judge_input_functions()),
+        # ...and the module-level patterns / thresholds those functions read,
+        # which getsource does not capture (sweep finding).
+        *_judge_input_patterns(),
+        str(config.ABSTRACT_NAME_TOKEN_MIN_LEN),
+        str(config.ABSTRACT_NAME_FUZZY_MIN),
+        repr(sorted(config.BOWEN_CONCEPT_LABELS)),
+        repr(sorted(config.SCAFFOLDING_HEADING_PHRASES)),
+        repr(sorted(config.THEME_JUDGE_META_LABELS)),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
@@ -559,9 +711,9 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         return Verdict("faithfulness", Status.ERROR,
                        "no Anthropic API key (env or shared keys file) — cannot run "
                        "faithfulness judge (fail closed)")
-    import anthropic
+    from transcript_utils import get_anthropic_client
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0
@@ -652,9 +804,9 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
     if not api_key:
         return Verdict("topic_term_faithfulness", Status.ERROR,
                        "no Anthropic API key — cannot run faithfulness judge (fail closed)")
-    import anthropic
+    from transcript_utils import get_anthropic_client
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0
@@ -743,9 +895,9 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
     if not api_key:
         return Verdict("theme_grounding", Status.ERROR,
                        "no Anthropic API key — cannot run theme judge (fail closed)")
-    import anthropic
+    from transcript_utils import get_anthropic_client
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
     fails, errors = [], []
     judged = 0
@@ -796,6 +948,43 @@ def check_required_artifacts(base_name: str, logger=None) -> Verdict:
     return Verdict("required_artifacts", Status.PASS, "all required artifacts present")
 
 
+def check_consistency(base_name: str, logger=None) -> Verdict:
+    """Cross-artifact consistency. Flags the error class per-artifact
+    validators miss because every artifact is checked against the transcript but
+    never against each other, nor against the transcript's domain density — e.g.
+    empty Bowen references on a talk that recounts Bowen the person. Deterministic,
+    no API call.
+
+    Hard blocker for its FAIL findings (in ``config.GATE_BLOCKING_CHECKS``): an
+    empty bowen-references.md while the transcript or abstract recounts Bowen the
+    person >= BOWEN_PERSON_MIN_MARKERS times is a dropped recollection — a lost
+    signal, not a cosmetic gap. Its heuristic WARNs (orphan key-term, topic
+    coverage, the fuzzy specific-recollection drop) remain advisory."""
+    from transcript_validate_consistency import resolve_transcript, run as consistency_run
+
+    proj = config.PROJECTS_DIR / base_name
+    # A missing/unresolvable source is "cannot verify" (ERROR -> block), not a
+    # definitive inconsistency — mirror check_entity_grounding so the blocker's
+    # FAIL set is exactly "definitive inconsistency" and a source-resolution
+    # failure never blocks as a misclassified FAIL.
+    transcript_path = resolve_transcript(proj)
+    if transcript_path is None:
+        return Verdict("consistency", Status.ERROR,
+                       "source transcript missing — cannot verify consistency")
+    if not transcript_path.read_text(encoding="utf-8", errors="replace").strip():
+        return Verdict("consistency", Status.ERROR,
+                       "source transcript empty — cannot verify consistency")
+    fails, warns, _info = consistency_run(proj)
+    if fails:
+        return Verdict("consistency", Status.FAIL,
+                       f"{len(fails)} cross-artifact inconsistency(ies): {fails[0]}",
+                       items=fails)
+    if warns:
+        return Verdict("consistency", Status.WARN,
+                       f"{len(warns)} cross-artifact warning(s)", items=warns)
+    return Verdict("consistency", Status.PASS, "artifacts mutually consistent")
+
+
 # Ordered registry. Which checks are hard blockers is config policy
 # (config.GATE_BLOCKING_CHECKS — not enumerated here so this comment can't drift); the
 # rest are advisory verdicts recorded in the manifest.
@@ -808,8 +997,11 @@ DEFAULT_CHECKS: list = [
     ("theme_grounding", check_theme_grounding),
     ("required_artifacts", check_required_artifacts),
     ("verbatim_quotes", check_verbatim_quotes),
+    ("topics_grounding", check_topics_grounding),
+    ("summary_coverage", check_summary_coverage),
     ("timestamp_citations", check_timestamp_citations),
     ("entity_consistency", check_entity_consistency),
+    ("consistency", check_consistency),
 ]
 
 
@@ -982,9 +1174,23 @@ def publish_allowed(base_name: str, logger=None) -> bool:
     artifacts, so the decision is identical. The manifest is a snapshot at gate
     time — bundle files written *after* the guard aren't all captured; a single
     orchestrator-level ``gate_and_report`` call (future wiring) would be exact."""
+    decision = run_gate(base_name, logger)
+    record_decision(base_name, decision, logger)
+    return decision.allowed
+
+
+def record_decision(base_name: str, decision: GateDecision, logger=None) -> None:
+    """Apply a gate decision's side effects: marker, stale-bundle quarantine on
+    BLOCK, and the run manifest.
+
+    Purpose: Let a caller that already ran ``run_gate`` (the GUI webpdf stage)
+             record the decision without losing the F4 quarantine / marker /
+             manifest that ``publish_allowed`` performs (review G1).
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R1
+    Tests:   tests/test_ts_gui_web_generation.py::test_r1a_gui_block_quarantines_stale_bundle
+    """
     from datetime import datetime
 
-    decision = run_gate(base_name, logger)
     generated_at = datetime.now().isoformat(timespec="seconds")
     _update_block_marker(base_name, decision, generated_at)
     if decision.decision is Decision.BLOCK:
@@ -993,7 +1199,6 @@ def publish_allowed(base_name: str, logger=None) -> bool:
             logger.error("Release gate BLOCKED publication of %s — skipping bundle.", base_name)
     # After any quarantine, so the recorded artifact state matches what remains.
     write_manifest(base_name, decision, generated_at, logger)
-    return decision.allowed
 
 
 def gate_and_report(base_name: str, generated_at: str, logger=None) -> GateDecision:

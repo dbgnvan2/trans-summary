@@ -49,3 +49,39 @@ def test_grounded_exact_needle_still_matches():
     start, end, ratio = find_text_in_content(needle, _LONG_HAYSTACK, aggressive_normalization=True)
     assert start is not None
     assert ratio >= config.FUZZY_MATCH_THRESHOLD
+
+
+def test_find_text_in_content_returns_raw_offsets_for_whitespace_diff():
+    """Offsets must bound the needle in the RAW haystack, not the normalized one. A
+    double space used to shift the offset and produce a misaligned slice, which the
+    span guard then (correctly but wastefully) skipped — a recall loss, not corruption."""
+    start, end, ratio = find_text_in_content("beta gamma", "X beta   gamma Y")
+    assert (start, end, ratio) == (2, 14, 1.0)
+    assert "X beta   gamma Y"[start:end] == "beta   gamma"
+
+
+def test_find_text_in_content_returns_raw_offsets_case_insensitive():
+    start, end, ratio = find_text_in_content("Beta Gamma", "prefix beta gamma suffix")
+    assert (start, end, ratio) == (7, 17, 1.0)
+    assert "prefix beta gamma suffix"[start:end] == "beta gamma"
+
+
+def test_find_text_in_content_locates_timestamp_split_occurrence():
+    """A timestamp between words is stripped by normalize_text, so the raw search must
+    tolerate it to find the SAME (first) occurrence the normalized match did — not
+    silently re-locate to a later verbatim copy (P11: locate-back != what matched)."""
+    hay = "beta [00:01:02] gamma ... later beta gamma"
+    start, end, ratio = find_text_in_content("beta gamma", hay)
+    assert (start, end, ratio) == (0, 21, 1.0)
+    assert hay[start:end] == "beta [00:01:02] gamma"
+
+
+def test_locate_raw_span_rejects_partial_word():
+    """The \\b boundary must prevent a mid-word match: 'blocker' must not match the
+    'blocker' inside 'betablocker'. This is an EXACT-branch case (the needle's
+    normalized form IS a substring), so it actually reaches _locate_raw_span (unlike a
+    fuzzy-threshold case that short-circuits first)."""
+    from transcript_utils import _locate_raw_span
+    assert _locate_raw_span(["blocker", "gamma"], "betablocker gamma") == (None, None)
+    # the standalone word DOES match
+    assert _locate_raw_span(["blocker", "gamma"], "blocker gamma") == (0, 13)

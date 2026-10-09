@@ -10,7 +10,6 @@ Usage:
 import os
 import sys
 
-import anthropic
 
 import config
 
@@ -18,10 +17,13 @@ import config
 def check_environment_variables():
     """Check for required environment variables."""
     print("\n--- Environment Variables ---")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    from transcript_utils import resolve_anthropic_key
+
+    api_key = resolve_anthropic_key()
     if api_key:
+        source = "ANTHROPIC_API_KEY" if "ANTHROPIC_API_KEY" in os.environ else "~/.config/llm/keys.json"
         masked_key = f"{api_key[:8]}...{api_key[-4:]}"
-        print(f"✅ ANTHROPIC_API_KEY found: {masked_key}")
+        print(f"✅ Anthropic API key found ({source}): {masked_key}")
         return True
     else:
         print("❌ ANTHROPIC_API_KEY not set.")
@@ -85,9 +87,16 @@ def check_prompt_files():
 def check_model_availability():
     """Check if the configured models are available via the API."""
     print("\n--- Model Availability ---")
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    from transcript_utils import (
+        TruncatedResponseError,
+        call_claude_with_retry,
+        get_anthropic_client,
+        resolve_anthropic_key,
+    )
+
+    api_key = resolve_anthropic_key()
     if not api_key:
-        print("❌ Cannot check model: ANTHROPIC_API_KEY not set.")
+        print("❌ Cannot check model: no Anthropic API key (env or ~/.config/llm/keys.json).")
         return False
 
     models_to_check = []
@@ -101,20 +110,30 @@ def check_model_availability():
             models_to_check.append(model)
 
     all_available = True
-    client = anthropic.Anthropic(api_key=api_key)
+    client = get_anthropic_client(api_key)
 
     for model in models_to_check:
         print(f"Checking model: {model:<30} ... ", end="", flush=True)
+        # Through the retry wrapper (SDK retries are off), so one transient
+        # 429/529 doesn't report a working model as broken (sweep finding).
         try:
-            client.messages.create(
+            call_claude_with_retry(
+                client=client,
                 model=model,
                 max_tokens=config.MAX_TOKENS_MODEL_PROBE,
                 messages=[{"role": "user", "content": "Hi"}],
+                min_length=1,
+                script_name="config_check",
             )
             print("✅ Available")
-        except anthropic.NotFoundError:
-            print("❌ Not Found (404)")
-            print(f"   The model '{model}' does not exist or you don't have access.")
+        except TruncatedResponseError:
+            print("✅ Available")  # it answered; the probe's tiny max_tokens cut it off
+        except ValueError as e:
+            if "(404)" in str(e):
+                print("❌ Not Found (404)")
+                print(f"   The model '{model}' does not exist or you don't have access.")
+            else:
+                print(f"❌ Error: {e}")
             all_available = False
         except Exception as e:
             print(f"❌ Error: {e}")

@@ -2,6 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-09 (merge validation-hardening into main)
+
+Combines the 2026-09-23 work on main with the 2026-10-04/05 review fixes. Author
+decisions 2026-10-09:
+- Validators do not fail the Core stage; emphasis/topics/summary coverage block
+  publication through the release gate, and key terms stay advisory (main had made
+  all four fail the stage).
+- `verbatim_quotes` keeps main's whole-quote word coverage and gains filler-word /
+  stutter handling; it replaces the branch's separate `emphasis_grounding` check and
+  ERRORs when the emphasis file parses to nothing.
+- `topic_term_faithfulness` is advisory (WARN) until calibrated.
+- Claim extraction keeps main's claim-bearing headings and the branch's ungrounded
+  scaffolding names; `JUDGE_LOGIC_VERSION` = 2026-10-09.
+
+## [Unreleased] - 2026-10-05 (full-repo review fixes)
+
+Fixes from `REVIEW-trans-summary-2026-10-04.md`, per `docs/plan_review_fixes_2026-10-04.md`.
+
+**Publish gate**
+- **GUI BLOCK now quarantines the stale bundle (G1).** The webpdf stage returned early on
+  BLOCK without the quarantine / PUBLISH-BLOCKED marker / manifest; it now calls
+  `release_gate.record_decision`.
+- **Names in headings, bold labels and `---` regions are checked (F2).** Both hard blockers
+  stripped these before checking. Generic headings are excluded via
+  `config.SCAFFOLDING_HEADING_PHRASES`. Behaviour change: a bold label whose words never occur
+  in the source is now an ungrounded name.
+- **Theme judge sees the whole theme (F3)**, including Key evidence (gold set: +2 cases).
+- **Zero claims from a non-empty prose artifact is ERROR**, not PASS (author decision).
+- **Judge cache key hashes the extraction code (F4)**; `JUDGE_LOGIC_VERSION` = 2026-10-04.
+- **New blocking checks** `emphasis_grounding`, `topics_grounding`, `summary_coverage`
+  (author decisions 2026-10-05). Emphasis matching ignores filler words and stutters;
+  summary coverage gates on topic / closing items only. Key terms stay advisory.
+- Live re-calibration 2026-10-04 passed: faithfulness gold 1.0/1.0, real abstracts as
+  expected, theme judge (with evidence) 1.0/1.0.
+
+**LLM calls**
+- **One client factory (F12/F14).** `transcript_utils.get_anthropic_client()` resolves the key
+  from env or `~/.config/llm/keys.json` for every stage and disables SDK retries
+  (`max_retries=0`); the wrapper retries 5xx and applies `config.TIMEOUT_FALLBACK`.
+- **`max_tokens` truncation is not retried (B-11)**; rejected responses are logged to
+  `token_usage.csv`.
+- **Resolved prompt placeholders are no longer sent twice (B-05).**
+
+**Validators**
+- Summary LLM coverage rescue works (F13); a failed rescue is "unverified" (ERROR), not
+  "missing" (C-07). The required "Speaker identified" item is created again (G6).
+- Key terms ground on alternative label forms (parenthetical, `X / Y`, versus → and).
+- Topic grading skips the fuzzy scan when keyword grounding already decides the tier
+  (20–50 s → under 1 s per real project; same tiers).
+- Gen Abstract returns failure when no attempt is faithful (author decision).
+
+**Other**
+- Cleanup deletes only `{base}_vN.txt`, not another transcript's versions (G11).
+- Repo CSS is no longer HTML-escaped inside `<style>` (D-09).
+- README install and key setup corrected (G19); ARCHITECTURE §4.3 lists the blocking checks.
+- Real prose fixtures: `tests/fixtures/prose_real/` (3 projects).
+
 ## [Unreleased] - 2026-09-23 (review of formatting differences + pattern sets)
 
 - Formatting validation no longer tolerates unexplained differences. Every difference between the raw and formatted transcript must be a removed stutter or transcription tag (auto-allowed) or be decided in review; otherwise validation and the release gate fail. The 1.5% / 10-word limits remain as "regenerate, don't review" bounds and now exclude auto-allowed stutters.
@@ -37,6 +94,108 @@ Release gate (all new/changed checks are blocking):
 - Faithfulness claim extraction now judges claim-bearing headings (`FAITHFULNESS_GENERIC_HEADINGS` skipped); `JUDGE_LOGIC_VERSION` bumped, so cached verdicts are re-judged once.
 
 Extraction stage: emphasis, topics, key-terms and summary-coverage validation results now fail the stage instead of only being logged.
+
+## [Unreleased] - 2026-08-22 (close three non-blocking follow-ups)
+
+Three items previously deferred as non-blocking (from the full-run review) are now fixed:
+
+- **Emphasis decimal rank mis-parse** — `parse_scored_emphasis_output._parse_score` digit-averaged every number group, so a decimal rank `"92.9"` became `(92+9)/2 = 50` (mis-displayed AND mis-validated against the category range). It now parses the first number as a float and rounds to int (`92.9 → 93`).
+- **`UNRECOGNIZED` emphasis type leaked through** — the parser's lenient bracket pattern captured any type token the model emitted, and it was written verbatim into the artifact header. `validate_emphasis_item` now rejects a type outside `Explicit/Implicit/Clinical` (fail-closed, logged), instead of writing it through.
+- **`find_text_in_content` returned misaligned raw offsets** — offsets were computed from normalized-word indices / a needle-prefix `find`, so a whitespace difference (double space) produced a span that did not bound the needle in the raw text; the Init Val span guard then (correctly but wastefully) skipped a legitimate fuzzy correction (recall loss, not corruption). It now re-locates the matched window in the RAW haystack via `_locate_raw_span` (case-insensitive, whitespace-flexible `\b…\b` regex), so whitespace/case-only differences apply correctly while the guard still blocks a true mis-location.
+- **Core + standalone Bowen/Emphasis double-run** — selecting `Core` (with Include Bowen/Emphasis) AND the standalone `Bowen + Emphasis` stage ran the same extraction twice. `_run_selected_stages` now logs a heads-up warning (via the unit-tested `_duplicate_bowen_emphasis` predicate); it never changes what runs.
+
+Offline suite: 856 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-22 (full-run review: close six validation gaps)
+
+Fixes from reviewing a full Kerr "Systems Biology Meets Bowen Theory" run that halted at stage 8. The halt was the release gate correctly **BLOCKING** publication, but the block exposed six real bugs:
+
+- **Faithfulness false-BLOCK on metadata** — `extract_claims` fed the overview/blog fenced ```` ```yaml ```` block (slug/focus_keyword/target_audience/faq q:/a:) and leading bold topic labels to the judge as "claims", which were flagged "unsupported" and false-blocked publication. The extractor now pre-strips scaffolding via the shared `_strip_scaffolding` helper (extended with a `_strip_fenced_block` step) — one source of truth, so the entity/name detector and the claim extractor cannot drift (P19).
+- **Faithfulness over-flags editorial prose** — the judge treated rhetorical/editorial framing of grounded material ("The environment is not incidental.", "It was a logical approach, and it produced genuine discoveries.") as "unsupported". The judge instructions now classify editorial framing (emphasis/restatement/framing with no NEW specific) as entailed, while keeping "unsupported" reserved for fabricated specifics and invented causal claims/attributions (the recall-bearing class). Two editorial-framing gold cases (ef1/ef2) lock the behaviour via live re-calibration (M2.B).
+- **Bowen parser turned "no references" prose into a fake candidate** — `extract_bowen_references` matched a bare "Label: \"quote\"" shape, so the model's prose ("There are no instances of \"Bowen said,\"") parsed into a garbage candidate and produced a confusing "0 grounded refs from 1 candidate" diagnostic on a lecture with genuinely zero person recollections. The parser now requires the prompt's bold concept format (re-added `re.MULTILINE`, whose loss parsed only the first line).
+- **Presenter name flagged as a hallucination** — `find_ungrounded_names` now accepts `known_names` (presenter/author from filename metadata) so a correct attribution to the speaker ("Michael Kerr", never named in their own talk) is not flagged; a fabricated adjacent name ("Michael Kerrstone") is still caught.
+- **Ingest timestamp leaked into the date** — `parse_filename_metadata` returned the full `2021-06-25_20260718_155038` segment, so the YAML "Lecture date" and prompt date context showed the ingest timestamp. The `date` field is now the clean `YYYY-MM-DD`; `stem` keeps the full unique segment.
+- **Stage 8 reported an opaque "webpage generation failed"** — when the gate BLOCKED, the GUI now runs the gate once up-front, logs the specific blockers/warnings, and skips webpage/PDF entirely instead of both generators each re-running the gate and failing silently.
+
+Known, non-blocking (left for a follow-up): the "Core" + standalone "Bowen + Emphasis" double-run still extracts emphasis/Bowen twice when both are selected (documented workflow choice, `TODO.md`); a heads-up warning when both are selected would help.
+
+A learning-qa failure-pattern sweep (`2c0feb1...HEAD`) then caught and fixed four more: the Bowen parser's bold-requirement silently dropping non-bold real references (now a non-bold fallback + a loud empty-parse warning); the scaffolding strip hiding a fabricated name rendered as a leading bold label (name-shaped bold labels are now re-emitted so the judge stays the backstop); the editorial-framing guidance risking recall on strength-escalations ("definitively proven" when the source is tentative is now explicitly unsupported); and the known-name whitelist hiding a short fabricated surname ("Michael Li") via token filtering (now exact full-name match).
+
+Offline suite: 837 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-22 (Bowen parser + name-shape backstop convergence)
+
+Three further learning-qa confirmation sweeps (`4be1271...HEAD`) kept finding new failure modes in the two fuzzy heuristics the full-run review introduced. Each fix narrowed one class; the final sweep drove both to their robust terminal form:
+
+- **Bowen reference parser** — the "no references" prose guard is now **inverted**: a quote with a Bowen person attribution (in the quote *or* the concept label, both via `bowen_attribution` as single source of truth) is always kept, and only an *unattributed* meta-shaped quote (`"There are no explicit references to Bowen …"`) is dropped. A false-drop can now only hit an unattributed quote — which the rule filter discards downstream anyway — so the negation vocabulary can no longer silently drop a real recollection (`"Bowen said there are no instances of emotional cutoff"`). The parser also gained a non-bold fallback gated on quote-OR-concept attribution, a post-parse prose guard, and smart-quote/re.MULTILINE-safe regexes.
+- **`concept_has_bowen_attribution`** — the theory-rejection is now a single source of truth that rejects the theory/theorist *nouns* (`"Bowen's theory of differentiation"`, `"Bowen's differentiation theory"`) but keeps a possessive-adjective recollection (`"Bowen's theoretical insights"`), mirroring the quote-side detector.
+- **Name-shape backstop** — `_name_shaped_bold_labels` re-emits a fabricated name rendered as `**Name:** …` (the entity check's bold-label blind spot) while excluding generic scaffolding labels (`Theme/Term/Topic/…`) and the canonical Bowen concept vocabulary (moved to `config.BOWEN_CONCEPT_LABELS`, rule #9). **Residual (documented, interim):** a *lecture-specific* concept label not in the canonical set (e.g. `"Emergent Features"`) is still re-emitted as a fabricated name; a fully-general name-vs-concept discriminator needs the semantic judge, not a regex — flagged as a follow-up rather than shipped as a false sense of closure.
+
+Offline suite: 850 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-22 (GUI "Test Drift" pre-flight judge self-test)
+
+- **`ts_gui` "Test Drift" button** — a one-click pre-flight check next to "Config Check" that runs all three semantic judges over their gold sets and reports recall/precision, so the user can confirm the hallucination safety net is still at calibrated accuracy *before* processing a transcript. On drift it logs and pops a dialog with actionable help (re-run to rule out a single-draw flake; identify what changed — judge model / prompt / threshold; re-calibrate, or pin the judge model to a dated snapshot). A "could not run" (no key / API error) is surfaced as a failure, never a clean pass.
+- **`judge_drift_monitor.run_in_process`** — a public in-process entry point returning `(report, drift)` so the GUI reuses the exact CLI evaluate/render/drift logic rather than a parallel copy.
+
+## [Unreleased] - 2026-08-22 (judge drift monitor — drift insurance for the semantic judges)
+
+- **`judge_drift_monitor`** — the semantic judges (faithfulness, theme, key-terms) were calibrated once at arming and then trusted forever; a model bump or prompt edit that silently un-calibrates them would serve stale verdicts with no signal (P20). This unified CLI re-runs all three judges over their curated gold sets and asserts they still clear their precision/recall bars, exiting non-zero on drift (0 = all clear, 1 = drift detected, 2 = could-not-run). Each judge runs on its OWN configured model unless `--model` overrides all three. Not run by `pytest` (the offline wrapper is `tests/test_judge_drift_monitor.py`); intended for CI or a weekly cron.
+- **`key_terms_gold`** — the missing third gold set: 7 real (correct) definitions + 10 hand-authored INCORRECT definitions (a swapped concept, a reversed relationship, a reversed formula, or the opposite meaning) — the class lexical grounding and entailment cannot catch, so it specifically grades the key-terms judge's semantic discrimination.
+- **Live baseline (claude-sonnet-4-6)** — all three judges recall = precision = 1.0 on their gold sets (faithfulness 31, theme 31, key-terms 17 cases).
+
+## [Unreleased] - 2026-08-22 (empty bowen-references now blocks)
+
+- **`consistency` promoted to a hard blocker** — an empty `bowen-references.md` while the transcript or abstract recounts Bowen the person ≥ 2 times is a DROPPED RECOLLECTION (a lost signal on the highest-signal artifact), so the check's FAIL findings now BLOCK publication instead of shipping as `ALLOW_WITH_WARNINGS`. Its heuristic WARNs (orphan key-term, topic coverage, the fuzzy specific-recollection drop) remain advisory.
+
+## [Unreleased] - 2026-08-22 (fabricated-name blocker extended to narrative prose)
+
+- **`find_ungrounded_names` is now heading/bold-aware** — it strips ALL markdown headings and bold concept/term labels (not just leading scaffolding), so a blog's "## Key Takeaways" or a "**Role Absorption** —" definition list no longer reads as a fabricated proper name. A bare "**bold** prose" with no label separator is left intact, so a real name rendered as leading bold emphasis is still detected.
+- **Blocker scope widened** — `GATE_ENTITY_ARTIFACT_SUFFIXES` now scans the narrative prose artifacts (abstract, summary, overview, blog), so a fabricated person/org/place name in the summary/overview/blog FAILs the gate (previously only the abstract was scanned; the others were caught only indirectly by the faithfulness judge). The heading-heavy STRUCTURED artifacts (themes/topics/key-terms) stay excluded — their Title-Case concept labels are content, not names, and their fabrication mode is semantic (the theme/key-term judges' domain).
+
+Offline suite: 819 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-22 (key-term domain-semantic judge — gap #4)
+
+- **`key_terms_semantic_judge`** — the lexical key-terms validator cannot catch a lexically-plausible but semantically-WRONG definition (a term defined as the wrong concept, or swapped with a sibling, while still using transcript vocabulary). This judge asks, per term, whether the DEFINITION correctly captures the term's Bowen-theory meaning — labels `correct`/`incorrect`, fail-closed on any API/parse error. **Built but not yet armed** (`KEY_TERMS_JUDGE_ENABLED=False`); reuses the faithfulness judge's parser + result types + cache-reusable prompt.
+- **Calibration harness** (`key_terms_head_to_head`) — builds a labeled set (real terms = correct; each term's definition swapped with another's = incorrect, skipping near-synonym swaps), runs the judge, and reports precision/recall/accuracy with arming-threshold clearance. A calibration with no INCORRECT examples can never read as "clears" (P24).
+- **Live head-to-head (claude-sonnet-4-6, Kerr "Where Roots Bowen Theory Reside in the Brain")** — recall 1.0 / precision 1.0 / accuracy 1.0 on 20 examples (10 correct + 10 swapped), clearing the arming thresholds. The Claude-vs-Fable second-judge comparison is runnable by invoking the harness with a different `--model` once the Fable model string is provided.
+
+Offline suite: 805 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-21 (cross-artifact reconciliation — gap #3)
+
+- **`transcript_validate_consistency`** — the consistency check now reconciles artifacts against EACH OTHER, not just the transcript, catching drift a per-artifact check cannot see:
+  - **Bowen recollection-drop** (abstract ↔ bowen-references): the abstract surfacing ≥ 2 person-recollections while `bowen-references.md` is EMPTY is a FAIL (a recollection the pipeline itself surfaced was dropped); a missing artifact (skipped stage) or a single incidental mention is a WARN; a recollection whose *substance* is absent from a non-empty file is a WARN.
+  - **Orphan key-term** (key-term ↔ abstract + topics): a term reflected in neither synthesis surface is a WARN.
+  - **Per-topic abstract coverage**: a topic the abstract silently omits is flagged individually (extends the old max-overlap-only signal).
+- **Attribution-scaffold derivation** — `bowen_attribution.ATTRIBUTION_SCAFFOLD_WORDS` is derived from the detector's own verb regex lists (precisely: pure single-word verbs + explicit `quote`/`quoted`/`talk`/`talked`), so the consistency check's "strip attribution before judging recollection substance" can never drift from what the detector actually matches. `keyword_overlap` reverted to exact-word matching (a 5-char-prefix heuristic was found to over-match non-variants like `family`/`familiar` and silently loosen every caller).
+
+Offline suite: 785 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-21 (chunked faithfulness judge for long transcripts)
+
+- **`faithfulness_judge`** — a single batched judge call over a long transcript degrades attention (especially the middle) and can near the context limit (gap #1). Above `FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS` (3000), `judge_artifact` now splits the source into overlapping word-windows (reusing the lexical validators' `VALIDATION_CHUNK_SIZE`/`OVERLAP`) and routes each claim to the window that holds *all* of its source-anchored significant words; a claim whose content spans windows (a summary-level inference connecting material across the source) is judged against the full source so a faithful abstraction is never falsely flagged. Short sources keep the single-call path unchanged.
+- **Structural spread detection** — a claim routes to a window only if that window contains every significant word of the claim that appears anywhere in the source. This catches balanced *and* unbalanced cross-window spread uniformly (a best-vs-second overlap margin was found to miss the unbalanced shape in review), while still routing genuinely localized claims (e.g. a per-section key term).
+- **Fail-closed reassembly** — `judge_claims_chunked` raises on any missing/None verdict before returning, so a future routing hole maps to a gate ERROR rather than an unhandled AttributeError downstream.
+- **Cache invalidation by construction** — the chunking thresholds AND the routing code itself (`route_claims_to_chunks`, `chunk_source`, `_significant_words`, `_STOP_WORDS`) are folded into `_judge_logic_version`'s hashed material, so a threshold tune or routing-code edit cannot silently serve a stale cached PASS on the armed gate.
+
+Offline suite: 773 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-21 (offline golden-transcript regression harness)
+
+- **`tests/test_golden_transcript_regression.py`** — an offline end-to-end regression baseline (gap #2). Reuses the three existing golden fixtures (`dave_g_test2`, `roots_bowen_test`, `where_roots`) and runs the deterministic validation layer over each with zero API spend: the fabricated-name detector still flags the real "Luciano Malorni" fabrication (and stays clean on clean abstracts), claim extraction and the artifact codecs yield stable golden counts, the real `release_gate.run_gate` BLOCKs the known fabrication end-to-end, and the cross-artifact consistency check passes on the complete fixture. Offline-ness is enforced inside the test (not just by the suite conftest). The `GOLDEN` table is the single place to update exact counts on a legitimate change.
+
+Offline suite: 758 passed / 18 skipped / 3 xfailed.
+
+## [Unreleased] - 2026-08-21 (Bowen person-recollection extraction fix + cross-artifact consistency gate)
+
+- **Bowen reference extraction prompt** — a "Bowen reference" is now a recollection of Murray Bowen *the person* (said/wrote/told/suggested/explained…), not "Bowen theory" exposition. The vague prompt previously made the model extract concept-applications, which the (correct) person-vs-theory filter then dropped → empty `bowen-references.md` on a Bowen-dense talk. Verified end-to-end: 0 → 7 genuine person-recollections on a Kerr talk.
+- **New `check_consistency` release-gate check (advisory)** — deterministic, no-API cross-artifact consistency: flags an empty content-derived artifact on a transcript that clearly contains the material it should have captured (person-recollection density for Bowen), plus advisory key-term keyword-overlap and abstract↔topics signals. Wired into `DEFAULT_CHECKS` (advisory by policy, not a hard blocker).
+- **`bowen_attribution.py`** — extracted the Bowen person-attribution detector into a shared stdlib-only module; `extraction_pipeline` and the consistency check both import it (same object by identity), so the density signal and the extraction filter can never drift. Behaviour-identical to the original (differential-verified), including the two distinct verb lists (short for the "Bowen theory" rejection, long for primary attribution).
+- **Test-hygiene fix** — `test_bowen_references_integration` no longer clobbers the real `prompts/bowen_reference_extraction_v1.md` on every full-suite run (the fixture now redirects the frozen `config.PROMPTS_DIR` module attr to a tmp dir and restores it).
+
+Offline suite: 749 passed / 18 skipped / 3 xfailed.
 
 ## [Unreleased] - 2026-07-18 (review fixes batch 10: dedups L11/L12/L14)
 
