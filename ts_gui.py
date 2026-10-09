@@ -83,6 +83,8 @@ STAGE_DEFINITIONS = [
     # means the rendered artifacts reflect the current run. Spec: SR.6
     ("bowen_emphasis", "Bowen + Emphasis"),
     ("webpdf", "8. Full Web/PDF"),
+    # Before package so the zip includes the simple page. Spec: RF.E.1
+    ("simple_web", "8b. Simple Web"),
     ("package", "Package"),
     ("bundle", "Bundle (DOC/PDF)"),
 ]
@@ -129,6 +131,7 @@ STAGE_DEPENDENCIES = {
         [("core", "SUFFIX_KEY_TERMS")],
     ],
     "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+    "simple_web": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
     # Bowen/Emphasis extract from the validated derived transcript, never the
     # raw source. Require a formatted/yaml artifact (selected or already on
     # disk) so a selective re-run can't run extraction on an unvalidated raw
@@ -193,9 +196,10 @@ STAGE_OUTPUTS = {
     "val_abstract": ["SUFFIX_ABSTRACT_VAL"],
     "blog": ["SUFFIX_BLOG"],
     "overview": ["SUFFIX_OVERVIEW"],
-    # The webpdf stage runner writes only .html + .pdf; the simple webpage is a
-    # separate standalone tool and is not produced here (P19: match the writer).
+    # The webpdf stage runner writes only .html + .pdf; the simple webpage has its
+    # own stage (P19: match the writer).
     "webpdf": ["SUFFIX_WEBPAGE", "SUFFIX_PDF"],
+    "simple_web": ["SUFFIX_WEBPAGE_SIMPLE"],
     "bowen_emphasis": ["SUFFIX_BOWEN", "SUFFIX_EMPHASIS_SCORED"],
     "package": ["SUFFIX_ZIP"],
     # Derived from BUNDLE_DEFAULT_FORMAT (not a second literal) so the "exists"
@@ -2165,8 +2169,6 @@ class TranscriptProcessorGUI:
         self.run_task_in_thread(self._run_web_pdf_generation)
 
     def _run_web_pdf_generation(self):
-        import release_gate
-
         if not self.base_name:
             return False
 
@@ -2175,18 +2177,7 @@ class TranscriptProcessorGUI:
         # blog") instead of the opaque "Full webpage generation failed", and so no
         # web/PDF work is attempted when publication is refused (previously both
         # generators each ran the gate and both failed silently).
-        decision = release_gate.run_gate(self.base_name, self.logger)
-        if decision.decision is release_gate.Decision.BLOCK:
-            # Quarantine the previous bundle, write the marker and manifest (G1):
-            # returning early must not leave an old ALLOW run's webpage/PDF on disk
-            # looking current.
-            release_gate.record_decision(self.base_name, decision, self.logger)
-            self.log("  - ❌ Release gate BLOCKED publication — skipping webpage/PDF.")
-            for v in decision.blockers:
-                self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")
-            for v in decision.verdicts:
-                if v.status is release_gate.Status.WARN:
-                    self.log(f"      [WARN] {v.check}: {v.detail}")
+        if self._publication_blocked("webpage/PDF"):
             return False
 
         success = True
@@ -2212,6 +2203,48 @@ class TranscriptProcessorGUI:
             self.log("  - Webpage validation FAILED.")
             success = False
         return success
+
+    def _publication_blocked(self, what: str) -> bool:
+        """Run the release gate; on BLOCK record the decision and log every blocker.
+
+        Purpose: One BLOCK path for every publishing stage, so each reports the
+                 real reason and applies the gate's side effects.
+        Spec:    docs/plan_run_fixes_2026-10-09.md#RF.E.2
+        Tests:   tests/test_run_fixes_rf.py::test_rfe2_simple_web_block_writes_nothing_and_logs_blockers
+        """
+        import release_gate
+
+        decision = release_gate.run_gate(self.base_name, self.logger)
+        if decision.decision is not release_gate.Decision.BLOCK:
+            return False
+        # Quarantine the previous bundle, write the marker and manifest (G1):
+        # returning early must not leave an old ALLOW run's output on disk looking
+        # current.
+        release_gate.record_decision(self.base_name, decision, self.logger)
+        self.log(f"  - ❌ Release gate BLOCKED publication — skipping {what}.")
+        for v in decision.blockers:
+            self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")
+        for v in decision.verdicts:
+            if v.status is release_gate.Status.WARN:
+                self.log(f"      [WARN] {v.check}: {v.detail}")
+        return True
+
+    def _run_stage_simple_web(self):
+        """Runner for the 'simple_web' stage: the standalone page without sidebar.
+
+        Purpose: Offer the simple webpage in the GUI, gated like Full Web/PDF.
+        Spec:    docs/plan_run_fixes_2026-10-09.md#RF.E.2
+        Tests:   tests/test_run_fixes_rf.py::test_rfe2_simple_web_calls_generator_on_allow
+        """
+        if not self.base_name:
+            return False
+        if self._publication_blocked("simple webpage"):
+            return False
+        self.log("  - Generating simple webpage...")
+        if not pipeline.generate_simple_webpage(self.base_name):
+            self.log("  - Simple webpage generation failed.")
+            return False
+        return True
 
     def do_package(self):
         """Package all generated artifacts into a ZIP file."""
@@ -2737,6 +2770,7 @@ class TranscriptProcessorGUI:
             "blog": self._run_stage_blog,
             "overview": self._run_stage_overview,
             "webpdf": self._run_web_pdf_generation,
+            "simple_web": self._run_stage_simple_web,
             "bowen_emphasis": self._run_stage_bowen_emphasis,
             "package": self._run_stage_package,
             "bundle": self._run_stage_bundle,

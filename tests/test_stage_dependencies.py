@@ -114,6 +114,7 @@ def test_stage_dependencies_matches_verified_graph():
             [("core", "SUFFIX_KEY_TERMS")],
         ],
         "webpdf": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
+        "simple_web": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],
         # bowen_emphasis extracts from the validated derived transcript, so it
         # requires formatted/yaml (P13: never read the raw source). Spec: SR.4
         "bowen_emphasis": [[("format", "SUFFIX_FORMATTED"), ("yaml", "SUFFIX_YAML")]],

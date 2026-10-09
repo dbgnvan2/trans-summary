@@ -222,3 +222,67 @@ def test_rfc3_blog_failure_reason_logged(tmp_path, monkeypatch):
     assert "attempt 1/3: validator output was not JSON" in message
     assert "attempt 2/3: validator returned no top lens" in message
     assert "is not among the generated lenses" in message
+
+
+# --- RF.E: "8b. Simple Web" stage -------------------------------------------------
+
+from unittest.mock import patch  # noqa: E402
+
+import release_gate  # noqa: E402
+import ts_gui  # noqa: E402
+
+
+def _gui(logs):
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui.base_name = "Sample"
+    gui.logger = None
+    gui.log = lambda *a, **_k: logs.append(" ".join(str(x) for x in a))
+    return gui
+
+
+def test_rfe1_simple_web_before_package():
+    keys = [k for k, _ in ts_gui.STAGE_DEFINITIONS]
+    assert keys.index("webpdf") < keys.index("simple_web") < keys.index("package")
+    assert ts_gui.STAGE_OUTPUTS["simple_web"] == ["SUFFIX_WEBPAGE_SIMPLE"]
+    assert ts_gui.STAGE_DEPENDENCIES["simple_web"] == ts_gui.STAGE_DEPENDENCIES["webpdf"]
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    assert gui.stage_runners["simple_web"].__func__ is ts_gui.TranscriptProcessorGUI._run_stage_simple_web
+
+
+def test_rfe2_simple_web_calls_generator_on_allow():
+    gui = _gui([])
+    allow = release_gate.GateDecision(release_gate.Decision.ALLOW, [], [])
+    with patch("release_gate.run_gate", return_value=allow), \
+         patch("ts_gui.pipeline.generate_simple_webpage", return_value=True) as simple:
+        assert gui._run_stage_simple_web() is True
+    simple.assert_called_once_with("Sample")
+
+
+def test_rfe2_simple_web_block_writes_nothing_and_logs_blockers():
+    logs = []
+    gui = _gui(logs)
+    verdict = release_gate.Verdict("source_fidelity", release_gate.Status.FAIL,
+                                   "timestamp 00:33:00 does not occur in the raw transcript")
+    block = release_gate.GateDecision(release_gate.Decision.BLOCK, [verdict], [verdict])
+    with patch("release_gate.run_gate", return_value=block), \
+         patch("release_gate.record_decision") as record, \
+         patch("ts_gui.pipeline.generate_simple_webpage") as simple:
+        assert gui._run_stage_simple_web() is False
+    simple.assert_not_called()
+    record.assert_called_once()
+    assert any("BLOCKED" in line and "simple webpage" in line for line in logs)
+    assert any("source_fidelity" in line for line in logs)
+
+
+def test_rfe2_simple_web_generator_failure_reported():
+    logs = []
+    gui = _gui(logs)
+    allow = release_gate.GateDecision(release_gate.Decision.ALLOW, [], [])
+    with patch("release_gate.run_gate", return_value=allow), \
+         patch("ts_gui.pipeline.generate_simple_webpage", return_value=False):
+        assert gui._run_stage_simple_web() is False
+    assert any("Simple webpage generation failed" in line for line in logs)
+
+
+def test_rfe3_manifest_lists_simple_webpage():
+    assert config.SUFFIX_WEBPAGE_SIMPLE in release_gate._MANIFEST_SUFFIXES

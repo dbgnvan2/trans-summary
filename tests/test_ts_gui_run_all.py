@@ -73,10 +73,10 @@ def test_stage_definitions_order():
     expected_keys = [
         "init_val", "format", "val_headers", "yaml", "topics", "core",
         "structured_summary", "gen_abstract", "val_abstract", "blog",
-        "overview", "bowen_emphasis", "webpdf", "package", "bundle",
+        "overview", "bowen_emphasis", "webpdf", "simple_web", "package", "bundle",
     ]
     assert [key for key, _ in ts_gui.STAGE_DEFINITIONS] == expected_keys
-    assert len(ts_gui.STAGE_DEFINITIONS) == 15
+    assert len(ts_gui.STAGE_DEFINITIONS) == 16
 
 
 def test_bowen_emphasis_runs_before_webpdf_and_package():
@@ -295,7 +295,7 @@ def test_run_stage_overview_runs_standalone_from_core():
 
 
 def test_stage_runners_cover_all_keys():
-    """SS.12: `stage_runners` must map exactly the 13 STAGE_DEFINITIONS
+    """SS.12: `stage_runners` must map exactly the STAGE_DEFINITIONS
     keys to callables. Accessed directly on a __new__-constructed instance
     (no Tk mainloop) -- if stage_runners can only be built inside a
     Tk-dependent __init__, this test should fail during reconciliation and
