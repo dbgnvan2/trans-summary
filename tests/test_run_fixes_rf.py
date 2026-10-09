@@ -286,3 +286,48 @@ def test_rfe2_simple_web_generator_failure_reported():
 
 def test_rfe3_manifest_lists_simple_webpage():
     assert config.SUFFIX_WEBPAGE_SIMPLE in release_gate._MANIFEST_SUFFIXES
+
+
+# --- RF.D: the GUI log is saved to a file -----------------------------------------
+
+def _logging_gui(tmp_path, monkeypatch, logs_dir):
+    monkeypatch.setattr(config, "LOGS_DIR", logs_dir)
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui._log_file_enabled = True  # set by __init__ in the real GUI
+    shown = []
+    gui._append_log_text = shown.append
+    return gui, shown
+
+
+def test_rfd1_log_lines_written_to_session_file(tmp_path, monkeypatch):
+    gui, shown = _logging_gui(tmp_path, monkeypatch, tmp_path / "logs")
+    gui.log("STEP 7: Generating Blog Post from Lens #1...")
+    gui.log("Blog lens not validated (%s).", "attempt 1/3: validator returned no top lens")
+    files = list((tmp_path / "logs").glob("gui_*.log"))
+    assert len(files) == 1
+    lines = files[0].read_text(encoding="utf-8").splitlines()
+    assert lines[0].endswith("STEP 7: Generating Blog Post from Lens #1...")
+    assert lines[1].endswith("Blog lens not validated (attempt 1/3: validator returned no top lens).")
+    assert re.match(r"^\d\d:\d\d:\d\d ", lines[0])
+    assert shown[:2] == ["STEP 7: Generating Blog Post from Lens #1...",
+                         "Blog lens not validated (attempt 1/3: validator returned no top lens)."]
+
+
+def test_rfd1_log_file_error_does_not_raise(tmp_path, monkeypatch):
+    blocker = tmp_path / "not_a_dir"
+    blocker.write_text("x", encoding="utf-8")  # LOGS_DIR is a file -> cannot create the log
+    gui, shown = _logging_gui(tmp_path, monkeypatch, blocker)
+    gui.log("first")
+    gui.log("second")
+    assert "first" in shown and "second" in shown
+    warnings = [s for s in shown if "not being saved" in s]
+    assert len(warnings) == 1  # reported once, not on every line
+
+
+def test_rfd1_headless_instances_do_not_write(tmp_path, monkeypatch):
+    # Tests build the GUI with __new__; only the real __init__ turns file logging on.
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path / "logs")
+    gui = ts_gui.TranscriptProcessorGUI.__new__(ts_gui.TranscriptProcessorGUI)
+    gui._append_log_text = lambda _t: None
+    gui.log("hello")
+    assert not (tmp_path / "logs").exists()

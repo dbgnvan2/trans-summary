@@ -407,6 +407,10 @@ def _find_existing_validation_versions(file_path):
     return [path for _, path in versions]
 
 
+# Serialises GUI log-file writes from worker threads (RF.D).
+_GUI_LOG_FILE_LOCK = threading.Lock()
+
+
 class GuiLoggerAdapter:
     """Adapts pipeline logging calls to the GUI log window."""
 
@@ -709,6 +713,9 @@ class TranscriptProcessorGUI:
 
         # Create logger adapter
         self.logger = GuiLoggerAdapter(self)
+        # Save every log line to logs/gui_<session>.log (RF.D). Only the real GUI
+        # turns this on; headless test instances built with __new__ never write.
+        self._log_file_enabled = True
         self.make_dir_default_var = tk.BooleanVar(value=False)
         self.include_emphasis_core = tk.BooleanVar(value=True)
         self.include_bowen_core = tk.BooleanVar(value=True)
@@ -1413,10 +1420,43 @@ class TranscriptProcessorGUI:
                 text = f"{message} {args}"
         else:
             text = str(message)
-        if threading.current_thread() is threading.main_thread():
-            self._append_log_text(text)
-        else:
-            self.root.after(0, self._append_log_text, text)
+        lines = [text]
+        warning = self._save_log_line(text)
+        if warning:
+            lines.append(warning)
+        for line in lines:
+            if threading.current_thread() is threading.main_thread():
+                self._append_log_text(line)
+            else:
+                self.root.after(0, self._append_log_text, line)
+
+    def _save_log_line(self, text: str):
+        """Append one timestamped line to this GUI session's log file.
+
+        The file is ``config.LOGS_DIR / gui_<YYYYmmdd_HHMMSS>.log``, created on the
+        first line. A write failure never stops the run: it turns file logging off
+        and returns a one-time warning for the window (P2: surfaced, not dropped).
+
+        Purpose: Keep the GUI log after the window closes, so a failed run can be
+                 diagnosed afterwards.
+        Spec:    docs/plan_run_fixes_2026-10-09.md#RF.D.1
+        Tests:   tests/test_run_fixes_rf.py::test_rfd1_log_lines_written_to_session_file
+        """
+        if not getattr(self, "_log_file_enabled", False):
+            return None
+        with _GUI_LOG_FILE_LOCK:
+            try:
+                path = getattr(self, "_log_file_path", None)
+                if path is None:
+                    path = Path(config.LOGS_DIR) / f"gui_{datetime.now():%Y%m%d_%H%M%S}.log"
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    self._log_file_path = path
+                with open(path, "a", encoding="utf-8") as fh:
+                    fh.write(f"{datetime.now():%H:%M:%S} {text}\n")
+            except OSError as e:
+                self._log_file_enabled = False
+                return f"⚠️ The GUI log is not being saved to a file: {e}"
+        return None
 
     def _append_log_text(self, text: str):
         """Append text to the GUI log safely on the Tk main thread."""
