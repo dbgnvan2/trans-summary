@@ -684,28 +684,47 @@ def _without_disfluencies(text: str) -> str:
     removed and immediate repeats of 1-3 words collapsed, so "my uh my my degrees"
     and "my degrees" compare equal. Applied to both quote and transcript.
 
+    Quotation marks are not part of a word: a quote that writes the speaker's
+    inner "He's smiling" as 'He's smiling' must not turn "he's" into "'he's"
+    (RF.B). Apostrophes inside a word ("he's", "don't") are kept.
+
     Purpose: Stop a quote that only dropped disfluencies failing verbatim checks.
-    Spec:    docs/plan_review_fixes_2026-10-04.md#R15 (decision 1a)
-    Tests:   tests/test_validator_gating_r15.py::test_r15_emphasis_ignores_disfluencies
+    Spec:    docs/plan_review_fixes_2026-10-04.md#R15 (decision 1a),
+             docs/plan_run_fixes_2026-10-09.md#RF.B
+    Tests:   tests/test_validator_gating_r15.py::test_r15_emphasis_ignores_disfluencies,
+             tests/test_run_fixes_rf.py::test_rfb1_nested_single_quotes_are_verbatim
     """
-    words = re.findall(r"[a-z0-9']+", text.lower().replace("\u2019", "'"))
-    return " ".join(_collapse_disfluencies(words))
+    text = text.lower().translate(_QUOTE_CHAR_MAP)
+    words = [w.strip("'") for w in re.findall(r"[a-z0-9']+", text)]
+    return " ".join(_collapse_disfluencies([w for w in words if w]))
 
 
 def _collapse_disfluencies(words) -> list:
     """Drop filler words (config.QUOTE_FILLER_WORDS) and collapse immediate
-    repeats of 1-3 words in a lower-cased word sequence."""
+    repeats of 1-3 words in a lower-cased word sequence.
+
+    A sequence that ends part-way through a repeat ("utterings and utterings and
+    utterings", where the source goes on "...and utterings and that") drops that
+    trailing partial copy of the repeat just collapsed, so a quote cut at the end of a repeat collapses the
+    same way as the longer source (RF.B). Only words that repeat the words just
+    before them are dropped, so a changed word is never hidden."""
     words = [w for w in words if w not in config.QUOTE_FILLER_WORDS]
     out: list = []
     i = 0
+    collapsed = 0  # size of the repeat collapsed by the previous step, else 0
     while i < len(words):
         for n in (3, 2, 1):
             if len(out) >= n and words[i:i + n] == out[-n:]:
                 i += n
+                collapsed = n
                 break
         else:
+            rest = words[i:]
+            if len(rest) < collapsed and rest == out[-collapsed:][:len(rest)]:
+                break
             out.append(words[i])
             i += 1
+            collapsed = 0
     return out
 
 
