@@ -39,7 +39,20 @@ def package_transcript(base_name: str, logger=None) -> bool:
         simple_webpage = project_dir / \
             f"{base_name}{config.SUFFIX_WEBPAGE_SIMPLE}"
         if simple_webpage.exists():
-            files_to_package.append(simple_webpage)
+            # A simple page older than the files it is built from is from an
+            # earlier run; shipping it next to a fresh full page would pass old
+            # content off as current (RF.E sweep finding).
+            newer = [p for p in (
+                project_dir / f"{base_name}{config.SUFFIX_WEBPAGE}",
+                project_dir / f"{base_name}{config.SUFFIX_YAML}",
+                project_dir / f"{base_name}{config.SUFFIX_FORMATTED}")
+                if p.exists() and p.stat().st_mtime > simple_webpage.stat().st_mtime]
+            if newer:
+                logger.warning(
+                    "Simple webpage not packaged: older than %s. Run '8b. Simple Web' "
+                    "to rebuild it.", newer[0].name)
+            else:
+                files_to_package.append(simple_webpage)
 
         # 3. PDF
         pdf = project_dir / f"{base_name}{config.SUFFIX_PDF}"

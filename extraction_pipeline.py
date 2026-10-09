@@ -1314,8 +1314,15 @@ def _select_blog_lens(
             structural_themes, interpretive_themes, lenses,
         )
         top_lens = validation.get("top_lens", {}) or {}
+        denied = [name for key, name in (
+            ("structural_themes_valid", "structural"),
+            ("interpretive_themes_valid", "interpretive"))
+            if not validation.get(key)]
         if validation.get("parse_error"):
             reason = "validator output was not JSON"
+        elif denied:
+            # Core accepts a lens only with both theme sets valid; so does this.
+            reason = f"validator denied the {' and '.join(denied)} themes on disk (re-run Core)"
         elif not top_lens:
             reason = "validator returned no top lens"
         elif not _top_lens_is_grounded(top_lens, lenses):

@@ -643,6 +643,35 @@ def _word_counts(transcript_words: tuple) -> dict:
     return counts
 
 
+@functools.lru_cache(maxsize=4)
+def _plain_word_string(text: str) -> str:
+    """`` w1 w2 ... `` — the words of ``text`` normalized as in
+    ``_normalized_word_tuple`` (quote marks, punctuation, filler words removed)
+    but with repeats NOT collapsed. Padded with spaces for whole-word search."""
+    text = normalize_text(text.translate(_QUOTE_CHAR_MAP), aggressive=True)
+    words = re.sub(r"[^\w\s]", " ", text).lower().split()
+    return " " + " ".join(w for w in words if w not in config.QUOTE_FILLER_WORDS) + " "
+
+
+def _quote_is_verbatim(quote: str, transcript: str) -> bool:
+    """True when the quote's words occur in the transcript exactly, in order and
+    contiguous (after the normalization above, before any repeat collapsing).
+
+    Collapsing repeats is context-dependent: a quote that stops inside a repeat
+    ("utterings and utterings and utterings") collapses differently from the
+    source that goes on ("... and utterings and that"). A quote that is literally
+    in the source is verbatim whatever the collapse does (RF.B). A changed last
+    word ("do it, do it, do" for "do it, do it, don't") is not found and falls
+    through to the normal checks.
+
+    Purpose: Stop exact quotes failing on repeat-collapse boundaries.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.B
+    Tests:   tests/test_run_fixes_rf.py::test_rfb1_quote_ending_inside_a_repeat_is_verbatim
+    """
+    q = _plain_word_string(quote)
+    return q.strip() != "" and q in _plain_word_string(transcript)
+
+
 def _quote_word_coverage(quote: str, transcript: str) -> float:
     """Fraction of the quote's words found, in order, at its location in the
     transcript.
@@ -655,6 +684,8 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     q = list(_normalized_word_tuple(quote))
     if not q:
         return 0.0
+    if _quote_is_verbatim(quote, transcript):
+        return 1.0
     t = _normalized_word_tuple(transcript)
     locator = _transcript_matcher(t)
     locator.set_seq1(q)
@@ -701,30 +732,18 @@ def _without_disfluencies(text: str) -> str:
 
 def _collapse_disfluencies(words) -> list:
     """Drop filler words (config.QUOTE_FILLER_WORDS) and collapse immediate
-    repeats of 1-3 words in a lower-cased word sequence.
-
-    A sequence that ends part-way through a repeat ("utterings and utterings and
-    utterings", where the source goes on "...and utterings and that") drops that
-    trailing partial copy of the repeat just collapsed, so a quote cut at the end of a repeat collapses the
-    same way as the longer source (RF.B). Only words that repeat the words just
-    before them are dropped, so a changed word is never hidden."""
+    repeats of 1-3 words in a lower-cased word sequence."""
     words = [w for w in words if w not in config.QUOTE_FILLER_WORDS]
     out: list = []
     i = 0
-    collapsed = 0  # size of the repeat collapsed by the previous step, else 0
     while i < len(words):
         for n in (3, 2, 1):
             if len(out) >= n and words[i:i + n] == out[-n:]:
                 i += n
-                collapsed = n
                 break
         else:
-            rest = words[i:]
-            if len(rest) < collapsed and rest == out[-collapsed:][:len(rest)]:
-                break
             out.append(words[i])
             i += 1
-            collapsed = 0
     return out
 
 
@@ -737,6 +756,8 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     (``_quote_word_coverage``). Probing only the head and tail let a quote with a
     fabricated or negated middle score 1.0; the coverage term catches that.
     """
+    if _quote_is_verbatim(quote, formatted_content):
+        return 1.0
     quote = _without_disfluencies(quote)
     if not quote:
         return 0.0  # an empty or filler-only "quote" grounds nothing (sweep finding)

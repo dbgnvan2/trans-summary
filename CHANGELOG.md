@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-09 (run fixes RF.A-RF.E)
+
+Plan: `docs/plan_run_fixes_2026-10-09.md`. The second 2026-10-09 run of "Why Families
+Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
+
+- **Heading timestamps follow the raw transcript (RF.A).** The formatter read the raw
+  `0:33` (33 s) as `[00:33:00]` (33 min) on every heading. Format now corrects a heading
+  `hh:mm:00` to the `m:ss` reading when only that reading is in the raw, and logs
+  "Corrected N of M". The prompt states the rule. Re-run Format to pick it up.
+- **Verbatim quotes (RF.B).** A quote that writes the speaker's inner `"..."` as
+  `'...'` no longer fails (quote marks are stripped from word edges). A quote that is
+  literally in the source passes even when it stops inside a repeated phrase; a changed
+  last word ("do it, do it, do" for "don't") still fails. Kerr project: 24/24 quotes.
+- **Blog-only stage (RF.C)** retries lens validation up to
+  `THEME_LENS_VALIDATION_ATTEMPTS` (config, shared with Core), requires both theme
+  sets valid and a lens that is in the lenses file, and logs the reason per attempt.
+- **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
+- **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
+  manifest records the simple page; Package skips a simple page older than the full
+  page / transcript and says so.
+
+learning-qa sweep: 5 findings, all fixed (simple page validated; Blog-only requires
+valid themes; the trailing-repeat collapse rule replaced by an exact-match check that
+cannot hide a changed word; stale simple page not packaged; log write tolerates
+unencodable text). Suite: 1108 passed, 18 skipped, 3 xfailed.
+
 ## [Unreleased] - 2026-10-09 (faithfulness judge routing fix)
 
 Plan: `docs/plan_judge_routing_fix_2026-10-09.md`. Run 2026-10-08 ("Why Families Repeat the

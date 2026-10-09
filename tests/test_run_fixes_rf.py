@@ -55,16 +55,19 @@ def test_rfb1_contractions_kept():
 
 def test_rfb1_quote_ending_inside_a_repeat_is_verbatim():
     # The quote stops at "utterings and utterings and utterings"; the source goes
-    # on "... and that was very helpful". Both must collapse the same way.
-    assert vp._collapse_disfluencies("my utterings and utterings and utterings".split()) == \
-        ["my", "utterings", "and"]
-    assert vp._collapse_disfluencies("my utterings and utterings and utterings and that".split()) == \
-        ["my", "utterings", "and", "that"]
+    # on "... and that was very helpful". Repeat collapsing differs at that
+    # boundary, but the quote is literally in the source.
+    source = "So he could stay outside with my utterings and utterings and utterings. And that was very helpful."
+    quote = "he could stay outside with my utterings and utterings and utterings."
+    assert vp._quote_word_coverage(quote, source) == 1.0
+    assert vp._emphasis_quote_found_ratio(quote, source) == 1.0
 
 
-def test_rfb1_trailing_word_kept_when_no_repeat_was_collapsed():
-    # P7: "the dog the" is not a repeat; the final word must not be dropped.
-    assert vp._collapse_disfluencies("i saw the dog the".split()) == ["i", "saw", "the", "dog", "the"]
+def test_rfb1_changed_last_word_in_a_repeat_still_fails():
+    # P7 (sweep finding): "do" where the speaker said "don't" reverses the meaning.
+    source = "And he said do it, do it, don't. Then he left the room quietly."
+    quote = "And he said do it, do it, do"
+    assert vp._quote_word_coverage(quote, source) < config.QUOTE_MIN_WORD_COVERAGE
 
 
 # --- RF.A: heading timestamps match the raw transcript ---------------------------
@@ -174,7 +177,8 @@ def _blog_project(tmp_path, monkeypatch, validations):
 
     def _validate(*_a, **_k):
         calls.append(1)
-        return seq.pop(0) if seq else validations[-1]
+        result = seq.pop(0) if seq else validations[-1]
+        return {"structural_themes_valid": True, "interpretive_themes_valid": True, **result}
 
     monkeypatch.setattr(ep, "_validate_themes_and_lenses", _validate)
     return proj, stem, calls, MagicMock()
@@ -211,6 +215,16 @@ def test_rfc2_blog_rejects_ungrounded_lens(tmp_path, monkeypatch):
     assert _run_blog(stem, logger) is False
     assert not (proj / f"{stem}{config.SUFFIX_BLOG}").exists()
     assert len(calls) == config.THEME_LENS_VALIDATION_ATTEMPTS
+
+
+def test_rfc2_blog_refuses_lens_when_themes_denied(tmp_path, monkeypatch):
+    # Sweep finding: Core needs both theme sets valid; the Blog-only path must too.
+    proj, stem, calls, logger = _blog_project(
+        tmp_path, monkeypatch, [{"top_lens": GOOD_LENS, "interpretive_themes_valid": False}])
+    assert _run_blog(stem, logger) is False
+    assert not (proj / f"{stem}{config.SUFFIX_BLOG}").exists()
+    message = logger.error.call_args.args[0] % logger.error.call_args.args[1:]
+    assert "validator denied the interpretive themes on disk (re-run Core)" in message
 
 
 def test_rfc3_blog_failure_reason_logged(tmp_path, monkeypatch):
@@ -253,9 +267,22 @@ def test_rfe2_simple_web_calls_generator_on_allow():
     gui = _gui([])
     allow = release_gate.GateDecision(release_gate.Decision.ALLOW, [], [])
     with patch("release_gate.run_gate", return_value=allow), \
-         patch("ts_gui.pipeline.generate_simple_webpage", return_value=True) as simple:
+         patch("ts_gui.pipeline.generate_simple_webpage", return_value=True) as simple, \
+         patch("ts_gui.transcript_validate_webpage.validate_webpage", return_value=True) as check:
         assert gui._run_stage_simple_web() is True
     simple.assert_called_once_with("Sample")
+    check.assert_called_once_with("Sample", simple_mode=True)
+
+
+def test_rfe2_simple_web_validation_failure_fails_stage():
+    logs = []
+    gui = _gui(logs)
+    allow = release_gate.GateDecision(release_gate.Decision.ALLOW, [], [])
+    with patch("release_gate.run_gate", return_value=allow), \
+         patch("ts_gui.pipeline.generate_simple_webpage", return_value=True), \
+         patch("ts_gui.transcript_validate_webpage.validate_webpage", return_value=False):
+        assert gui._run_stage_simple_web() is False
+    assert any("Simple webpage validation FAILED" in line for line in logs)
 
 
 def test_rfe2_simple_web_block_writes_nothing_and_logs_blockers():
@@ -331,3 +358,41 @@ def test_rfd1_headless_instances_do_not_write(tmp_path, monkeypatch):
     gui._append_log_text = lambda _t: None
     gui.log("hello")
     assert not (tmp_path / "logs").exists()
+
+
+def test_rfe4_package_skips_stale_simple_webpage(tmp_path, monkeypatch):
+    # Sweep finding: Package must not ship a simple page older than the full page.
+    import os
+    import zipfile
+
+    import packaging_pipeline
+
+    base = "Sample Talk - A Person - 2021-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    simple = proj / f"{base}{config.SUFFIX_WEBPAGE_SIMPLE}"
+    simple.write_text("<html>old</html>", encoding="utf-8")
+    os.utime(simple, (1_000_000, 1_000_000))
+    (proj / f"{base}{config.SUFFIX_WEBPAGE}").write_text("<html>new</html>", encoding="utf-8")
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text("## Section 1\ntext\n", encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(release_gate, "publish_allowed", lambda *_a, **_k: True)
+    logger = MagicMock()
+    assert packaging_pipeline.package_transcript(base, logger)
+    names = zipfile.ZipFile(next(tmp_path.rglob("*.zip"))).namelist()
+    assert not any(n.endswith(config.SUFFIX_WEBPAGE_SIMPLE) for n in names)
+    assert any("Simple webpage not packaged" in str(c.args[0]) for c in logger.warning.call_args_list)
+
+    # A fresh simple page is packaged.
+    simple.write_text("<html>fresh</html>", encoding="utf-8")
+    assert packaging_pipeline.package_transcript(base, logger)
+    names = zipfile.ZipFile(next(tmp_path.rglob("*.zip"))).namelist()
+    assert any(n.endswith(config.SUFFIX_WEBPAGE_SIMPLE) for n in names)
+
+
+def test_rfd1_unencodable_text_does_not_raise(tmp_path, monkeypatch):
+    # Sweep finding: a lone surrogate must not escape log() and crash a stage.
+    gui, shown = _logging_gui(tmp_path, monkeypatch, tmp_path / "logs")
+    gui.log("bad \ud800 text")
+    assert shown == ["bad \ud800 text"]
+    assert list((tmp_path / "logs").glob("gui_*.log"))

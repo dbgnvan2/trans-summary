@@ -1451,9 +1451,9 @@ class TranscriptProcessorGUI:
                     path = Path(config.LOGS_DIR) / f"gui_{datetime.now():%Y%m%d_%H%M%S}.log"
                     path.parent.mkdir(parents=True, exist_ok=True)
                     self._log_file_path = path
-                with open(path, "a", encoding="utf-8") as fh:
+                with open(path, "a", encoding="utf-8", errors="replace") as fh:
                     fh.write(f"{datetime.now():%H:%M:%S} {text}\n")
-            except OSError as e:
+            except (OSError, ValueError) as e:
                 self._log_file_enabled = False
                 return f"⚠️ The GUI log is not being saved to a file: {e}"
         return None
@@ -2283,6 +2283,16 @@ class TranscriptProcessorGUI:
         self.log("  - Generating simple webpage...")
         if not pipeline.generate_simple_webpage(self.base_name):
             self.log("  - Simple webpage generation failed.")
+            return False
+        # Validate like the full page (sweep finding): a malformed page must not
+        # show as done and be zipped by Package.
+        self.log("  - Validating simple webpage...")
+        f = io.StringIO()
+        with redirect_stdout(f):
+            ok = transcript_validate_webpage.validate_webpage(self.base_name, simple_mode=True)
+        self.log(f.getvalue())
+        if not ok:
+            self.log("  - Simple webpage validation FAILED.")
             return False
         return True
 
