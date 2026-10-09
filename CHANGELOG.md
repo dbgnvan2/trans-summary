@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-09 (faithfulness judge routing fix)
+
+Plan: `docs/plan_judge_routing_fix_2026-10-09.md`. Run 2026-10-08 ("Why Families Repeat the
+Same Patterns") was blocked partly by claims judged against the wrong transcript window.
+
+- **No claim fails on one window (J3).** A routed claim the window does not entail is
+  re-judged against the full transcript; that verdict is final.
+- **Ambiguous routing goes to the full transcript (J1)**: exactly one window must hold the
+  claim's anchored words, and one of them must be distinctive. **Stemmed routing words (J2).**
+- **Headings (J4, decision D2a):** judged only with a digit or month name; never questions or
+  prompt section headings. main's length rule false-flagged 7 of 52 real headings.
+- **Quote typo tolerance (J8):** one-letter difference in a 4+ letter word counts as matched.
+- `JUDGE_LOGIC_VERSION` 2026-10-09b; cache key covers the new code (J5).
+- Live 2026-10-09: calibration passed (gold 1.0/1.0, real abstracts as expected, themes
+  1.0/1.0). Re-judging the 2026-10-08 artifacts: the two routing false flags now pass; the
+  reversed Navy story and the Georgetown claim still FAIL (summary 4 flags, overview 2).
+  "Freedom runs through the source of constraint", flagged on 2026-10-08, passed this time.
+
 ## [Unreleased] - 2026-10-09 (merge validation-hardening into main)
 
 Combines the 2026-09-23 work on main with the 2026-10-04/05 review fixes. Author
