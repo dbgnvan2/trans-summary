@@ -224,10 +224,9 @@ def test_r15d_blocking_checks_and_judges_armed():
 # --- R15.e: observed verdicts on trusted real samples (2026-10-05) ---------------
 
 REAL = {
-    # FAIL since the 2026-10-09 merge (main's whole-quote check, 100% of words): one
-    # quote says "bird" where the transcript has the typo "birdd". Raised with the
-    # author; not loosened without a decision.
-    "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid": Status.FAIL,
+    # One quote says "bird" where the transcript has the typo "birdd": allowed since
+    # decision J8 (2026-10-09), so the whole-quote check passes.
+    "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid": Status.PASS,
     SB: Status.FAIL,  # two quotes absent from the transcript (real catch)
     "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid": Status.PASS,
 }
@@ -323,3 +322,24 @@ def test_sweep8_generic_parenthetical_is_not_an_alternative(term, generic):
 def test_sweep_empty_or_filler_only_quote_grounds_nothing():
     assert vp._emphasis_quote_found_ratio("", "any text") == 0.0
     assert vp._emphasis_quote_found_ratio("Uh, um.", "uh um the family") == 0.0
+
+
+
+# --- J8 (decision 2026-10-09): one-letter typo tolerance in whole-quote coverage ---
+
+SRC = "and it was the cleft of the wing of a birdd that night and the family is an emotional unit"
+
+
+def test_j8a_one_letter_typo_allowed():
+    assert vp._quote_word_coverage("the cleft of the wing of a bird that night", SRC) == 1.0
+
+
+def test_j8b_changed_word_still_fails():
+    assert vp._quote_word_coverage("the family is an rational unit", SRC) < 1.0
+
+
+def test_j8c_short_words_exact():
+    assert not vp._one_letter_apart("is", "in")
+    assert not vp._one_letter_apart("unit", "unit")
+    assert vp._one_letter_apart("bird", "birdd")
+    assert vp._one_letter_apart("their", "thier") is False  # transposition is 2 edits

@@ -286,7 +286,9 @@ def test_claim_bearing_headings_are_judged():
             "## The Role of Anxiety in Family Systems\n\nBody sentence that is long enough to count.\n")
     claims = fj.extract_claims(text)
     assert "Bowen's 1954 Study at Harvard" in claims
-    assert "The Role of Anxiety in Family Systems" in claims
+    # Since plan J4 (decision D2a, 2026-10-09) a heading needs a concrete specific
+    # (digit, month, ungrounded name); a plain section title is not a claim.
+    assert "The Role of Anxiety in Family Systems" not in claims
     assert "Abstract" not in claims
     assert "Key Takeaways" not in claims
 

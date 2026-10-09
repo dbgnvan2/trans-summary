@@ -155,4 +155,23 @@ def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
 
 
 def test_r9b_logic_version_bumped():
-    assert config.JUDGE_LOGIC_VERSION != "2026-08-22"
+    assert config.JUDGE_LOGIC_VERSION not in ("2026-08-22", "2026-10-04", "2026-10-09")
+
+
+@pytest.mark.parametrize("fn_name", ["_stem", "judge_claims_chunked"])
+def test_j5_routing_code_changes_key(monkeypatch, fn_name):
+    import inspect as inspect_mod
+
+    real_getsource = inspect_mod.getsource
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(
+        inspect_mod, "getsource",
+        lambda fn: real_getsource(fn) + ("\n# edited" if fn.__name__ == fn_name else ""))
+    assert rg._judge_logic_version("instructions") != before, fn_name
+
+
+def test_j5_heading_vocabulary_changes_key(monkeypatch):
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(config, "FAITHFULNESS_HEADING_MONTH_WORDS",
+                        config.FAITHFULNESS_HEADING_MONTH_WORDS | {"may"})
+    assert rg._judge_logic_version("instructions") != before

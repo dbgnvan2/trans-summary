@@ -114,9 +114,10 @@ def extract_claims(text: str, source: str = None) -> list:
     """Split a narrative artifact into atomic, judgeable claims (sentence-level).
 
     Strips list markers, bold/italic wrappers, and ``**Description:**``-style
-    scaffolding. Headings are judged as claims when they are long enough to
-    assert something or contain a number, unless they are generic scaffolding
-    (``config.FAITHFULNESS_GENERIC_HEADINGS``).
+    scaffolding. A heading is judged as a claim only when it contains a digit or a
+    month name and is not a question or generic scaffolding
+    (``config.FAITHFULNESS_GENERIC_HEADINGS``) — plan J4. Residual: a fabricated
+    claim written as a heading with no number, month or name is not judged.
 
     With ``source``, also re-emits names from headings / bold labels that the
     lexical check cannot find in the source (review F2, plan R6), so a fabricated
@@ -140,10 +141,11 @@ def extract_claims(text: str, source: str = None) -> list:
         _strip_front_matter,
         _strip_scaffolding,
     )
-    # Claim-bearing headings (main, 2026-09-23): the scaffolding strip below removes
-    # every heading, so they are taken from the original text in a first pass. A
-    # heading counts when it is long enough to assert something or states a
-    # number, and is not generic scaffolding ("Abstract", "Key Takeaways").
+    # Claim-bearing headings: the scaffolding strip below removes every heading, so
+    # they are taken from the original text in a first pass. A heading counts only
+    # when it states a concrete specific — a digit or a month name — is not a
+    # question and is not generic scaffolding (plan J4 / decision D2a). Names in
+    # headings are covered by the ungrounded-name re-emission at the end.
     generic = ({h.lower() for h in config.FAITHFULNESS_GENERIC_HEADINGS}
                | set(config.SCAFFOLDING_HEADING_PHRASES))
     for raw_line in _strip_fenced_block(_strip_front_matter(text.strip())).splitlines():
@@ -151,9 +153,11 @@ def extract_claims(text: str, source: str = None) -> list:
         if not line.startswith("#"):
             continue
         heading = line.lstrip("#").replace("**", "").replace("__", "").strip()
-        if (heading and heading.lower().rstrip(":") not in generic
-                and (len(heading) >= config.FAITHFULNESS_MIN_CLAIM_CHARS
-                     or re.search(r"\d", heading))):
+        words = set(re.findall(r"[a-z]+", heading.lower()))
+        if (heading and not heading.endswith("?")
+                and heading.lower().rstrip(":") not in generic
+                and (re.search(r"\d", heading)
+                     or words & config.FAITHFULNESS_HEADING_MONTH_WORDS)):
             claims.append(heading)
     for raw_line in _strip_scaffolding(text).splitlines():
         line = raw_line.strip()

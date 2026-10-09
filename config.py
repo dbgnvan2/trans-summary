@@ -638,14 +638,25 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-09"
+JUDGE_LOGIC_VERSION = "2026-10-09b"  # J1-J4: routing recheck, stemming, heading rule
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
     "key points", "key takeaways", "takeaways", "background", "context",
     "discussion", "themes", "topics", "key terms", "structural themes",
     "interpretive themes", "blog post", "about this talk", "about the presenter",
+    # Fixed output headings of the overview / blog prompts.
+    "tl;dr", "key terms and definitions", "glossary of terms", "frequently asked questions",
 ]
+# A heading is judged as a claim only when it states a concrete specific: a digit,
+# one of these month names, or (via the scaffolding-name check) an ungrounded name.
+# Questions (ending "?") are never claims (author decision D2a, 2026-10-09 — main's
+# length rule false-flagged FAQ questions and section titles on real artifacts).
+# "may" is left out: as a heading word it is almost always the verb.
+FAITHFULNESS_HEADING_MONTH_WORDS = frozenset({
+    "january", "february", "march", "april", "june", "july", "august",
+    "september", "october", "november", "december",
+})
 # A claim shorter than this carries no verifiable assertion (heading fragments,
 # stray tokens) and is skipped by claim extraction (unless it states a concrete
 # specific — a number or a proper noun).

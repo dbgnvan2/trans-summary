@@ -619,13 +619,25 @@ def _transcript_matcher(transcript_words: tuple) -> SequenceMatcher:
     return SequenceMatcher(None, (), transcript_words, autojunk=False)
 
 
+def _one_letter_apart(a: str, b: str) -> bool:
+    """True when two words of 4+ letters differ by one inserted, deleted or
+    substituted letter. Shorter words must match exactly ("is" vs "in")."""
+    if min(len(a), len(b)) < 4 or abs(len(a) - len(b)) > 1 or a == b:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) == 1
+    longer, shorter = (a, b) if len(a) > len(b) else (b, a)
+    return any(longer[:k] + longer[k + 1:] == shorter for k in range(len(longer)))
+
+
 def _quote_word_coverage(quote: str, transcript: str) -> float:
     """Fraction of the quote's words found, in order, at its location in the
     transcript.
 
     Locates the quote by its longest verbatim run of words, then aligns the whole
     quote against a window around that spot. Words the quote omits from the source
-    (e.g. an ellipsis) do not lower the score; words the quote adds or changes do.
+    (e.g. an ellipsis) do not lower the score; words the quote adds or changes do —
+    except a one-letter difference in a word of 4+ letters (a corrected typo, J8).
     """
     q = list(_normalized_word_tuple(quote))
     if not q:
@@ -639,8 +651,16 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     slack = len(q) // 2 + 5
     lo = max(0, anchor.b - anchor.a - slack)
     hi = min(len(t), anchor.b + (len(q) - anchor.a) + slack)
-    blocks = SequenceMatcher(None, q, t[lo:hi], autojunk=False).get_matching_blocks()
-    return sum(b.size for b in blocks) / len(q)
+    window = t[lo:hi]
+    matched = 0
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, q, window, autojunk=False).get_opcodes():
+        if op == "equal":
+            matched += i2 - i1
+        elif op == "replace" and i2 - i1 == j2 - j1:
+            # A transcription typo the quote corrected ("birdd" -> "bird") is not a
+            # misquotation: one letter apart, 4+ letters (decision 2026-10-09, J8).
+            matched += sum(1 for a, b in zip(q[i1:i2], window[j1:j2]) if _one_letter_apart(a, b))
+    return matched / len(q)
 
 
 @functools.lru_cache(maxsize=8)

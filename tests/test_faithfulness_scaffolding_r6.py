@@ -116,3 +116,36 @@ def test_r6a_name_inside_title_case_heading_with_grounded_words():
     # The judge sees the name: as the whole heading (main's claim-bearing heading
     # rule, 2026-09-23) or re-emitted on its own.
     assert any("Jane Doerfler" in c for c in fj.extract_claims(text, source=src))
+
+
+
+# --- J4 (plan_judge_routing_fix_2026-10-09, decision D2a): heading claims ------
+
+@pytest.mark.parametrize("heading, judged", [
+    ("Bowen's 1954 Study at Harvard", True),            # digit
+    ("Recorded in June at Georgetown", True),           # month
+    ("What happened in 1975?", False),                  # question
+    ("What is this transcript about?", False),          # FAQ question
+    ("Key terms and definitions", False),               # prompt section heading
+    ("What This Means in Practice", False),             # plain section title
+    ("Why Anxiety May Spread", False),                  # "may" is not a month
+])
+def test_j4a_heading_claims(heading, judged):
+    text = f"## {heading}\n\nThe family emotional system shapes anxiety over time.\n"
+    assert (heading in fj.extract_claims(text)) is judged
+
+
+def test_j4b_real_artifacts_heading_claims_pinned():
+    """On the 10 real prose / abstract fixtures only the Where Roots abstract
+    heading is a claim — the '(June video)' heading on a February recording, a
+    real catch. The 7 false heading flags from main's length rule are gone."""
+    found = []
+    for d in sorted(glob.glob(os.path.join(REAL, "*", ""))):
+        for f in sorted(glob.glob(os.path.join(d, "*.md"))):
+            if not re.search(r" - (summary-generated|overview|blog|abstract-generated)\.md$", f):
+                continue
+            text = open(f, encoding="utf-8").read()
+            headings = {ln.strip().lstrip("#").replace("**", "").strip()
+                        for ln in text.splitlines() if ln.strip().startswith("#")}
+            found += [c for c in fj.extract_claims(text) if c in headings]
+    assert found == ["Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)"]
