@@ -36,6 +36,7 @@ Pull from the global catalogue; the ones that bite this repo most:
 8. **Validator pass-on-empty / auto-pass (P7/P9/P1).** Does any gate report success without verifying anything? Watch for: `all(x for x in required)` where `required == []` returns `True`; a coverage/keyword check that auto-passes when it has nothing to ground on (`total_keywords == 0 → covered`); a status flag never counted (a report saved but its PASS/WARN/FAIL verdicts never parsed); and a **transient** failure (no API key / timeout) returning the same sentinel as a genuine absence, silently demoting a required check (P1). Fail closed, keep a retryable failure distinct from "genuinely absent," and count verdicts drift-tolerantly.
 9. **A fix must not introduce a new silent drop.** When you narrow/normalize a parse (anchored `re.match` for a segment, a stricter regex, a fail-closed default), re-check the *widest real inputs* — a P19 fix that swaps one silent drop for another is a net loss. Adversarially verify every fix against real data before calling it done.
 10. **A green test can verify nothing (test-validity).** "The suite passes" is not "the suite would catch a bug." Three failure modes when adding/reviewing tests: (a) *synthetic-format tests* asserting an idealized shape the real artifact never has — worst case, certifying the buggy shape as canonical (the `### header`-as-theme tests did exactly this); prefer a `tests/fixtures/` real artifact. (b) *vacuous tests* — no `assert` (only `print`/`return`), an assertion over a possibly-empty collection (`assert all([])`-shaped), or asserting a mock's own return value. (c) *unprotected logic* — thresholds, `required=` flags, and fail-closed returns that no test pins. Measure with mutation testing (`mut_harness.py`): if flipping a comparison or a `required=True`→`False` leaves the suite green, that logic is untested. Validators are the highest-value target — they are the layer meant to catch bad output, and scored lowest (9–36%).
+11. **Output inside input (P39).** Does any archive/export/report write under the directory or glob it reads (`logs/`, a project dir)? Is the set zipped/deleted exactly the list enumerated? Do the GUI and CLI share one implementation?
 
 ## Open risks (found by review, not yet bitten)
 
@@ -60,6 +61,13 @@ Pull from the global catalogue; the ones that bite this repo most:
   Rule: a tolerance added for one real typo must be tested against real-word near-misses (P7),
   not only against a far-apart word. Covered by `test_j8d_adversarial_real_word_changes_fail`.
 
+- ~~**Archive Logs deletes log files that are still open (P2/P39, found in CAPTURE 2026-10-09).**~~
+  Fixed the same day: `archive_logs` enumerates before creating its own log file, and unlinks with a
+  per-file guard that logs "removed N of M" plus the files it could not remove
+  (`tests/test_archive_logs.py::test_archive_does_not_include_its_own_log`,
+  `::test_archive_reports_originals_it_could_not_remove`). Still open: a line another live handler
+  writes between the zip and the unlink is lost (a few lines at most).
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**
@@ -71,6 +79,13 @@ the six below are instances. In-repo guard: `warn_if_empty_parse` (`transcript_u
 into the key-terms, topics, and emphasis validators.
 
 ---
+
+**Archive Logs zipped the folder it was writing into — the zip read itself (2026-10-09).**
+- Issue: the GUI "Clean Logs → Archive" button ran `shutil.make_archive(base=logs/archives/logs_<ts>, root_dir=logs/)`. The zip was written inside the tree being zipped, so the walk read it: 20.5 GB after ~9 minutes from a few MB of logs, growing ~80 MB/s with 68 GB free. The user saw only "taking a long time" and killed the GUI. Earlier archives had also swallowed every older zip in `archives/`, plus `runtime_settings.json` and the judge cache.
+- Root cause (new global **P39**, with P5/P32 sibling drift): output path inside the input root; and the code enumerated `*.log` + `*.csv` to delete but zipped all of `logs/`, so the deleted set and the archived set differed. The CLI (`transcript_clean_logs.py`) did the same job correctly via a temp copy — two implementations of one operation, only one right.
+- What would have caught it: a test that puts a large old zip in `logs/archives/` and asserts the new zip is small and lists exactly the enumerated names; checklist item 11 below; one shared implementation instead of two.
+- Fix: single `transcript_utils.archive_logs` zips the listed files by name (`zipfile`), writes `.zip.tmp` then renames, deletes originals only after success; `ts_gui._run_archive_logs` and `transcript_clean_logs.archive_logs` both call it. Tests: `tests/test_archive_logs.py` (only-listed-files + small with a 100 kB old zip present; failure keeps originals and leaves no zip; GUI and CLI both route through the shared function).
+- Rule: enumerate once and act on exactly that list; never write output inside the tree you read; one implementation per operation across GUI and CLI. (P39)
 
 **Theme grounding judge — a gold set of only the EASY extremes hid a partial-fabrication recall gap (2026-07-15).**
 - Issue: a new theme GROUNDING judge (for interpretive themes, which the source-entailment faithfulness judge wrongly flags) calibrated at recall/precision 1.0 and was armed as a hard blocker. `learning-qa` caught that its 8-case ungrounded gold set was entirely the two *easy extremes* — wholesale fabrication + direct contradiction — with NO "mostly-grounded theme that weaves in one fabricated concrete specific" (a fake name/institution/date inside a real narrative). That is exactly the class that already bit this project in prose (the "Luciano Malorni" fabrication), and the theme judge is now the SOLE gate for it (entity_grounding is abstract-only; faithfulness excludes themes). The lenient "when unsure prefer grounded" prompt + whole-theme granularity biased a long, mostly-grounded description toward a pass.

@@ -2333,34 +2333,17 @@ class TranscriptProcessorGUI:
             self.log("Log cleanup cancelled.")
 
     def _run_archive_logs(self):
-        """Archive logs to a zip file and remove originals."""
-        logs_dir = config.LOGS_DIR
-        if not logs_dir.exists():
-            self.log(f"Logs directory not found: {logs_dir}")
-            return False
+        """Archive logs to a zip file and remove originals (shared with the CLI:
+        transcript_utils.archive_logs zips only the log files, never archives/)."""
+        import transcript_utils
 
-        files_to_process = list(logs_dir.glob(
-            "*.log")) + list(logs_dir.glob("*.csv"))
-        if not files_to_process:
+        logs_dir = config.LOGS_DIR
+        has_files = Path(logs_dir).exists() and (
+            any(Path(logs_dir).glob("*.log")) or any(Path(logs_dir).glob("*.csv")))
+        if not has_files:
             self.log("No log files found to archive.")
             return True
-
-        archives_dir = logs_dir / "archives"
-        archives_dir.mkdir(exist_ok=True)
-        zip_base_name = (archives_dir /
-                         f"logs_{datetime.now():%Y%m%d_%H%M%S}")
-
-        try:
-            shutil.make_archive(str(zip_base_name), 'zip',
-                                logs_dir, verbose=True)
-            self.log("✅ Archive created: %s.zip", zip_base_name)
-            for f in files_to_process:
-                f.unlink()
-            self.log("✅ Original log files removed.")
-            return True
-        except Exception as e:
-            self.log("❌ Error during archiving: %s", e)
-            return False
+        return transcript_utils.archive_logs(self.logger) is not None
 
     def _run_delete_logs(self):
         """Permanently delete log files and token usage CSV."""

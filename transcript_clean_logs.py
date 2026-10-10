@@ -8,62 +8,14 @@ Usage:
 """
 
 import argparse
-import shutil
-from datetime import datetime
 
-import config
+import transcript_utils
 from transcript_utils import delete_logs as utils_delete_logs
 
 
 def archive_logs():
     """Archive logs to a zip file in logs/archives/ and remove originals."""
-    logs_dir = config.LOGS_DIR
-    if not logs_dir.exists():
-        print(f"Logs directory not found: {logs_dir}")
-        return
-
-    # Identify files to archive
-    log_files = list(logs_dir.glob("*.log"))
-    csv_file = logs_dir / "token_usage.csv"
-    files_to_process = log_files + ([csv_file] if csv_file.exists() else [])
-
-    if not files_to_process:
-        print("No log files found to archive.")
-        return
-
-    # Create archives directory
-    archives_dir = logs_dir / "archives"
-    archives_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_base_name = archives_dir / f"logs_{timestamp}"
-
-    print(f"Found {len(files_to_process)} files to archive.")
-
-    # Create a temp dir to build the archive structure
-    temp_dir = logs_dir / f"temp_archive_{timestamp}"
-    temp_dir.mkdir()
-
-    try:
-        # Copy files to temp dir
-        for f in files_to_process:
-            shutil.copy2(f, temp_dir)
-
-        # Create zip
-        shutil.make_archive(str(zip_base_name), "zip", temp_dir)
-        print(f"✅ Archive created: {zip_base_name}.zip")
-
-        # Delete originals
-        for f in files_to_process:
-            f.unlink()
-        print("✅ Original log files removed.")
-
-    except Exception as e:
-        print(f"❌ Error during archiving: {e}")
-    finally:
-        # Cleanup temp dir
-        if temp_dir.exists():
-            shutil.rmtree(temp_dir)
+    transcript_utils.archive_logs()
 
 
 def delete_logs():

@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import time
+import zipfile
 from copy import deepcopy
 from datetime import datetime
 from difflib import SequenceMatcher
@@ -2154,6 +2155,61 @@ def span_matches_original(span_text: str, original: str) -> bool:
     if a == b:
         return True
     return SequenceMatcher(None, a, b).ratio() >= config.VALIDATION_MIN_APPLY_SIMILARITY
+
+
+def archive_logs(logger=None) -> Optional[Path]:
+    """Zip the ``*.log`` files and ``token_usage.csv`` in config.LOGS_DIR into
+    ``logs/archives/logs_<timestamp>.zip``, then delete those originals.
+
+    Only the named files go in the zip. The GUI version zipped the whole logs
+    directory, which contains ``archives/`` where the zip was being written, so
+    the zip kept reading itself (20 GB from a few MB of logs, 2026-10-09). The
+    zip is written under a ``.tmp`` name and renamed when complete, so a failed
+    run leaves no zip that looks finished; originals are deleted only after the
+    rename. Other files in logs/ (runtime settings, judge cache) are untouched.
+
+    Returns the zip path, or None if there was nothing to archive or it failed
+    (originals kept).
+
+    Tests: tests/test_archive_logs.py
+    """
+    logs_dir = Path(config.LOGS_DIR)
+    # Enumerate BEFORE creating this function's own log file, so the archive never
+    # zips and deletes the log it is writing to (P39).
+    files = (sorted(logs_dir.glob("*.log")) + sorted(logs_dir.glob("*.csv"))
+             if logs_dir.exists() else [])
+    if logger is None:
+        logger = setup_logging("archive_logs")
+    if not logs_dir.exists():
+        logger.info("Logs directory not found: %s", logs_dir)
+        return None
+    if not files:
+        logger.info("No log files found to archive.")
+        return None
+    archives_dir = logs_dir / "archives"
+    archives_dir.mkdir(exist_ok=True)
+    final = archives_dir / f"logs_{datetime.now():%Y%m%d_%H%M%S}.zip"
+    tmp = final.with_suffix(".zip.tmp")
+    try:
+        with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for f in files:
+                zf.write(f, arcname=f.name)
+        tmp.replace(final)
+    except Exception as e:
+        tmp.unlink(missing_ok=True)
+        logger.error("❌ Archiving failed (%s); log files kept.", e)
+        return None
+    not_removed = []
+    for f in files:
+        try:
+            f.unlink()
+        except OSError as e:
+            not_removed.append(f"{f.name} ({e})")
+    logger.info("✅ Archived %d file(s) to %s; removed %d of %d originals.",
+                len(files), final, len(files) - len(not_removed), len(files))
+    if not_removed:
+        logger.warning("Could not remove: %s", "; ".join(not_removed))
+    return final
 
 
 def delete_logs(logger=None) -> bool:
