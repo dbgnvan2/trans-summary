@@ -2765,7 +2765,17 @@ class TranscriptProcessorGUI:
         return True
 
     def _run_stage_blog(self):
-        """Runner for the 'blog' stage. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        """Runner for the 'blog' stage. Blog problems are warnings and never stop the
+        run (author decision 2026-10-10, RF.N.2).
+        Spec: docs/spec_stage_selection_2026-07-12.md#SS.12
+        Tests: tests/test_run_fixes_rf.py::test_rfn2_gui_blog_stage_never_halts"""
+        ok = self._generate_blog()
+        if not ok:
+            self.log("⚠️ Blog not produced (see the messages above) — continuing; the blog "
+                     "is advisory.")
+        return True
+
+    def _generate_blog(self):
         return pipeline.summarize_transcript(
             f"{self.base_name}{config.SUFFIX_YAML}",
             config.settings.DEFAULT_MODEL,

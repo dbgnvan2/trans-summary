@@ -16,6 +16,10 @@ Rules:
 - Use the top lens only as the organizing spine.
 - Do not switch to lower-ranked lenses.
 - Stay grounded in source material; no invented claims.
+- State facts about people and events (who did what, when, what happened next) only as the speaker told them, and attribute them to the speaker ("Kerr recalls…", "Kerr says…").
+- Do not add details, outcomes, or motives the transcript does not give.
+- Do not make generalisations about "most people" or "most families" unless the speaker makes them.
+- Interpretation and figures of speech are allowed only when they are a fair reading of what the speaker said.
 - Write in clear educational language.
 - Include the focus keyword naturally in title, opening, and one H2.
 

@@ -11,6 +11,7 @@ import summary_pipeline
 from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
 from bowen_attribution import concept_has_bowen_attribution
 from transcript_utils import (
+    extract_lens_titles,
     get_anthropic_client,
     call_claude_with_retry,
     clean_project_name,
@@ -1112,8 +1113,20 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     return "pass", []
 
 
+def _blog_precheck(base_name: str, suffix: str, logger=None):
+    """Generation-time blog check: the gate's two-stage blog test (RF.N.1)."""
+    import release_gate as rg
+    status, ungrounded, _detail = rg.blog_ungrounded_claims(base_name, logger)
+    if status == "missing":
+        return "missing", []
+    if status == "error":
+        # Only name hits are known to be wrong; unassessed claims are not fed back.
+        return ("fail", ungrounded) if ungrounded else ("unavailable", [])
+    return ("fail", ungrounded) if status == "warn" else ("pass", [])
+
+
 def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
-                             generate, write) -> bool:
+                             generate, write, precheck=None, advisory=False) -> bool:
     """Generate ``what``, save it, judge it; on rejected claims regenerate with
     them as feedback, up to config.GENERATION_FAITHFULNESS_ATTEMPTS. If every
     attempt fails, keep the draft with the fewest rejected claims, log loudly and
@@ -1134,7 +1147,7 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
         if feedback and ("CORRECTION REQUIRED" in text or echoed):
             status, issues = "fail", echoed or ["the draft repeats the correction instructions"]
         else:
-            status, issues = _faithfulness_precheck(base_name, suffix, logger)
+            status, issues = (precheck or _faithfulness_precheck)(base_name, suffix, logger)
         if status == "missing":
             logger.error("%s was not saved where the release gate reads it (%s%s); "
                          "cannot verify it.", what.capitalize(), base_name, suffix)
@@ -1154,6 +1167,13 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                        "corrective feedback. Claims: %s", what.capitalize(), attempt,
                        attempts, len(issues), "; ".join(issues)[:300])
     write(best_text)
+    if advisory:
+        # RF.N: a warning, not a failure — the run continues.
+        logger.warning("⚠️ %s still has %d claim(s) not grounded in the source after %d "
+                       "attempt(s); kept the best draft. This is a warning only — review "
+                       "the claims above before publishing it.", what.capitalize(),
+                       best_count, attempts)
+        return True
     logger.error("⚠️ Could not produce a fully faithful %s after %d attempt(s); kept the "
                  "best draft (%d unsupported claim(s)). The release gate will BLOCK "
                  "publication until it is regenerated or edited.", what, attempts, best_count)
@@ -1327,13 +1347,8 @@ def generate_structured_abstract(
         return False
 
 
-def _extract_lens_titles(lenses_output: str) -> list[str]:
-    """Pull the ranked-lens titles the producer actually wrote — the bold text of
-    each `N. **Title**` line in the lenses artifact."""
-    return [
-        m.strip()
-        for m in re.findall(r"(?m)^\s*\d+\.\s*\*\*(.+?)\*\*", lenses_output)
-    ]
+# Shared with release_gate's blog check (RF.N); defined in transcript_utils.
+_extract_lens_titles = extract_lens_titles
 
 
 # Editorial vocabulary lives in config (review L7 / rule 9).
@@ -1502,7 +1517,7 @@ def summarize_transcript(
 
         top_lens = {}
         lens_reasons: list = []
-        blog_failed = False
+        overview_failed = False
         abstract_output = ""
         structural_output = ""
         interpretive_output = ""
@@ -1836,7 +1851,8 @@ def summarize_transcript(
             def _write_blog(text):
                 blog_paths.append(_save_summary(text, formatted_filename, "blog"))
 
-            blog_ok = _generate_until_faithful(
+            # RF.N: the blog is judged as interpretation and only ever warns.
+            blog_saved_ok = _generate_until_faithful(
                 "blog", metadata["stem"], config.SUFFIX_BLOG, logger,
                 lambda feedback: _generate_summary_with_claude(
                     prompt + (summary_pipeline.correction_feedback("blog post", feedback)
@@ -1848,11 +1864,13 @@ def summarize_transcript(
                     system=transcript_system_message,
                 ),
                 _write_blog,
+                precheck=_blog_precheck,
+                advisory=True,
             )
-            logger.info("✓ Blog post saved to: %s", blog_paths[-1])
-            # A blog that stays unfaithful fails this call, but the later parts
-            # (overview, validation) still run; the failure is returned at the end.
-            blog_failed = not blog_ok
+            if blog_saved_ok:
+                logger.info("✓ Blog post saved to: %s", blog_paths[-1])
+            else:
+                return False  # not saved where the gate reads it (logged above)
         else:
             logger.info("Blog generation skipped (skip_blog=True).")
 
@@ -1910,7 +1928,7 @@ def summarize_transcript(
             )
             logger.info("✓ Overview post saved to: %s", overview_paths[-1])
             if not overview_ok:
-                blog_failed = True  # reported at the end, like a failed blog
+                overview_failed = True  # reported at the end
         else:
             logger.info("Overview generation skipped (skip_overview=True).")
 
@@ -1961,8 +1979,8 @@ def summarize_transcript(
                 logger.error("Structured summary generation failed.")
                 return False
 
-        if blog_failed:
-            logger.error("Blog or overview did not pass faithfulness — see the warnings above.")
+        if overview_failed:
+            logger.error("Overview did not pass faithfulness — see the warnings above.")
             return False
         return True
 

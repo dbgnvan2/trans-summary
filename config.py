@@ -562,7 +562,7 @@ GATE_ERROR_BLOCKS = True
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the
 # original, calibrated 0-false-positive scope) plus the other prose outputs
-# (summary, overview, blog), where a fabricated person/org/place name would appear
+# (summary, overview), where a fabricated person/org/place name would appear
 # in running text. The detector is heading/bold-aware (find_ungrounded_names strips
 # markdown headings and bold concept/term labels), so a blog's "## Key Takeaways"
 # or a "**Term** — definition" list no longer reads as a fabricated name.
@@ -571,11 +571,12 @@ GATE_ERROR_BLOCKS = True
 # Title-Case concept labels ("Role Absorption") are the artifact's *content*, not
 # proper names, and their fabrication mode is semantic (an invented theme/key-term
 # subject) — that is the theme/key-term judge's domain, not this lexical detector.
+# The blog is NOT here: it is an interpretive, lens-driven post judged by the
+# advisory blog_faithfulness check (RF.N, author decision 2026-10-10).
 GATE_ENTITY_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
     SUFFIX_SUMMARY_GEN,
     SUFFIX_OVERVIEW,
-    SUFFIX_BLOG,
 ]
 # Broader set for the WARN-only cross-artifact consistency check (M4.D). A false
 # positive here is advisory noise, not a hard stop, so it can safely scan the
@@ -728,8 +729,10 @@ FAITHFULNESS_ARTIFACT_SUFFIXES = [
     SUFFIX_ABSTRACT_GEN,
     SUFFIX_SUMMARY_GEN,
     SUFFIX_OVERVIEW,
-    SUFFIX_BLOG,
 ]
+# The blog is judged by blog_faithfulness instead (RF.N): a claim passes if it is
+# entailed OR the theme-grounding judge finds it a grounded interpretation; what
+# remains is a WARNING, never a publication blocker (author decision 2026-10-10).
 # Topic descriptions and key-term definitions, judged by the same judge after
 # conversion to one "Title: sentence" claim per line (release_gate
 # .topics_terms_as_claims). Added 2026-09-23; NOT YET CALIBRATED on real runs.

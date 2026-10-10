@@ -61,6 +61,7 @@ def _faithfulness_judge_offline(monkeypatch):
         import release_gate
         release_gate._FAITHFULNESS_CACHE.clear()
         release_gate._THEME_JUDGE_CACHE.clear()
+        release_gate._BLOG_GROUNDING_CACHE.clear()
     except Exception:
         pass
     # Second layer (defense-in-depth, F5): default NO resolvable key, unless a live

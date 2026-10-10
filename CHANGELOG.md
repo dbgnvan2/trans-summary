@@ -47,6 +47,14 @@ Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
   for review now pauses ("⏸ Paused at 1. Format") instead of failing, and when the
   review makes Format pass the GUI asks to continue with the remaining stages. Real
   Format failures still halt. The Format log lists only differences that still need you.
+- **The blog is judged as interpretation and only warns (RF.N).** Run 07:41 halted when
+  the blog failed faithfulness on metaphors, general statements and the lens's own
+  reading. A blog claim now passes if it is entailed or the theme-grounding judge finds
+  it a fair interpretation of real content (contradictions and invented specifics still
+  fail). Remaining problems are a `blog_faithfulness` WARNING: the Blog stage never stops
+  the run and the blog never blocks publication. Lens-title headlines are not treated
+  as names or claims. The blog prompt asks for speaker-attributed facts and no
+  "most people" generalisations.
 - **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
 - **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
   manifest records the simple page; Package skips a simple page older than the full

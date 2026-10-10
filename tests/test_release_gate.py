@@ -252,26 +252,29 @@ def test_entity_grounding_fabricated_name_fails_with_actionable_message(tmp_path
 
 
 def test_entity_grounding_scans_summary_overview_blog(tmp_path, monkeypatch):
-    """The extended blocker scans the narrative prose artifacts (summary, overview,
-    blog) — not just the abstract — so a fabricated name smuggled into one of them
-    FAILs the gate with an actionable message naming the artifact."""
+    """The extended blocker scans the narrative prose artifacts (summary, overview)
+    — not just the abstract — so a fabricated name smuggled into one of them FAILs
+    the gate naming the artifact. The BLOG moved to the advisory blog_faithfulness
+    check (RF.N, author decision 2026-10-10): its fabricated name is a WARNING."""
     base = "A Talk - Jane Doe - 2021-09-10"
     proj = tmp_path / base
     proj.mkdir(parents=True)
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
     (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
         "the speaker discusses family systems and differentiation", encoding="utf-8")
-    # A fabricated name in BLOG prose (with real headings + a grounded bold term
-    # present) must FAIL and name the blog artifact.
-    blog = proj / f"{base}{config.SUFFIX_BLOG}"
-    blog.write_text(
-        "# Title\n\n## Key Takeaways\n\nThe work of Luciano Malorni is central.\n\n"
-        "## Glossary of Terms\n\n- **Differentiation of Self:** The capacity for objectivity.\n",
-        encoding="utf-8")
+    prose = ("# Title\n\n## Key Takeaways\n\nThe work of Luciano Malorni is central.\n\n"
+             "## Glossary of Terms\n\n- **Differentiation of Self:** The capacity for objectivity.\n")
+    (proj / f"{base}{config.SUFFIX_BLOG}").write_text(prose, encoding="utf-8")
+    assert rg.check_entity_grounding(base).status is Status.PASS
+    blog_v = rg.check_blog_faithfulness(base)  # judge off: claims unverified, name listed
+    assert blog_v.status is Status.ERROR and any("Luciano Malorni" in i for i in blog_v.items)
+    assert "blog_faithfulness" not in config.GATE_BLOCKING_CHECKS
+    (proj / f"{base}{config.SUFFIX_OVERVIEW}").write_text(prose, encoding="utf-8")
     v = rg.check_entity_grounding(base)
     assert v.status is Status.FAIL
     assert "Luciano Malorni" in v.detail
-    assert "blog" in v.detail.lower()
+    assert "overview" in v.detail.lower()
 
 
 def test_entity_grounding_ignores_headings_and_bold_labels_in_prose_artifacts(tmp_path, monkeypatch):

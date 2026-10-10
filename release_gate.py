@@ -320,6 +320,132 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     return Verdict("verbatim_quotes", Status.PASS, f"all {len(items)} quotes verbatim")
 
 
+def _lens_titles(base_name: str) -> list:
+    """The project's own lens titles (generated content labels, like theme names),
+    so a blog headline taken from one ("The Hidden Debt Inside Every Family") is
+    not reported as an invented name or an unsupported claim (RF.N)."""
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_LENSES}"
+    if not path.exists():
+        return []
+    from transcript_utils import extract_lens_titles
+    return extract_lens_titles(path.read_text(encoding="utf-8"))
+
+
+def _is_lens_title_fragment(claim: str, titles: list) -> bool:
+    norm = " ".join(claim.lower().split()).strip(" .:-")
+    return bool(norm) and any(norm in " ".join(t.lower().split()) for t in titles)
+
+
+_BLOG_GROUNDING_CACHE: dict = {}
+
+
+def _judge_blog_grounding_cached(fjudge, claims: list, source: str, client, logger) -> dict:
+    """{claim: label} from the theme-grounding judge, cached in memory and on disk
+    like the other judges (sweep: one verdict per blog per source, not a new paid
+    and possibly different verdict per gate run). Errors raise and are not cached."""
+    import hashlib
+
+    c = hashlib.sha256("\n".join(claims).encode("utf-8")).hexdigest()
+    s = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    mem_key = (c, s)
+    if mem_key in _BLOG_GROUNDING_CACHE:
+        return _BLOG_GROUNDING_CACHE[mem_key]
+    disk_key = (f"blog-grounding:{c}:{s}:{config.THEME_JUDGE_MODEL}:"
+                f"{_judge_logic_version(fjudge._THEME_JUDGE_INSTRUCTIONS)}")
+    disk = _load_judge_disk_cache().get(disk_key)
+    if isinstance(disk, dict) and isinstance(disk.get("labels"), dict):
+        _BLOG_GROUNDING_CACHE[mem_key] = disk["labels"]
+        return disk["labels"]
+    verdicts = fjudge.judge_themes([{"name": x, "description": ""} for x in claims],
+                                   source, client, logger=logger)
+    labels = {v.claim: v.label for v in verdicts}
+    _BLOG_GROUNDING_CACHE[mem_key] = labels
+    _store_judge_disk_cache(disk_key, {"status": "grounding", "labels": labels}, logger)
+    return labels
+
+
+def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
+    """Two-stage blog check (RF.N.1). Returns ``(status, ungrounded, detail)``:
+    "pass", "warn" (ungrounded claims/names listed), "missing" (no blog), or
+    "error" (could not verify; ``ungrounded`` then holds only the name hits, which
+    need no judge — never unassessed claims, so they are not fed back as if wrong).
+
+    1. Names: proper names not in the source, metadata or lens titles.
+    2. Claims the entailment judge rejects as UNSUPPORTED (lens-title fragments
+       dropped) are re-judged by the theme GROUNDING judge, which accepts a fair
+       interpretation of real content but rejects fabricated specifics. A claim is
+       ungrounded only if both reject it ("N1 wins"). A CONTRADICTED claim is never
+       overridden. With THEME_JUDGE_ENABLED off there is no second stage.
+
+    Purpose: Judge the interpretive blog as interpretation, not as a fact sheet.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.N.1
+    Tests:   tests/test_run_fixes_rf.py::test_rfn1_interpretive_claim_accepted_by_grounding_judge
+    """
+    import abstract_validation
+
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_BLOG}"
+    if not path.exists():
+        return "missing", [], "no blog present"
+    transcript = _load_source_transcript(base_name)
+    if not transcript or not transcript.strip():
+        return "error", [], "source transcript missing — blog not verified"
+    text = path.read_text(encoding="utf-8")
+    titles = _lens_titles(base_name)
+    values = _filename_metadata_values(base_name)
+    name_source = "\n".join(x for x in (transcript, values, *titles) if x)
+    names = [f"the name '{n}' does not appear in the source"
+             for n in abstract_validation.find_ungrounded_names(text, name_source)]
+    if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
+        return "error", names, ("claims not verified (faithfulness judge disabled)"
+                                + (f"; {len(names)} name(s) not in source" if names else ""))
+    faith = check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_BLOG])
+    if faith.status is Status.ERROR:
+        return "error", names, f"claims not verified: {faith.detail}"
+    contradicted = [c for item in (faith.items or []) for c in item.get("contradicted", [])]
+    rejected = [c for item in (faith.items or []) for c in item.get("unfaithful", [])
+                if c not in contradicted and not _is_lens_title_fragment(c, titles)]
+    accepted_as_interpretation = 0
+    ungrounded = names + contradicted
+    if rejected:
+        if not getattr(config, "THEME_JUDGE_ENABLED", False):
+            ungrounded += rejected
+        else:
+            try:
+                import faithfulness_judge as fjudge
+                from transcript_utils import get_anthropic_client, resolve_anthropic_key
+                key = resolve_anthropic_key()
+                if not key:
+                    return "error", names, "claims not verified: no Anthropic API key"
+                labels = _judge_blog_grounding_cached(
+                    fjudge, rejected, transcript, get_anthropic_client(key), logger)
+                for claim in rejected:
+                    if labels.get(claim) == fjudge.GROUNDED:
+                        accepted_as_interpretation += 1
+                    else:
+                        ungrounded.append(claim)
+            except Exception as e:  # noqa: BLE001 — cannot verify: report, do not pass
+                if logger:
+                    logger.warning("Blog grounding judge failed: %s", e)
+                return "error", names, f"claims not verified: grounding judge {type(e).__name__}"
+    note = (f"; {accepted_as_interpretation} claim(s) accepted as interpretation"
+            if accepted_as_interpretation else "")
+    if ungrounded:
+        return "warn", ungrounded, f"{len(ungrounded)} blog claim(s) not grounded in the source{note}"
+    return "pass", [], f"all blog claims entailed or grounded{note}"
+
+
+def check_blog_faithfulness(base_name: str, logger=None) -> Verdict:
+    """ADVISORY: the blog's claims (RF.N). Ungrounded claims or no blog -> WARN;
+    could not verify -> ERROR (reported as UNVERIFIED). Never a publication blocker:
+    not in GATE_BLOCKING_CHECKS (author decision 2026-10-10)."""
+    status, ungrounded, detail = blog_ungrounded_claims(base_name, logger)
+    if status == "pass":
+        return Verdict("blog_faithfulness", Status.PASS, detail)
+    if status == "error":
+        return Verdict("blog_faithfulness", Status.ERROR, detail, items=ungrounded)
+    return Verdict("blog_faithfulness", Status.WARN, detail, items=ungrounded)
+
+
 # --------------------------------------------------------------- R15 validator gates
 def check_topics_grounding(base_name: str, logger=None) -> Verdict:
     """FAIL if any topic grades FAIL against the transcript (the
@@ -732,7 +858,9 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         art = suffix.strip(" -")
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
-                          "unfaithful": [c.claim for c in result.unfaithful]})
+                          "unfaithful": [c.claim for c in result.unfaithful],
+                          "contradicted": [c.claim for c in result.unfaithful
+                                           if getattr(c, "label", None) == fjudge.CONTRADICTED]})
         elif result.status == fjudge.ERROR:
             errors.append({"artifact": art, "detail": result.detail})
     if judged == 0:
@@ -998,6 +1126,7 @@ DEFAULT_CHECKS: list = [
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
     ("faithfulness", check_faithfulness),
+    ("blog_faithfulness", check_blog_faithfulness),
     ("topic_term_faithfulness", check_topic_term_faithfulness),
     ("theme_grounding", check_theme_grounding),
     ("required_artifacts", check_required_artifacts),

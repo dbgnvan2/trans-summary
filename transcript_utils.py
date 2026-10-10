@@ -1734,6 +1734,12 @@ def find_qa_sections(transcript: str, presenter: Optional[str] = None) -> tuple:
     return qa, len(sections)
 
 
+def extract_lens_titles(lenses_output: str) -> list:
+    """The ranked-lens titles the producer wrote — the bold text of each
+    `N. **Title**` line in the lenses artifact."""
+    return [m.strip() for m in re.findall(r"(?m)^\s*\d+\.\s*\*\*(.+?)\*\*", lenses_output)]
+
+
 def strip_yaml_frontmatter(content: str) -> str:
     """
     Remove YAML frontmatter from markdown content.

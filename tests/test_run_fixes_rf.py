@@ -826,48 +826,10 @@ def test_rfj2_blog_regenerates_with_feedback(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ep, "_generate_summary_with_claude", _gen)
     seq = [("fail", ["It is not spiritual bypassing."]), ("pass", [])]
-    monkeypatch.setattr(ep, "_faithfulness_precheck", lambda b, suffix, logger=None: seq.pop(0))
+    monkeypatch.setattr(ep, "_blog_precheck", lambda b, suffix, logger=None: seq.pop(0))
     assert _run_blog(stem, logger) is True
     assert "It is not spiritual bypassing." in prompts[1] and "CORRECTION REQUIRED" in prompts[1]
     assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
-
-
-def test_rfj2_blog_all_fail_returns_false_and_keeps_best(tmp_path, monkeypatch):
-    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": GOOD_LENS}])
-    n = []
-    monkeypatch.setattr(ep, "_generate_summary_with_claude",
-                        lambda *a, **k: n.append(1) or f"blog draft {len(n)}")
-    seq = [("fail", ["Claim one is unsupported.", "Claim two is unsupported."]),
-           ("fail", ["Claim three is unsupported."]),
-           ("fail", ["Claim four is unsupported.", "Claim five is unsupported."])]
-    monkeypatch.setattr(ep, "_faithfulness_precheck", lambda b, suffix, logger=None: seq.pop(0))
-    assert _run_blog(stem, logger) is False
-    assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
-
-
-def test_rfk2_all_emphasis_dropped_fails_and_saves_nothing(tmp_path, monkeypatch):
-    # Sweep: saving the raw response would restore the dropped quotes.
-    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
-    monkeypatch.setattr(ep, "_load_summary_prompt", lambda _n: "PROMPT")
-    monkeypatch.setattr(ep, "_generate_summary_with_claude",
-                        lambda *a, **k: _emphasis_response([SPLICED]))
-    logger = MagicMock()
-    assert ep.extract_scored_emphasis("Talk - A Person - 2021-01-01 - yaml.md", logger=logger,
-                                      transcript_text=NAVY_SOURCE) is False
-    assert not list(tmp_path.rglob("* - emphasis-scored.md"))
-    assert "kept 0 of 1" in logger.error.call_args.args[0] % logger.error.call_args.args[1:]
-
-
-def test_rfk2_extractor_checks_against_gate_text(tmp_path, monkeypatch):
-    # Sweep (P35): the quote is checked against the formatted transcript the gate
-    # uses, not a stale YAML copy passed in.
-    base = "Talk - A Person - 2021-01-01"
-    (tmp_path / base).mkdir()
-    (tmp_path / base / f"{base}{config.SUFFIX_FORMATTED}").write_text(NAVY_SOURCE, encoding="utf-8")
-    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
-    stale = "---\nTitle: x\n---\nAn older text without the letter sentence."
-    assert ep._gate_source_text(f"{base} - yaml.md", stale) == NAVY_SOURCE
-    assert ep._gate_source_text("Other - B - 2020-01-01 - yaml.md", stale).startswith("An older")
 
 
 def test_rfj2_precheck_includes_entity_grounding(tmp_path, monkeypatch):
@@ -1024,3 +986,173 @@ def test_rfm1_mismatch_sample_excludes_resolved():
     o = fp.verify_source_fidelity(raw, HEAD + "the mother took a strong view of it, he said.\n")
     words = [m["a_word"] for m in o["comparison"]["mismatch_sample"]]
     assert "Murray" not in words and "she" in words
+
+
+# --- RF.N: the blog is judged as interpretation, and only warns -------------------
+
+def _blog_gate_project(tmp_path, monkeypatch, blog_text, entailment_rejects, grounding_labels,
+                       contradicted=None):
+    base = "Talk - A Person - 2021-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "## Section 1 – Opening Words Here Now ([00:00:00]).\n\nMy mother protected Billy. "
+        "Bowen saw the family as an emotional unit.\n", encoding="utf-8")
+    (proj / f"{base}{config.SUFFIX_LENSES}").write_text(
+        "## Lenses (Ranked)\n\n1. **The Hidden Debt Inside Every Family**\nR.\n", encoding="utf-8")
+    (proj / f"{base}{config.SUFFIX_BLOG}").write_text(blog_text, encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path / "logs")  # judge disk cache stays out of logs/
+    (tmp_path / "logs").mkdir()
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
+    monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", True, raising=False)
+    fail = release_gate.Verdict("faithfulness", release_gate.Status.FAIL, "x",
+                                items=[{"artifact": "blog.md", "unfaithful": entailment_rejects,
+                                        "contradicted": contradicted or []}])
+    ok = release_gate.Verdict("faithfulness", release_gate.Status.PASS, "ok")
+    monkeypatch.setattr(release_gate, "check_faithfulness",
+                        lambda *a, **k: fail if entailment_rejects else ok)
+    import faithfulness_judge as fjudge
+    from faithfulness_judge import ClaimVerdict
+    monkeypatch.setattr(fjudge, "judge_themes", lambda themes, *a, **k: [
+        ClaimVerdict(t["name"], grounding_labels[t["name"]], "r") for t in themes])
+    import transcript_utils
+    monkeypatch.setattr(transcript_utils, "resolve_anthropic_key", lambda: "k")
+    monkeypatch.setattr(transcript_utils, "get_anthropic_client", lambda *a, **k: object())
+    return base
+
+
+def test_rfn1_interpretive_claim_accepted_by_grounding_judge(tmp_path, monkeypatch):
+    claim = "The protection became a kind of prophecy."
+    base = _blog_gate_project(tmp_path, monkeypatch, f"# The Hidden Debt Inside Every Family\n\n{claim}\n",
+                              [claim], {claim: "grounded"})
+    v = release_gate.check_blog_faithfulness(base)
+    assert v.status is release_gate.Status.PASS
+
+
+def test_rfn1_ungrounded_claim_warns(tmp_path, monkeypatch):
+    claim = "Billy later became a successful architect in Boston."
+    base = _blog_gate_project(tmp_path, monkeypatch, f"{claim}\n", [claim], {claim: "ungrounded"})
+    v = release_gate.check_blog_faithfulness(base)
+    assert v.status is release_gate.Status.WARN and claim in v.items
+
+
+def test_rfn1_lens_title_phrase_is_not_a_name(tmp_path, monkeypatch):
+    base = _blog_gate_project(tmp_path, monkeypatch,
+                              "# The Hidden Debt Inside Every Family\n\nMy mother protected Billy.\n", [], {})
+    assert release_gate.check_blog_faithfulness(base).status is release_gate.Status.PASS
+
+
+def test_rfn1_blog_never_blocks(tmp_path, monkeypatch):
+    assert "blog_faithfulness" not in config.GATE_BLOCKING_CHECKS
+    assert config.SUFFIX_BLOG not in config.FAITHFULNESS_ARTIFACT_SUFFIXES
+    assert config.SUFFIX_BLOG not in config.GATE_ENTITY_ARTIFACT_SUFFIXES
+    warn = release_gate.Verdict("blog_faithfulness", release_gate.Status.WARN, "x")
+    assert release_gate.decide([warn]).decision is release_gate.Decision.ALLOW_WITH_WARNINGS
+    assert "blog_faithfulness" in [n for n, _ in release_gate.DEFAULT_CHECKS]
+
+
+def test_rfn2_blog_failure_warns_and_run_continues(tmp_path, monkeypatch):
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": GOOD_LENS}])
+    n = []
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda *a, **k: n.append(1) or f"blog draft {len(n)}")
+    seq = [("fail", ["Claim one is unsupported.", "Claim two is unsupported."]),
+           ("fail", ["Claim three is unsupported."]),
+           ("fail", ["Claim four is unsupported.", "Claim five is unsupported."])]
+    monkeypatch.setattr(ep, "_blog_precheck", lambda b, suffix, logger=None: seq.pop(0))
+    assert _run_blog(stem, logger) is True
+    assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
+    assert "warning only" in logger.warning.call_args.args[0]
+    assert not logger.error.called
+
+
+def test_rfn3_blog_prompt_has_grounding_rules():
+    prompt = (Path(config.PROMPTS_DIR) / "Transcript Summary Blog Post v1.md").read_text(encoding="utf-8")
+    assert "only as the speaker told them" in prompt
+    assert '"most people"' in prompt
+
+
+def test_rfn2_gui_blog_stage_never_halts(monkeypatch):
+    logs = []
+    gui = _gui(logs)
+    gui._generate_blog = lambda: False
+    assert gui._run_stage_blog() is True
+    assert any("Blog not produced" in line for line in logs)
+
+
+def test_rfk2_all_emphasis_dropped_fails_and_saves_nothing(tmp_path, monkeypatch):
+    # Sweep: saving the raw response would restore the dropped quotes.
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(ep, "_load_summary_prompt", lambda _n: "PROMPT")
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda *a, **k: _emphasis_response([SPLICED]))
+    logger = MagicMock()
+    assert ep.extract_scored_emphasis("Talk - A Person - 2021-01-01 - yaml.md", logger=logger,
+                                      transcript_text=NAVY_SOURCE) is False
+    assert not list(tmp_path.rglob("* - emphasis-scored.md"))
+    assert "kept 0 of 1" in logger.error.call_args.args[0] % logger.error.call_args.args[1:]
+
+
+def test_rfk2_extractor_checks_against_gate_text(tmp_path, monkeypatch):
+    # Sweep (P35): the quote is checked against the formatted transcript the gate
+    # uses, not a stale YAML copy passed in.
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMATTED}").write_text(NAVY_SOURCE, encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    stale = "---\nTitle: x\n---\nAn older text without the letter sentence."
+    assert ep._gate_source_text(f"{base} - yaml.md", stale) == NAVY_SOURCE
+    assert ep._gate_source_text("Other - B - 2020-01-01 - yaml.md", stale).startswith("An older")
+
+
+def test_rfn1_contradicted_claim_is_never_overridden(tmp_path, monkeypatch):
+    # Sweep: the grounding judge may accept interpretation, never a contradiction.
+    claim = "Kerr's mother ignored Billy."
+    base = _blog_gate_project(tmp_path, monkeypatch, f"{claim}\n", [claim], {claim: "grounded"},
+                              contradicted=[claim])
+    v = release_gate.check_blog_faithfulness(base)
+    assert v.status is release_gate.Status.WARN and claim in v.items
+
+
+def test_rfn1_lens_headline_fragment_not_judged(tmp_path, monkeypatch):
+    # Sweep: extract_claims turns the lens headline into a claim; it must be dropped,
+    # not sent to the grounding judge.
+    import faithfulness_judge as fjudge
+    claims = fjudge.extract_claims("# The Hidden Debt Inside Every Family\n\nMy mother protected Billy.\n",
+                                   source="My mother protected Billy.")
+    frag = [c for c in claims if "Hidden Debt" in c]
+    assert frag, "precondition: the headline is extracted as a claim"
+    base = _blog_gate_project(tmp_path, monkeypatch, "# The Hidden Debt Inside Every Family\n\nText.\n",
+                              frag, {})  # an unexpected judge call would KeyError
+    assert release_gate.check_blog_faithfulness(base).status is release_gate.Status.PASS
+
+
+def test_rfn1_judge_error_is_unverified_and_not_fed_back(tmp_path, monkeypatch):
+    claim = "The protection became a kind of prophecy."
+    base = _blog_gate_project(tmp_path, monkeypatch, f"{claim}\n", [claim], {})
+    import faithfulness_judge as fjudge
+    monkeypatch.setattr(fjudge, "judge_themes", lambda *a, **k: (_ for _ in ()).throw(TimeoutError("x")))
+    v = release_gate.check_blog_faithfulness(base)
+    assert v.status is release_gate.Status.ERROR and claim not in (v.items or [])
+    assert ep._blog_precheck(base, config.SUFFIX_BLOG) == ("unavailable", [])
+
+
+def test_rfn1_no_blog_warns(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (tmp_path / "T - A - 2021-01-01").mkdir()
+    v = release_gate.check_blog_faithfulness("T - A - 2021-01-01")
+    assert v.status is release_gate.Status.WARN and "no blog" in v.detail
+
+
+def test_rfn1_grounding_verdict_cached(tmp_path, monkeypatch):
+    claim = "The protection became a kind of prophecy."
+    base = _blog_gate_project(tmp_path, monkeypatch, f"{claim}\n", [claim], {claim: "grounded"})
+    import faithfulness_judge as fjudge
+    calls = []
+    real = fjudge.judge_themes
+    monkeypatch.setattr(fjudge, "judge_themes", lambda *a, **k: calls.append(1) or real(*a, **k))
+    release_gate.check_blog_faithfulness(base)
+    release_gate._BLOG_GROUNDING_CACHE.clear()  # a new process: the disk cache answers
+    release_gate.check_blog_faithfulness(base)
+    assert len(calls) == 1

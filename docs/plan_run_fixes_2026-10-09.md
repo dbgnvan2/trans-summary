@@ -263,3 +263,38 @@ resume and the last line read "apply review decisions completed successfully".
 Adjacent, not fixed: the review dialog applies decisions to `self.base_name` at apply
 time, not the project it was opened for; switching files with the dialog open would
 apply them to the wrong project.
+
+## RF.N — The blog is judged as interpretation, and only warns (approved 2026-10-10)
+
+Run 07:41: the blog failed faithfulness on all 3 attempts (metaphors, general
+statements, the lens's own interpretation judged as factual claims) and halted the
+run. Author decision: "N1 N3, but N1 wins … Blog failures should be a warning and not
+stop the process."
+- RF.N.1 (N1) `release_gate.check_blog_faithfulness`: a blog claim passes if the
+  faithfulness (entailment) judge accepts it, OR — when it rejects it — the theme
+  GROUNDING judge (calibrated for interpretive content; still rejects fabricated
+  specifics and contradictions) labels it grounded. Ungrounded claims and
+  ungrounded names (excluding phrases from the project's own lens titles, e.g.
+  "Hidden Debt") → WARN, never a blocker. Judge unavailable/error → WARN "not verified".
+  - The blog leaves `FAITHFULNESS_ARTIFACT_SUFFIXES` and `GATE_ENTITY_ARTIFACT_SUFFIXES`
+    (blocking checks); `blog_faithfulness` is not in `GATE_BLOCKING_CHECKS`.
+  - Tests: `test_rfn1_interpretive_claim_accepted_by_grounding_judge`,
+    `test_rfn1_ungrounded_claim_warns`, `test_rfn1_lens_title_phrase_is_not_a_name`,
+    `test_rfn1_blog_never_blocks`.
+- RF.N.2 Generation uses the same two-stage check with feedback (up to 3 attempts);
+  if the blog still has ungrounded claims, keep the best draft, log a WARNING and
+  continue — the Blog stage succeeds and the run goes on.
+  - Test: `test_rfn2_blog_failure_warns_and_run_continues`.
+- RF.N.3 (N3) Blog prompt: state facts about people and events only as the speaker
+  told them, attribute claims to the speaker, no generalisations about "most people",
+  no invented details. Guidance only — N1 decides.
+  - Test: `test_rfn3_blog_prompt_has_grounding_rules`.
+
+### Sweep on RF.N (learning-qa, 2026-10-10) — 7 findings, all fixed
+Two RF.K tests deleted by mistake restored; the grounding verdict is cached (memory +
+disk, like the other judges); a grounding-judge error is UNVERIFIED (ERROR, advisory)
+and only name hits are fed back; lens-headline fragments are dropped before judging;
+CONTRADICTED claims are never overridden; THEME_JUDGE_ENABLED is respected; a missing
+blog WARNs; the PASS detail counts claims accepted as interpretation.
+Adjacent, not fixed: the judge disk cache lives in the real `logs/` and tests that
+enable a mocked judge without patching LOGS_DIR can write to it.
