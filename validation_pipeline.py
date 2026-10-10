@@ -776,6 +776,23 @@ def _emphasis_quote_found_ratio(quote: str, formatted_content: str) -> float:
     return min(ends, _quote_word_coverage(quote, formatted_content))
 
 
+def quote_is_verbatim_for_gate(quote: str, transcript: str) -> tuple:
+    """The release gate's verbatim test for one Bowen/emphasis quote:
+    ``(ok, ends, coverage)``, ok when the head/tail match reaches
+    config.EMPHASIS_QUOTE_PARTIAL_RATIO and whole-quote word coverage reaches
+    config.QUOTE_MIN_WORD_COVERAGE.
+
+    Purpose: One test shared by the gate and the extractors, so an extractor never
+             saves a quote the gate will reject (RF.K, P19).
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.K.1
+    Tests:   tests/test_run_fixes_rf.py::test_rfk1_gate_uses_shared_predicate
+    """
+    ends = _emphasis_quote_found_ratio(quote, transcript)
+    coverage = _quote_word_coverage(quote, transcript)
+    ok = ends >= config.EMPHASIS_QUOTE_PARTIAL_RATIO and coverage >= config.QUOTE_MIN_WORD_COVERAGE
+    return ok, ends, coverage
+
+
 def validate_emphasis_items(
     formatted_file_path: Path, extracts_summary_path: Path, logger
 ) -> bool:

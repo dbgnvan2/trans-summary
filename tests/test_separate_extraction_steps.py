@@ -30,7 +30,8 @@ def test_extract_scored_emphasis_accepts_direct_text_file(tmp_path, monkeypatch)
                 "category": "Key Idea",
                 "score": 95,
                 "concept": "Concept A",
-                "quote": "Exact quote A",
+                # RF.K: quotes must be verbatim in the transcript or they are dropped.
+                "quote": "Transcript text for emphasis extraction",
             }
         ],
     )

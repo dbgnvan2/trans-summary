@@ -592,3 +592,59 @@ def test_rfh1_titles_listed_in_warnings():
     o = fp.verify_source_fidelity(raw, HEAD + "the mother took a strong view of it.\n")
     assert any("chapter-title line(s) removed" in w and "Who Was Murray Bowen?" in w
                for w in o["warnings"])
+
+
+# --- RF.K: extracted quotes pass the gate's verbatim test or are dropped ----------
+
+SPLICED = ("I think I sent him a letter about six months into my time in the Navy. He sent me "
+           "a letter saying, 'Mike, if this is how you deal with your family, no wonder you had "
+           "so much trouble.' You have to heal in the system.")
+NAVY_SOURCE = (
+    "I spent two years in the Navy after finishing my psychiatric rotation. I think I sent him "
+    "a letter about six months into my time in the Navy. I was out at Great Lakes Naval "
+    "Hospital. He sent me a letter saying, \"Mike, if this is how you deal with your family, no "
+    "wonder you had so much trouble.\"\n\n**Interviewer:** So he was judging you for running "
+    "away?\n\n**Michael Kerr:** Yeah. Right, right, right. For leaving the system. That was not "
+    "his idea, leaving the system. You have to heal in the system.\n")
+
+
+def test_rfk1_gate_uses_shared_predicate():
+    import inspect
+    src = inspect.getsource(release_gate.check_verbatim_quotes)
+    assert "quote_is_verbatim_for_gate" in src
+    assert not vp.quote_is_verbatim_for_gate(SPLICED, NAVY_SOURCE)[0]
+
+
+def test_rfk2_verbatim_quote_kept():
+    ok, _ends, _cov = vp.quote_is_verbatim_for_gate(
+        "I think I sent him a letter about six months into my time in the Navy.", NAVY_SOURCE)
+    assert ok
+
+
+def _emphasis_response(quotes):
+    return "\n\n".join(
+        f'[Explicit - Clinical - Rank: 92%] Concept: Item {n} about distance and family\n"{q}"'
+        for n, q in enumerate(quotes, 1))
+
+
+def test_rfk2_spliced_emphasis_quote_dropped(tmp_path, monkeypatch):
+    good = "I think I sent him a letter about six months into my time in the Navy."
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(ep, "_load_summary_prompt", lambda _n: "PROMPT")
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda *a, **k: _emphasis_response([SPLICED, good]))
+    logger = MagicMock()
+    assert ep.extract_scored_emphasis("Talk - A Person - 2021-01-01 - yaml.md", logger=logger,
+                                      transcript_text=NAVY_SOURCE)
+    saved = next(tmp_path.rglob("* - emphasis-scored.md")).read_text(encoding="utf-8")
+    assert good in saved and "heal in the system" not in saved
+    logged = [c.args[0] % c.args[1:] for c in logger.info.call_args_list]
+    assert "Emphasis verbatim check: kept 1 of 2." in logged
+
+
+def test_rfk2_bowen_spliced_quote_dropped():
+    refs = [("Bowen's letter", SPLICED),
+            ("Bowen's letter", "He sent me a letter saying, \"Mike, if this is how you deal "
+                               "with your family, no wonder you had so much trouble.\"")]
+    kept = ep._ground_bowen_refs(refs, NAVY_SOURCE, MagicMock())
+    assert [q for _c, q in kept] == [refs[1][1]]

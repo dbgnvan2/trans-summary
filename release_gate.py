@@ -309,9 +309,8 @@ def check_verbatim_quotes(base_name: str, logger=None) -> Verdict:
     items = ([("bowen", c, q) for c, q, _ts in tu.load_bowen_references(base_name)]
              + [("emphasis", lab, q) for lab, q, _ts in emphasis])
     for kind, label, quote in items:
-        ends = vp._emphasis_quote_found_ratio(quote, transcript)
-        coverage = vp._quote_word_coverage(quote, transcript)
-        if ends < config.EMPHASIS_QUOTE_PARTIAL_RATIO or coverage < config.QUOTE_MIN_WORD_COVERAGE:
+        ok, ends, coverage = vp.quote_is_verbatim_for_gate(quote, transcript)
+        if not ok:
             problems.append({"type": kind, "label": label, "quote": quote[:60],
                              "match": round(ends, 3), "word_coverage": round(coverage, 3)})
     if problems:

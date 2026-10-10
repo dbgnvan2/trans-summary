@@ -30,6 +30,7 @@ from transcript_utils import (
     validate_input_file,
 )
 from validation_pipeline import (
+    quote_is_verbatim_for_gate,
     validate_emphasis_items,
     validate_key_terms_fidelity,
     validate_summary_coverage,
@@ -653,8 +654,19 @@ def extract_scored_emphasis(
 
         validated_items = []
         final_content_lines = []
+        verbatim_dropped = []
         for item in items:
             is_valid, issues = validate_emphasis_item(item)
+            if is_valid:
+                # RF.K: the gate's own verbatim test, so a spliced or altered quote is
+                # dropped here instead of blocking publication later (P19).
+                ok, ends, coverage = quote_is_verbatim_for_gate(item["quote"], transcript_text)
+                if not ok:
+                    verbatim_dropped.append(item)
+                    logger.warning("Dropping emphasis item not verbatim in the transcript "
+                                   "(match %.2f, coverage %.2f): %s", ends, coverage,
+                                   item.get("concept", ""))
+                    continue
             if is_valid:
                 validated_items.append(item)
                 ts_str = f" | {item['timestamp']}" if item.get('timestamp') else ""
@@ -673,6 +685,8 @@ def extract_scored_emphasis(
 
         logger.info("Retained %d items after validation.",
                     len(validated_items))
+        logger.info("Emphasis verbatim check: kept %d of %d.",
+                    len(items) - len(verbatim_dropped), len(items))
         final_content = (
             "\n\n".join(final_content_lines) if validated_items else response
         )
@@ -687,6 +701,27 @@ def extract_scored_emphasis(
         logger.error("Error in scored emphasis extraction: %s",
                      e, exc_info=True)
         return False
+
+
+def _ground_bowen_refs(refs, transcript_text: str, logger) -> list:
+    """Keep the Bowen references whose quote passes the release gate's verbatim
+    test (``quote_is_verbatim_for_gate``); log each one dropped and "kept N of M".
+
+    Purpose: Never save a Bowen quote the gate will reject (RF.K, P19).
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.K.2
+    Tests:   tests/test_run_fixes_rf.py::test_rfk2_bowen_spliced_quote_dropped
+    """
+    grounded = []
+    for concept, quote in refs:
+        ok, ends, coverage = quote_is_verbatim_for_gate(quote, transcript_text)
+        if ok:
+            grounded.append((concept, quote))
+        else:
+            logger.warning("Dropping Bowen reference not verbatim in the transcript "
+                           "(match %.2f, coverage %.2f): %s", ends, coverage, concept)
+    if refs:
+        logger.info("Bowen references verbatim check: kept %d of %d.", len(grounded), len(refs))
+    return grounded
 
 
 def extract_bowen_references_from_transcript(
@@ -756,31 +791,7 @@ def extract_bowen_references_from_transcript(
         filtered_refs = _rule_filter_bowen_references(filtered_refs, logger)
 
         def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
-            grounded = []
-            # Normalize the transcript ONCE, not per ref per call — the grounding loop
-            # searches the same transcript 2x per ref (review M11 / P9).
-            transcript_norm = normalize_text(transcript_text, aggressive=True)
-            for concept, quote in refs:
-                compact_quote = _compact_bowen_quote(quote, max_words=140)
-                _, _, ratio_compact = find_text_in_content(
-                    compact_quote, transcript_text, aggressive_normalization=True,
-                    haystack_normalized=transcript_norm,
-                )
-                _, _, ratio_full = find_text_in_content(
-                    quote, transcript_text, aggressive_normalization=True,
-                    haystack_normalized=transcript_norm,
-                )
-                ratio = max(ratio_compact, ratio_full)
-                if ratio >= 0.90:
-                    # Keep full extracted quote in output to preserve complete attributed text.
-                    grounded.append((concept, quote))
-                else:
-                    logger.warning(
-                        "Dropping ungrounded Bowen reference (match %.2f): %s",
-                        ratio,
-                        concept,
-                    )
-            return grounded
+            return _ground_bowen_refs(refs, transcript_text, logger)
 
         grounded_semantic = _ground_refs(filtered_refs)
         if not grounded_semantic and parsed_refs:
