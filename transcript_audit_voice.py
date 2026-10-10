@@ -73,7 +73,7 @@ def audit_voice(blog_content: str, api_key: str) -> dict:
     )
 
     # Parse JSON response
-    response_text = response.content[0].text
+    response_text = transcript_utils.response_text(response)
 
     # Handle potential markdown code blocks
     if response_text.strip().startswith("```"):

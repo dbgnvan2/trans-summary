@@ -109,11 +109,19 @@ def load_raw_transcript(filename: str) -> str:
 
 
 def formatting_max_tokens(model: str) -> int:
-    """Output token budget for the formatting call: the model's documented max
-    output where known (config.MODEL_OUTPUT_TOKEN_LIMITS), else
-    config.MAX_TOKENS_FORMATTING. The formatter reproduces the whole transcript,
-    so its output is as long as its input."""
-    return config.MODEL_OUTPUT_TOKEN_LIMITS.get(model.lower(), config.MAX_TOKENS_FORMATTING)
+    """Output token budget for the formatting ANSWER: the model's max output
+    (model_specs.capabilities for known and 5-family models, else
+    config.MODEL_OUTPUT_TOKEN_LIMITS, else config.MAX_TOKENS_FORMATTING), less
+    config.THINKING_TOKEN_HEADROOM on models that always think — the wrapper adds
+    that headroom back, so thinking cannot crowd out the transcript (MV sweep).
+    The formatter reproduces the whole transcript, so its output is as long as
+    its input."""
+    import model_specs
+    name = model.lower()
+    cap = model_specs.capabilities(name)
+    if cap["thinking"] == "always":  # 5-family: the capability table is the source
+        return cap["max_output"] - config.THINKING_TOKEN_HEADROOM
+    return config.MODEL_OUTPUT_TOKEN_LIMITS.get(name, config.MAX_TOKENS_FORMATTING)
 
 
 def format_transcript_with_claude(
@@ -172,7 +180,7 @@ def format_transcript_with_claude(
         min_words=min_expected_words,
     )
 
-    return message.content[0].text
+    return transcript_utils.response_text(message)
 
 
 def strip_leading_title(text: str) -> tuple[str, List[str]]:

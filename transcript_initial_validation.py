@@ -87,7 +87,7 @@ class TranscriptValidator:
                 timeout=config.TIMEOUT_FORMATTING
             )
 
-            response_text = response_msg.content[0].text
+            response_text = transcript_utils.response_text(response_msg)
             
             # Log token usage explicitly
             usage = response_msg.usage

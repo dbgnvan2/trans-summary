@@ -726,6 +726,8 @@ def _judge_logic_version(instructions: str) -> str:
     import faithfulness_judge as fjudge
     material = "|".join([
         config.JUDGE_LOGIC_VERSION,
+        # The effort judges run at changes their verdicts (MV.6 sweep, P20/P6).
+        str(config.JUDGE_EFFORT),
         instructions,
         repr(sorted(config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES)),
         repr(sorted(config.FAITHFULNESS_SKIP_LINE_LABELS)),

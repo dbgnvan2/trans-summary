@@ -408,6 +408,15 @@ def _find_existing_validation_versions(file_path):
     return [path for _, path in versions]
 
 
+# MV.6: label for "send no effort; use each model's own default".
+EFFORT_MODEL_DEFAULT = "model default"
+
+
+def effort_choices() -> list:
+    """Effort dropdown values: the model default, then each level."""
+    return [EFFORT_MODEL_DEFAULT, *config.settings.EFFORT_CHOICES]
+
+
 # Serialises GUI log-file writes from worker threads (RF.D).
 _GUI_LOG_FILE_LOCK = threading.Lock()
 
@@ -837,16 +846,29 @@ class TranscriptProcessorGUI:
         self.formatting_model_cb.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
         self.formatting_model_cb.bind("<<ComboboxSelected>>", lambda event: self._on_model_selected("FORMATTING_MODEL"))
 
+        # Thinking level (MV.6): output_config.effort, applied only where a model
+        # supports it. On 5-family models this is the thinking control.
+        ttk.Label(model_selection_frame, text="Effort (thinking):").grid(row=3, column=0, sticky=tk.W, padx=5, pady=2)
+        self.effort_var = tk.StringVar(value=config.settings.EFFORT or EFFORT_MODEL_DEFAULT)
+        self.effort_cb = ttk.Combobox(
+            model_selection_frame,
+            textvariable=self.effort_var,
+            values=effort_choices(),
+            state="readonly",
+        )
+        self.effort_cb.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        self.effort_cb.bind("<<ComboboxSelected>>", lambda event: self._on_effort_selected())
+
         # Validation Mode (V1/V2)
         self.validation_mode_var = tk.StringVar(value="v2")
         val_frame = ttk.Frame(model_selection_frame)
-        val_frame.grid(row=3, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(5, 0))
+        val_frame.grid(row=4, column=0, columnspan=2, sticky=tk.W, padx=5, pady=(5, 0))
         ttk.Label(val_frame, text="Validation Mode:").pack(side=tk.LEFT)
         ttk.Radiobutton(val_frame, text="V2 (Chunked/Safe)", variable=self.validation_mode_var, value="v2").pack(side=tk.LEFT, padx=5)
         ttk.Radiobutton(val_frame, text="V1 (Legacy)", variable=self.validation_mode_var, value="v1").pack(side=tk.LEFT, padx=5)
 
         terms_frame = ttk.Frame(model_selection_frame)
-        terms_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
+        terms_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
         terms_frame.columnconfigure(1, weight=1)
         ttk.Label(terms_frame, text="Terms File:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
         ttk.Label(terms_frame, textvariable=self.terms_file_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
@@ -858,7 +880,7 @@ class TranscriptProcessorGUI:
         )
 
         pattern_frame = ttk.Frame(model_selection_frame)
-        pattern_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
+        pattern_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=(8, 0))
         ttk.Label(pattern_frame, text="Pattern Set:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
         self.pattern_set_var = tk.StringVar(value=PATTERN_SET_NONE)
         self.pattern_set_cb = ttk.Combobox(
@@ -1048,6 +1070,12 @@ class TranscriptProcessorGUI:
         self.root.after(2000, self.monitor_memory)
 
     # ADDED: Callback for model selection
+    def _on_effort_selected(self):
+        """Save the chosen thinking level (MV.6)."""
+        value = self.effort_var.get()
+        config.settings.set_effort(None if value == EFFORT_MODEL_DEFAULT else value)
+        self.log("Effort (thinking level) set to: %s", value)
+
     def _on_model_selected(self, model_type: str):
         selected_model = self.model_vars[model_type].get()
         try:
@@ -3196,6 +3224,8 @@ class TranscriptProcessorGUI:
         # ADDED: Update state of model comboboxes
         model_cb_state = "readonly" if not self.processing else tk.DISABLED
         self.default_model_cb.config(state=model_cb_state)
+        if getattr(self, "effort_cb", None) is not None:
+            self.effort_cb.config(state=model_cb_state)
         self.aux_model_cb.config(state=model_cb_state)
         self.formatting_model_cb.config(state=model_cb_state)
 

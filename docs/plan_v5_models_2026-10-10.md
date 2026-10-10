@@ -1,6 +1,6 @@
 # Plan: run the pipeline on the Claude 5 models (MV.1–MV.8)
 
-Status: awaiting approval. Request (2026-10-10): "fix this so I can set the models to
+Status: approved and implemented 2026-10-10. Request (2026-10-10): "fix this so I can set the models to
 the v5 series … leave the option for temperature and thinking levels."
 
 ## What breaks today on a 5-family model
@@ -84,3 +84,17 @@ suite; learning-qa sweep; CHANGELOG; push.
 
 - `ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"` is an obsolete beta
   (caching is GA). MV.8 checks it is still accepted; removing it is a separate change.
+
+## Sweep (learning-qa, 2026-10-10) — 6 findings, all fixed
+
+- Judges no longer follow the GUI Effort setting: they send `config.JUDGE_EFFORT`
+  (None), which is also part of the judge cache logic version.
+- The output-critic skill script's two `content[0].text` sites use `response_text`;
+  the source scan now covers every `.py` outside tests/.venv/.claude.
+- `formatting_max_tokens` reads the capability table for 5-family models and leaves
+  `THINKING_TOKEN_HEADROOM` for thinking.
+- A refusal-fallback answer is priced at the model that served it and logged.
+- The cost estimate adds thinking tokens for 5-family models by effort
+  (`config.THINKING_TOKENS_ESTIMATE`).
+- The once-per-model notices use the module logger when none is passed.
+Live (`pytest --live-api tests/test_v5_models_live.py`): 5 passed on 2026-10-10.

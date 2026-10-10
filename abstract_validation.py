@@ -23,6 +23,7 @@ from difflib import SequenceMatcher
 from typing import Optional
 
 import config
+import transcript_utils
 from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
 
 
@@ -631,7 +632,7 @@ def verify_items_with_llm(content: str, items: list, api_client, content_type: s
     # of items, the mapping is unknown: every item is unverified, never a padded
     # False that would read as a checked miss (sweep finding, P1/P2).
     results: list = []
-    for line in response.content[0].text.strip().upper().split("\n"):
+    for line in transcript_utils.response_text(response).strip().upper().split("\n"):
         m = re.search(r"\b(YES|NO)\b", line)
         if m:
             results.append(m.group(1) == "YES")

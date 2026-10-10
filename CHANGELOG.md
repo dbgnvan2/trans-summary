@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-10 (Claude 5 models)
+
+Plan: `docs/plan_v5_models_2026-10-10.md`. The pipeline now runs on claude-opus-5-5,
+claude-sonnet-5-5, claude-haiku-5-5 and claude-fable-5-1 (live-tested), as well as the
+4.x models.
+
+- One capability table (`model_specs.MODEL_CAPABILITIES`) and v5 prices; the GUI model
+  lists include the 5-family models.
+- Requests send only what a model accepts: `temperature` stays for models that take it
+  and is dropped for 5-family models; the reply's answer is read from its text blocks
+  (5-family models think first); thinking gets extra `max_tokens` room; very long
+  requests stream; refusals raise `RefusalError`; Opus 5.5 / Sonnet 5.5 / Fable 5.1
+  use server-side refusal fallbacks (`config.REFUSAL_FALLBACKS_ENABLED`).
+- New **Effort (thinking)** setting in the GUI (model default / low … max), saved in
+  runtime settings. The faithfulness/theme/key-term judges ignore it (`JUDGE_EFFORT`).
+- The cost estimate includes thinking tokens on 5-family models.
+- Judges stay on claude-sonnet-4-6 until re-calibrated.
+
 ## [Unreleased] - 2026-10-09 (run fixes RF.A-RF.E)
 
 Plan: `docs/plan_run_fixes_2026-10-09.md`. The second 2026-10-09 run of "Why Families

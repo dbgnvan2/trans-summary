@@ -62,6 +62,13 @@ def main():
     else:
         print("\n--- Testing known fallback models ---")
         known_models = [
+            # Claude 5 family (MV.7); the probe sends no temperature, which they reject.
+            "claude-opus-5-5",
+            "claude-sonnet-5-5",
+            "claude-haiku-5-5",
+            "claude-fable-5-1",
+            "claude-sonnet-4-6",
+            "claude-opus-4-6",
             "claude-3-5-sonnet-20241022",
             "claude-3-5-sonnet-latest",
             "claude-3-5-sonnet-20240620",

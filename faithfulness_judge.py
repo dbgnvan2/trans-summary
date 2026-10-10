@@ -31,6 +31,7 @@ from typing import Optional
 
 import config
 
+import transcript_utils
 # Labels the judge assigns each claim.
 ENTAILED = "entailed"
 CONTRADICTED = "contradicted"
@@ -591,11 +592,12 @@ def judge_claims(claims: list, source: str, client, *,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
         temperature=config.TEMP_STRICT,
+        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
         min_length=1,
         logger=logger or logging.getLogger("faithfulness_judge"),
         timeout=config.TIMEOUT_DEFAULT,
     )
-    text = message.content[0].text
+    text = transcript_utils.response_text(message)
     return _parse_judge_response(text, claims)
 
 
@@ -759,12 +761,13 @@ def judge_themes(themes: list, source: str, client, *,
         messages=[{"role": "user", "content": build_theme_judge_prompt(themes, source)}],
         max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
         temperature=config.TEMP_STRICT,
+        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
         min_length=1,
         logger=logger or logging.getLogger("theme_judge"),
         timeout=config.TIMEOUT_DEFAULT,
     )
     names = [t["name"] for t in themes]
-    return _parse_judge_response(message.content[0].text, names, valid_labels=_THEME_LABELS)
+    return _parse_judge_response(transcript_utils.response_text(message), names, valid_labels=_THEME_LABELS)
 
 
 def with_theme_evidence(items: list, themes_markdown: str) -> list:

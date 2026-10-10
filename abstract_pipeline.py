@@ -271,7 +271,7 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
             logger=logger,  # named logger -> real script name in token-usage log
         )
         
-        purpose = message.content[0].text.strip()
+        purpose = transcript_utils.response_text(message).strip()
 
         # 4. Process the response
         if "Not explicitly stated" in purpose:
@@ -487,7 +487,7 @@ def generate_abstract(
         **kwargs,
     )
 
-    return message.content[0].text.strip()
+    return transcript_utils.response_text(message).strip()
 
 
 # === Validation ===

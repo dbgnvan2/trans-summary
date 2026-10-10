@@ -8,6 +8,7 @@ from typing import Dict, List
 
 import config
 
+import transcript_utils
 # Add project root to path to allow imports
 sys.path.append(str(Path(__file__).parent))
 
@@ -191,7 +192,7 @@ class HeaderValidator:
             system=self.cached_system_message,
         )
 
-        return response.content[0].text
+        return transcript_utils.response_text(response)
 
     def run(self, input_path: Path, model: str = config.AUX_MODEL):
         """Main execution flow."""

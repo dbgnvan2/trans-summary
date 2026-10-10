@@ -34,6 +34,7 @@ import re
 from typing import Optional
 
 import config
+import transcript_utils
 from faithfulness_judge import (
     ERROR,
     FAIL,
@@ -99,12 +100,13 @@ def judge_key_terms(terms: list, source: str, client, *,
         messages=[{"role": "user", "content": build_key_terms_judge_prompt(terms, source)}],
         max_tokens=config.KEY_TERMS_JUDGE_MAX_TOKENS,
         temperature=config.TEMP_STRICT,
+        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
         min_length=1,
         logger=logger or logging.getLogger("key_terms_semantic_judge"),
         timeout=config.TIMEOUT_DEFAULT,
     )
     names = [t for t, _ in terms]
-    return parse_judge_response(message.content[0].text, names, valid_labels=_LABELS)
+    return parse_judge_response(transcript_utils.response_text(message), names, valid_labels=_LABELS)
 
 
 def parse_key_terms_artifact(markdown: str) -> list:

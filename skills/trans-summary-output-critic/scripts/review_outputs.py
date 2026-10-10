@@ -274,6 +274,7 @@ def run_semantic_grounding_check(
         import anthropic  # type: ignore
         import config as ts_config  # type: ignore
         from transcript_utils import call_claude_with_retry, create_system_message_with_cache  # type: ignore
+        import transcript_utils  # type: ignore  # response_text: thinking-first replies (MV.3)
 
         transcript_text = strip_yaml_frontmatter(read_text(formatted_path))
         system_msg = create_system_message_with_cache(transcript_text)
@@ -303,7 +304,7 @@ def run_semantic_grounding_check(
                 suppress_caching_warnings=True,
             )
             used_models.add(used_model)
-            raw = message.content[0].text.strip()
+            raw = transcript_utils.response_text(message).strip()
             if raw.startswith("```"):
                 raw = re.sub(r"^```(?:json)?\s*", "", raw)
                 raw = re.sub(r"\s*```$", "", raw)
@@ -363,6 +364,7 @@ def run_semantic_all_check(
         import anthropic  # type: ignore
         import config as ts_config  # type: ignore
         from transcript_utils import call_claude_with_retry, create_system_message_with_cache  # type: ignore
+        import transcript_utils  # type: ignore  # response_text: thinking-first replies (MV.3)
 
         transcript_text = strip_yaml_frontmatter(read_text(formatted_path))
         system_msg = create_system_message_with_cache(transcript_text)
@@ -414,7 +416,7 @@ def run_semantic_all_check(
                 suppress_caching_warnings=True,
             )
             used_models.add(used_model)
-            raw = message.content[0].text.strip()
+            raw = transcript_utils.response_text(message).strip()
             if raw.startswith("```"):
                 raw = re.sub(r"^```(?:json)?\s*", "", raw)
                 raw = re.sub(r"\s*```$", "", raw)

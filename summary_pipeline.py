@@ -795,7 +795,7 @@ def generate_summary(
         **kwargs,
     )
 
-    return message.content[0].text.strip()
+    return transcript_utils.response_text(message).strip()
 
 
 # === Example Usage ===

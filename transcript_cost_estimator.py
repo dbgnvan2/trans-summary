@@ -15,6 +15,18 @@ from model_specs import get_pricing
 from transcript_utils import estimate_token_count
 
 
+def thinking_tokens_estimate(model: str, calls: int = 1) -> int:
+    """Estimated thinking tokens (billed as output) per call on a model that
+    always thinks (5-family), from config.THINKING_TOKENS_ESTIMATE at the current
+    Effort setting or the model's default effort; 0 for other models (MV sweep)."""
+    import model_specs
+    cap = model_specs.capabilities(model)
+    if cap["thinking"] != "always":
+        return 0
+    effort = config.settings.EFFORT or cap["default_effort"] or "high"
+    return calls * config.THINKING_TOKENS_ESTIMATE.get(effort, config.THINKING_TOKENS_ESTIMATE["high"])
+
+
 class CostEstimator:
     """Estimates the cost of the transcript processing pipeline."""
 
@@ -77,6 +89,7 @@ class CostEstimator:
     ):
         """Calculates and records the cost for a single pipeline step."""
         prices = get_pricing(model)
+        output_tokens += thinking_tokens_estimate(model)
 
         cost_input = 0.0
         cost_output = 0.0
@@ -239,7 +252,7 @@ class CostEstimator:
 
         # The output is a report per batch.
         # Estimate 1000 output tokens per batch report.
-        total_output_tokens = num_batches * 1000
+        total_output_tokens = num_batches * (1000 + thinking_tokens_estimate(config.AUX_MODEL))
 
         # Calculate cost
         prices = get_pricing(config.AUX_MODEL)
@@ -287,7 +300,7 @@ class CostEstimator:
         total_content_tokens = num_chunks * average_chunk_tokens
 
         # Heuristic: compact lexical findings as JSON, roughly 450 output tokens/chunk.
-        total_output_tokens = num_chunks * 450
+        total_output_tokens = num_chunks * (450 + thinking_tokens_estimate(config.DEFAULT_MODEL))
 
         prices = get_pricing(config.DEFAULT_MODEL)
         cost_cache_write = (cached_prompt_tokens / 1_000_000) * prices.get(

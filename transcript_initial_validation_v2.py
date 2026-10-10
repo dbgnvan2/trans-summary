@@ -282,7 +282,7 @@ class TranscriptValidatorV2:
             
             self.metrics.record_api_call(response_msg.usage)
             
-            findings = self._parse_json_response(response_msg.content[0].text)
+            findings = self._parse_json_response(transcript_utils.response_text(response_msg))
             
             # Tag with chunk info
             for f in findings:

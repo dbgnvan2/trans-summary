@@ -12,6 +12,7 @@ from typing import Optional
 import abstract_pipeline
 import abstract_validation
 import config
+import transcript_utils
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
@@ -104,7 +105,7 @@ def _generate_validation_response(
         logger=logger,
         **kwargs,
     )
-    return message.content[0].text
+    return transcript_utils.response_text(message)
 
 
 # ============================================================================

@@ -91,7 +91,7 @@ def extract_key_terms_with_claude(
 
     # Token usage logging is handled by call_claude_with_retry
 
-    return message.content[0].text
+    return transcript_utils.response_text(message)
 
 
 def save_key_terms(content: str, original_filename: str) -> Path:

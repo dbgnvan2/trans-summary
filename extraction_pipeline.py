@@ -7,6 +7,7 @@ from pathlib import Path
 
 import abstract_pipeline
 import config
+import transcript_utils
 import summary_pipeline
 from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
 from bowen_attribution import concept_has_bowen_attribution
@@ -95,7 +96,7 @@ def _generate_summary_with_claude(
         logger=logger,
         **kwargs,
     )
-    return message.content[0].text
+    return transcript_utils.response_text(message)
 
 
 def _normalize_headers(text: str) -> str:

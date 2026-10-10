@@ -198,6 +198,37 @@ def load_project_transcript(base_name: str, logger: Optional[logging.Logger] = N
     raise FileNotFoundError(f"No structured transcript found for project: {base_name}")
 
 
+class RefusalError(RuntimeError):
+    """The model declined the request (``stop_reason == "refusal"``). Not retried
+    as-is: the same request would be declined again (MV.5)."""
+
+    def __init__(self, message: str, category=None):
+        super().__init__(message)
+        self.category = category
+
+
+def response_text(message) -> str:
+    """The answer text of a Messages API response: every ``text`` block joined, in
+    order. Thinking blocks (5-family models reply with one first) are skipped.
+
+    Purpose: Read the answer, not ``content[0]`` (MV.3).
+    Spec:    docs/plan_v5_models_2026-10-10.md#MV.3
+    Tests:   tests/test_v5_models.py::test_mv3_thinking_then_text_is_valid
+    """
+    return "".join(b.text for b in _text_blocks(message))
+
+
+def _text_blocks(message) -> list:
+    """Text blocks of a response. A real SDK block always has a string ``type``;
+    a block without one (a plain object with ``.text``) counts as text."""
+    out = []
+    for b in getattr(message, "content", None) or []:
+        btype = getattr(b, "type", None)
+        if btype == "text" or (not isinstance(btype, str) and isinstance(getattr(b, "text", None), str)):
+            out.append(b)
+    return out
+
+
 def validate_api_response(
     message,
     expected_model: str,
@@ -270,6 +301,13 @@ def validate_api_response(
                            getattr(message, 'stop_sequence', 'unknown'))
         # Continue but log the warning
 
+    if stop_reason == "refusal":
+        details = getattr(message, "stop_details", None)
+        category = getattr(details, "category", None) if details else None
+        raise RefusalError(
+            f"The model declined the request (refusal, category={category}). "
+            "Choose a different model or adjust the input.", category=category)
+
     if stop_reason not in ["end_turn", "stop_sequence", "max_tokens", "tool_use"]:
         raise ValueError(f"Unexpected stop_reason: {stop_reason}")
 
@@ -283,28 +321,18 @@ def validate_api_response(
     if len(message.content) == 0:
         raise ValueError("Response content array has no items")
 
-    # 4. Validate first content block
-    content_block = message.content[0]
-
-    if not hasattr(content_block, 'type'):
-        raise ValueError("Content block missing 'type' field")
-
-    if content_block.type != "text":
-        raise ValueError(
-            f"Expected text content block, got type: {content_block.type}"
-        )
-
-    if not hasattr(content_block, 'text'):
-        raise ValueError("Content block missing 'text' field")
+    # 4. At least one text block. 5-family models put a thinking block first,
+    # so the answer is not necessarily content[0] (MV.3).
+    text_blocks = _text_blocks(message)
+    if not text_blocks:
+        types = [getattr(b, "type", "?") for b in message.content]
+        raise ValueError(f"Response has no text content block (got: {types})")
+    for block in text_blocks:
+        if not isinstance(getattr(block, "text", None), str):
+            raise ValueError(f"Content text is not a string: {type(getattr(block, 'text', None))}")
 
     # 5. Validate text content
-    text = content_block.text
-
-    if text is None:
-        raise ValueError("Content text is None")
-
-    if not isinstance(text, str):
-        raise ValueError(f"Content text is not a string: {type(text)}")
+    text = response_text(message)
 
     if not text.strip():
         raise ValueError("Response contains only whitespace or empty text")
@@ -606,6 +634,65 @@ def _retry_wait_seconds(error, attempt: int) -> float:
     return config.RATE_LIMIT_BACKOFF_SECONDS * (attempt + 1)
 
 
+_DROPPED_LOGGED: set = set()
+
+
+USE_EFFORT_SETTING = object()  # sentinel: take config.settings.EFFORT
+
+
+def _log_once(key, logger, level, msg, *args):
+    """Log a notice once per process; the key is used up only when it is logged."""
+    if key in _DROPPED_LOGGED:
+        return
+    _DROPPED_LOGGED.add(key)
+    getattr(logger or logging.getLogger(__name__), level)(msg, *args)
+
+
+def model_request_params(model: str, temperature, max_tokens: int, logger=None,
+                         effort=USE_EFFORT_SETTING) -> dict:
+    """Model-specific request fields (MV.2/MV.4/MV.5): only what ``model`` accepts.
+
+    Returns ``{"params": {...}, "max_tokens": int, "betas": [...], "extra_body": {...}}``:
+    - ``temperature`` only for models that accept it (5-family: dropped, logged once);
+    - ``output_config.effort`` from ``config.settings.EFFORT`` when the model
+      supports that level (else omitted, logged once);
+    - ``max_tokens`` plus config.THINKING_TOKEN_HEADROOM for models that think
+      first, capped at the model's max output;
+    - server-side refusal fallbacks for the models in config.REFUSAL_FALLBACK_MODELS.
+
+    Spec:  docs/plan_v5_models_2026-10-10.md#MV.2
+    Tests: tests/test_v5_models.py::test_mv2_v5_request_has_no_temperature
+    """
+    import model_specs
+
+    cap = model_specs.capabilities(model)
+    params: dict = {}
+    if temperature is not None:
+        if cap["temperature"]:
+            params["temperature"] = temperature
+        else:
+            _log_once((model, "temperature"), logger, "info",
+                      "%s does not take a temperature; using the model's own sampling.", model)
+    if effort is USE_EFFORT_SETTING:
+        effort = getattr(config.settings, "EFFORT", None)
+    extra_body: dict = {}
+    if effort:
+        if effort in cap["effort_levels"]:
+            # Sent as a raw body field: older SDK versions have no output_config
+            # argument (TypeError), and the API reads it the same way.
+            extra_body["output_config"] = {"effort": effort}
+        else:
+            _log_once((model, effort), logger, "warning",
+                      "Effort '%s' is not supported by %s; using its default.", effort, model)
+    if cap["thinking"] == "always":
+        max_tokens = min(cap["max_output"], max_tokens + config.THINKING_TOKEN_HEADROOM)
+    betas = []
+    if config.REFUSAL_FALLBACKS_ENABLED and model in config.REFUSAL_FALLBACK_MODELS:
+        betas.append(config.REFUSAL_FALLBACK_BETA)
+        extra_body["fallbacks"] = "default"
+    return {"params": params, "max_tokens": max_tokens, "betas": betas, "extra_body": extra_body}
+
+
 def call_claude_with_retry(
     client,
     model: str,
@@ -618,10 +705,14 @@ def call_claude_with_retry(
     min_length: int = 50,
     min_words: int = 0,
     stream: bool = False,
+    effort=USE_EFFORT_SETTING,
     **kwargs
 ):
     """
     Call Claude API with retry logic and comprehensive validation.
+
+    ``effort``: the thinking level to send; by default the GUI Effort setting.
+    Judges pass config.JUDGE_EFFORT so the setting cannot change them (MV.6).
 
     Args:
         client: Anthropic client
@@ -646,6 +737,15 @@ def call_claude_with_retry(
     # Track timeout across retries. A call that passes no timeout gets the SDK's
     # own default explicitly, so escalation starts from a known value (review F12).
     current_timeout = kwargs.get('timeout') or config.TIMEOUT_FALLBACK
+
+    # Only send what this model accepts (MV.2/MV.4/MV.5).
+    request = model_request_params(model, temperature, max_tokens, logger, effort=effort)
+    max_tokens = request["max_tokens"]
+    beta_header = ",".join([config.ANTHROPIC_CACHE_BETA_HEADER, *request["betas"]])
+    if request["extra_body"]:
+        kwargs["extra_body"] = {**kwargs.get("extra_body", {}), **request["extra_body"]}
+    if max_tokens > config.NON_STREAMING_MAX_TOKENS:
+        stream = True
 
     # Handle suppression of caching warnings
     suppress_caching_warnings = kwargs.pop('suppress_caching_warnings', False)
@@ -676,9 +776,9 @@ def call_claude_with_retry(
                 with client.messages.stream(
                     model=model,
                     max_tokens=max_tokens,
-                    temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
+                    extra_headers={"anthropic-beta": beta_header},
+                    **request["params"],
                     **call_kwargs
                 ) as stream_manager:
                     message = stream_manager.get_final_message()
@@ -686,9 +786,9 @@ def call_claude_with_retry(
                 message = client.messages.create(
                     model=model,
                     max_tokens=max_tokens,
-                    temperature=temperature,
                     messages=normalized_messages,
-                    extra_headers={"anthropic-beta": config.ANTHROPIC_CACHE_BETA_HEADER},
+                    extra_headers={"anthropic-beta": beta_header},
+                    **request["params"],
                     **call_kwargs
                 )
 
@@ -702,7 +802,7 @@ def call_claude_with_retry(
                     logger=logger
                 )
                 # Enforce minimum length with retry
-                text_content = message.content[0].text
+                text_content = response_text(message)
                 if len(text_content) < min_length:
                     raise ValueError(
                         f"Response text too short: {len(text_content)} chars (expected >= {min_length})")
@@ -721,8 +821,9 @@ def call_claude_with_retry(
                     log_token_usage(script_name or getattr(logger, "name", None)
                                     or "unknown_script", model, usage,
                                     f"rejected:{getattr(message, 'stop_reason', '')}")
-                # Truncation at max_tokens repeats on an identical request (B-11).
-                if isinstance(e, TruncatedResponseError):
+                # Truncation at max_tokens repeats on an identical request (B-11);
+                # so does a refusal (MV.5).
+                if isinstance(e, (TruncatedResponseError, RefusalError)):
                     raise
                 # If we have retries left, continue to next attempt
                 if attempt < max_retries - 1:
@@ -784,7 +885,15 @@ def call_claude_with_retry(
             if resolved_script == "unknown_script" and logger:
                 logger.warning("token cost logged as 'unknown_script' — pass a named "
                                "logger or script_name= for per-stage cost attribution")
-            log_token_usage(resolved_script, model, message.usage,
+            # A server-side refusal fallback answers from another model: price the
+            # call at the model that served it, and say so (MV.5 sweep, P2).
+            served_by = getattr(message, "model", None)
+            served_by = served_by if isinstance(served_by, str) and served_by else model
+            if served_by != model and request["betas"]:
+                (logger or logging.getLogger(__name__)).warning(
+                    "%s declined this request; it was answered by fallback model %s.",
+                    model, served_by)
+            log_token_usage(resolved_script, served_by, message.usage,
                             message.stop_reason)
 
             return message

@@ -289,6 +289,26 @@ class ProjectSettings:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
 
+    # MV.6: thinking level (output_config.effort). None = each model's default.
+    EFFORT_CHOICES = ("low", "medium", "high", "xhigh", "max")
+
+    @property
+    def EFFORT(self):
+        value = self.runtime_settings.get("effort")
+        return value if value in self.EFFORT_CHOICES else None
+
+    def set_effort(self, level):
+        """Save the thinking level ("low".."max", or None for the model default).
+        On 5-family models this is the thinking control (thinking cannot be
+        switched off on Opus 5.5 / Fable 5.1). Spec: plan_v5_models#MV.6"""
+        if level not in (None, "") and level not in self.EFFORT_CHOICES:
+            raise ValueError(f"Effort must be one of {self.EFFORT_CHOICES} or None, got {level!r}")
+        if level:
+            self.runtime_settings["effort"] = level
+        else:
+            self.runtime_settings.pop("effort", None)
+        self._save_runtime_settings()
+
     def set_validation_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.VALIDATION_MODEL = model_name
@@ -1029,6 +1049,25 @@ FUZZY_MATCH_PREFILTER_MIN_COVERAGE = 0.5
 # Anthropic beta header for prompt caching — single source of truth for the value
 # duplicated across transcript_utils call sites (review L6 / P4).
 ANTHROPIC_CACHE_BETA_HEADER = "prompt-caching-2024-07-31"
+# MV.4: extra max_tokens for models that think before answering (5-family), so the
+# answer keeps its full budget; capped at the model's max output.
+THINKING_TOKEN_HEADROOM = 8000
+# Above this many max_tokens a request is streamed (the SDK refuses long
+# non-streaming requests).
+NON_STREAMING_MAX_TOKENS = 21000
+# MV.5: on a refusal, Opus 5.5 / Sonnet 5.5 / Fable 5.1 can retry server-side on a
+# fallback model the API picks by refusal category. Haiku 5.5 has no server fallback.
+REFUSAL_FALLBACKS_ENABLED = True
+REFUSAL_FALLBACK_MODELS = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-1")
+REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
+# The faithfulness / theme / key-term judges do NOT follow the GUI Effort setting:
+# they are calibrated with this value (None = send no effort). Changing it
+# invalidates cached verdicts (it is part of the judge logic version) and needs a
+# re-calibration (P20).
+JUDGE_EFFORT = None
+# Cost estimate: thinking tokens per call on models that always think, by effort
+# (billed as output). Approximate; used only for the pre-run estimate.
+THINKING_TOKENS_ESTIMATE = {"low": 500, "medium": 1500, "high": 3000, "xhigh": 5000, "max": 8000}
 
 # LLM retry policy — promoted from hard-coded literals in call_claude_with_retry
 # (review M6 / P4). max_retries default and the exponential-backoff base.
