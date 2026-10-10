@@ -226,3 +226,19 @@ quote. Behind the first: Init Val auto-applied "contributor" → "perpetrator" a
     `test_rfj2_blog_regenerates_with_feedback`, `test_rfj2_unavailable_judge_keeps_draft`.
 
 Not code-testable: whether the regenerated Kerr summary/blog pass the live judge.
+
+### Sweep on RF.I/J/K (learning-qa, 2026-10-09) — 10 findings, all fixed
+- RF.I rule tightened: one-for-one swaps only (no split/join), no negation change, and
+  evidence for the new word (proper noun, or used elsewhere in the transcript);
+  "perpetuate→perpetrate", "adapt→adopt", "should→shouldn't", "any one→anyone" held.
+  Held findings saved to `<base> - init-val-held.json`; an "alias" finding skips the
+  check only when the pair is in the approved terms file.
+- RF.K: all emphasis dropped → error, nothing saved; extractors check quotes against
+  the gate's text (`_gate_source_text`); Bowen drop diagnostic reports match/coverage.
+- RF.J: precheck adds entity grounding; a disabled judge is "unavailable", a missing
+  artifact fails; a draft echoing the feedback is rejected; the overview uses the loop.
+Tests: `test_rfi2_unapproved_alias_is_checked`, `test_rfk2_all_emphasis_dropped_fails_and_saves_nothing`,
+`test_rfk2_extractor_checks_against_gate_text`, `test_rfj2_precheck_includes_entity_grounding`,
+`test_rfj2_disabled_judge_is_not_a_pass`, `test_rfj2_draft_echoing_feedback_is_rejected`.
+Open (noted, not fixed): `quote_is_verbatim_for_gate` re-normalizes the transcript per
+quote (reverses the M11 one-pass optimisation; ms-scale on real transcripts).

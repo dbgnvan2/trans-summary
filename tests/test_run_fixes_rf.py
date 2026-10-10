@@ -4,6 +4,7 @@ That run was blocked by wrong heading timestamps (m:ss read as h:mm) and by a
 verbatim quote that only changed the inner quotation marks; the blog stage stopped
 without a recorded reason, and the GUI offered no Simple Web stage.
 """
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -655,12 +656,13 @@ def test_rfk2_bowen_spliced_quote_dropped():
 import transcript_initial_validation_v2 as iv2  # noqa: E402
 
 IV_TRANSCRIPT = ("the homostasis of cells, as Bowan said, it's abit odd. neither one was the victim or\n"
-                 "19:09\ncontributor to that. my mother and their patient took me back. their view.\n")
+                 "19:09\ncontributor to that. my mother and their patient took me back. their view.\n"
+                 "homeostasis matters. we adapt to perpetuate the principal idea, as we should, any one.\n")
 
 
 def test_rfi1_mishearing_fixes_qualify():
-    for orig, sugg in (("homostasis", "homeostasis"), ("Bowan said", "Bowen said"),
-                       ("it's abit odd", "it's a bit odd")):
+    for orig, sugg in (("the homostasis of", "the homeostasis of"),   # used elsewhere
+                       ("as Bowan said", "as Bowen said")):            # proper noun
         assert iv2.is_mishearing_fix(orig, sugg, IV_TRANSCRIPT), (orig, sugg)
 
 
@@ -670,20 +672,21 @@ def test_rfi1_meaning_changes_held():
                        ("their patient took", "their parent took"),
                        ("and their patient", "and there patient"),   # "their" occurs elsewhere
                        ("took me back.", "took me aback."),
-                       ("the homostasis of cells", "the homeostasis of all cells")):  # inserted word
+                       ("the homostasis of cells", "the homeostasis of all cells"),  # inserted word
+                       ("it's abit odd", "it's a bit odd"),           # split: held (any one/anyone)
+                       ("we adapt to", "we adopt to"),                # sweep: real-word near-misses
+                       ("to perpetuate the", "to perpetrate the"),
+                       ("the principal idea", "the principle idea"),
+                       ("as we should,", "as we shouldn't,"),
+                       ("should, any one.", "should, anyone.")):
         assert not iv2.is_mishearing_fix(orig, sugg, IV_TRANSCRIPT), (orig, sugg)
 
 
-def test_rfi2_auto_mode_applies_only_qualifying(tmp_path, monkeypatch):
-    src = tmp_path / "Talk - A Person - 2021-01-01.txt"
-    src.write_text(IV_TRANSCRIPT, encoding="utf-8")
-    findings = [
-        {"error_type": "spelling", "original_text": "homostasis", "suggested_correction": "homeostasis",
-         "confidence": "high"},
-        {"error_type": "spelling", "original_text": "victim or\n19:09\ncontributor to that",
-         "suggested_correction": "victim or perpetrator to that", "confidence": "high"},
-    ]
-    applied_with = {}
+def _run_auto_init_val(tmp_path, monkeypatch, src, findings, logs=None):
+    """Run the GUI's Init Val auto mode with stub validators; returns the
+    corrections it applied."""
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path / "projects")
+    applied_with = {"corrections": []}
 
     class _V2:
         def __init__(self, *_a, **_k):
@@ -708,13 +711,47 @@ def test_rfi2_auto_mode_applies_only_qualifying(tmp_path, monkeypatch):
     monkeypatch.setattr(ts_gui.transcript_initial_validation_v2, "TranscriptValidatorV2", _V2)
     monkeypatch.setattr(ts_gui.transcript_initial_validation, "TranscriptValidator", _V1)
     monkeypatch.setattr(ts_gui, "_find_existing_validation_versions", lambda _p: [])
-    logs = []
-    gui = _gui(logs)
+    gui = _gui(logs if logs is not None else [])
     gui.selected_file = src
     gui.validation_mode_var = MagicMock(get=lambda: "v2")
     assert gui._run_initial_validation_auto() is True
-    assert [c["original_text"] for c in applied_with["corrections"]] == ["homostasis"]
+    return applied_with["corrections"]
+
+
+def test_rfi2_auto_mode_applies_only_qualifying(tmp_path, monkeypatch):
+    src = tmp_path / "Talk - A Person - 2021-01-01.txt"
+    src.write_text(IV_TRANSCRIPT, encoding="utf-8")
+    findings = [
+        {"error_type": "spelling", "original_text": "the homostasis of",
+         "suggested_correction": "the homeostasis of", "confidence": "high"},
+        {"error_type": "spelling", "original_text": "victim or\n19:09\ncontributor to that",
+         "suggested_correction": "victim or perpetrator to that", "confidence": "high"},
+    ]
+    logs = []
+    applied = _run_auto_init_val(tmp_path, monkeypatch, src, findings, logs)
+    assert [c["original_text"] for c in applied] == ["the homostasis of"]
     assert any("Held for review" in line and "perpetrator" in line for line in logs)
+    held = json.loads((tmp_path / "projects" / "Talk - A Person - 2021-01-01" /
+                       f"Talk - A Person - 2021-01-01{config.SUFFIX_INIT_VAL_HELD}").read_text())
+    assert held == [{"original": "victim or 19:09 contributor to that",
+                     "suggestion": "victim or perpetrator to that",
+                     "error_type": "spelling", "confidence": "high"}]
+
+
+def test_rfi2_unapproved_alias_is_checked(tmp_path, monkeypatch):
+    # Sweep: a finding the model labels "alias" must not skip the check unless the
+    # pair is in the user's approved terms file.
+    import validation_learning
+    monkeypatch.setattr(validation_learning, "load_validation_aliases", lambda *a, **k: {"Bowan": "Bowen"})
+    src = tmp_path / "Talk - A Person - 2021-01-01.txt"
+    src.write_text(IV_TRANSCRIPT, encoding="utf-8")
+    findings = [
+        {"error_type": "alias", "original_text": "Bowan", "suggested_correction": "Bowen", "confidence": "high"},
+        {"error_type": "alias", "original_text": "contributor", "suggested_correction": "perpetrator",
+         "confidence": "high"},
+    ]
+    applied = _run_auto_init_val(tmp_path, monkeypatch, src, findings)
+    assert [c["original_text"] for c in applied] == ["Bowan"]
 
 
 # --- RF.J: summary and blog are checked and regenerated like the abstract --------
@@ -800,7 +837,72 @@ def test_rfj2_blog_all_fail_returns_false_and_keeps_best(tmp_path, monkeypatch):
     n = []
     monkeypatch.setattr(ep, "_generate_summary_with_claude",
                         lambda *a, **k: n.append(1) or f"blog draft {len(n)}")
-    seq = [("fail", ["a", "b"]), ("fail", ["c"]), ("fail", ["d", "e"])]
+    seq = [("fail", ["Claim one is unsupported.", "Claim two is unsupported."]),
+           ("fail", ["Claim three is unsupported."]),
+           ("fail", ["Claim four is unsupported.", "Claim five is unsupported."])]
     monkeypatch.setattr(ep, "_faithfulness_precheck", lambda b, suffix, logger=None: seq.pop(0))
     assert _run_blog(stem, logger) is False
     assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
+
+
+def test_rfk2_all_emphasis_dropped_fails_and_saves_nothing(tmp_path, monkeypatch):
+    # Sweep: saving the raw response would restore the dropped quotes.
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(ep, "_load_summary_prompt", lambda _n: "PROMPT")
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda *a, **k: _emphasis_response([SPLICED]))
+    logger = MagicMock()
+    assert ep.extract_scored_emphasis("Talk - A Person - 2021-01-01 - yaml.md", logger=logger,
+                                      transcript_text=NAVY_SOURCE) is False
+    assert not list(tmp_path.rglob("* - emphasis-scored.md"))
+    assert "kept 0 of 1" in logger.error.call_args.args[0] % logger.error.call_args.args[1:]
+
+
+def test_rfk2_extractor_checks_against_gate_text(tmp_path, monkeypatch):
+    # Sweep (P35): the quote is checked against the formatted transcript the gate
+    # uses, not a stale YAML copy passed in.
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMATTED}").write_text(NAVY_SOURCE, encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    stale = "---\nTitle: x\n---\nAn older text without the letter sentence."
+    assert ep._gate_source_text(f"{base} - yaml.md", stale) == NAVY_SOURCE
+    assert ep._gate_source_text("Other - B - 2020-01-01 - yaml.md", stale).startswith("An older")
+
+
+def test_rfj2_precheck_includes_entity_grounding(tmp_path, monkeypatch):
+    # Sweep: an invented name in the summary must be caught at generation, as for the abstract.
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMATTED}").write_text(
+        "## Section 1 – Opening Words Here Now ([00:00:00]).\n\nBowen studied families.\n", encoding="utf-8")
+    (tmp_path / base / f"{base}{config.SUFFIX_SUMMARY_GEN}").write_text(
+        "Bowen studied families with Luciano Malorni.\n", encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    status, issues = ep._faithfulness_precheck(base, config.SUFFIX_SUMMARY_GEN)
+    assert status == "fail" and any("Luciano Malorni" in i for i in issues)
+
+
+def test_rfj2_disabled_judge_is_not_a_pass(tmp_path, monkeypatch):
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMATTED}").write_text("Bowen studied families.\n")
+    (tmp_path / base / f"{base}{config.SUFFIX_SUMMARY_GEN}").write_text("Bowen studied families.\n")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+    assert ep._faithfulness_precheck(base, config.SUFFIX_SUMMARY_GEN) == ("unavailable", [])
+    assert ep._faithfulness_precheck(base, config.SUFFIX_BLOG) == ("missing", [])
+
+
+def test_rfj2_draft_echoing_feedback_is_rejected(tmp_path, monkeypatch):
+    base, proj, feedbacks = _summary_project(tmp_path, monkeypatch, [("fail", ["Billy was the youngest."])])
+    texts = iter(["draft one", "I removed: Billy was the youngest.", "clean draft"])
+    monkeypatch.setattr(ep.summary_pipeline, "generate_summary",
+                        lambda *a, feedback_claims=None, **k: next(texts))
+    calls = []
+    monkeypatch.setattr(ep, "_faithfulness_precheck",
+                        lambda b, s, logger=None: calls.append(1) or (("fail", ["Billy was the youngest."])
+                                                                       if len(calls) == 1 else ("pass", [])))
+    assert ep.generate_structured_summary(base, logger=MagicMock(), model="m") is True
+    assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "clean draft"
+    assert len(calls) == 2  # the echoing draft was rejected without a judge call

@@ -166,7 +166,7 @@ def _source_with_metadata(base_name: str) -> Optional[str]:
     return transcript
 
 
-def check_entity_grounding(base_name: str, logger=None) -> Verdict:
+def check_entity_grounding(base_name: str, logger=None, suffixes=None) -> Verdict:
     """FAIL if any narrative artifact contains a multi-word proper name absent
     from the source transcript (the fabricated-name class — a real run shipped
     'Luciano Malorni' into the published HTML). This is the elected hard blocker.
@@ -185,7 +185,7 @@ def check_entity_grounding(base_name: str, logger=None) -> Verdict:
     values = _filename_metadata_values(base_name)
     source = f"{transcript}\n{values}" if values else transcript
     offending = {}
-    for suffix in config.GATE_ENTITY_ARTIFACT_SUFFIXES:
+    for suffix in (suffixes if suffixes is not None else config.GATE_ENTITY_ARTIFACT_SUFFIXES):
         path = config.PROJECTS_DIR / base_name / f"{base_name}{suffix}"
         if not path.exists():
             continue

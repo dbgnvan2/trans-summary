@@ -700,6 +700,29 @@ class ValidationReviewDialog(tk.Toplevel):
         self.destroy()
 
 
+def _write_init_val_held(base_name: str, held: list):
+    """Save Init Val corrections held back by auto mode to the project folder
+    (``<base> - init-val-held.json``), so they survive the run (P2). Returns the
+    path, or None if it could not be written.
+
+    Tests: tests/test_run_fixes_rf.py::test_rfi2_auto_mode_applies_only_qualifying
+    """
+    import json
+
+    try:
+        folder = Path(config.PROJECTS_DIR) / base_name
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{base_name}{config.SUFFIX_INIT_VAL_HELD}"
+        rows = [{"original": " ".join(f.get("original_text", "").split()),
+                 "suggestion": " ".join(f.get("suggested_correction", "").split()),
+                 "error_type": f.get("error_type"), "confidence": f.get("confidence")}
+                for f in held]
+        path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
+        return path
+    except OSError:
+        return None
+
+
 class TranscriptProcessorGUI:
     def __init__(self, root):
         self.root = root
@@ -3015,10 +3038,19 @@ class TranscriptProcessorGUI:
                 # word into a different word is held, because _validated becomes
                 # the source every later check trusts.
                 source_text = file_to_validate.read_text(encoding="utf-8")
-                held = [f for f in findings if f.get("error_type") != "alias"
-                        and not transcript_initial_validation_v2.is_mishearing_fix(
-                            f.get("original_text", ""), f.get("suggested_correction", ""),
-                            source_text)]
+                from validation_learning import load_validation_aliases
+                known_aliases = {k.lower(): v for k, v in load_validation_aliases().items()}
+
+                def _qualifies(f):
+                    orig = " ".join(f.get("original_text", "").split())
+                    sugg = " ".join(f.get("suggested_correction", "").split())
+                    # An alias applies across the whole transcript, so only a pair
+                    # the user approved in the terms file skips the check (sweep).
+                    if f.get("error_type") == "alias" and known_aliases.get(orig.lower()) == sugg:
+                        return True
+                    return transcript_initial_validation_v2.is_mishearing_fix(orig, sugg, source_text)
+
+                held = [f for f in findings if not _qualifies(f)]
                 for f in held:
                     self.log("⚠️ Held for review (not applied): %r -> %r",
                              " ".join(f.get("original_text", "").split()),
@@ -3026,6 +3058,11 @@ class TranscriptProcessorGUI:
                 findings = [f for f in findings if f not in held]
                 self.log("Init Val auto mode: %d correction(s) qualify, %d held for review.",
                          len(findings), len(held))
+                if held:
+                    held_path = _write_init_val_held(clean_project_name(base_name), held)
+                    if held_path:
+                        self.log("Held corrections saved to %s — apply any you agree with "
+                                 "by hand, or run Init Val interactively.", held_path)
             if findings:
                 self.log("Auto-applying %d validation corrections...", len(findings))
                 if mode == "v2":

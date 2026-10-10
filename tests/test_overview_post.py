@@ -113,7 +113,9 @@ def _seed_project_dir(tmp_path, stem):
     project_dir.mkdir(parents=True, exist_ok=True)
 
     (project_dir / f"{stem}{config.SUFFIX_YAML}").write_text(
-        "## Section 1\nTest material content.\n", encoding="utf-8"
+        # The overview names "Term One"/"Term Two"; the transcript must contain them
+        # or the generation-time entity check rejects the overview (RF.J).
+        "## Section 1\nTest material content about Term One and Term Two.\n", encoding="utf-8"
     )
     (project_dir / f"{stem}{config.SUFFIX_ABSTRACT_INIT}").write_text(
         "Test Presenter (2024-01-01) introduces the material on family systems "

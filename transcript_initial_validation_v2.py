@@ -99,46 +99,60 @@ _IV_TIME_RE = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 _IV_WORD_RE = re.compile(r"[^\W_]+(?:['\u2019][^\W_]+)*")
 
 
-def _iv_words(text: str) -> list:
-    return [w.replace("\u2019", "'") for w in _IV_WORD_RE.findall(_IV_TIME_RE.sub(" ", text.lower()))]
+def _iv_tokens(text: str) -> list:
+    """Words with their original case; timestamps and punctuation removed."""
+    return [w.replace("\u2019", "'") for w in _IV_WORD_RE.findall(_IV_TIME_RE.sub(" ", text))]
 
 
 def is_mishearing_fix(original: str, suggestion: str, transcript: str) -> bool:
-    """True when a correction only fixes how words were heard or spelled, so it is
-    safe to apply without review: after removing timestamps and punctuation, every
-    changed word pair has the same first letter, similarity of at least
-    config.INIT_VAL_AUTO_MIN_SIMILARITY, and the original word appears nowhere else
-    in the transcript (so it is not a real word being swapped); or the change only
-    splits/joins words ("abit" -> "a bit"). Inserted or deleted words, and swaps
-    such as "contributor" -> "perpetrator" or "mother" -> "father", are not.
+    """True when a correction only fixes how a word was heard or spelled, so it is
+    safe to apply without review. Every changed word must be a one-for-one swap
+    (no inserted, deleted, split or joined words) where:
+
+    - the two words share their first letter and reach
+      config.INIT_VAL_AUTO_MIN_SIMILARITY;
+    - neither side adds or removes a negation ("should" -> "shouldn't");
+    - the original word appears nowhere else in the transcript;
+    - and there is evidence the new word is the intended one: it is a proper
+      noun (capitalised in the suggestion, e.g. "Bowan" -> "Bowen") or the
+      speaker uses it elsewhere in the transcript ("homostasis" -> "homeostasis"
+      when "homeostasis" occurs elsewhere).
+
+    Similar-looking real words with no such evidence are held for review:
+    "contributor" -> "perpetrator", "perpetuate" -> "perpetrate",
+    "adapt" -> "adopt" (sweep, P7).
 
     Purpose: Stop Init Val's auto mode writing meaning changes into the source
              every later check treats as true (run 2026-10-09 20:18).
     Spec:    docs/plan_run_fixes_2026-10-09.md#RF.I.1
     Tests:   tests/test_run_fixes_rf.py::test_rfi1_meaning_changes_held
     """
-    a, b = _iv_words(original), _iv_words(suggestion)
+    a_tok, b_tok = _iv_tokens(original), _iv_tokens(suggestion)
+    a, b = [w.lower() for w in a_tok], [w.lower() for w in b_tok]
     if not a or not b:
         return False
-    counts = Counter(_iv_words(transcript))
+    counts = Counter(w.lower() for w in _iv_tokens(transcript))
     in_span = Counter(a)
+    changed = False
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
         if tag == "equal":
             continue
-        if tag != "replace":
+        if tag != "replace" or i2 - i1 != j2 - j1:
             return False
-        if "".join(a[i1:i2]) == "".join(b[j1:j2]):
-            continue  # split or join only
-        if i2 - i1 != j2 - j1:
-            return False
-        for old, new in zip(a[i1:i2], b[j1:j2]):
+        for k in range(i2 - i1):
+            old, new, new_surface = a[i1 + k], b[j1 + k], b_tok[j1 + k]
+            changed = True
             if old[0] != new[0]:
+                return False
+            if old.endswith("n't") != new.endswith("n't"):
                 return False
             if SequenceMatcher(None, old, new).ratio() < config.INIT_VAL_AUTO_MIN_SIMILARITY:
                 return False
             if counts[old] > in_span[old]:
                 return False  # the word is used elsewhere: a real word, not a mishearing
-    return True
+            if not (new_surface[:1].isupper() or counts[new] > 0):
+                return False  # no evidence the new word is the one the speaker meant
+    return changed
 
 
 class TranscriptValidatorV2:

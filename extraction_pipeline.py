@@ -410,17 +410,17 @@ def _write_bowen_drop_diagnostic(parsed_refs, transcript_text, formatted_filenam
             "Bowen, the extraction captured concept applications rather than "
             "Bowen-attributed passages.",
             "",
-            "| Concept | Names Bowen? | Grounding | Quote (excerpt) |",
+            "| Concept | Names Bowen? | Match / coverage | Quote (excerpt) |",
             "|---|:--:|--:|---|",
         ]
         for concept, quote in parsed_refs:
             attr = _has_bowen_source_attribution(quote) or _concept_has_bowen_attribution(concept)
-            _, _, ratio = find_text_in_content(
-                quote, transcript_text, aggressive_normalization=True
-            )
+            # The same test grounding used (sweep): match and word coverage.
+            _ok, ends, coverage = quote_is_verbatim_for_gate(quote, transcript_text)
             excerpt = re.sub(r"\s+", " ", quote).strip()[:120].replace("|", "\\|")
             lines.append(
-                f"| {concept[:50]} | {'yes' if attr else 'no'} | {ratio:.2f} | {excerpt} |"
+                f"| {concept[:50]} | {'yes' if attr else 'no'} | "
+                f"{ends:.2f} / {coverage:.2f} | {excerpt} |"
             )
         debug_path = project_dir / f"{stem} - bowen-references-debug.md"
         debug_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -655,12 +655,15 @@ def extract_scored_emphasis(
         validated_items = []
         final_content_lines = []
         verbatim_dropped = []
+        verbatim_checked = 0
+        gate_text = _gate_source_text(formatted_filename, transcript_text)
         for item in items:
             is_valid, issues = validate_emphasis_item(item)
             if is_valid:
                 # RF.K: the gate's own verbatim test, so a spliced or altered quote is
                 # dropped here instead of blocking publication later (P19).
-                ok, ends, coverage = quote_is_verbatim_for_gate(item["quote"], transcript_text)
+                verbatim_checked += 1
+                ok, ends, coverage = quote_is_verbatim_for_gate(item["quote"], gate_text)
                 if not ok:
                     verbatim_dropped.append(item)
                     logger.warning("Dropping emphasis item not verbatim in the transcript "
@@ -686,7 +689,13 @@ def extract_scored_emphasis(
         logger.info("Retained %d items after validation.",
                     len(validated_items))
         logger.info("Emphasis verbatim check: kept %d of %d.",
-                    len(items) - len(verbatim_dropped), len(items))
+                    verbatim_checked - len(verbatim_dropped), verbatim_checked)
+        if not validated_items and verbatim_dropped:
+            # Saving the raw response here would put back exactly the quotes just
+            # dropped, and report success (sweep, P2/P19).
+            logger.error("No emphasis item is verbatim in the transcript (kept 0 of %d); "
+                         "nothing saved. Re-run the extraction.", verbatim_checked)
+            return False
         final_content = (
             "\n\n".join(final_content_lines) if validated_items else response
         )
@@ -701,6 +710,19 @@ def extract_scored_emphasis(
         logger.error("Error in scored emphasis extraction: %s",
                      e, exc_info=True)
         return False
+
+
+def _gate_source_text(formatted_filename: str, fallback: str) -> str:
+    """The text the release gate checks quotes against for this project
+    (formatted transcript, else YAML body), so an extractor's verbatim check and
+    the gate's agree (sweep, P35). Falls back to ``fallback`` without front matter
+    when the project has neither (e.g. a direct text file)."""
+    import release_gate
+
+    stem = clean_project_name(Path(formatted_filename).stem)
+    for suffix in (config.SUFFIX_FORMATTED, config.SUFFIX_YAML):
+        stem = stem.replace(suffix.replace(".md", ""), "")
+    return release_gate._load_source_transcript(stem) or strip_yaml_frontmatter(fallback or "")
 
 
 def _ground_bowen_refs(refs, transcript_text: str, logger) -> list:
@@ -790,8 +812,10 @@ def extract_bowen_references_from_transcript(
         )
         filtered_refs = _rule_filter_bowen_references(filtered_refs, logger)
 
+        gate_text = _gate_source_text(formatted_filename, transcript_text)
+
         def _ground_refs(refs: list[tuple[str, str]]) -> list[tuple[str, str]]:
-            return _ground_bowen_refs(refs, transcript_text, logger)
+            return _ground_bowen_refs(refs, gate_text, logger)
 
         grounded_semantic = _ground_refs(filtered_refs)
         if not grounded_semantic and parsed_refs:
@@ -806,7 +830,7 @@ def extract_bowen_references_from_transcript(
         # the zero-result inspectable rather than silently dropping everything.
         if not grounded_semantic and parsed_refs:
             _write_bowen_drop_diagnostic(
-                parsed_refs, transcript_text, formatted_filename, logger
+                parsed_refs, gate_text, formatted_filename, logger
             )
 
         # Find timestamps for each grounded reference
@@ -1060,22 +1084,31 @@ def generate_structured_summary(
 
 
 def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
-    """Run the release gate's faithfulness check on ONE artifact (``suffix``).
+    """Run the release gate's faithfulness AND entity-grounding checks on ONE
+    artifact (``suffix``), as the abstract precheck does (both block at publish).
 
-    Returns ("pass", []), ("fail", rejected_claims) or ("unavailable", []) when the
-    judge is off or errored (the gate then verifies at publish).
+    Returns ("pass", []), ("fail", issues), ("unavailable", []) when the judge is
+    off or errored (the gate then verifies at publish), or ("missing", []) when
+    the artifact is not where the gate will look (a path bug, never a pass).
 
     Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2
     """
     import release_gate as rg
+    if not (config.PROJECTS_DIR / base_name / f"{base_name}{suffix}").exists():
+        return "missing", []
+    entity = rg.check_entity_grounding(base_name, logger, suffixes=[suffix])
+    issues = [f"the name '{n}' does not appear in the source"
+              for item in (entity.items or []) for n in item.get("names", [])]
+    if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
+        # A disabled judge returns PASS ("judge disabled"); that is not a verdict.
+        return ("fail", issues) if issues else ("unavailable", [])
     faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
-    if faith.status is rg.Status.ERROR:
-        return "unavailable", []
-    if faith.status is rg.Status.FAIL:
-        issues = []
-        for item in (faith.items or []):
-            issues.extend(item.get("unfaithful", []))
+    for item in (faith.items or []):
+        issues.extend(item.get("unfaithful", []))
+    if issues:
         return "fail", issues
+    if rg.Status.ERROR in (faith.status, entity.status):
+        return "unavailable", []
     return "pass", []
 
 
@@ -1095,7 +1128,17 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
     for attempt in range(1, attempts + 1):
         text = generate(feedback)
         write(text)
-        status, issues = _faithfulness_precheck(base_name, suffix, logger)
+        # A draft that echoes the correction instructions or the rejected claims
+        # is not accepted, whatever the judge says (sweep, P19).
+        echoed = [c for c in (feedback or []) if c and c in text]
+        if feedback and ("CORRECTION REQUIRED" in text or echoed):
+            status, issues = "fail", echoed or ["the draft repeats the correction instructions"]
+        else:
+            status, issues = _faithfulness_precheck(base_name, suffix, logger)
+        if status == "missing":
+            logger.error("%s was not saved where the release gate reads it (%s%s); "
+                         "cannot verify it.", what.capitalize(), base_name, suffix)
+            return False
         if status == "pass":
             logger.info("✓ %s passed faithfulness on attempt %d/%d.",
                         what.capitalize(), attempt, attempts)
@@ -1846,16 +1889,28 @@ def summarize_transcript(
                 topics=topics_output,
                 key_terms=key_terms_output,
             )
-            overview_output = _generate_summary_with_claude(
-                prompt,
-                model,
-                config.TEMP_BALANCED,
-                logger,
-                min_words=config.OVERVIEW_MIN_WORDS,
-                system=transcript_system_message,
+            overview_paths = []
+
+            def _write_overview(text):
+                overview_paths.append(_save_summary(text, formatted_filename, "overview"))
+
+            # Same check-and-regenerate loop as the summary and blog (sweep, P5).
+            overview_ok = _generate_until_faithful(
+                "overview", metadata["stem"], config.SUFFIX_OVERVIEW, logger,
+                lambda feedback: _generate_summary_with_claude(
+                    prompt + (summary_pipeline.correction_feedback("overview post", feedback)
+                              if feedback else ""),
+                    model,
+                    config.TEMP_BALANCED,
+                    logger,
+                    min_words=config.OVERVIEW_MIN_WORDS,
+                    system=transcript_system_message,
+                ),
+                _write_overview,
             )
-            overview_path = _save_summary(overview_output, formatted_filename, "overview")
-            logger.info("✓ Overview post saved to: %s", overview_path)
+            logger.info("✓ Overview post saved to: %s", overview_paths[-1])
+            if not overview_ok:
+                blog_failed = True  # reported at the end, like a failed blog
         else:
             logger.info("Overview generation skipped (skip_overview=True).")
 
@@ -1907,7 +1962,7 @@ def summarize_transcript(
                 return False
 
         if blog_failed:
-            logger.error("Blog post did not pass faithfulness — see the warnings above.")
+            logger.error("Blog or overview did not pass faithfulness — see the warnings above.")
             return False
         return True
 

@@ -35,6 +35,14 @@ Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
   speech line and a timestamp line, so a name on its own caption line or an Otter answer
   turn still needs review; removed titles are listed in the validation warnings. The
   remaining 4 items include a real formatter edit ("contributor" → "perpetrator").
+- **Init Val, quotes, summary/blog (RF.I, RF.J, RF.K).** Run 20:33 blocked at Full
+  Web/PDF. Init Val's auto mode had written "contributor" → "perpetrator" into the
+  validated source; it now applies only mishearing-level fixes (one-for-one, similar
+  spelling, original word not used elsewhere, new word a proper noun or used elsewhere)
+  and saves held ones to `<base> - init-val-held.json`. Extractors drop any Bowen or
+  emphasis quote that fails the gate's own verbatim test (a spliced quote had shipped).
+  The summary (now on the main model), blog and overview are judged at generation and
+  regenerated with the rejected claims as feedback, up to 3 attempts, like the abstract.
 - **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
 - **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
   manifest records the simple page; Package skips a simple page older than the full
