@@ -906,3 +906,121 @@ def test_rfj2_draft_echoing_feedback_is_rejected(tmp_path, monkeypatch):
     assert ep.generate_structured_summary(base, logger=MagicMock(), model="m") is True
     assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "clean draft"
     assert len(calls) == 2  # the echoing draft was rejected without a judge call
+
+
+# --- RF.L: a run paused for Format review can resume ------------------------------
+
+def _paused_gui(monkeypatch, logs):
+    gui = _gui(logs)
+    ran = []
+
+    def _runner(key):
+        def _run():
+            ran.append(key)
+            if key == "format":
+                gui._paused_for_review = True
+                return False
+            return True
+        return _run
+
+    gui.stage_runners = {k: _runner(k) for k, _ in ts_gui.STAGE_DEFINITIONS}
+    gui._run_cost_estimation = lambda: True
+    gui._log_selective_run_plan = lambda keys: None
+    gui._get_bool_var = lambda *a, **k: False
+    gui.set_status = lambda *a, **k: None
+    gui.set_final_status = lambda *a, **k: None
+    gui.root = MagicMock(after=lambda _ms, fn, *a: fn(*a))
+    gui._format_failure_is_review_only = lambda: True
+    gui._validate_stage_dependencies = lambda keys: []
+    monkeypatch.setattr(ts_gui.analyze_token_usage, "generate_usage_report", lambda **k: "USAGE")
+    return gui, ran
+
+
+def test_rfl1_format_review_pauses_and_remembers_rest(monkeypatch):
+    logs = []
+    gui, ran = _paused_gui(monkeypatch, logs)
+    result = gui._run_selected_stages({"format", "yaml", "core", "webpdf"})
+    assert result == "WAITING_FOR_USER"
+    assert ran == ["format"]
+    assert gui._resume_state["keys"] == ["yaml", "core", "webpdf"]
+    assert gui._resume_state["base_name"] == "Sample"
+    assert any("Run paused at" in line for line in logs)
+    assert "USAGE" in logs  # usage so far is reported at the pause (sweep)
+    assert not any("Halting run" in line for line in logs)
+
+
+def test_rfl1_real_format_failure_still_halts(monkeypatch):
+    logs = []
+    gui, ran = _paused_gui(monkeypatch, logs)
+    gui.stage_runners["format"] = lambda: False  # failed, nothing to review
+    assert gui._run_selected_stages({"format", "yaml"}) is False
+    assert any("Halting run" in line for line in logs)
+
+
+def test_rfl2_review_pass_offers_resume(monkeypatch):
+    logs = []
+    gui, ran = _paused_gui(monkeypatch, logs)
+    t0 = ts_gui.datetime(2026, 10, 10, 7, 44)
+    gui._resume_state = {"base_name": "Sample", "keys": ["yaml", "core"], "start_time": t0}
+    gui.selected_file = Path("Talk - A Person - 2021-01-01.txt")
+    monkeypatch.setattr(ts_gui.format_review, "apply_decisions",
+                        lambda *a: {"errors": [], "patterns_saved": [], "changed_text": False})
+    monkeypatch.setattr(ts_gui.pipeline, "validate_format", lambda *a, **k: True)
+    monkeypatch.setattr(ts_gui.messagebox, "askyesno", lambda *a, **k: True)
+    started = []
+    gui.run_task_in_thread = lambda fn, *a, **k: started.append((fn, a, k))
+    assert gui._apply_review_task({}) is True
+    assert started and started[0][0] == gui._run_selected_stages
+    assert started[0][1] == (["yaml", "core"],) and started[0][2] == {"resumed_from": t0}
+    assert gui._resume_state is None
+
+
+def test_rfl2_resume_not_offered_for_another_file(monkeypatch):
+    # Sweep: a paused run on file A must not resume on file B.
+    gui, ran = _paused_gui(monkeypatch, [])
+    gui._resume_state = {"base_name": "Other Talk", "keys": ["yaml"], "start_time": None}
+    asked = []
+    monkeypatch.setattr(ts_gui.messagebox, "askyesno", lambda *a, **k: asked.append(1) or True)
+    gui.run_task_in_thread = lambda *a, **k: (_ for _ in ()).throw(AssertionError("started"))
+    gui._offer_resume()
+    assert asked == [] and gui._resume_state is None
+
+
+def test_rfl1_gross_format_failure_is_not_a_pause(tmp_path, monkeypatch):
+    # Sweep: review cannot fix a gross-limit or heading error, so the run fails.
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    rec = {"passed": False, "review_needed": False,
+           "errors": ["60 consecutive differing words in section 3 — re-run formatting",
+                      "3 difference(s) from the source need review"]}
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMAT_VALIDATION}").write_text(json.dumps(rec))
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    gui = _gui([])
+    gui.base_name = base
+    assert gui._format_failure_is_review_only() is False
+    rec = {"passed": False, "review_needed": True, "errors": ["2 difference(s) from the source need review"]}
+    (tmp_path / base / f"{base}{config.SUFFIX_FORMAT_VALIDATION}").write_text(json.dumps(rec))
+    assert gui._format_failure_is_review_only() is True
+
+
+def test_rfl2_unappliable_decision_is_not_a_failure(monkeypatch):
+    logs = []
+    gui, ran = _paused_gui(monkeypatch, logs)
+    gui.selected_file = Path("Talk - A Person - 2021-01-01.txt")
+    monkeypatch.setattr(ts_gui.format_review, "apply_decisions",
+                        lambda *a: {"errors": ["cannot restore 'S' automatically"],
+                                    "patterns_saved": [], "changed_text": False})
+    monkeypatch.setattr(ts_gui.pipeline, "validate_format", lambda *a, **k: False)
+    monkeypatch.setattr(ts_gui.format_review, "pending_items", lambda *a: [{"key": "x"}])
+    gui._show_review_dialog = lambda items: None
+    assert gui._apply_review_task({}) is True
+    assert any("could not be applied" in line for line in logs)
+
+
+# --- RF.M: the Format log lists only differences that still need a person ---------
+
+def test_rfm1_mismatch_sample_excludes_resolved():
+    raw = "the mother took a\nWho Was Murray Bowen?\n1:44\nstrong view of it, she said.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "the mother took a strong view of it, he said.\n")
+    words = [m["a_word"] for m in o["comparison"]["mismatch_sample"]]
+    assert "Murray" not in words and "she" in words

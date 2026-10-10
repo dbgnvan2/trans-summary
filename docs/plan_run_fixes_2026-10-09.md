@@ -242,3 +242,24 @@ Tests: `test_rfi2_unapproved_alias_is_checked`, `test_rfk2_all_emphasis_dropped_
 `test_rfj2_disabled_judge_is_not_a_pass`, `test_rfj2_draft_echoing_feedback_is_rejected`.
 Open (noted, not fixed): `quote_is_verbatim_for_gate` re-normalizes the transcript per
 quote (reverses the M11 one-pass optimisation; ms-scale on real transcripts).
+
+## RF.L / RF.M (approved 2026-10-10, run 07:41)
+
+Run 07:41 stopped at Format for review; after the review passed the run did not
+resume and the last line read "apply review decisions completed successfully".
+- RF.L A Format failure that only needs review (validation record: `review_needed`
+  and that one error) pauses the run ("⏸ Paused at 1. Format"), reports usage so far
+  and remembers the remaining stages for that project. When the review makes Format
+  pass, the GUI asks to continue and runs them (dependency pre-flight re-checked,
+  usage report covers the whole run). Gross-limit or heading errors still fail. The
+  paused state is dropped on a new run, another file, standalone Format, or a review
+  that cannot make Format pass. A decision that cannot be applied is named.
+  - Tests: `test_rfl1_format_review_pauses_and_remembers_rest`,
+    `test_rfl1_real_format_failure_still_halts`, `test_rfl1_gross_format_failure_is_not_a_pause`,
+    `test_rfl2_review_pass_offers_resume`, `test_rfl2_resume_not_offered_for_another_file`,
+    `test_rfl2_unappliable_decision_is_not_a_failure`.
+- RF.M The Format log's mismatch list leaves out auto-allowed and approved differences.
+  - Test: `test_rfm1_mismatch_sample_excludes_resolved`.
+Adjacent, not fixed: the review dialog applies decisions to `self.base_name` at apply
+time, not the project it was opened for; switching files with the dialog open would
+apply them to the wrong project.

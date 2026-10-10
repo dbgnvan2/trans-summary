@@ -305,6 +305,9 @@ def test_gui_format_stage_opens_review_when_needed(project):
     gui.selected_file = Path(f"{BASE}.txt")
     gui.base_name = BASE
     gui.pattern_set_var = MagicMock(get=MagicMock(return_value=ts_gui.PATTERN_SET_NONE))
+    # validate_format is mocked, so no record is written; the failure is a
+    # review-only one (RF.L opens the review window only in that case).
+    gui._format_failure_is_review_only = lambda: True
     with patch.object(ts_gui.pipeline, "format_transcript", return_value=True) as fmt, \
          patch.object(ts_gui.pipeline, "validate_format", return_value=False):
         assert gui._run_format_and_validate() is False

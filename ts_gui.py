@@ -21,6 +21,7 @@ import analyze_token_usage
 import cleanup_pipeline
 import config
 import format_review
+import formatting_pipeline
 import pattern_sets
 import pipeline
 import transcript_config_check
@@ -1356,6 +1357,7 @@ class TranscriptProcessorGUI:
             return
         filename = self.file_listbox.get(selection[0]).split(" (")[0]
         self.selected_file_label_var.set(f"Status for: {filename}")
+        self._clear_resume()  # a paused run belongs to the file it started on
 
         try:
             parse_filename_metadata(filename)
@@ -1794,10 +1796,12 @@ class TranscriptProcessorGUI:
         """Run the formatting and format validation steps."""
         if not self.selected_file:
             return
+        self._clear_resume()
         self.log("STEP 1: Formatting and validating transcript...")
         self.run_task_in_thread(self._run_format_and_validate)
 
     def _run_format_and_validate(self):
+        self._paused_for_review = False
         # Use config.settings.FORMATTING_MODEL
         pattern_set = self._selected_pattern_set()
         if not pipeline.format_transcript(self.selected_file.name, logger=self.logger,
@@ -1808,8 +1812,12 @@ class TranscriptProcessorGUI:
             self._remember_pattern_set_for_presenter(pattern_set)
         self.log("Format complete. Now validating...")
         if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
-            self.log("❌ Validation failed. Please check the logs.")
-            self._open_review_if_needed()
+            # Differences that only need a person's decision pause the run (RF.L);
+            # anything else is a real failure.
+            if self._format_failure_is_review_only():
+                self._paused_for_review = self._open_review_if_needed()
+            if not self._paused_for_review:
+                self.log("❌ Validation failed. Please check the logs.")
             return False
         return True
 
@@ -1894,15 +1902,28 @@ class TranscriptProcessorGUI:
             return
         self._show_review_dialog(items)
 
+    def _format_failure_is_review_only(self) -> bool:
+        """True when the latest format validation failed ONLY because differences
+        need a person's decision, so a review can make it pass. Gross limits,
+        heading or timestamp errors are real failures (RF.L sweep, P19)."""
+        record = formatting_pipeline.load_format_validation_record(self.base_name) or {}
+        return bool(record.get("review_needed")) and len(record.get("errors", [])) == 1
+
+    def _clear_resume(self):
+        """Forget a paused run (new file, standalone Format, failed review)."""
+        self._resume_state = None
+
     def _open_review_if_needed(self):
         try:
             items = format_review.pending_items(self.base_name)
         except Exception as e:
             self.log("⚠️ Could not load differences for review: %s", e)
-            return
+            return False
         if items:
             self.log("%d difference(s) need review — opening the review window.", len(items))
             self.root.after(0, lambda: self._show_review_dialog(items))
+            return True
+        return False
 
     def _show_review_dialog(self, items):
         try:
@@ -1934,9 +1955,41 @@ class TranscriptProcessorGUI:
         ok = pipeline.validate_format(self.selected_file.name, logger=self.logger)
         if ok:
             self.log("✅ All differences resolved; format validation passes.")
+            if getattr(self, "_resume_state", None):
+                self.root.after(0, self._offer_resume)
+            return True
+        if result["errors"]:
+            self.log("⚠️ %d review decision(s) could not be applied (see above); "
+                     "choose again for those items.", len(result["errors"]))
+        if self._format_failure_is_review_only() and self._open_review_if_needed():
+            # Decisions were applied; some items still need a choice. Not a failure.
+            return True
+        # Format fails for a reason a review cannot fix: the paused run cannot go on.
+        self._clear_resume()
+        return False
+
+    def _offer_resume(self):
+        """After a review makes Format pass, offer to run the stages a paused run
+        had left (RF.L). Runs on the Tk thread."""
+        state = getattr(self, "_resume_state", None) or {}
+        self._clear_resume()
+        keys = state.get("keys") or []
+        if not keys or state.get("base_name") != self.base_name:
+            return  # the paused run was for another file
+        unmet = self._validate_stage_dependencies(set(keys))
+        if unmet:
+            messagebox.showwarning("Missing Prerequisites", self._format_preflight_message(unmet))
+            return
+        first = dict(STAGE_DEFINITIONS)[keys[0]]
+        if messagebox.askyesno("Continue run",
+                               f"Format now passes for {self.base_name}.\n\n"
+                               f"Continue the run from {first}?"):
+            self.log("▶ Resuming the run from %s.", first)
+            self.run_task_in_thread(self._run_selected_stages, keys,
+                                    resumed_from=state.get("start_time"))
         else:
-            self._open_review_if_needed()
-        return ok
+            self.log("Run not resumed. Tick the remaining stages and click Run Selected "
+                     "to continue later.")
 
     def do_validate_headers(self):
         """Run the header validation step."""
@@ -2539,19 +2592,26 @@ class TranscriptProcessorGUI:
         self.log("▶ STARTING SELECTED STAGES EXECUTION...")
         self.run_task_in_thread(self._run_selected_stages, selected_keys)
 
-    def _run_selected_stages(self, selected_keys):
+    def _run_selected_stages(self, selected_keys, resumed_from=None):
         """Run every selected stage in STAGE_DEFINITIONS order, halting on first failure.
+
+        ``resumed_from``: the start time of a run that paused for Format review
+        (RF.L); the cost estimate is skipped and the usage report covers the
+        whole run.
 
         Purpose: Data-driven replacement for the old hardcoded _run_all_steps.
         Spec:    docs/spec_stage_selection_2026-07-12.md#SS.11
         """
-        start_time = datetime.now()
+        start_time = resumed_from or datetime.now()
+        self._clear_resume()  # a new run replaces any paused one (RF.L)
+        self._paused_for_review = False
 
-        # Unconditional cost estimate first (informational, same as old _run_all_steps).
-        self.set_status("Estimating cost…", "blue")
-        self.log("\n--- STEP 0: Estimating Cost ---")
-        if not self._run_cost_estimation():
-            self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
+        if resumed_from is None:
+            # Unconditional cost estimate first (informational, same as old _run_all_steps).
+            self.set_status("Estimating cost…", "blue")
+            self.log("\n--- STEP 0: Estimating Cost ---")
+            if not self._run_cost_estimation():
+                self.log("⚠️ Cost estimation failed; continuing with pipeline run.")
 
         # Selective-run transparency (SR.5): before running, say which checked
         # stages will regenerate existing output vs generate fresh, and which
@@ -2584,6 +2644,19 @@ class TranscriptProcessorGUI:
             self.set_status(f"Step {idx}/{len(selected_labels)}: {label}…", "blue")
             self.log("\n--- %s ---", label)
             if not self.stage_runners[key]():
+                if key == "format" and getattr(self, "_paused_for_review", False):
+                    # Not a failure: Format is waiting for the operator's review.
+                    # Remember the rest of the run so it can resume (RF.L).
+                    keys = [k for k, _l in STAGE_DEFINITIONS if k in selected_keys]
+                    self._resume_state = {"base_name": self.base_name,
+                                          "keys": keys[keys.index(key) + 1:],
+                                          "start_time": start_time}
+                    self.set_final_status(f"⏸ Paused at {label}: review the differences", "orange")
+                    self.log("⏸ Run paused at %s: differences need your review. When the "
+                             "review makes Format pass, you will be asked to continue.", label)
+                    self.log("\n--- Token Usage Report (so far) ---")
+                    self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
+                    return "WAITING_FOR_USER"
                 self.set_final_status(f"❌ Failed at: {label}", "red")
                 self.log("❌ %s failed. Halting run.", label)
                 return False

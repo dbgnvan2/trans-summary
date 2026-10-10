@@ -1142,6 +1142,8 @@ def difference_items(raw_text: str, formatted_text: str,
             "formatted_context": fmt_ctx,
             "span": [start, end],
             "mismatch_words": block["mismatch_words"],
+            "a_word_indices": list(a_idx),
+            "b_word_indices": list(b_idx),
         })
     return result, items
 
@@ -1197,7 +1199,16 @@ def verify_source_fidelity(
 
     comparison = {k: v for k, v in result.items()
                   if k not in ("mismatches", "corrections", "blocks")}
-    comparison["mismatch_sample"] = result["mismatches"][:20]
+    # Only words that still need a person: auto-allowed and approved differences
+    # (e.g. dropped chapter titles) are not listed as failures (RF.M).
+    resolved = [i for i in items if i["auto"] or i["key"] in approvals]
+    resolved_a = {k for i in resolved for k in i["a_word_indices"]}
+    resolved_b = {k for i in resolved for k in i["b_word_indices"]}
+    comparison["mismatch_sample"] = [
+        m for m in result["mismatches"]
+        if not ((m["a_index"] is not None and m["a_index"] in resolved_a)
+                or (m["a_index"] is None and m["b_index"] in resolved_b))
+    ][:20]
     comparison["corrections"] = [
         f"{c['a_word']} -> {c['b_word']}" for c in result["corrections"]]
     comparison["differences"] = len(items)
@@ -1257,6 +1268,7 @@ def _write_format_validation_record(
         "raw_sha256": _sha256_text(raw_text),
         "formatted_sha256": _sha256_text(strip_yaml_frontmatter(formatted_text)),
         "passed": outcome["passed"],
+        "review_needed": outcome.get("review_needed", False),
         "errors": outcome["errors"],
         "warnings": outcome["warnings"],
         "comparison": outcome["comparison"],

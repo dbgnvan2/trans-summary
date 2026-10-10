@@ -43,6 +43,10 @@ Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
   emphasis quote that fails the gate's own verbatim test (a spliced quote had shipped).
   The summary (now on the main model), blog and overview are judged at generation and
   regenerated with the rejected claims as feedback, up to 3 attempts, like the abstract.
+- **Run resumes after Format review (RF.L, RF.M).** A run that stops at Format only
+  for review now pauses ("⏸ Paused at 1. Format") instead of failing, and when the
+  review makes Format pass the GUI asks to continue with the remaining stages. Real
+  Format failures still halt. The Format log lists only differences that still need you.
 - **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
 - **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
   manifest records the simple page; Package skips a simple page older than the full
