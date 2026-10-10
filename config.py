@@ -979,6 +979,9 @@ ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= 
 # many times to get a version that passes the gate's faithfulness + entity checks
 # at generation time, instead of only discovering an unfaithful abstract at publish.
 ABSTRACT_MAX_ATTEMPTS = 3
+# Summary and blog: judge each draft's faithfulness and regenerate with the
+# rejected claims as feedback, up to this many attempts (RF.J).
+GENERATION_FAITHFULNESS_ATTEMPTS = 3
 
 
 def abstract_target_word_count(transcript_words: int) -> int:

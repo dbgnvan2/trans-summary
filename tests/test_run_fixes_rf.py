@@ -715,3 +715,92 @@ def test_rfi2_auto_mode_applies_only_qualifying(tmp_path, monkeypatch):
     assert gui._run_initial_validation_auto() is True
     assert [c["original_text"] for c in applied_with["corrections"]] == ["homostasis"]
     assert any("Held for review" in line and "perpetrator" in line for line in logs)
+
+
+# --- RF.J: summary and blog are checked and regenerated like the abstract --------
+
+import summary_pipeline as _sp  # noqa: E402
+
+
+def test_rfj1_gui_summary_uses_default_model(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(ts_gui.pipeline, "generate_structured_summary",
+                        lambda base, logger=None, model=None: seen.setdefault("model", model) and False)
+    gui = _gui([])
+    gui._run_stage_structured_summary()
+    assert seen["model"] == config.settings.DEFAULT_MODEL
+
+
+def _summary_project(tmp_path, monkeypatch, verdicts):
+    base = "Talk - A Person - 2021-01-01"
+    proj = tmp_path / base
+    proj.mkdir()
+    (proj / f"{base}{config.SUFFIX_TOPICS}").write_text(
+        "## Topics\n\n### Topic A\nD.\n*_(~20% of transcript; Sections 1)_*\n", encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(ep, "load_project_transcript", lambda *a, **k: "## Section 1\nText.\n")
+    monkeypatch.setattr(ep, "create_system_message_with_cache", lambda _t: [{"type": "text", "text": "c"}])
+    monkeypatch.setattr(ep, "get_anthropic_client", lambda: object())
+    drafts, feedbacks = [], []
+
+    def _gen(summary_input, client, model=None, system=None, feedback_claims=None):
+        feedbacks.append(feedback_claims)
+        drafts.append(f"draft {len(drafts) + 1}")
+        return drafts[-1]
+
+    monkeypatch.setattr(ep.summary_pipeline, "generate_summary", _gen)
+    seq = list(verdicts)
+    monkeypatch.setattr(ep, "_faithfulness_precheck",
+                        lambda b, suffix, logger=None: seq.pop(0) if seq else verdicts[-1])
+    return base, proj, feedbacks
+
+
+def test_rfj2_summary_regenerates_with_feedback(tmp_path, monkeypatch):
+    base, proj, feedbacks = _summary_project(
+        tmp_path, monkeypatch, [("fail", ["Kerr was Bowen's student in the 1950s."]), ("pass", [])])
+    assert ep.generate_structured_summary(base, logger=MagicMock(), model="m") is True
+    assert feedbacks == [None, ["Kerr was Bowen's student in the 1950s."]]
+    assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "draft 2"
+
+
+def test_rfj2_summary_all_fail_keeps_best_and_fails(tmp_path, monkeypatch):
+    base, proj, feedbacks = _summary_project(
+        tmp_path, monkeypatch, [("fail", ["a", "b"]), ("fail", ["c"]), ("fail", ["d", "e", "f"])])
+    logger = MagicMock()
+    assert ep.generate_structured_summary(base, logger=logger, model="m") is False
+    assert len(feedbacks) == config.GENERATION_FAITHFULNESS_ATTEMPTS
+    assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "draft 2"
+    assert logger.error.called
+
+
+def test_rfj2_unavailable_judge_keeps_draft(tmp_path, monkeypatch):
+    base, proj, feedbacks = _summary_project(tmp_path, monkeypatch, [("unavailable", [])])
+    assert ep.generate_structured_summary(base, logger=MagicMock(), model="m") is True
+    assert len(feedbacks) == 1
+
+
+def test_rfj2_blog_regenerates_with_feedback(tmp_path, monkeypatch):
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": GOOD_LENS}])
+    prompts = []
+
+    def _gen(prompt, *a, **k):
+        prompts.append(prompt)
+        return f"blog draft {len(prompts)}"
+
+    monkeypatch.setattr(ep, "_generate_summary_with_claude", _gen)
+    seq = [("fail", ["It is not spiritual bypassing."]), ("pass", [])]
+    monkeypatch.setattr(ep, "_faithfulness_precheck", lambda b, suffix, logger=None: seq.pop(0))
+    assert _run_blog(stem, logger) is True
+    assert "It is not spiritual bypassing." in prompts[1] and "CORRECTION REQUIRED" in prompts[1]
+    assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
+
+
+def test_rfj2_blog_all_fail_returns_false_and_keeps_best(tmp_path, monkeypatch):
+    proj, stem, calls, logger = _blog_project(tmp_path, monkeypatch, [{"top_lens": GOOD_LENS}])
+    n = []
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda *a, **k: n.append(1) or f"blog draft {len(n)}")
+    seq = [("fail", ["a", "b"]), ("fail", ["c"]), ("fail", ["d", "e"])]
+    monkeypatch.setattr(ep, "_faithfulness_precheck", lambda b, suffix, logger=None: seq.pop(0))
+    assert _run_blog(stem, logger) is False
+    assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"

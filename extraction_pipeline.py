@@ -966,11 +966,17 @@ def generate_structured_summary(
     summary_target_word_count: int = None,
     logger=None,
     transcript_system_message=None,
-    model: str = config.AUX_MODEL,
+    model: str | None = None,
 ) -> bool:
-    """Generate a structured summary using the pipeline."""
+    """Generate a structured summary, judge its faithfulness and regenerate with
+    the rejected claims as feedback, up to config.GENERATION_FAITHFULNESS_ATTEMPTS
+    (RF.J). The model defaults to the main model (settings.DEFAULT_MODEL).
+
+    Tests: tests/test_run_fixes_rf.py::test_rfj2_summary_regenerates_with_feedback
+    """
     if logger is None:
         logger = setup_logging("generate_structured_summary")
+    model = model or config.settings.DEFAULT_MODEL
 
     if summary_target_word_count is None:
         summary_target_word_count = config.DEFAULT_SUMMARY_WORD_COUNT
@@ -1030,21 +1036,85 @@ def generate_structured_summary(
         logger.info("Generating summary via API (Target: %d words)...", summary_target_word_count)
         logger.info("Using model: %s", model)  # Log which model we're using
         client = get_anthropic_client()
-        summary_text = summary_pipeline.generate_summary(
-            summary_input, client, model=model, system=transcript_system_message
-        )
-
         output_path = (
             config.PROJECTS_DIR / base_name /
             f"{base_name}{config.SUFFIX_SUMMARY_GEN}"
         )
-        output_path.write_text(summary_text, encoding="utf-8")
+
+        def _write(text):
+            output_path.write_text(text, encoding="utf-8")
+
+        ok = _generate_until_faithful(
+            "summary", base_name, config.SUFFIX_SUMMARY_GEN, logger,
+            lambda feedback: summary_pipeline.generate_summary(
+                summary_input, client, model=model, system=transcript_system_message,
+                feedback_claims=feedback),
+            _write,
+        )
         logger.info("Generated summary saved to %s", output_path)
-        return True
+        return ok
     except Exception as e:
         logger.error("Error generating structured summary: %s",
                      e, exc_info=True)
         return False
+
+
+def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
+    """Run the release gate's faithfulness check on ONE artifact (``suffix``).
+
+    Returns ("pass", []), ("fail", rejected_claims) or ("unavailable", []) when the
+    judge is off or errored (the gate then verifies at publish).
+
+    Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2
+    """
+    import release_gate as rg
+    faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
+    if faith.status is rg.Status.ERROR:
+        return "unavailable", []
+    if faith.status is rg.Status.FAIL:
+        issues = []
+        for item in (faith.items or []):
+            issues.extend(item.get("unfaithful", []))
+        return "fail", issues
+    return "pass", []
+
+
+def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
+                             generate, write) -> bool:
+    """Generate ``what``, save it, judge it; on rejected claims regenerate with
+    them as feedback, up to config.GENERATION_FAITHFULNESS_ATTEMPTS. If every
+    attempt fails, keep the draft with the fewest rejected claims, log loudly and
+    return False (as the abstract, plan R11).
+
+    Purpose: Catch unfaithful summary/blog claims at generation, not at publish.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2
+    Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_fails
+    """
+    attempts = max(1, int(config.GENERATION_FAITHFULNESS_ATTEMPTS))
+    feedback, best_text, best_count = None, None, None
+    for attempt in range(1, attempts + 1):
+        text = generate(feedback)
+        write(text)
+        status, issues = _faithfulness_precheck(base_name, suffix, logger)
+        if status == "pass":
+            logger.info("✓ %s passed faithfulness on attempt %d/%d.",
+                        what.capitalize(), attempt, attempts)
+            return True
+        if status == "unavailable":
+            logger.warning("Faithfulness check unavailable at generation; keeping the "
+                           "%s — the release gate will verify it at publish.", what)
+            return True
+        if best_text is None or len(issues) < best_count:
+            best_text, best_count = text, len(issues)
+        feedback = issues
+        logger.warning("%s attempt %d/%d not faithful (%d claim(s)); regenerating with "
+                       "corrective feedback. Claims: %s", what.capitalize(), attempt,
+                       attempts, len(issues), "; ".join(issues)[:300])
+    write(best_text)
+    logger.error("⚠️ Could not produce a fully faithful %s after %d attempt(s); kept the "
+                 "best draft (%d unsupported claim(s)). The release gate will BLOCK "
+                 "publication until it is regenerated or edited.", what, attempts, best_count)
+    return False
 
 
 def _abstract_gate_precheck(base_name: str, logger=None):
@@ -1389,6 +1459,7 @@ def summarize_transcript(
 
         top_lens = {}
         lens_reasons: list = []
+        blog_failed = False
         abstract_output = ""
         structural_output = ""
         interpretive_output = ""
@@ -1717,16 +1788,28 @@ def summarize_transcript(
                 if isinstance(top_lens.get("hooks"), list)
                 else str(top_lens.get("hooks", "")),
             )
-            output = _generate_summary_with_claude(
-                prompt,
-                model,
-                config.TEMP_BALANCED,
-                logger,
-                min_length=config.MIN_BLOG_CHARS,
-                system=transcript_system_message,
+            blog_paths = []
+
+            def _write_blog(text):
+                blog_paths.append(_save_summary(text, formatted_filename, "blog"))
+
+            blog_ok = _generate_until_faithful(
+                "blog", metadata["stem"], config.SUFFIX_BLOG, logger,
+                lambda feedback: _generate_summary_with_claude(
+                    prompt + (summary_pipeline.correction_feedback("blog post", feedback)
+                              if feedback else ""),
+                    model,
+                    config.TEMP_BALANCED,
+                    logger,
+                    min_length=config.MIN_BLOG_CHARS,
+                    system=transcript_system_message,
+                ),
+                _write_blog,
             )
-            blog_path = _save_summary(output, formatted_filename, "blog")
-            logger.info("✓ Blog post saved to: %s", blog_path)
+            logger.info("✓ Blog post saved to: %s", blog_paths[-1])
+            # A blog that stays unfaithful fails this call, but the later parts
+            # (overview, validation) still run; the failure is returned at the end.
+            blog_failed = not blog_ok
         else:
             logger.info("Blog generation skipped (skip_blog=True).")
 
@@ -1823,6 +1906,9 @@ def summarize_transcript(
                 logger.error("Structured summary generation failed.")
                 return False
 
+        if blog_failed:
+            logger.error("Blog post did not pass faithfulness — see the warnings above.")
+            return False
         return True
 
     except Exception as e:

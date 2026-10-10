@@ -722,14 +722,29 @@ def load_prompt() -> str:
     return transcript_utils.load_prompt(config.PROMPT_STRUCTURED_SUMMARY_FILENAME)
 
 
+def correction_feedback(artifact: str, claims: list) -> str:
+    """Prompt text asking a regeneration to drop claims the judge rejected (RF.J)."""
+    return (
+        "\n\n---\nCORRECTION REQUIRED. A previous draft contained the following "
+        "statements that are NOT supported by the transcript. Rewrite the "
+        f"{artifact} so that EVERY sentence is directly grounded in the source, "
+        "add no commentary of your own, and do not repeat these unsupported claims:\n"
+        + "\n".join(f"- {c}" for c in claims)
+    )
+
+
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
     model: str = config.AUX_MODEL,  # Haiku: cost-effective for summary generation
     system: Optional[list] = None,
+    feedback_claims: Optional[list] = None,
 ) -> str:
     """
     Generate summary via API call.
+
+    ``feedback_claims``: on a regeneration attempt, the statements a previous
+    draft made that the faithfulness judge rejected (RF.J).
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -759,6 +774,8 @@ def generate_summary(
         closing_words=summary_input.closing.word_allocation,
         input_json=summary_input.to_json(),
     )
+    if feedback_claims:
+        prompt += correction_feedback("summary", feedback_claims)
 
     kwargs = {}
     if system:

@@ -2619,8 +2619,10 @@ class TranscriptProcessorGUI:
         coverage so the result is visible now (the release gate re-uses the stored
         verdict; plan R15.b). A coverage miss does not halt the run — publication
         is what it blocks. Spec: docs/spec_stage_selection_2026-07-12.md#SS.12"""
+        # Main model, not Haiku: the Haiku summary produced 8 unsupported claims on
+        # the 2026-10-09 Kerr run (RF.J.1).
         ok = pipeline.generate_structured_summary(
-            self.base_name, logger=self.logger, model=config.settings.AUX_MODEL
+            self.base_name, logger=self.logger, model=config.settings.DEFAULT_MODEL
         )
         if ok and not pipeline.validate_summary_coverage(
                 self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
