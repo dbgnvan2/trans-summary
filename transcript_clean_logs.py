@@ -19,7 +19,7 @@ def archive_logs():
 
 
 def delete_logs():
-    """Permanently delete log files and token usage CSV."""
+    """Permanently delete log files (token_usage.csv is kept)."""
     confirm = input("Are you sure you want to PERMANENTLY DELETE these files? [y/N]: ")
 
     if confirm.lower() == "y":

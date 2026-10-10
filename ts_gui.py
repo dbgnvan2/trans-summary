@@ -2315,7 +2315,7 @@ class TranscriptProcessorGUI:
             "Clean Log Files",
             "Do you want to ARCHIVE old logs before deleting them?\n\n"
             " • Yes: Archive logs to a zip file, then delete originals.\n"
-            " • No: Permanently delete logs without archiving.\n"
+            " • No: Permanently delete logs without archiving (token usage history is kept).\n"
             " • Cancel: Do nothing.",
             icon='warning'
         )
@@ -2346,7 +2346,7 @@ class TranscriptProcessorGUI:
         return transcript_utils.archive_logs(self.logger) is not None
 
     def _run_delete_logs(self):
-        """Permanently delete log files and token usage CSV."""
+        """Permanently delete log files (token_usage.csv is kept)."""
         return pipeline.delete_logs(logger=self.logger)
 
     # ------------------------------------------------------------------

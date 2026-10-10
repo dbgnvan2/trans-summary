@@ -105,3 +105,13 @@ def test_archive_does_not_include_its_own_log(tmp_path, monkeypatch):
     path = tu.archive_logs()
     assert "archive_logs_now.log" not in zipfile.ZipFile(path).namelist()
     assert created[0].exists()
+
+
+def test_delete_logs_keeps_token_usage(tmp_path, monkeypatch):
+    # User decision 2026-10-09: deleting logs must not delete the API cost history.
+    logs = _logs_dir(tmp_path, monkeypatch)
+    assert tu.delete_logs(MagicMock()) is True
+    assert not list(logs.glob("*.log"))
+    assert (logs / "token_usage.csv").read_text(encoding="utf-8") == "a,b\n"
+    for keep in ("runtime_settings.json", "gate_judge_cache.json", "validation_memory.json"):
+        assert (logs / keep).exists()

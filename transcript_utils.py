@@ -2213,17 +2213,24 @@ def archive_logs(logger=None) -> Optional[Path]:
 
 
 def delete_logs(logger=None) -> bool:
-    """Permanently delete log files and token usage CSV."""
+    """Permanently delete the ``*.log`` files in config.LOGS_DIR.
+
+    ``token_usage.csv`` (the API cost history) is kept, as are the runtime
+    settings and judge cache: only run logs are deleted (user decision
+    2026-10-09). Archive Logs still zips and removes the CSV, so it is kept
+    inside the archive.
+
+    Tests: tests/test_archive_logs.py::test_delete_logs_keeps_token_usage
+    """
+    logs_dir = Path(config.LOGS_DIR)
+    # Enumerate before creating this function's own log file (P39).
+    files_to_delete = sorted(logs_dir.glob("*.log")) if logs_dir.exists() else []
     if logger is None:
         logger = setup_logging('delete_logs')
 
-    logs_dir = config.LOGS_DIR
     if not logs_dir.exists():
         logger.info("Logs directory not found: %s", logs_dir)
         return True
-
-    files_to_delete = list(logs_dir.glob("*.log")) + \
-        list(logs_dir.glob("*.csv"))
 
     if not files_to_delete:
         logger.info("No log files found to delete.")
