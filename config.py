@@ -1037,6 +1037,16 @@ MAX_RETRY_AFTER_SECONDS = 120
 # by Core (with regeneration between attempts) and by the Blog-only stage (RF.C).
 THEME_LENS_VALIDATION_ATTEMPTS = 3
 
+# Chapter-title lines in a raw transcript (e.g. YouTube chapters on their own
+# line, "Who Was Murray Bowen?"). The formatter drops them in favour of section
+# headings; formatting_pipeline auto-allows deleting exactly such a line (RF.H).
+CHAPTER_TITLE_MAX_WORDS = 10
+# Words that may stay lower case inside a title ("The Family as an Emotional System").
+CHAPTER_TITLE_MINOR_WORDS = frozenset({
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
+    "nor", "of", "on", "or", "the", "to", "vs", "with",
+})
+
 # Q&A detection (transcript_utils.find_qa_sections, RF.F). Speaker labels that
 # belong to the main conversation, not to audience Q&A: an interview's
 # "**Interviewer:**" turns are not questions from the floor. Lower-case words.

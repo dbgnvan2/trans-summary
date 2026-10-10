@@ -15,6 +15,7 @@ import config
 import summary_pipeline
 import summary_validation
 from transcript_utils import (
+    CURLY_QUOTE_MAP,
     get_anthropic_client,
     get_anthropic_client_or_none,
     call_claude_with_retry,
@@ -596,7 +597,7 @@ def validate_topics_lightweight(
 # Typographic characters the model may emit where the transcript has ASCII (or
 # vice versa); mapped before comparison so they don't count as altered words.
 _QUOTE_CHAR_MAP = str.maketrans({
-    "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
+    **CURLY_QUOTE_MAP,
     "\u2013": " ", "\u2014": " ", "\u2026": " ", "\u00a0": " ",
 })
 

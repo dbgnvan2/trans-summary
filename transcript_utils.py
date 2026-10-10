@@ -1662,6 +1662,10 @@ def load_emphasis_items(base_name: str) -> list:
 
 # "**Label:**" speaker turns; letters in any script, digits allowed after the
 # first character ("**Audience Member 2:**", "**José García:**").
+# Curly quotation marks -> straight ones. Shared by the format fidelity check and
+# the quote-verbatim checks so the two cannot drift (RF.G).
+CURLY_QUOTE_MAP = {"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'}
+
 _QA_LABEL_RE = re.compile(r"\*\*([^\W\d_][\w.' \-]{0,40}?)\s*:\*\*")
 
 

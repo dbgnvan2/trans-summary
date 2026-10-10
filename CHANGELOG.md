@@ -28,6 +28,13 @@ Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
   Kerr interview 26% → 0%; lectures with "Q&A: Name on …" headings now count them.
   Labels and heading patterns live in `config.py`. Two learning-qa sweeps; all
   findings fixed.
+- **Format check: curly quotes and chapter titles (RF.G, RF.H).** The 20:16 run failed
+  Format on 119 differences: 108 were `Bowen’s` → `Bowen's` (curly quotes now equal
+  straight ones) and 7 were YouTube chapter-title lines the formatter correctly dropped.
+  Deleting such a line is auto-allowed only when it reads as a title and sits between a
+  speech line and a timestamp line, so a name on its own caption line or an Otter answer
+  turn still needs review; removed titles are listed in the validation warnings. The
+  remaining 4 items include a real formatter edit ("contributor" → "perpetrator").
 - **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
 - **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
   manifest records the simple page; Package skips a simple page older than the full

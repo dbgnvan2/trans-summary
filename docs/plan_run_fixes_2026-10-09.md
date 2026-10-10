@@ -161,3 +161,23 @@ are headed "Q&A: Name on …" now count them (the old code never read headings).
 
 Adjacent, not fixed: the abstract prompt calls every event a "webinar" unless the
 transcript says otherwise; the Kerr talk is an interview.
+
+## RF.G — Curly and straight quotes are the same word (approved 2026-10-09)
+
+Run 20:16 failed Format: 108 of 119 differences were `Bowen’s` → `Bowen's`.
+- RF.G.1 `_normalize_word_for_validation` maps ‘ ’ to ' and “ ” to ".
+  - Tests: `tests/test_run_fixes_rf.py::test_rfg1_curly_quotes_are_not_differences`,
+    `test_rfg1_real_kerr_no_quote_only_differences`; adversarial
+    `test_rfg1_changed_word_still_reported` (contributor → perpetrator).
+
+## RF.H — A deleted chapter-title line needs no review (approved 2026-10-09)
+
+The raw transcript carries YouTube chapter titles on their own lines ("Who Was
+Murray Bowen?"); the formatter drops them in favour of section headings.
+- RF.H.1 A deletion is auto-allowed ("chapter title") only when it covers exactly
+  one whole raw line that looks like a title: 2 to `config.CHAPTER_TITLE_MAX_WORDS`
+  words, title case (minor words in `config.CHAPTER_TITLE_MINOR_WORDS` may be
+  lower case), no sentence-ending punctuation other than "?".
+  - Tests: `test_rfh1_deleted_title_line_is_auto`, `test_rfh1_real_kerr_titles_auto`;
+    adversarial `test_rfh1_title_plus_speech_word_needs_review`,
+    `test_rfh1_deleted_speech_line_needs_review`, `test_rfh1_changed_title_needs_review`.

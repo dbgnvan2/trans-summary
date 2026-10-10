@@ -502,3 +502,93 @@ def test_rff2_inputs_use_presenter_from_filename_metadata(monkeypatch):
         except Exception:
             pass  # only the Q&A call is under test here
     assert seen[:2] == ["Michael Kerr", "Michael Kerr"]
+
+
+# --- RF.G: curly and straight quotes are the same word ---------------------------
+
+def _unresolved(raw, formatted):
+    return fp.verify_source_fidelity(raw, formatted)["unresolved"]
+
+
+HEAD = "## Section 1 – Opening Words Here Now ([00:00:00]).\n\n"
+
+
+def test_rfg1_curly_quotes_are_not_differences():
+    raw = "Bowen’s idea isn’t new, “he said” today.\n"
+    assert _unresolved(raw, HEAD + "Bowen's idea isn't new, \"he said\" today.\n") == []
+
+
+def test_rfg1_changed_word_still_reported():
+    # P7: the real formatter edit from the 20:16 run must still need review.
+    raw = "neither one was the victim or contributor to that, it’s true.\n"
+    items = _unresolved(raw, HEAD + "neither one was the victim or perpetrator to that, it's true.\n")
+    assert [(i["raw_text"], i["formatted_text"]) for i in items] == [("contributor", "perpetrator")]
+
+
+def test_rfg1_real_kerr_no_quote_only_differences():
+    curly = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"'})
+    items = _unresolved(_raw(), _formatted())
+    assert not [i for i in items if i["raw_text"].translate(curly) == i["formatted_text"]]
+
+
+# --- RF.H: a deleted chapter-title line needs no review --------------------------
+
+def test_rfh1_deleted_title_line_is_auto():
+    raw = "the mother took a\nWho Was Murray Bowen?\n1:44\nstrong view of it.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "the mother took a strong view of it.\n")
+    assert o["unresolved"] == []
+    assert [i["auto"] for i in o["items"]] == ["chapter title"]
+
+
+def test_rfh1_title_plus_speech_word_needs_review():
+    # P7: the deletion must be exactly the title line, nothing more.
+    raw = "the mother took a\nWho Was Murray Bowen?\n1:44\nstrong view of it.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "the mother took a view of it.\n")
+    assert o["unresolved"]
+
+
+def test_rfh1_deleted_speech_line_needs_review():
+    raw = "we began the talk\nand then he said it was over\n1:44\nfor now.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "we began the talk for now.\n")
+    assert o["unresolved"]
+
+
+def test_rfh1_changed_title_needs_review():
+    raw = "the mother took a\nWho Was Murray Bowen?\n1:44\nstrong view of it.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "the mother took a Who Is Murray Bowen strong view of it.\n")
+    assert o["unresolved"]
+
+
+def test_rfh1_real_kerr_titles_auto():
+    titles = {"Who Was Murray Bowen?", "The Family as an Emotional System"}
+    items = fp.verify_source_fidelity(_raw(), _formatted())["items"]
+    auto = {i["raw_text"] for i in items if i["auto"] == "chapter title"}
+    assert titles <= auto
+
+
+def test_rfh1_name_on_caption_line_needs_review():
+    # P7 (sweep): YouTube captions put a name or phrase on its own line after a
+    # timestamp; dropping it is a real change.
+    raw = "0:01\nthe theory was developed by\n0:05\nMurray Bowen\n0:07\nat the NIMH.\n"
+    assert _unresolved(raw, HEAD + "the theory was developed by at the NIMH.\n")
+    raw = "0:01\nshe was blamed but\n0:05\nNot the Mother\n0:07\nin the end.\n"
+    assert _unresolved(raw, HEAD + "she was blamed but in the end.\n")
+
+
+def test_rfh1_otter_answer_turn_needs_review():
+    raw = "Interviewer 0:01\nWho did it?\nMichael Kerr 0:12\nMurray Bowen\nInterviewer 0:20\nRight.\n"
+    assert _unresolved(raw, HEAD + "**Interviewer:** Who did it?\n\n**Interviewer:** Right.\n")
+
+
+def test_rfh1_speech_fragment_is_not_a_title():
+    # Sweep: one capitalised word plus minor words is speech ("But the", "It is").
+    for words in (["But", "the"], ["It", "is"], ["Bowen", "and", "the"]):
+        assert not fp._looks_like_chapter_title(words)
+    assert fp._looks_like_chapter_title(["What", "Remains"])
+
+
+def test_rfh1_titles_listed_in_warnings():
+    raw = "the mother took a\nWho Was Murray Bowen?\n1:44\nstrong view of it.\n"
+    o = fp.verify_source_fidelity(raw, HEAD + "the mother took a strong view of it.\n")
+    assert any("chapter-title line(s) removed" in w and "Who Was Murray Bowen?" in w
+               for w in o["warnings"])

@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Set
 import config
 import transcript_utils
 from transcript_utils import (
+    CURLY_QUOTE_MAP,
     get_anthropic_client,
     call_claude_with_retry,
     check_token_budget,
@@ -471,8 +472,14 @@ def add_yaml(transcript_filename: str, source_ext: str = "mp4", logger=None) -> 
         return False
 
 
+_CURLY_QUOTES = str.maketrans(CURLY_QUOTE_MAP)
+
+
 def _normalize_word_for_validation(w: str) -> str:
-    """Strips punctuation and lowercases for validation comparison."""
+    """Strips punctuation and lowercases for validation comparison. Curly quotes
+    count as straight ones: the formatter writes "Bowen's" for the raw "Bowen’s"
+    and that is not a difference (RF.G)."""
+    w = w.translate(_CURLY_QUOTES)
     # Explicitly remove markdown symbols before regex
     w = w.replace("#", "").replace("*", "").replace("_", "").replace("`", "")
     # Aggressively strip markdown markers and punctuation from start/end
@@ -555,20 +562,67 @@ _ARTIFACT_TAG_RE = re.compile(
     r"^[\[\(](?:crosstalk|inaudible|audio unclear|static)[\]\)][.,]?$", re.IGNORECASE)
 
 
+def _looks_like_chapter_title(words: List[str]) -> bool:
+    """A raw line that reads as a chapter title: 2 to config.CHAPTER_TITLE_MAX_WORDS
+    words, every word capitalised except config.CHAPTER_TITLE_MINOR_WORDS (the
+    first word always capitalised), at least two capitalised non-minor words, and
+    no sentence punctuation other than a final "?"."""
+    if not 2 <= len(words) <= config.CHAPTER_TITLE_MAX_WORDS:
+        return False
+    text = " ".join(words)
+    if re.search(r"[.,;:!]", text) or ("?" in text and not text.endswith("?")):
+        return False
+    lettered = [w for w in words if re.search(r"[^\W\d_]", w)]
+    if len(lettered) < 2 or not lettered[0][0].isupper():
+        return False
+    minor = config.CHAPTER_TITLE_MINOR_WORDS
+    if not all(w[0].isupper() or w.lower().strip("?") in minor for w in lettered):
+        return False
+    return sum(1 for w in lettered if w[0].isupper() and w.lower().strip("?") not in minor) >= 2
+
+
+def _chapter_title_spans(prepared_raw: str) -> Set[tuple]:
+    """(start, end) positions in ``prepared_raw.split()`` of whole lines that are
+    chapter titles (RF.H).
+
+    Besides reading as a title, the line must sit where chapter titles sit in a
+    timestamped transcript: directly after a line of speech (no timestamp line
+    between) and directly before a timestamp line (blank once times are
+    stripped). Caption lines and speaker turns always follow a timestamp or
+    speaker header, so a name or phrase on its own caption line ("Murray Bowen",
+    "Not the Mother") never qualifies (sweep finding, P7).
+    """
+    lines = prepared_raw.split("\n")
+    spans: Set[tuple] = set()
+    pos = 0
+    for k, line in enumerate(lines):
+        words = line.split()
+        if (words and 0 < k < len(lines) - 1
+                and lines[k - 1].strip() and not lines[k + 1].strip()
+                and _looks_like_chapter_title(words)):
+            spans.add((pos, pos + len(words)))
+        pos += len(words)
+    return spans
+
+
 def _compare_words(
     a_words: List[str],
     b_words: List[str],
     skip_words: Set[str],
     max_mismatch_ratio: float = 1.0,
     max_mismatches: Optional[int] = None,
+    title_spans: Optional[Set[tuple]] = None,
 ) -> Dict[str, Any]:
     """Core of ``_compare_transcripts`` on pre-split word lists (surface forms).
 
     Besides per-word ``mismatches`` it returns ``blocks``: one entry per
     differing stretch, used by the review step. A block is auto-allowed only if
-    it is a deleted immediate repetition (a stutter the prompt allows removing)
-    or a deleted transcription-artifact tag such as ``[crosstalk]``.
+    it is a deleted immediate repetition (a stutter the prompt allows removing),
+    a deleted transcription-artifact tag such as ``[crosstalk]``, or the
+    deletion of exactly one whole raw line in ``title_spans`` (a chapter title,
+    RF.H; positions in ``a_words``).
     """
+    title_spans = title_spans or set()
 
     def _checkable(words: List[str]) -> tuple[List[int], List[str]]:
         idx: List[int] = []
@@ -651,6 +705,11 @@ def _compare_words(
                 auto = "stutter"
             elif _ARTIFACT_TAG_RE.match(" ".join(a_words[a_idx[k]] for k in range(i1, i2))):
                 auto = "artifact tag"
+            elif any(start <= a_idx[i1] and a_idx[i2 - 1] < end
+                     and not any(_normalize_word_for_validation(w) for w in a_words[start:a_idx[i1]])
+                     and not any(_normalize_word_for_validation(w) for w in a_words[a_idx[i2 - 1] + 1:end])
+                     for start, end in title_spans):
+                auto = "chapter title"
         if tag == "delete":
             kind = "deleted"
         elif tag == "insert":
@@ -1040,9 +1099,11 @@ def difference_items(raw_text: str, formatted_text: str,
     span in ``formatted_text`` (``span``; for a pure deletion an insertion
     point with start == end).
     """
-    raw_words = _prepare_raw_for_comparison(raw_text).split()
+    prepared_raw = _prepare_raw_for_comparison(raw_text)
+    raw_words = prepared_raw.split()
     tokens = formatted_tokens(formatted_text)
-    result = _compare_words(raw_words, [t[0] for t in tokens], skip_words or set())
+    result = _compare_words(raw_words, [t[0] for t in tokens], skip_words or set(),
+                            title_spans=_chapter_title_spans(prepared_raw))
 
     heading_offsets = [(m.start(), int(m.group(1))) for m in
                        re.finditer(r"^## Section (\d+)", formatted_text, flags=re.MULTILINE)]
@@ -1141,6 +1202,11 @@ def verify_source_fidelity(
         f"{c['a_word']} -> {c['b_word']}" for c in result["corrections"]]
     comparison["differences"] = len(items)
     comparison["auto_allowed"] = sum(1 for i in items if i["auto"])
+    titles = [i["raw_text"] for i in items if i["auto"] == "chapter title"]
+    if titles:
+        # Surfaced, not silent (P2): the record shows which lines were dropped.
+        warnings.append(f"{len(titles)} chapter-title line(s) removed (auto-allowed): "
+                        + "; ".join(repr(t) for t in titles))
     comparison["approved"] = sum(1 for i in items if not i["auto"] and i["key"] in approvals)
     return {
         "passed": not errors,
