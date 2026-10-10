@@ -181,3 +181,48 @@ Murray Bowen?"); the formatter drops them in favour of section headings.
   - Tests: `test_rfh1_deleted_title_line_is_auto`, `test_rfh1_real_kerr_titles_auto`;
     adversarial `test_rfh1_title_plus_speech_word_needs_review`,
     `test_rfh1_deleted_speech_line_needs_review`, `test_rfh1_changed_title_needs_review`.
+
+## RF.I / RF.J / RF.K (approved 2026-10-09, run 20:33)
+
+Run 20:33 reached Full Web/PDF and the gate blocked on: 2 unreviewed format
+differences; faithfulness (summary 8/64 claims, blog 2/79); one spliced emphasis
+quote. Behind the first: Init Val auto-applied "contributor" → "perpetrator" and
+"back" → "aback" into `_validated.txt`, which every later check treats as the source.
+
+### RF.K — Extracted quotes pass the gate's verbatim test or are dropped
+- RF.K.1 `validation_pipeline.quote_is_verbatim_for_gate(quote, transcript)` is the
+  single test (ends ≥ EMPHASIS_QUOTE_PARTIAL_RATIO and coverage ≥
+  QUOTE_MIN_WORD_COVERAGE) used by `release_gate.check_verbatim_quotes`.
+- RF.K.2 `extract_scored_emphasis` and the Bowen grounding step drop quotes that fail
+  it and log "kept N of M" with each dropped label (P2). Both Core and the standalone
+  Bowen + Emphasis stage go through these functions.
+  - Tests: `tests/test_run_fixes_rf.py::test_rfk1_gate_uses_shared_predicate`,
+    `test_rfk2_spliced_emphasis_quote_dropped` (real Kerr spliced quote),
+    `test_rfk2_verbatim_quote_kept`, `test_rfk2_bowen_spliced_quote_dropped`.
+
+### RF.I — Init Val auto-applies only mishearing-level fixes
+- RF.I.1 `transcript_initial_validation_v2.is_mishearing_fix(original, suggestion,
+  transcript)`: after removing timestamps and punctuation, every changed word pair has
+  the same first letter, similarity ≥ `config.INIT_VAL_AUTO_MIN_SIMILARITY` (0.8) and
+  the original word appears nowhere else in the transcript; a split/merge
+  ("abit" → "a bit") also qualifies; alias (proper-noun) findings keep their own path.
+  Inserted or deleted words do not qualify.
+- RF.I.2 The GUI auto mode applies only qualifying findings; each held finding is
+  logged ("Held for review: 'contributor' → 'perpetrator'") and not applied.
+  - Tests: `test_rfi1_mishearing_fixes_qualify` (homostasis, Bowan, abit),
+    `test_rfi1_meaning_changes_held` (contributor→perpetrator, mother→father,
+    patient→parent, their→there when "their" occurs elsewhere, back→aback),
+    `test_rfi2_auto_mode_applies_only_qualifying` (GUI runner with stub validator).
+
+### RF.J — Summary and blog are checked and regenerated like the abstract
+- RF.J.1 The structured summary uses the main model (`settings.DEFAULT_MODEL`), not Haiku.
+- RF.J.2 `_faithfulness_precheck(base_name, suffix)` runs the gate's faithfulness
+  check on one artifact; the summary and the blog regenerate with the rejected claims
+  as feedback up to `config.GENERATION_FAITHFULNESS_ATTEMPTS` (3). All attempts fail →
+  keep the least-bad draft, log loudly, return False (as the abstract, plan R11).
+  Judge unavailable → keep the draft (the gate verifies at publish).
+  - Tests: `test_rfj1_gui_summary_uses_default_model`,
+    `test_rfj2_summary_regenerates_with_feedback`, `test_rfj2_summary_all_fail_keeps_best_and_fails`,
+    `test_rfj2_blog_regenerates_with_feedback`, `test_rfj2_unavailable_judge_keeps_draft`.
+
+Not code-testable: whether the regenerated Kerr summary/blog pass the live judge.
