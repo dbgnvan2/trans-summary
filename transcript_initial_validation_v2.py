@@ -7,7 +7,9 @@ import argparse
 import json
 import logging
 import re
+from collections import Counter
 from datetime import datetime
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -91,6 +93,52 @@ class ValidationMetrics:
         logger.info(f"Corrections: Found={summary['total_corrections_found']}, Applied={summary['total_corrections_applied']}")
         logger.info(f"Hallucinations: {summary['hallucinations_detected']}")
         logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+
+_IV_TIME_RE = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
+_IV_WORD_RE = re.compile(r"[^\W_]+(?:['\u2019][^\W_]+)*")
+
+
+def _iv_words(text: str) -> list:
+    return [w.replace("\u2019", "'") for w in _IV_WORD_RE.findall(_IV_TIME_RE.sub(" ", text.lower()))]
+
+
+def is_mishearing_fix(original: str, suggestion: str, transcript: str) -> bool:
+    """True when a correction only fixes how words were heard or spelled, so it is
+    safe to apply without review: after removing timestamps and punctuation, every
+    changed word pair has the same first letter, similarity of at least
+    config.INIT_VAL_AUTO_MIN_SIMILARITY, and the original word appears nowhere else
+    in the transcript (so it is not a real word being swapped); or the change only
+    splits/joins words ("abit" -> "a bit"). Inserted or deleted words, and swaps
+    such as "contributor" -> "perpetrator" or "mother" -> "father", are not.
+
+    Purpose: Stop Init Val's auto mode writing meaning changes into the source
+             every later check treats as true (run 2026-10-09 20:18).
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.I.1
+    Tests:   tests/test_run_fixes_rf.py::test_rfi1_meaning_changes_held
+    """
+    a, b = _iv_words(original), _iv_words(suggestion)
+    if not a or not b:
+        return False
+    counts = Counter(_iv_words(transcript))
+    in_span = Counter(a)
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            continue
+        if tag != "replace":
+            return False
+        if "".join(a[i1:i2]) == "".join(b[j1:j2]):
+            continue  # split or join only
+        if i2 - i1 != j2 - j1:
+            return False
+        for old, new in zip(a[i1:i2], b[j1:j2]):
+            if old[0] != new[0]:
+                return False
+            if SequenceMatcher(None, old, new).ratio() < config.INIT_VAL_AUTO_MIN_SIMILARITY:
+                return False
+            if counts[old] > in_span[old]:
+                return False  # the word is used elsewhere: a real word, not a mishearing
+    return True
 
 
 class TranscriptValidatorV2:

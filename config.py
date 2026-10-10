@@ -1037,6 +1037,11 @@ MAX_RETRY_AFTER_SECONDS = 120
 # by Core (with regeneration between attempts) and by the Blog-only stage (RF.C).
 THEME_LENS_VALIDATION_ATTEMPTS = 3
 
+# Init Val auto mode applies a correction only when every changed word looks like a
+# mishearing of the same word: same first letter, at least this similarity, and the
+# original word used nowhere else in the transcript (RF.I). Others are held.
+INIT_VAL_AUTO_MIN_SIMILARITY = 0.8
+
 # Chapter-title lines in a raw transcript (e.g. YouTube chapters on their own
 # line, "Who Was Murray Bowen?"). The formatter drops them in favour of section
 # headings; formatting_pipeline auto-allows deleting exactly such a line (RF.H).

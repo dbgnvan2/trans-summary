@@ -3009,6 +3009,22 @@ class TranscriptProcessorGUI:
             output_path = file_to_validate.parent / f"{base_name}_validated{file_to_validate.suffix}"
 
             if findings:
+                # RF.I: apply only mishearing-level fixes; anything that changes a
+                # word into a different word is held, because _validated becomes
+                # the source every later check trusts.
+                source_text = file_to_validate.read_text(encoding="utf-8")
+                held = [f for f in findings if f.get("error_type") != "alias"
+                        and not transcript_initial_validation_v2.is_mishearing_fix(
+                            f.get("original_text", ""), f.get("suggested_correction", ""),
+                            source_text)]
+                for f in held:
+                    self.log("⚠️ Held for review (not applied): %r -> %r",
+                             " ".join(f.get("original_text", "").split()),
+                             " ".join(f.get("suggested_correction", "").split()))
+                findings = [f for f in findings if f not in held]
+                self.log("Init Val auto mode: %d correction(s) qualify, %d held for review.",
+                         len(findings), len(held))
+            if findings:
                 self.log("Auto-applying %d validation corrections...", len(findings))
                 if mode == "v2":
                     validator_v2 = transcript_initial_validation_v2.TranscriptValidatorV2(api_key, self.logger)
@@ -3021,7 +3037,7 @@ class TranscriptProcessorGUI:
                     validator_v1.apply_corrections(file_to_validate, findings, output_path)
             else:
                 shutil.copy2(file_to_validate, output_path)
-                self.log("No Init Val findings. Created validated copy.")
+                self.log("No Init Val corrections to apply. Created validated copy.")
 
             self.selected_file = output_path
             self.base_name = clean_project_name(self.selected_file.stem)

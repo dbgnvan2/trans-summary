@@ -648,3 +648,70 @@ def test_rfk2_bowen_spliced_quote_dropped():
                                "with your family, no wonder you had so much trouble.\"")]
     kept = ep._ground_bowen_refs(refs, NAVY_SOURCE, MagicMock())
     assert [q for _c, q in kept] == [refs[1][1]]
+
+
+# --- RF.I: Init Val auto-applies only mishearing-level fixes ---------------------
+
+import transcript_initial_validation_v2 as iv2  # noqa: E402
+
+IV_TRANSCRIPT = ("the homostasis of cells, as Bowan said, it's abit odd. neither one was the victim or\n"
+                 "19:09\ncontributor to that. my mother and their patient took me back. their view.\n")
+
+
+def test_rfi1_mishearing_fixes_qualify():
+    for orig, sugg in (("homostasis", "homeostasis"), ("Bowan said", "Bowen said"),
+                       ("it's abit odd", "it's a bit odd")):
+        assert iv2.is_mishearing_fix(orig, sugg, IV_TRANSCRIPT), (orig, sugg)
+
+
+def test_rfi1_meaning_changes_held():
+    for orig, sugg in (("victim or\n19:09\ncontributor to that", "victim or perpetrator to that"),
+                       ("my mother and", "my father and"),
+                       ("their patient took", "their parent took"),
+                       ("and their patient", "and there patient"),   # "their" occurs elsewhere
+                       ("took me back.", "took me aback."),
+                       ("the homostasis of cells", "the homeostasis of all cells")):  # inserted word
+        assert not iv2.is_mishearing_fix(orig, sugg, IV_TRANSCRIPT), (orig, sugg)
+
+
+def test_rfi2_auto_mode_applies_only_qualifying(tmp_path, monkeypatch):
+    src = tmp_path / "Talk - A Person - 2021-01-01.txt"
+    src.write_text(IV_TRANSCRIPT, encoding="utf-8")
+    findings = [
+        {"error_type": "spelling", "original_text": "homostasis", "suggested_correction": "homeostasis",
+         "confidence": "high"},
+        {"error_type": "spelling", "original_text": "victim or\n19:09\ncontributor to that",
+         "suggested_correction": "victim or perpetrator to that", "confidence": "high"},
+    ]
+    applied_with = {}
+
+    class _V2:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def validate_chunked(self, *_a, **_k):
+            return list(findings)
+
+        def apply_corrections_safe(self, path, corrections, output_path):
+            applied_with["corrections"] = corrections
+            output_path.write_text("x", encoding="utf-8")
+            return output_path, len(corrections), []
+
+    class _V1:
+        def __init__(self, *_a, **_k):
+            pass
+
+        def get_latest_version(self, p):
+            return p
+
+    monkeypatch.setattr(ts_gui, "resolve_anthropic_key", lambda: "k")
+    monkeypatch.setattr(ts_gui.transcript_initial_validation_v2, "TranscriptValidatorV2", _V2)
+    monkeypatch.setattr(ts_gui.transcript_initial_validation, "TranscriptValidator", _V1)
+    monkeypatch.setattr(ts_gui, "_find_existing_validation_versions", lambda _p: [])
+    logs = []
+    gui = _gui(logs)
+    gui.selected_file = src
+    gui.validation_mode_var = MagicMock(get=lambda: "v2")
+    assert gui._run_initial_validation_auto() is True
+    assert [c["original_text"] for c in applied_with["corrections"]] == ["homostasis"]
+    assert any("Held for review" in line and "perpetrator" in line for line in logs)
