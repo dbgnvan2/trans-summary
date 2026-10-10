@@ -396,3 +396,109 @@ def test_rfd1_unencodable_text_does_not_raise(tmp_path, monkeypatch):
     gui.log("bad \ud800 text")
     assert shown == ["bad \ud800 text"]
     assert list((tmp_path / "logs").glob("gui_*.log"))
+
+
+# --- RF.F: interview turns are not audience Q&A -----------------------------------
+
+import abstract_pipeline as ap  # noqa: E402
+import summary_pipeline as sp  # noqa: E402
+import transcript_utils as tu  # noqa: E402
+
+
+def _section(n, body, heading="Heading Words For Section"):
+    return f"## Section {n} – {heading} ([00:00:{n:02d}]).\n\n{body}\n\n"
+
+
+def _pct(text, presenter="Michael Kerr"):
+    return ap.calculate_qa_percentage(text, presenter=presenter)[0]
+
+
+def test_rff1_interview_is_not_qa():
+    # Real Kerr interview: **Interviewer:** / **Michael Kerr:** turns. Was 26%.
+    assert ap.calculate_qa_percentage(_formatted(), presenter="Michael Kerr") == (0, [])
+    assert sp.analyze_qa_content(_formatted(), presenter="Michael Kerr")["percentage"] == 0
+
+
+def test_rff1_audience_section_still_detected():
+    text = (_section(1, "**Interviewer:** Tell us about it.\n\n**Kerr:** It began early.")
+            + _section(2, "**Audience Member:** What about cutoff?\n\n**Kerr:** Distance."))
+    assert _pct(text) == 50
+
+
+def test_rff1_one_named_questioner_is_qa():
+    # Sweep finding: one questioner turn plus the presenter's answer, no keyword.
+    text = (_section(1, "**Kerr:** Lecture text here.")
+            + _section(2, "**Mary:** What about cutoff in families?\n\n**Kerr:** Distance."))
+    assert _pct(text) == 50
+    assert _pct(text.replace("**Mary:**", "**MARY:**")) == 50  # any case
+
+
+def test_rff1_dr_label_is_presenter():
+    # Sweep finding: an interview formatted with "**Dr. Kerr:**" is still not Q&A.
+    body = "**Interviewer:** Tell me more.\n\n**Dr. Kerr:** Gladly.\n\n**Dr. Kerr:** And more."
+    assert _pct(_section(1, body) + _section(2, body), presenter="Dr. Michael Kerr") == 0
+
+
+def test_rff1_presenter_first_name_alone_is_audience():
+    # Sweep finding: an audience member who shares the presenter's first name counts.
+    text = _section(1, "**Michael:** Can I ask something?\n\n**Kerr:** Yes.")
+    assert _pct(text) == 100
+
+
+def test_rff1_presenter_label_not_qa():
+    text = _section(1, "**Kerr:** First point.\n\n**Kerr:** Second point.")
+    assert _pct(text) == 0
+    assert _pct(text, presenter=None) == 100  # unknown speaker: counted, as before
+
+
+def test_rff1_qa_heading_counts():
+    text = _section(1, "Lecture.") + _section(2, "Thank you all.", heading="Q&A: Amy Post on Cutoff")
+    assert tu.find_qa_sections(text)[0][0][0].startswith("## Section 2")
+
+
+def test_rff1_numbered_and_accented_labels():
+    # Sweep 2: generic numbered labels and non-ASCII names are audience speakers.
+    assert _pct(_section(1, "**Audience Member 2:** Why?\n\n**Kerr:** Because.")) == 100
+    assert _pct(_section(1, "**José García:** Why?\n\n**Kerr:** Because.")) == 100
+
+
+def test_rff1_question_words_alone_are_not_qa():
+    # P7 (sweep 2): a lecture section that says "question" is not audience Q&A.
+    body = ("**Kerr:** That is the question of differentiation, unquestionably. "
+            "Another question follows, and a comment on commentary.")
+    assert _pct(_section(1, body)) == 0
+
+
+def test_rff1_lecture_heading_with_question_is_not_qa():
+    # P7 (sweep 2): only Q&A-style headings count.
+    assert _pct(_section(1, "**Kerr:** Text.", heading="The Question of Differentiation")) == 0
+    assert _pct(_section(1, "**Kerr:** Text.", heading="Questions and Answers")) == 100
+    assert _pct(_section(1, "Text.", heading="Question About Faith and Belief")) == 100
+
+
+def test_rff1_presenter_label_variants():
+    # Sweep 2: initials and co-presenters are still the presenter; another Kerr is not.
+    body = "**Interviewer:** Go on.\n\n**Dr. Michael E. Kerr:** Yes.\n\n**Smith:** Indeed."
+    assert _pct(_section(1, body), presenter="Michael Kerr and John Smith") == 0
+    assert _pct(_section(1, "**Kathy Kerr:** A question.\n\n**Kerr:** Yes.")) == 100
+
+
+def test_rff2_inputs_use_presenter_from_filename_metadata(monkeypatch):
+    # Production metadata (parse_filename_metadata) has "presenter", not "speaker".
+    seen = []
+    real = tu.find_qa_sections
+
+    def _spy(transcript, presenter=None):
+        seen.append(presenter)
+        return real(transcript, presenter)
+
+    monkeypatch.setattr(tu, "find_qa_sections", _spy)
+    monkeypatch.setattr(ap, "find_qa_sections", _spy)
+    meta = {"presenter": "Michael Kerr", "title": "T", "event_type": "webinar", "domain": "d"}
+    for call in (lambda: ap.prepare_abstract_input(meta, "## Topics\n", "## Themes\n", _formatted(), 250),
+                 lambda: sp.prepare_summary_input(meta, "## Topics\n", "## Themes\n", _formatted(), 500)):
+        try:
+            call()
+        except Exception:
+            pass  # only the Q&A call is under test here
+    assert seen[:2] == ["Michael Kerr", "Michael Kerr"]

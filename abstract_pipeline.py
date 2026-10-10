@@ -29,6 +29,7 @@ import transcript_utils
 from transcript_utils import (
     get_anthropic_client_or_none,
     call_claude_with_retry,
+    find_qa_sections,
     is_scaffolding_theme_name,
     parse_bold_numbered_theme_blocks,
 )
@@ -313,46 +314,30 @@ def extract_closing_conclusion(transcript: str, section_count: int) -> str:
     return "No explicit conclusion stated"
 
 
-def calculate_qa_percentage(transcript: str) -> tuple[int, list[str]]:
+def calculate_qa_percentage(
+    transcript: str, presenter: str | None = None
+) -> tuple[int, list[str]]:
     """
     Estimate Q&A percentage and extract topic areas discussed.
+
+    Q&A sections come from ``transcript_utils.find_qa_sections`` (shared with
+    the summary): an interviewer's or the presenter's turns are not audience Q&A.
 
     Returns:
         (percentage, list of topic keywords)
     """
-    # Count total sections
-    total_sections = len(re.findall(r"## Section \d+", transcript))
-
-    # Identify Q&A sections by speaker label patterns
-    qa_indicators = [
-        r"\*\*[A-Z][a-z]+\s*:\*\*",  # **Name:** pattern (questioner)
-        r"\*\*Dr[.\s]+\w+:\*\*",  # **Dr. Name:** pattern (response)
-        r"\*\*Audience",  # **Audience Member:**
-        r"question",
-        r"comment",
-    ]
-
-    qa_sections = 0
+    found, total_sections = find_qa_sections(transcript, presenter)
+    qa_sections = len(found)
     qa_topics = []
 
-    sections = re.split(r"## Section \d+[^\n]+\n", transcript)
-
-    for section in sections:
-        qa_indicator_count = sum(
-            len(re.findall(pattern, section, re.IGNORECASE))
-            for pattern in qa_indicators
+    for _header, section in found:
+        # Extract candidate topic phrases after question prepositions.
+        topic_matches = re.findall(
+            r"(?:about|on|regarding)\s+([A-Za-z][^.,;:!?\n]{2,80})",
+            section,
+            re.IGNORECASE,
         )
-
-        if qa_indicator_count >= 2:  # Likely Q&A section
-            qa_sections += 1
-
-            # Extract candidate topic phrases after question prepositions.
-            topic_matches = re.findall(
-                r"(?:about|on|regarding)\s+([A-Za-z][^.,;:!?\n]{2,80})",
-                section,
-                re.IGNORECASE,
-            )
-            qa_topics.extend(topic_matches[:3])
+        qa_topics.extend(topic_matches[:3])
 
     percentage = int((qa_sections / total_sections) *
                      100) if total_sections > 0 else 0
@@ -415,7 +400,9 @@ def prepare_abstract_input(
         AbstractInput ready for serialization
     """
     section_count = count_sections(transcript)
-    qa_percentage, qa_topics = calculate_qa_percentage(transcript)
+    # Filename metadata names the speaker "presenter"; older inputs use "speaker".
+    qa_percentage, qa_topics = calculate_qa_percentage(
+        transcript, presenter=metadata.get("presenter") or metadata.get("speaker"))
 
     abstract_input = AbstractInput(
         metadata=metadata,

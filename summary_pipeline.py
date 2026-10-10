@@ -570,33 +570,14 @@ def extract_closing_content(transcript: str, section_count: int) -> dict:
     }
 
 
-def analyze_qa_content(transcript: str) -> dict:
-    """Analyze Q&A sections for summary input."""
-    # Identify Q&A sections
-    qa_indicators = [
-        r"\*\*[A-Z][a-z]+\s*:\*\*",  # **Name:** pattern
-        r"\*\*Dr[.\s]+\w+:\*\*",
-        r"\*\*Audience",
-        r"question",
-        r"comment",
-    ]
+def analyze_qa_content(transcript: str, presenter: Optional[str] = None) -> dict:
+    """Analyze Q&A sections for summary input.
 
-    sections = re.split(r"(## Section \d+[^\n]+\n)", transcript)
-
-    qa_sections = []
-    total_sections = len([s for s in sections if s.startswith("## Section")])
-
-    current_section = None
-    for part in sections:
-        if part.startswith("## Section"):
-            current_section = part
-        elif current_section:
-            qa_count = sum(
-                len(re.findall(p, part, re.IGNORECASE)) for p in qa_indicators
-            )
-            if qa_count >= 2:
-                qa_sections.append(
-                    {"header": current_section, "content": part})
+    Sections come from ``transcript_utils.find_qa_sections`` (shared with the
+    abstract, RF.F): an interviewer's or the presenter's turns are not Q&A.
+    """
+    found, total_sections = transcript_utils.find_qa_sections(transcript, presenter)
+    qa_sections = [{"header": header, "content": content} for header, content in found]
 
     qa_percentage = (
         int((len(qa_sections) / total_sections)
@@ -666,7 +647,9 @@ def prepare_summary_input(
     themes = parse_themes(themes_markdown)
 
     # Analyze Q&A
-    qa_analysis = analyze_qa_content(transcript)
+    # Filename metadata names the speaker "presenter"; older inputs use "speaker".
+    qa_analysis = analyze_qa_content(
+        transcript, presenter=metadata.get("presenter") or metadata.get("speaker"))
 
     # Calculate word allocations
     # Use target_word_count directly without inflation

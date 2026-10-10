@@ -18,6 +18,16 @@ Repeat the Same Patterns" was blocked at Full Web/PDF and wrote no blog.
 - **Blog-only stage (RF.C)** retries lens validation up to
   `THEME_LENS_VALIDATION_ATTEMPTS` (config, shared with Core), requires both theme
   sets valid and a lens that is in the lenses file, and logs the reason per attempt.
+- **Interview turns are not audience Q&A (RF.F).** The 16:50 run halted at Gen
+  Abstract: `**Interviewer:**` turns made the Kerr interview read as 26% Q&A, so the
+  abstract prompt asked for an "audience engagement" sentence the judge rejected on
+  every attempt. One detector (`transcript_utils.find_qa_sections`) now serves the
+  abstract and the summary: Q&A means a Q&A-style heading or an audience speaker's
+  turn; interviewer/host and presenter labels (incl. "Dr. Kerr", initials,
+  co-presenters) are not audience; "question" in the text no longer counts alone.
+  Kerr interview 26% → 0%; lectures with "Q&A: Name on …" headings now count them.
+  Labels and heading patterns live in `config.py`. Two learning-qa sweeps; all
+  findings fixed.
 - **GUI log saved (RF.D)** to `logs/gui_<session>.log`.
 - **"8b. Simple Web" stage (RF.E)**, gated and validated like Full Web/PDF; the run
   manifest records the simple page; Package skips a simple page older than the full

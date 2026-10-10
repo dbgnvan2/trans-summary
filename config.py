@@ -1033,13 +1033,38 @@ RETRY_BACKOFF_BASE = 2  # wait = RETRY_BACKOFF_BASE ** attempt seconds (1s, 2s, 
 RATE_LIMIT_BACKOFF_SECONDS = 10
 MAX_RETRY_AFTER_SECONDS = 120
 
-# Lens-title stopwords for the grounding check — editorial vocabulary belongs in
-# config, not source (review L7 / rule 9). Consumed by
-# extraction_pipeline._top_lens_is_grounded.
 # Theme/lens back-validation calls before giving up on a grounded top lens, used
 # by Core (with regeneration between attempts) and by the Blog-only stage (RF.C).
 THEME_LENS_VALIDATION_ATTEMPTS = 3
 
+# Q&A detection (transcript_utils.find_qa_sections, RF.F). Speaker labels that
+# belong to the main conversation, not to audience Q&A: an interview's
+# "**Interviewer:**" turns are not questions from the floor. Lower-case words.
+QA_HOST_SPEAKER_LABELS = frozenset({
+    "interviewer", "host", "cohost", "co-host", "moderator", "narrator",
+    "presenter", "speaker", "facilitator", "chair",
+})
+# Label words that always mean an audience speaker, checked before the host list
+# ("**Audience Member 2:**", "**Participant:**").
+QA_AUDIENCE_SPEAKER_LABELS = frozenset({
+    "audience", "participant", "questioner", "attendee", "caller", "q",
+})
+# Titles dropped from a speaker label before comparing it with the presenter's
+# name ("**Dr. Kerr:**" is the presenter "Michael Kerr").
+QA_SPEAKER_TITLES = frozenset({"dr", "mr", "mrs", "ms", "prof", "professor", "rev"})
+# Section headings (after "Section N –") that mark audience Q&A. Case-insensitive
+# regexes, anchored so a lecture heading such as "The Question of Differentiation"
+# does not match.
+QA_HEADING_PATTERNS = (
+    r"^Q\s*&\s*A\b",
+    r"^Questions?\s+(?:and|&)\s+Answers?\b",
+    r"^Questions?\s+(?:About|From|On|Regarding)\b",
+    r"\b(?:Audience|Participant|Chat)\s+(?:Questions?|Comments?)\b",
+)
+
+# Lens-title stopwords for the grounding check — editorial vocabulary belongs in
+# config, not source (review L7 / rule 9). Consumed by
+# extraction_pipeline._top_lens_is_grounded.
 LENS_STOPWORDS = frozenset({
     "the", "of", "and", "that", "a", "an", "to", "in", "for", "on", "how", "it",
     "its", "is", "are", "no", "one", "who", "what", "with", "as", "at", "by", "or",

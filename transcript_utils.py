@@ -1659,6 +1659,76 @@ def load_emphasis_items(base_name: str) -> list:
     return []
 
 
+# "**Label:**" speaker turns; letters in any script, digits allowed after the
+# first character ("**Audience Member 2:**", "**José García:**").
+_QA_LABEL_RE = re.compile(r"\*\*([^\W\d_][\w.' \-]{0,40}?)\s*:\*\*")
+
+
+def _speaker_name_words(name: str) -> list:
+    """Lower-case words of a speaker name, without titles (config.QA_SPEAKER_TITLES)
+    or one-letter initials ("Dr. Michael E. Kerr" -> ["michael", "kerr"])."""
+    words = re.findall(r"[^\W\d_]+(?:-[^\W\d_]+)?", name.lower())
+    return [w for w in words if w not in config.QA_SPEAKER_TITLES and len(w) > 1]
+
+
+def _presenter_names(presenter: Optional[str]) -> list:
+    """Each presenter's name words; "Kerr and Smith" / "A, B & C" are split."""
+    names = re.split(r"\s*(?:,|&|\band\b)\s*", presenter or "")
+    return [w for w in (_speaker_name_words(n) for n in names) if w]
+
+
+def _label_is_presenter(words: list, presenters: list) -> bool:
+    """A label is a presenter when its last word is that presenter's surname and
+    it is either the surname alone or starts with the presenter's first name.
+    "Kerr", "Dr. Kerr", "Michael E. Kerr" are "Michael Kerr"; "Michael" and
+    "Kathy Kerr" are not."""
+    return any(words[-1] == name[-1] and (len(words) == 1 or words[0] == name[0])
+               for name in presenters)
+
+
+def find_qa_sections(transcript: str, presenter: Optional[str] = None) -> tuple:
+    """Return ``(qa_sections, total_sections)``; ``qa_sections`` is a list of
+    ``(header, content)`` for the ``## Section`` blocks that are audience Q&A.
+
+    A section is Q&A when its heading matches config.QA_HEADING_PATTERNS
+    ("Q&A: …", "Questions and Answers") or it contains a turn by an audience
+    speaker. A "**Label:**" is an audience speaker when it contains a word in
+    config.QA_AUDIENCE_SPEAKER_LABELS, or else when it names neither a host role
+    (config.QA_HOST_SPEAKER_LABELS, e.g. an interview's "**Interviewer:**") nor a
+    presenter (``_label_is_presenter``). Words such as "question" in the text do
+    not count on their own: a lecture says "a good question" too (RF.F sweep).
+
+    Purpose: One Q&A detector for the abstract and the summary, so an interview
+             is not reported as audience Q&A and real Q&A is not missed.
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.F.1
+    Tests:   tests/test_run_fixes_rf.py::test_rff1_* (interview, audience labels,
+             named questioner, Dr./initial/co-presenter labels, headings)
+    """
+    presenters = _presenter_names(presenter)
+    heading_res = [re.compile(p, re.IGNORECASE) for p in config.QA_HEADING_PATTERNS]
+
+    def audience_label(label: str) -> bool:
+        words = _speaker_name_words(label)
+        if not words:
+            return False
+        if any(w in config.QA_AUDIENCE_SPEAKER_LABELS for w in words):
+            return True
+        if any(w in config.QA_HOST_SPEAKER_LABELS for w in words):
+            return False
+        return not _label_is_presenter(words, presenters)
+
+    parts = re.split(r"(## Section \d+[^\n]*\n)", transcript)
+    sections = [(parts[i], parts[i + 1] if i + 1 < len(parts) else "")
+                for i in range(len(parts)) if parts[i].startswith("## Section")]
+    qa = []
+    for header, content in sections:
+        heading_text = re.sub(r"^## Section \d+\s*[–-]?\s*", "", header).strip()
+        if (any(r.search(heading_text) for r in heading_res)
+                or any(audience_label(lab) for lab in _QA_LABEL_RE.findall(content))):
+            qa.append((header, content))
+    return qa, len(sections)
+
+
 def strip_yaml_frontmatter(content: str) -> str:
     """
     Remove YAML frontmatter from markdown content.

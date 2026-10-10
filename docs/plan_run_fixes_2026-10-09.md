@@ -126,3 +126,38 @@ Problem: the status panel lists "Simple Web" but no GUI stage writes it.
   inflate the score.
 - `tests/test_bowen_references_integration.py` writes log files into the real
   `logs/` directory on every run (dozens per mutation campaign).
+
+## RF.F — Interview turns are not audience Q&A (approved 2026-10-09)
+
+Problem: run 16:50 halted at Gen Abstract. `calculate_qa_percentage` counted every
+section with two `**Name:**` labels as Q&A; the Kerr interview's 7 sections with
+`**Interviewer:**` gave 26% (> 20%), so the abstract prompt was told to add a Q&A
+sentence ("extensive audience engagement…") that the faithfulness judge rejected on
+every attempt. Retries could not fix it: each got the same input.
+
+- RF.F.1 One detector, `transcript_utils.find_qa_sections`, used by the abstract
+  (`calculate_qa_percentage`) and the summary (`analyze_qa_content`). A section is
+  Q&A when its heading matches `config.QA_HEADING_PATTERNS` ("Q&A: …", "Questions
+  and Answers", "Question About …") or it has a turn by an audience speaker. A
+  `**Label:**` is audience when it contains a `config.QA_AUDIENCE_SPEAKER_LABELS`
+  word, else when it is neither a host role (`config.QA_HOST_SPEAKER_LABELS`) nor
+  a presenter (surname alone, or first name + surname; titles and initials
+  ignored; co-presenters split on and/&/,). Words like "question" in the text no
+  longer count on their own.
+  - Tests (`tests/test_run_fixes_rf.py`): `test_rff1_interview_is_not_qa` (real
+    Kerr interview → 0% for abstract and summary), `test_rff1_audience_section_still_detected`,
+    `test_rff1_one_named_questioner_is_qa`, `test_rff1_dr_label_is_presenter`,
+    `test_rff1_presenter_first_name_alone_is_audience`, `test_rff1_presenter_label_not_qa`,
+    `test_rff1_qa_heading_counts`, `test_rff1_numbered_and_accented_labels`,
+    `test_rff1_question_words_alone_are_not_qa` (P7),
+    `test_rff1_lecture_heading_with_question_is_not_qa` (P7),
+    `test_rff1_presenter_label_variants`.
+- RF.F.2 `prepare_abstract_input` and `prepare_summary_input` pass the presenter
+  (`metadata["presenter"]` from the filename, falling back to `"speaker"`).
+  - Test: `test_rff2_inputs_use_presenter_from_filename_metadata`.
+
+Effect on the real fixtures: Kerr interview 26% → 0%. Lectures whose Q&A sections
+are headed "Q&A: Name on …" now count them (the old code never read headings).
+
+Adjacent, not fixed: the abstract prompt calls every event a "webinar" unless the
+transcript says otherwise; the Kerr talk is an interview.
