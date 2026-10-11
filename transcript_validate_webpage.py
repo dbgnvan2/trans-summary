@@ -64,6 +64,19 @@ def count_sections_in_html(html_file):
     return 0, []
 
 
+def missing_names(source_names, html_names):
+    """Source names (topics / themes / key terms) not found among the page's names,
+    comparing normalized text. The page name may carry extra text around the
+    source name (e.g. a definition list entry); a shorter page name never matches."""
+    page = [normalize_for_comparison(h) for h in html_names]
+    out = []
+    for name in source_names:
+        n = normalize_for_comparison(name)
+        if not n or not any(n in h for h in page):
+            out.append(name)
+    return out
+
+
 def normalize_for_comparison(text):
     """Normalize text for comparison - removes extra whitespace and punctuation."""
     # Convert to lowercase
@@ -185,53 +198,41 @@ def extract_topics_themes_metadata(base_name: str):
         metadata["has_summary"] = True
         metadata["summary_length"] = len(summary_content.strip())
 
-    # Count Topics
-    topics_match = re.search(
-        r"## (?:\*\*)?(?:Key )?Topics(?:\*\*)?(.*?)(?=^## |\Z)",
-        topics_content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if topics_match:
-        topics_text = topics_match.group(1).strip()
-        # Extract topic names (### Topic Name)
-        topics = re.findall(r"^### (.+)$", topics_text, re.MULTILINE)
-        metadata["topics_list"] = [t.strip() for t in topics]
-        metadata["topics_count"] = len(topics)
+    # Topics, themes and key terms are read with the pipeline's own parsers
+    # (artifact_contracts), not a second set of regexes here (RF.P, P19). A file
+    # with content that parses to nothing is a source error, never a silent 0.
+    import artifact_contracts as ac
 
-    # Count Structural + Interpretive Themes
-    theme_sections = re.finditer(
-        r"## (?:\*\*)?(?:Structural Themes|Interpretive Themes|Themes|Interpretive / Process Themes)(?:\*\*)?(.*?)(?=^## |\Z)",
-        "\n".join([structural_content, interpretive_content]),
-        re.MULTILINE | re.DOTALL,
-    )
-    collected_themes = []
-    for m in theme_sections:
-        themes_text = m.group(1).strip()
-        themes_h3 = re.findall(r"^### (.+)$", themes_text, re.MULTILINE)
-        themes_numbered = re.findall(
-            r"^\d+\.\s+\*\*([^*]+)\*\*", themes_text, re.MULTILINE
-        )
-        collected_themes.extend(themes_h3 + themes_numbered)
-    if collected_themes:
-        metadata["themes_list"] = [t.strip() for t in collected_themes]
-        metadata["themes_count"] = len(collected_themes)
+    metadata["source_errors"] = []
 
-    # Count Key Terms
-    key_terms_match = re.search(
-        r"## (?:\*\*)?Key Terms(?:\*\*)?(.*?)(?=^## |^---+|\Z)",
-        key_terms_content,
-        re.MULTILINE | re.DOTALL,
-    )
-    if key_terms_match:
-        kt_text = key_terms_match.group(1)
-        # Extract term names (### Term Name)
-        term_headings = re.findall(r"^### (.+)$", kt_text, re.MULTILINE)
-        metadata["key_terms_list"] = [t.strip() for t in term_headings]
-        metadata["key_terms_count"] = len(term_headings)
+    def _names(key, content, field, *args):
+        if not content.strip():
+            return []
+        try:
+            items = ac.codec(key).parse_markdown(content, *args)["items"]
+        except ac.SchemaError as e:
+            metadata["source_errors"].append(str(e))
+            return []
+        return [it[field].strip() for it in items]
+
+    metadata["topics_list"] = _names("topics", topics_content, "name")
+    metadata["themes_list"] = (
+        _names("themes", structural_content, "name", "structural")
+        + _names("themes", interpretive_content, "name", "interpretive"))
+    metadata["key_terms_list"] = _names("key_terms", key_terms_content, "term")
+    metadata["topics_count"] = len(metadata["topics_list"])
+    metadata["themes_count"] = len(metadata["themes_list"])
+    metadata["key_terms_count"] = len(metadata["key_terms_list"])
 
     # Bowen/Emphasis are loaded via centralized loaders in validate_webpage.
 
     return metadata
+
+
+# The <h2> headings of the page sections (templates/webpage.html sidebar and
+# templates/simple_webpage.html).
+SECTION_HEADINGS = ("Abstract", "Summary", "Key Topics", "Themes", "Key Terms",
+                    "Bowen References", "Emphasized Items", "Transcript")
 
 
 def _title_label(title: str, key: str) -> str:
@@ -283,10 +284,11 @@ def _metadata_from_sections(get_section, transcript_root) -> dict:
             metadata["has_summary"] = True
             metadata["summary_length"] = len(text)
 
-    # Headings are searched INSIDE each element (as the sidebar reader always
-    # did); the simple layout passes its section's body <div> as the one element.
+    # The sidebar passes the section's sibling elements (an <h3> can be one of
+    # them); the simple layout passes its section's body <div>.
     def _h3s(elems):
-        return [h.get_text(strip=True) for e in elems for h in e.find_all("h3")]
+        return [h.get_text(strip=True) for e in elems
+                for h in ([e] if e.name == "h3" else e.find_all("h3"))]
 
     topics_elems = get_section("Key Topics")
     if topics_elems:
@@ -298,13 +300,13 @@ def _metadata_from_sections(get_section, transcript_root) -> dict:
     themes_elems = get_section("Themes")
     if themes_elems:
         metadata["has_themes"] = any(e.get_text(strip=True) for e in themes_elems)
-        metadata["themes_list"] = _h3s(themes_elems)
+        # Theme names are the numbered bold entries ("**1. Name**"); the h3s in
+        # this section are file sub-headings ("Summary Paragraph"), not themes.
         for elem in themes_elems:
-            for p in elem.find_all("p"):
-                if re.match(r"\d+\.", p.get_text(strip=True)):
-                    strong = p.find("strong")
-                    if strong:
-                        metadata["themes_list"].append(strong.get_text(strip=True))
+            for strong in ([elem] if elem.name == "strong" else elem.find_all("strong")):
+                m = re.match(r"\d+\.\s+(.+)", strong.get_text(" ", strip=True))
+                if m:
+                    metadata["themes_list"].append(m.group(1).strip())
 
     terms_elems = get_section("Key Terms")
     if terms_elems:
@@ -344,9 +346,11 @@ def extract_html_metadata(html_file):
         h2 = sidebar.find("h2", string=heading_text)
         if not h2:
             return None
+        # Stop at the next SECTION heading only: a themes file's own title or
+        # "## Interpretive / Process Themes" renders as an <h2> inside Themes.
         content = []
         curr = h2.find_next_sibling()
-        while curr and curr.name != "h2":
+        while curr and not (curr.name == "h2" and curr.get_text(strip=True) in SECTION_HEADINGS):
             content.append(curr)
             curr = curr.find_next_sibling()
         return content
@@ -596,6 +600,10 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
         source_meta["emphasis_list"] = real_emphasis
         source_meta["emphasis_count"] = len(real_emphasis)
 
+    for err in source_meta.get("source_errors", []):
+        issues.append(f"Source artifact could not be read: {err}")
+        print(f"   ❌ Source artifact could not be read: {err}")
+
     # Use appropriate extraction function based on mode
     if simple_mode:
         html_meta = extract_html_simple_metadata(html_file)
@@ -794,8 +802,6 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
     print("\n🔍 Metadata Content Verification (Sampling)")
     print("-" * 70)
 
-    import math
-
     # Verify Abstract content (full text since it's a single item)
     if source_meta["has_abstract"] and html_meta["has_abstract"]:
         # More robust comparison - normalize and compare full abstract
@@ -813,83 +819,23 @@ def validate_webpage(base_name: str, simple_mode: bool = False) -> bool:
             )
             print(f"   Abstract: ⚠️  Content mismatch ({ratio:.1%} similarity)")
 
-    # Verify Topics (sample 30% rounded up) - skip in simple mode
-    if source_meta["topics_count"] > 0 and len(html_meta["topics_list"]) > 0:
-        sample_size = math.ceil(source_meta["topics_count"] * 0.3)
-        sample_indices = range(0, min(sample_size, len(source_meta["topics_list"])))
-        matched = 0
-        for idx in sample_indices:
-            source_topic = normalize_for_comparison(source_meta["topics_list"][idx])
-            # Check if any HTML topic matches
-            found = any(
-                source_topic in normalize_for_comparison(html_topic)
-                or normalize_for_comparison(html_topic) in source_topic
-                for html_topic in html_meta["topics_list"]
-            )
-            if found:
-                matched += 1
-
-        if matched == len(sample_indices):
-            print(
-                f"   Key Topics: ✅ {matched}/{len(sample_indices)} sampled items verified"
-            )
+    # Every topic, theme and key term in the source must appear on the page
+    # (RF.P: all items, not the first 30%).
+    for label, src_key, html_key in (("Key Topics", "topics_list", "topics_list"),
+                                     ("Themes", "themes_list", "themes_list"),
+                                     ("Key Terms", "key_terms_list", "key_terms_list")):
+        missing = missing_names(source_meta[src_key], html_meta[html_key])
+        if not source_meta[src_key]:
+            continue
+        found = len(source_meta[src_key]) - len(missing)
+        if not missing:
+            print(f"   {label}: ✅ {found}/{len(source_meta[src_key])} verified")
         else:
-            warnings.append(
-                f"Key Topics content mismatch: only {matched}/{len(sample_indices)} verified"
-            )
-            print(f"   Key Topics: ⚠️  Only {matched}/{len(sample_indices)} verified")
-
-    # Verify Themes (sample 30% rounded up) - skip in simple mode
-    if source_meta["themes_count"] > 0 and len(html_meta["themes_list"]) > 0:
-        sample_size = math.ceil(source_meta["themes_count"] * 0.3)
-        sample_indices = range(0, min(sample_size, len(source_meta["themes_list"])))
-        matched = 0
-        for idx in sample_indices:
-            source_theme = normalize_for_comparison(source_meta["themes_list"][idx])
-            # Check if any HTML theme matches
-            found = any(
-                source_theme in normalize_for_comparison(html_theme)
-                or normalize_for_comparison(html_theme) in source_theme
-                for html_theme in html_meta["themes_list"]
-            )
-            if found:
-                matched += 1
-
-        if matched == len(sample_indices):
-            print(
-                f"   Themes: ✅ {matched}/{len(sample_indices)} sampled items verified"
-            )
-        else:
-            warnings.append(
-                f"Themes content mismatch: only {matched}/{len(sample_indices)} verified"
-            )
-            print(f"   Themes: ⚠️  Only {matched}/{len(sample_indices)} verified")
-
-    # Verify Key Terms (sample 30% rounded up)
-    if source_meta["key_terms_count"] > 0 and len(html_meta["key_terms_list"]) > 0:
-        sample_size = math.ceil(source_meta["key_terms_count"] * 0.3)
-        sample_indices = range(0, min(sample_size, len(source_meta["key_terms_list"])))
-        matched = 0
-        for idx in sample_indices:
-            source_term = normalize_for_comparison(source_meta["key_terms_list"][idx])
-            # Check if any HTML term matches
-            found = any(
-                source_term in normalize_for_comparison(html_term)
-                or normalize_for_comparison(html_term) in source_term
-                for html_term in html_meta["key_terms_list"]
-            )
-            if found:
-                matched += 1
-
-        if matched == len(sample_indices):
-            print(
-                f"   Key Terms: ✅ {matched}/{len(sample_indices)} sampled items verified"
-            )
-        else:
-            warnings.append(
-                f"Key Terms content mismatch: only {matched}/{len(sample_indices)} verified"
-            )
-            print(f"   Key Terms: ⚠️  Only {matched}/{len(sample_indices)} verified")
+            warnings.append(f"{label} content mismatch: only {found}/{len(source_meta[src_key])} "
+                            f"found on the page; first missing: {missing[0][:60]!r}")
+            print(f"   {label}: ⚠️  Only {found}/{len(source_meta[src_key])} verified")
+            for name in missing:
+                print(f"      missing: {name[:70]}")
 
     # Summary
     print(f"\n{'=' * 70}")

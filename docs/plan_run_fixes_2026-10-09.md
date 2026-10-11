@@ -340,3 +340,37 @@ The simple layout always renders each section's body `<div>`, so empty Key Topic
 Themes counted as present; "present" now means the section has text (as for Abstract
 and Summary). Not fixed: the stale worktree `.claude/worktrees/hungry-wilbur` still has
 the old reader (not shipped code).
+
+## RF.P — The web checks read topics, themes and key terms correctly (approved 2026-10-11)
+
+Found during RF.O: the Key Terms check saw 0 terms (key-terms.md has no
+`## Key Terms` heading) and was skipped; themes were read from `### ` sub-headings
+("Summary Paragraph"); the full page's sidebar reader stopped at the themes file's own
+title, which renders as an `<h2>` inside Themes, and never saw the interpretive themes
+or (direct-child `<h3>`) topic names, so its sample checks were skipped; and only the
+first 30% of items was compared.
+
+- RF.P.1 Source side uses the pipeline's parsers (`artifact_contracts` codecs for
+  topics, structural + interpretive themes, key terms). A file with content that parses
+  to no items is a critical issue ("Source artifact could not be read"), not a silent 0.
+  - Tests: `tests/test_simple_web_validation.py::test_rfp1_source_read_with_pipeline_parsers`,
+    `test_rfp1_unreadable_source_artifact_fails`.
+- RF.P.2 Page side: theme names are the numbered bold entries; a sidebar section ends
+  at the next page-section heading (`SECTION_HEADINGS`), not at any `<h2>`; topic
+  `<h3>`s that are direct children are read.
+  - Test: `test_rfp2_page_theme_names_read_past_stray_heading[True/False]`.
+- RF.P.3 Every topic, theme and key term is checked (`missing_names`); each missing
+  one is listed; a mismatch stays a warning. A shorter page name inside a longer
+  source name is not a match.
+  - Tests: `test_rfp3_every_item_checked_missing_theme_reported[True/False]`,
+    `test_rfp3_missing_names_needs_the_whole_source_name`.
+
+Real Kerr 2026-09-13 pages: both layouts verify 7/7 topics, 10/10 themes, 10/10 key terms.
+
+Adjacent issues found, not fixed:
+- The published Themes section (both layouts) shows the themes file's own title as a
+  heading, `---` lines, and "Structural Themes (3 total)" sub-headings:
+  `html_generator._extract_webpage_metadata` falls back to the whole file when
+  `extract_section` does not find "Structural Themes" / "Interpretive Themes" as a
+  section of its own. Rendering the themes from the parsed items would change the
+  published page, so it needs your decision.

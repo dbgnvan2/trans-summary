@@ -30,21 +30,30 @@ Where Bowen's concepts sit in the brain.
 How reactivity spreads through relationships.
 *_(~50% of transcript; Sections 4-6)_*
 """
-_STRUCTURAL = """## Structural Themes
+# Themes in the real Kerr 2026-09-13 shape: a file title, "---" rules, a
+# "### ... (N total)" sub-heading and numbered bold names. The title renders as an
+# <h2> inside the page's Themes section (RF.P).
+_STRUCTURAL = """# Structural Themes Analysis
+## "Where Roots" — Michael Kerr (2022-02-18)
 
-### The Emotional System Has a Biological Base
+---
+
+### Structural Themes (1 total)
+
+---
+
+**1. The Emotional System Has a Biological Base**
 
 **Description:** Bowen's concepts are tied to brain networks.
 """
-_INTERPRETIVE = """## Interpretive / Process Themes
+_INTERPRETIVE = """## Interpretive / Process Themes (1 total)
 
-### Seeing the System Changes the Observer
+---
+
+**1. Seeing the System Changes the Observer**
 
 **Description:** Observation itself shifts emotional position.
 """
-# Themes use "### " headings: the source-side reader (extract_topics_themes_metadata)
-# does not read the current "**1. Name**" format (adjacent issue, RF.O), and with 0
-# source themes the Themes check would be skipped.
 _SUMMARY = "Kerr links Bowen theory to brain science. " * 20
 
 
@@ -152,3 +161,64 @@ def test_rfo3_no_bowen_reported_missing_on_real_page(project, simple):
     whole list was reported missing on both layouts."""
     page = _generate(project, simple=simple)
     assert tvw.find_missing_bowen_items(BASE, page) == []
+
+
+# --------------------------------------------------------------------------- RF.P
+_ALL_THEMES = ["The Emotional System Has a Biological Base",
+               "Seeing the System Changes the Observer"]
+
+
+def test_rfp1_source_read_with_pipeline_parsers(project):
+    """Topics, both theme files and key terms are counted by artifact_contracts,
+    including key-terms.md without a "## Key Terms" heading (Kerr 2026-09-13)."""
+    kt = project / f"{BASE}{config.SUFFIX_KEY_TERMS}"
+    n_terms = kt.read_text(encoding="utf-8").count("\n### ")
+    kt.write_text(kt.read_text(encoding="utf-8").replace("## Key Terms\n", "", 1),
+                  encoding="utf-8")
+    meta = tvw.extract_topics_themes_metadata(BASE)
+    assert meta["source_errors"] == []
+    assert meta["topics_list"] == ["The Brain and Bowen Theory", "Emotional Reactivity"]
+    assert meta["themes_list"] == _ALL_THEMES
+    assert n_terms > 0 and meta["key_terms_count"] == n_terms
+
+
+def test_rfp1_unreadable_source_artifact_fails(project):
+    """Adversarial (P19): a themes file with content but no parseable theme is a
+    critical issue, not a silent 0 that skips the Themes check."""
+    _generate(project, simple=True)
+    (project / f"{BASE}{config.SUFFIX_STRUCTURAL_THEMES}").write_text(
+        "## Structural Themes\n\nThe themes are about the brain.\n", encoding="utf-8")
+    assert tvw.extract_topics_themes_metadata(BASE)["source_errors"]
+    assert tvw.validate_webpage(BASE, simple_mode=True) is False
+
+
+@pytest.mark.parametrize("simple", [True, False])
+def test_rfp2_page_theme_names_read_past_stray_heading(project, simple):
+    """The themes file title renders as an <h2> inside Themes; the sidebar reader
+    used to stop there and never reached the interpretive themes."""
+    page = _generate(project, simple=simple)
+    reader = tvw.extract_html_simple_metadata if simple else tvw.extract_html_metadata
+    meta = reader(page)
+    assert meta["themes_list"] == _ALL_THEMES
+    assert meta["topics_list"] == ["The Brain and Bowen Theory", "Emotional Reactivity"]
+    assert meta["key_terms_list"]
+
+
+@pytest.mark.parametrize("simple", [True, False])
+def test_rfp3_every_item_checked_missing_theme_reported(project, simple, capsys):
+    """The last theme (outside a 30% sample) is renamed on the page -> reported."""
+    page = _generate(project, simple=simple)
+    html = page.read_text(encoding="utf-8")
+    assert html.count(_ALL_THEMES[1]) >= 1
+    page.write_text(html.replace(_ALL_THEMES[1], "A Different Theme"), encoding="utf-8")
+    tvw.validate_webpage(BASE, simple_mode=simple)
+    out = capsys.readouterr().out
+    assert "Themes: ⚠️  Only 1/2 verified" in out
+    assert f"missing: {_ALL_THEMES[1]}" in out
+
+
+def test_rfp3_missing_names_needs_the_whole_source_name():
+    """Adversarial (P7): a shorter page name inside a longer source name is not a match."""
+    assert tvw.missing_names(["Bowen Theory and the Brain"], ["Bowen Theory"]) == [
+        "Bowen Theory and the Brain"]
+    assert tvw.missing_names(["Pseudo-Self"], ["Pseudo-Self: masks people wear"]) == []

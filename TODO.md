@@ -6,6 +6,16 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-11 — Web page checks (RF.O / RF.P)
+
+### ⏸ Open — needs a decision
+- **Published Themes section shows file scaffolding.** Both web pages show the themes
+  file's own title as a heading, `---` lines and "Structural Themes (3 total)" inside
+  Themes (`html_generator._extract_webpage_metadata` falls back to the whole file).
+  Fix = render themes from the parsed items; changes the published page.
+- **Stale worktree** `.claude/worktrees/hungry-wilbur` still has the pre-RF.O web
+  checker; anything run from it fails every simple page.
+
 ## 2026-10-04 — Full-repo review (`REVIEW-trans-summary-2026-10-04.md`)
 
 Plan: `docs/plan_review_fixes_2026-10-04.md` (R1–R18). Fixed on branch

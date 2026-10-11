@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-11 (web checks read topics, themes, key terms)
+
+RF.P in `docs/plan_run_fixes_2026-10-09.md`. The Full Web and Simple Web checks now
+read topics, themes and key terms from the source files with the pipeline's own
+parsers (before: key terms were counted as 0 and themes were read from sub-headings),
+read theme names from the page past the themes file's stray title heading, and check
+every item instead of the first 30%. A source file that cannot be parsed is a critical
+issue. On the Kerr talk both pages verify 7/7 topics, 10/10 themes and 10/10 key terms.
+
 ## [Unreleased] - 2026-10-10 (Simple Web check)
 
 RF.O in `docs/plan_run_fixes_2026-10-09.md`. The "8b. Simple Web" check failed every
