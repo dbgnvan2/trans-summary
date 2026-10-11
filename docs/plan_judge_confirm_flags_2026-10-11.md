@@ -1,7 +1,7 @@
 # Plan: confirm a faithfulness flag before it fails a run (CF.1–CF.6)
 
-Status: **awaiting approval** (and decisions CD1–CD3). Request 2026-10-11: "plan the
-random-flag fix".
+Status: **approved 2026-10-11, building.** CD1 = majority of 3 with early stop; CD2 =
+faithfulness judge only; CD3 = on the current prompt (the framing change was not shipped).
 
 ## Problem
 
@@ -39,9 +39,15 @@ if the confirmation agrees.
 - A judge error in any confirmation call → ERROR (fail closed), as today.
 - The cached verdict is the confirmed one; the confirmation settings are part of the
   judge logic version, so old unconfirmed verdicts are not reused.
-- Lives in `faithfulness_judge.judge_artifact`, so every caller gets it: the gate's
-  faithfulness and topic/key-term checks, the blog's stage 1, and the generation
-  pre-check (`extraction_pipeline._faithfulness_precheck`).
+- One function, `faithfulness_judge.judge_claims_confirmed`, does pass 1 (chunked or
+  not) plus the confirmation; `judge_artifact`, `classify_claim`, the calibration tool
+  (`judge_recalibration.faithfulness_gold`) and `judge_drift_monitor.py` all call it, so
+  the calibration measures the behaviour that ships (P5).
+- Setting `config.FAITHFULNESS_CONFIRM_MODE` = "majority3" (or "off"); it and the new
+  function are part of the judge logic version.
+- Through `judge_artifact`, every gate caller gets it: the faithfulness and topic/key-term
+  checks, the blog's stage 1, and the generation pre-check
+  (`extraction_pipeline._faithfulness_precheck`).
 
 ## Acceptance criteria → tests
 

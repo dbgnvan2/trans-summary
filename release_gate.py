@@ -695,6 +695,7 @@ def _judge_input_functions() -> list:
         fjudge._name_shaped_bold_labels, fjudge._parse_judge_response,
         fjudge.with_theme_evidence, fjudge.build_theme_judge_prompt,
         fjudge._stem, fjudge.judge_claims_chunked, fjudge.judge_artifact,
+        fjudge.judge_claims_confirmed,
         fjudge._should_chunk, fjudge.judge_claims, fjudge.build_judge_prompt,
         fjudge._cached_judge_content,
         av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
@@ -736,6 +737,7 @@ def _judge_logic_version(instructions: str) -> str:
         # judged against, so its thresholds must invalidate a cached PASS too — else a
         # future tune serves a stale verdict (H2 fail-open) unless the developer
         # remembers to bump JUDGE_LOGIC_VERSION by hand (P6/P4).
+        str(config.FAITHFULNESS_CONFIRM_MODE),  # CF: confirmed vs first-pass verdicts
         str(config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS),
         str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
         str(config.VALIDATION_CHUNK_SIZE),
@@ -781,6 +783,7 @@ def _disk_cached_verdict(disk_key: str, fjudge):
             status=disk["status"],
             detail=disk.get("detail", ""),
             claims=[fjudge.ClaimVerdict(**c) for c in disk.get("unfaithful", [])],
+            overturned=disk.get("overturned", []),
         )
     return None
 
@@ -848,7 +851,7 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors = [], []
+    fails, errors, overturned = [], [], []
     judged = 0
     for suffix in (suffixes if suffixes is not None else config.FAITHFULNESS_ARTIFACT_SUFFIXES):
         path = proj / f"{base_name}{suffix}"
@@ -858,11 +861,14 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         result = _judge_cached(
             fjudge, path.read_text(encoding="utf-8"), transcript, client, logger)
         art = suffix.strip(" -")
+        if getattr(result, "overturned", None):
+            overturned.append({"artifact": art, "overturned": result.overturned})
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
                           "unfaithful": [c.claim for c in result.unfaithful],
                           "contradicted": [c.claim for c in result.unfaithful
-                                           if getattr(c, "label", None) == fjudge.CONTRADICTED]})
+                                           if getattr(c, "label", None) == fjudge.CONTRADICTED],
+                          "overturned": getattr(result, "overturned", [])})
         elif result.status == fjudge.ERROR:
             errors.append({"artifact": art, "detail": result.detail})
     if judged == 0:
@@ -882,8 +888,12 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         return Verdict("faithfulness", Status.ERROR,
                        f"{len(errors)} of {judged} artifact(s) could not be verified",
                        items=errors)
+    # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
+    n_over = sum(len(o["overturned"]) for o in overturned)
     return Verdict("faithfulness", Status.PASS,
-                   f"all narrative claims entailed by source ({judged} artifact(s) judged)")
+                   f"all narrative claims entailed by source ({judged} artifact(s) judged)"
+                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else ""),
+                   items=overturned)
 
 
 # --------------------------------------------------------------------------- topics / key terms

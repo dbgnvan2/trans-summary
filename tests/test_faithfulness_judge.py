@@ -230,14 +230,17 @@ def test_m2a1_fabricated_claim_flagged(monkeypatch):
     claims = fj.extract_claims(text)
     # "Dr. Luciano Malorni" must stay ONE claim (abbreviation-aware split)
     assert any("Luciano Malorni of Milan" in c for c in claims)
-    # judge marks the fabricated-name claim unsupported, the rest entailed
-    resp = json.dumps([
-        {"index": i + 1, "label": "unsupported" if "Malorni" in c else "entailed",
-         "rationale": "x"}
-        for i, c in enumerate(claims)
-    ])
-    client = _canned_client(monkeypatch, resp)
-    result = fj.judge_artifact(text, "source about a 1956 client", client)
+    # judge marks the fabricated-name claim unsupported, the rest entailed — answered
+    # per claim actually sent, so the CF confirmation pass (which re-sends only the
+    # flagged claim) sees a consistent judge.
+    def fake_call(**kwargs):
+        tail = kwargs["messages"][0]["content"][-1]["text"]
+        sent = [ln.split(". ", 1)[1] for ln in tail.splitlines()[1:] if ". " in ln]
+        return _fake_message(json.dumps([
+            {"index": i + 1, "label": "unsupported" if "Malorni" in c else "entailed",
+             "rationale": "x"} for i, c in enumerate(sent)]))
+    monkeypatch.setattr("transcript_utils.call_claude_with_retry", fake_call)
+    result = fj.judge_artifact(text, "source about a 1956 client", object())
     assert result.status == fj.FAIL
     assert len(result.unfaithful) == 1
     assert "Malorni" in result.unfaithful[0].claim

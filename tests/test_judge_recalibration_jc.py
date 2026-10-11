@@ -80,3 +80,16 @@ def test_jc6_cache_version_bumped():
     # Cached Sonnet 4.6 verdicts must not be served after the switch.
     assert config.JUDGE_LOGIC_VERSION >= "2026-10-10"
     assert config.FAITHFULNESS_JUDGE_MODEL == config.THEME_JUDGE_MODEL == "claude-sonnet-5-5"
+
+
+def test_jc0_output_records_prompt_and_versions():
+    """A calibration file names the prompt and confirm mode that produced it."""
+    import hashlib
+
+    import faithfulness_judge as fj
+    meta = jr.run_metadata()
+    assert meta["faithfulness_prompt_sha"] == hashlib.sha256(
+        fj._JUDGE_INSTRUCTIONS.encode()).hexdigest()[:12]
+    assert meta["judge_logic_version"] == config.JUDGE_LOGIC_VERSION
+    assert meta["confirm_mode"] == config.FAITHFULNESS_CONFIRM_MODE
+    assert meta["faithfulness_cache_version"] and meta["theme_prompt_sha"]

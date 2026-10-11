@@ -50,7 +50,8 @@ def faithfulness_gold(client, model: str) -> dict:
         by_source[case["source"]].append(case)
     rows, pairs = [], []
     for sid, group in by_source.items():
-        verdicts = fj.judge_claims([c["claim"] for c in group], sources[sid], client, model=model)
+        verdicts, _ = fj.judge_claims_confirmed([c["claim"] for c in group], sources[sid], client,
+                                                model=model)
         for case, v in zip(group, verdicts):
             pairs.append((case["label"], v.label))
             rows.append({"id": case["id"], "truth": case["label"], "pred": v.label,
@@ -121,12 +122,24 @@ def prose_real(client, model: str) -> dict:
             claims = fj.extract_claims(art.read_text(encoding="utf-8"), source=source)
             if not claims:
                 continue
-            if fj._should_chunk(source):
-                verdicts = fj.judge_claims_chunked(claims, source, client, model=model)
-            else:
-                verdicts = fj.judge_claims(claims, source, client, model=model)
+            verdicts, _ = fj.judge_claims_confirmed(claims, source, client, model=model)
             out[f"{talk.name}{suffix}"] = {v.claim: v.label for v in verdicts}
     return out
+
+
+def run_metadata() -> dict:
+    """Which judge configuration produced a calibration file: the prompt fingerprints,
+    logic versions and the CF confirm mode, so a result can be tied to what ran (P6)."""
+    import hashlib
+
+    import release_gate
+    return {
+        "faithfulness_prompt_sha": hashlib.sha256(fj._JUDGE_INSTRUCTIONS.encode()).hexdigest()[:12],
+        "theme_prompt_sha": hashlib.sha256(fj._THEME_JUDGE_INSTRUCTIONS.encode()).hexdigest()[:12],
+        "judge_logic_version": config.JUDGE_LOGIC_VERSION,
+        "faithfulness_cache_version": release_gate._judge_logic_version(fj._JUDGE_INSTRUCTIONS),
+        "confirm_mode": config.FAITHFULNESS_CONFIRM_MODE,
+    }
 
 
 def passes_bars(run: dict) -> bool:
@@ -230,7 +243,7 @@ def main(argv=None) -> int:
             if r["truth"] != r["pred"]:
                 print(f"   THEME MISS truth={r['truth']:10} pred={r['pred']:10} {r['name'][:60]}")
     result = {"model": args.model, "effort": args.effort, "repeats": args.repeats,
-              "runs": runs, "flips": flips(runs)}
+              **run_metadata(), "runs": runs, "flips": flips(runs)}
     if args.prose_real:
         result["prose_real"] = prose_real(client, args.model)
     result["cost_usd"] = _cost(_usage_rows()[before:])

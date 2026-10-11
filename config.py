@@ -654,6 +654,13 @@ FAITHFULNESS_JUDGE_ENABLED = True
 # 0.91-0.95 / precision 1.00 over 3 runs, real abstracts + injected fabrication
 # correct every run, speaker labels read correctly (4.6 misread them).
 FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-5-5"
+# A first-pass flag counts only when a fresh judgement agrees (CF,
+# docs/plan_judge_confirm_flags_2026-10-11.md): "majority3" = flagged claims are judged
+# again; both reject -> unfaithful, else a third judgement decides. "off" = pass 1 only.
+# Sonnet 5.5 takes no temperature, so a supported claim is sometimes rejected at random
+# (Kerr 2026-09-13: 5 of 10 fresh checks failed on supported sentences).
+FAITHFULNESS_CONFIRM_MODE = "majority3"
+FAITHFULNESS_CONFIRM_MODES = ("majority3", "off")
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # Version tag folded into the persisted judge-verdict cache key (release_gate H2) so a
 # change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor

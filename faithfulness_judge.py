@@ -65,6 +65,9 @@ class FaithfulnessResult:
     status: str  # PASS | FAIL | ERROR
     detail: str = ""
     claims: list = field(default_factory=list)
+    # First-pass flags a fresh judgement did not confirm (CF): kept for the record
+    # so an overturned flag is visible, never silently dropped (P2).
+    overturned: list = field(default_factory=list)
 
     @property
     def unfaithful(self) -> list:
@@ -78,6 +81,7 @@ class FaithfulnessResult:
                 {"claim": c.claim, "label": c.label, "rationale": c.rationale}
                 for c in self.unfaithful
             ],
+            "overturned": list(self.overturned),
         }
 
 
@@ -640,6 +644,57 @@ def judge_claims(claims: list, source: str, client, *,
                           "Faithfulness judge")
 
 
+def judge_claims_confirmed(claims: list, source: str, client, *,
+                           model: Optional[str] = None, logger=None) -> tuple:
+    """Judge claims, then confirm each first-pass flag before it counts.
+
+    Pass 1 is the normal judgement (chunked for a long source). With
+    ``config.FAITHFULNESS_CONFIRM_MODE == "majority3"`` the flagged claims, and only
+    those, are judged again against the full source: both passes reject -> the flag
+    stands (pass 1's label and rationale kept); pass 2 accepts -> a third judgement
+    decides. A flag accepted twice is overturned: its verdict becomes "entailed" with
+    a rationale saying so, and it is listed in ``overturned``. Any judge error raises
+    (the caller fails closed). Returns ``(verdicts, overturned)``.
+
+    Purpose: stop a random false flag from failing a run.
+    Spec:    docs/plan_judge_confirm_flags_2026-10-11.md#CF.1
+    Tests:   tests/test_judge_confirm_cf.py::test_cf1_reject_accept_accept_is_overturned
+    """
+    log = logger or logging.getLogger("faithfulness_judge")
+    mode = config.FAITHFULNESS_CONFIRM_MODE
+    if mode not in config.FAITHFULNESS_CONFIRM_MODES:
+        raise ValueError(f"unknown FAITHFULNESS_CONFIRM_MODE {mode!r}")
+    if _should_chunk(source):
+        verdicts = judge_claims_chunked(claims, source, client, model=model, logger=log)
+    else:
+        verdicts = judge_claims(claims, source, client, model=model, logger=log)
+    flagged = [i for i, v in enumerate(verdicts) if not v.faithful]
+    if mode == "off" or not flagged:
+        return verdicts, []
+
+    def _again(idxs: list) -> list:
+        return judge_claims([claims[i] for i in idxs], source, client, model=model, logger=log)
+
+    second = dict(zip(flagged, _again(flagged)))
+    disputed = [i for i in flagged if second[i].faithful]
+    overturned = []
+    if disputed:
+        third = dict(zip(disputed, _again(disputed)))
+        for i in disputed:
+            if third[i].faithful:
+                first = verdicts[i]
+                overturned.append({"claim": first.claim, "first_label": first.label,
+                                   "first_rationale": first.rationale, "votes": "1 of 3"})
+                verdicts[i] = ClaimVerdict(
+                    first.claim, ENTAILED,
+                    f"first-pass {first.label} not confirmed (1 of 3 judgements): "
+                    f"{first.rationale}")
+    if overturned:
+        log.info("Faithfulness judge: %d of %d first-pass flag(s) not confirmed: %s",
+                 len(overturned), len(flagged), [o["claim"][:80] for o in overturned])
+    return verdicts, overturned
+
+
 def judge_artifact(artifact_text: str, source: str, client, *,
                    model: Optional[str] = None, logger=None) -> FaithfulnessResult:
     """Judge one narrative artifact for faithfulness against the source (M2.A).
@@ -667,26 +722,26 @@ def judge_artifact(artifact_text: str, source: str, client, *,
                        "nothing was checked; regenerate or check the artifact format")
         return FaithfulnessResult(PASS, "no judgeable claims in artifact")
     try:
-        if _should_chunk(source):
-            # Long source: judge each claim against its most-relevant window (and
-            # summary-level inference claims against the full source) — bounded
-            # per-call attention instead of one giant call over the whole transcript.
-            verdicts = judge_claims_chunked(claims, source, client, model=model, logger=log)
-        else:
-            verdicts = judge_claims(claims, source, client, model=model, logger=log)
+        # Long source: chunked pass 1 (bounded per-call attention); every first-pass
+        # flag is then confirmed by fresh judgements before it counts (CF).
+        verdicts, overturned = judge_claims_confirmed(
+            claims, source, client, model=model, logger=log)
     except Exception as e:  # noqa: BLE001 — judge failure must fail closed, not pass
         log.error("Faithfulness judge failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"judge error: {type(e).__name__}: {e}")
     unfaithful = [v for v in verdicts if not v.faithful]
+    note = (f"; {len(overturned)} first-pass flag(s) not confirmed: "
+            f"{[o['claim'][:80] for o in overturned]}" if overturned else "")
     if unfaithful:
         first = unfaithful[0]
         return FaithfulnessResult(
             FAIL,
             f"{len(unfaithful)} of {len(verdicts)} claim(s) not entailed by source; "
-            f"first: [{first.label}] {first.claim[:120]!r}",
-            claims=verdicts,
+            f"first: [{first.label}] {first.claim[:120]!r}{note}",
+            claims=verdicts, overturned=overturned,
         )
-    return FaithfulnessResult(PASS, f"all {len(verdicts)} claim(s) entailed", claims=verdicts)
+    return FaithfulnessResult(PASS, f"all {len(verdicts)} claim(s) entailed{note}",
+                              claims=verdicts, overturned=overturned)
 
 
 # --------------------------------------------------------------------------- M2.B calibration
@@ -725,7 +780,7 @@ def classify_claim(claim: str, source: str, client, *,
                    model: Optional[str] = None, logger=None) -> str:
     """Judge a single claim against a source and return its label — the primitive
     the gold-set calibration (M2.B) grades. Raises on API/parse failure."""
-    return judge_claims([claim], source, client, model=model, logger=logger)[0].label
+    return judge_claims_confirmed([claim], source, client, model=model, logger=logger)[0][0].label
 
 
 # ===========================================================================
