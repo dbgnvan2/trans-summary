@@ -1,0 +1,2363 @@
+{
+ "model": "claude-sonnet-5-5",
+ "effort": "medium",
+ "repeats": 3,
+ "runs": [
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 21,
+     "recall": 0.9545454545454546,
+     "precision": 1.0,
+     "accuracy": 0.9767441860465116
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter began seeing him May 2021, 17 sessions, weekly.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted 1975 and again a year later, after high school.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health field, retired 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother did adoption agency work with foster children, then Verizon in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Daughter mentioned possible OCD symptoms in last couple years.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes himself as catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Tension, heavy drinking, parents overwhelmed; reasonable summary.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter calls not paying rent a nubbin of self.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He observed parents more overwhelmed later; grandparents' deaths linked, though the presenter makes the link.",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "He married in 1985, not 1975.",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998.",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Two hospitalizations stated, not three.",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter works in fashion, not medical field.",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Retired in 2015, not 2005.",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of Bowen Center or Washington location.",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No younger brother physician in Boston; siblings are sisters.",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No master's degree in graphic design mentioned.",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Medication is never mentioned as cause of recovery.",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr describes Aristarchus's heliocentric model going underground 2000 years, then Copernicus restoring credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He uses Wilczek's book on particles and ingredients to explore carryover from physical to biological.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source discusses 2000-year paradigm shift and church opposition; reasonable generalization.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says Aristarchus authored a heliocentric model, not geocentric.",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Speaker is not named Malorni in source; the featured speaker's name is absent, though the cancer-as-blocked-ontogeny view is discussed. Name is fabricated.",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No WHO study from 2019 is mentioned anywhere.",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the presentation doesn't bring us closer to Bowen's roots; answers aren't there yet.",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source describes church, Catholic and Jesuit opposition and Galileo's Inquisition trial.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr wonders what Bowen theory's course will be, contrasting with 2000 years for heliocentrism.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source covers Aristotle's geocentric model through Copernicus restoring heliocentrism, and beyond; summary is a fair partial description.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source states DOS equals EO plus A, differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy supported geocentrism; Copernicus restored heliocentric credibility.",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of any Stanford replication study or 2018 confirmation in the source.",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'You have to heal in the system.'",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the line; the interviewer only paraphrases afterward.",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Bowen's letter said 'if this is how you deal with your family, no wonder you had so much trouble'; 'heal in the system' was Kerr's later remark.",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "Wife at helm coming to mooring; Kerr thought she was too fast and took over.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Vague claim about 'practical stakes' with no basis in the source.",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source doesn't say the distinction explains how family dysfunction persists.",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says he is the youngest in a photo with his four brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he himself is the youngest, not Billy.",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr heard Bowen as a medical student and was in his 60-year Bowen involvement; the 1950s is Bowen's era, not Kerr's studentship.",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'And now we are 35 years later.'",
+      "claim": "Kerr notes that it is now 35 years later."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 1.0
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  },
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 22,
+     "fp": 0,
+     "fn": 0,
+     "tn": 21,
+     "recall": 1.0,
+     "precision": 1.0,
+     "accuracy": 1.0
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter began seeing him May 2021, 17 sessions, weekly; presenting a case.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted 1975 and again a year later, after high school.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health field ever since, retired 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother worked for adoption agency with foster children, then Verizon in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Daughter mentioned possible OCD symptoms within last couple years.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes himself as catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source describes tension, heavy drinking by parents, and parents overwhelmed over time.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter calls not paying daughter's rent a nubbin of self.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He observed parents more besieged later; grandparents' deaths linked as stabilizers (presenter's inference, but plausible).",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "He married in 1985, not 1975.",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998.",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Two hospitalizations are described, not three.",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter's living comes from fashion, not medical field.",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Retired in 2015, not 2005.",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of Bowen Center or Washington, D.C.",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No younger brother physician in Boston; younger siblings are sisters.",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of master's degree in graphic design.",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Medication is never mentioned as cause of recovery.",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source describes heliocentric model going underground 2000 years, Aristarchus, then Copernicus restoring credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr uses Wilczek's book on particles to explore carryover from physical to biological realms.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source stresses paradigm shift taking 2000 years and church opposition to heliocentrism.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says Aristarchus authored a heliocentric model, not geocentric.",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Speaker's name is never given as Malorni; the source never names the philosopher, so attributing the view to Luciano Malorni is fabricated.",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No WHO study on cancer incidence is mentioned in the source.",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the presentation doesn't bring us closer to Bowen's roots and 'certainly aren't there yet'.",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source notes the church, Catholic and Jesuits, resisted heliocentrism; Galileo was tried by Inquisition.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr contrasts how long heliocentrism took with speculation about Bowen theory's course.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source covers Aristotle's geocentric model through Copernicus restoring heliocentrism, and beyond; the claim is a fair summary.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source states DOS equals EO plus A, meaning differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy supported geocentrism; Copernicus restored heliocentric credibility.",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No Stanford replication study or 2018 reference appears in the source.",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'You have to heal in the system.'",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr said it; the interviewer only paraphrased afterward.",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Bowen's letter said 'if this is how you deal with your family, no wonder you had so much trouble'; the 'heal' line was Kerr's statement.",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Wife said 'here, you take it in' after he thought she was going too fast; it's a mooring, and the source doesn't say Kerr was anxious or 'took over' on his own.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Vague claim about practical stakes; source makes no such statement.",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source doesn't say distinction explains how family dysfunction persists.",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says he's the youngest in a photo with his four brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he is the youngest, not Billy.",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr was Bowen's student when in medical school and later; the 1950s is Bowen's era, and Kerr's 60 years puts his start in the 1960s.",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'And now we are 35 years later.'",
+      "claim": "Kerr notes that it is now 35 years later."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+      "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 1.0
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  },
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 21,
+     "recall": 0.9545454545454546,
+     "precision": 1.0,
+     "accuracy": 0.9767441860465116
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter says she began seeing him May 2021, 17 sessions, weekly.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted 1975 and again a year later.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health field, retired 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother worked for adoption agency with foster children, then Verizon in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Daughter mentioned possible OCD symptoms within last couple years.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes being catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Tension, heavy drinking by parents, besieged and overwhelmed parents are described.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter calls these 'nubbin of self'.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He observed parents more overwhelmed later; grandparents' deaths linked as stabilizers.",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Married in 1985, not 1975.",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998.",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Only two hospitalizations are described.",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter works in fashion, not medical field.",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Retired in 2015, not 2005.",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No location of recording mentioned.",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Client has a younger sister, no physician brother in Boston.",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No master's degree in graphic design mentioned.",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Medication is never mentioned as cause of recovery.",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says Aristarchus's heliocentric model went underground 2000 years and Copernicus restored its credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr draws on Wilczek's book on particles and cells, linking the physical and biological worlds.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source stresses how long a paradigm shift can take and describes church opposition to heliocentrism.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Aristarchus authored a heliocentric model, not a geocentric one.",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "The researcher's name is never given in the source; 'Malorni' is not stated, and Kerr does not name her.",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No WHO study or 2019 cancer incidence data is mentioned.",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the presentation does not bring us closer to Bowen's roots; answers aren't there yet.",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source describes church, Catholic and Jesuit opposition, Inquisition trial of Galileo.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr wonders how long Bowen theory will take, contrasting with heliocentrism's 2000 years.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr walks from Aristotle's geocentric model through Aristarchus, Ptolemy, to Copernicus restoring heliocentrism, and beyond.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source states DOS equals EO plus A, differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy was a geocentric supporter; Copernicus restored heliocentric credibility.",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of a 2018 Stanford replication study anywhere in the source.",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'You have to heal in the system' in Section 19.",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the line; the interviewer only paraphrases afterward, so attribution to the interviewer is wrong.",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Bowen's letter said 'if this is how you deal with your family, no wonder you had so much trouble'; 'heal in the system' was Kerr's later statement.",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "Wife was at helm, Kerr thought she was going too fast, and then took over.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Vague claim about practical stakes; the source makes no such statement.",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source doesn't say the distance/differentiation distinction explains how family dysfunction persists.",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says he is the youngest in a photo with his four brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he is the youngest; Billy is not.",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Kerr heard Bowen lecture in medical school; the 1950s is Bowen's era, not Kerr's studentship. The source gives no date.",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'And now we are 35 years later.'",
+      "claim": "Kerr notes that it is now 35 years later."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+      "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 1,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 0.9285714285714286
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "ungrounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  }
+ ],
+ "flips": [
+  {
+   "set": "faithfulness",
+   "case": "k4",
+   "labels": [
+    "entailed",
+    "unfaithful"
+   ]
+  },
+  {
+   "set": "themes",
+   "case": "9:Physical Illness as System Disruptor: Ho",
+   "labels": [
+    "grounded",
+    "ungrounded"
+   ]
+  }
+ ],
+ "prose_real": {
+  "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - abstract-generated.md": {
+   "Michael Kerr presents a recorded interview with a woman who experienced a transformative crisis that catalyzed significant personal growth through the integration of Bowen theory and spiritual experience.": "entailed",
+   "The webinar demonstrates the value of hearing individuals describe themselves directly rather than through clinical interpretation, allowing audiences to witness how emotional process operates across multiple life domains simultaneously.": "entailed",
+   "The interviewee traces her deterioration to a convergence of nodal events in 2015—her mother's death, her husband's retirement, her mother-in-law's dementia diagnosis, the loss of her naturopathic doctor, and the death of her dog—which functioned not as causes but as revelaers of a self-deficit accumulated over decades.": "entailed",
+   "Rather than any single event creating her problems, these circumstances unmasked a slow erosion of identity that had begun with her marriage in 1991 and her relocation to France, where progressive fusion with a new family system, language, and role-based identity as a missionary gradually displaced her creative and autonomous self.": "entailed",
+   "The subsequent diagnosis of stage one uterine cancer forced her to confront the reality that she had lost herself in a pseudo-self constructed through others' expectations and her own reactivity patterns.": "unsupported",
+   "The interviewee's recovery involved recognizing the distinction between her authentic self and the pseudo-self that had been living her life, a recognition facilitated through both spiritual experience and Bowen theoretical concepts.": "entailed",
+   "Her spiritual experiences—including a childhood encounter with God at age five and a vision of a bird's wing during her cancer treatment—provided the emotional grounding necessary to undertake genuine self-work.": "unsupported",
+   "Simultaneously, her study of Bowen theory offered conceptual frameworks for understanding her pursuer-distancer pattern with her husband and the chronic reactivity that had become routine ways of relating.": "entailed",
+   "The integration of faith-based insight and theoretical understanding enabled her to achieve measurable improvements in her marriage and a notch of differentiation that continues to develop.": "entailed",
+   "The discussion that follows explores how Bowen theory and religious experience can complement one another in supporting personal growth and how differentiation of self operates as both a spiritual and emotional process.": "entailed"
+  },
+  "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+   "Societal Emotional Process* is a presentation by Michael Kerr (2021-12-12) about how Bowen theory explains differentiation of self through unusual life experience, illustrated by a recorded interview with a woman who recovered from cancer by recognizing and separating from a pseudo self built over thirty years.": "unsupported",
+   "Michael Kerr screens and discusses a recorded interview in which a woman traces her stage one uterine cancer to a slow loss of self within her marriage and missionary life.": "entailed",
+   "Her recovery integrated Bowen theory concepts with direct spiritual experience, producing a measurable increase in differentiation.": "entailed",
+   "The case illustrates Bowen's claim that differentiation can rise through crisis, not only through family-of-origin work.": "entailed",
+   "Michael Kerr presented this webcast on December 12, 2021, as part of an ongoing series on Bowen theory.": "unsupported",
+   "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019–2020.": "contradicted",
+   "Murray Bowen identified two pathways to raising differentiation: systematic family-of-origin work, and unusual life experience.": "entailed",
+   "Michael Kerr opens the December 2021 webcast by screening a Skype interview he recorded with a woman identified as Linda, a Cincinnati-born American living in France since her 1991 marriage to a French engineer.": "unsupported",
+   "The interview runs close to an hour and is followed by approximately twenty-five minutes of live Q&A with webcast participants.": "entailed",
+   "Linda describes a convergence of nodal events in 2015 — her mother's death, the death of her dog, her mother-in-law's dementia and accusations of theft, and her husband's retirement — that collectively unmasked a decades-long erosion of self.": "entailed",
+   "A subsequent diagnosis of stage one uterine cancer forced a reckoning with how little solid self she had been operating from.": "entailed",
+   "Kerr frames the illness not as the cause of change but as the occasion for it.": "unsupported",
+   "The interview covers Linda's history with Bowen theory, her pursuer-distancer marriage dynamic, her Christian faith, and the specific spiritual experiences — including a childhood out-of-body encounter at age five and a vision of a bird's wing during treatment — that she identifies as the conditions under which genuine self-recognition became possible.": "entailed",
+   "For family systems clinicians and students, this presentation offers a rare extended first-person account of what a rise in differentiation of self looks and feels like from the inside.": "entailed",
+   "Linda does not describe reading about Bowen theory and applying it; she describes the theory becoming visible to her through lived experience.": "contradicted",
+   "That distinction matters clinically: it illustrates how crisis can function as a catalyst rather than merely a stressor.": "unsupported",
+   "The case also raises a question that the Q&A addresses directly: how does a clinician distinguish genuine differentiation from the exchange of one pseudo self for another?": "entailed",
+   "Michael King's Scrooge analogy in the Q&A — Ebenezer Scrooge wakes up and grows self within his existing life rather than abandoning it — gives clinicians a concrete heuristic for that distinction.": "entailed",
+   "Finally, the integration of Bowen theory and religious experience throughout the discussion opens practical territory for clinicians working with faith communities.": "entailed",
+   "Randy Frost's Q&A comment that churches could meaningfully integrate Bowen theory, and Corey Howard's reference to *Emotionally Healthy Spirituality* as a book already doing so, point toward applied directions the transcript supports.": "entailed",
+   "Kerr explains that Murray Bowen identified two pathways to raising differentiation — systematic family-of-origin work and unusual life experience — and frames Linda's case as a sustained illustration of the second pathway.": "entailed",
+   "Linda describes the cluster of stressors in 2015 that preceded her cancer diagnosis, emphasizing that no single event was decisive but that together they overwhelmed a self that had been slowly eroding since 1991.": "entailed",
+   "Linda recounts recognizing that a constructed pseudo self had been living her life in her place, and describes the separation from that false identity as peaceful and relieving rather than traumatic.": "entailed",
+   "Linda identifies specific experiences — a childhood out-of-body encounter, a vision of a bird's wing, and ongoing communication through Psalms — as the operative mechanism through which insight and self-recognition became possible.": "entailed",
+   "Linda describes her thirty-year conflictual marriage, her role as pursuer opposite her husband's distancing, and the measurable improvement in their dynamic following her increase in differentiation.": "entailed",
+   "Q&A participants explore how Bowen concepts such as pseudo self, solid self, and the open relationship can complement religious frameworks, with references to churches adopting Bowen theory in practice.": "entailed",
+   "Linda and Kerr discuss how conventional medicine addresses symptoms rather than underlying causes, drawing a parallel to Jeff Rediger's book *Cured* and its case studies of identity-driven recovery.": "entailed",
+   "The degree to which a person operates from a stable, defined sense of self rather than borrowing identity from relationships; in this transcript, Kerr describes it as raisable through either family-of-origin work or an unusual life experience.": "entailed",
+   "A false, constructed identity built from borrowed beliefs and role-based functioning, which the interviewee describes as having been \"living my life in my place\" for decades.": "entailed",
+   "The genuine, stable core of a person's identity, associated in this transcript with convictions a person would be willing to die for and functioning that does not depend on external validation.": "entailed",
+   "Significant life events that cluster together and overwhelm a person's functioning; Linda's 2015 cluster included her mother's death, her dog's death, her mother-in-law's dementia, and her husband's retirement.": "entailed",
+   "A relational dynamic in which one partner pursues emotional engagement while the other withdraws; Linda identifies herself as the pursuer and her husband as the distancer across thirty years of marriage.": "entailed",
+   "A gradual erosion of genuine identity within a highly fused relationship or life context; Linda describes a slow loss of self beginning with her 1991 marriage that left her with \"a very small me\" by 2015.": "entailed",
+   "A Bowen concept describing a relationship in which both people can share innermost thoughts and feelings without fear of reactivity; Kerr suggests Linda's relationship with God approximates this quality.": "entailed",
+   "A state of emotional enmeshment that compromises individual selfhood; Linda describes entering a \"very fusional relationship\" with her husband, a new country, and a new family as the context for her loss of self.": "entailed",
+   "Referenced in Q&A as the pattern of exiting one pseudo self for another rather than building genuine self within existing relationships, mistaken by some for growth.": "entailed",
+   "Kerr's framing that religious or spiritual belief operates practically in a person's life regardless of empirical verification; he states that \"the belief supports it being functional\" and connects this to how Bowen incorporated supernatural phenomena into his theory.": "entailed",
+   "Michael Kerr presented this case in December 2021 to illustrate Bowen's claim that differentiation of self can rise through unusual life experience, not only through family-of-origin work.": "unsupported",
+   "Linda's stage one uterine cancer functioned as a revealer of a self-deficit accumulated over thirty years, not as the cause of that deficit.": "entailed",
+   "Linda described her recovery as a \"literal separation process\" from a pseudo self, facilitated by both Bowen theoretical concepts and direct spiritual experience.": "entailed",
+   "The pursuer-distancer pattern in Linda's marriage showed measurable improvement — conflicts resolved within hours rather than lasting months — following her increase in differentiation.": "entailed",
+   "Q&A participants identified the key clinical distinction between genuine differentiation and pseudo-self substitution: genuine differentiation involves growing self within one's existing life, not exchanging it for a different one.": "entailed",
+   "According to Michael Kerr in this 2021 presentation, Murray Bowen identified two pathways: through an organized effort in one's family of origin, or through an unusual life experience.": "unsupported",
+   "The interviewee's cancer diagnosis and recovery illustrate the second pathway.": "entailed",
+   "Pseudo self is a false or constructed identity a person operates from, built from borrowed beliefs and role-based functioning rather than genuine conviction.": "entailed",
+   "In this transcript, the interviewee describes experiencing a literal separation from the pseudo self that had been living her life in her place.": "entailed",
+   "The interviewee in Michael Kerr's December 2021 webcast described her stage one uterine cancer as identity language — the body expressing what the self could not.": "unsupported",
+   "She had told her sister years earlier that she had lost her life and did not know how to get it back, which she later recognized as cancer language.": "entailed",
+   "In this presentation, Michael Kerr connects Bowen's concept of the open relationship to the interviewee's experiential relationship with God.": "entailed",
+   "Q&A participants including Randy Frost argued that Bowen theory concepts such as pseudo self and solid self can complement and deepen religious frameworks without being identical to them.": "entailed",
+   "In 2015, the interviewee experienced the death of her mother, the death of her dog of fifteen years, her mother-in-law's dementia diagnosis and accusations of theft, and her husband's retirement after forty years.": "entailed",
+   "Kerr described these events not as causes but as revealers of a self-deficit accumulated over decades.": "entailed",
+   "The interviewee identifies herself as a pursuer and her husband as a distancer whose mode of survival was to close up and withdraw.": "entailed",
+   "She describes this pattern as disastrous for many years and reports measurable improvement — conflicts resolved by noon rather than lasting six months — following her increase in differentiation.": "entailed"
+  },
+  "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - blog.md": {
+   "When everything falls apart at once — a parent dies, a spouse retires, a trusted doctor leaves, a relationship fractures — it's natural to point at the pile-up and say: *that's what broke me.* But what if the crisis didn't cause the problem?": "entailed",
+   "What if it just finally made it visible?": "entailed",
+   "That distinction is at the heart of family systems theory, and it changes everything about how we understand — and respond to — our most difficult moments.": "entailed",
+   "In a recorded interview presented by Dr. Michael Kerr, a woman named Linda describes a convergence of painful events in 2015: the death of her mother, her husband's retirement, her mother-in-law's descent into dementia and the false accusations that came with it, the loss of her longtime naturopath, and the death of her dog of fifteen years.": "entailed",
+   "Shortly after, she was diagnosed with stage one uterine cancer.": "entailed",
+   "The instinct is to connect those dots in a straight line: stress caused illness.": "entailed",
+   "But Dr. Kerr offers a different frame entirely — and it's one that family systems thinking has long insisted on.": "entailed",
+   "Dr. Kerr is explicit about this.": "entailed",
+   "Reflecting on Linda's story, he notes that the 2015 events were not the origin of her deterioration: *\"It wasn't really any one of those things in particular, but it certainly unmasked the story.\"*": "unsupported",
+   "Linda herself confirms this in retrospect.": "entailed",
+   "Her hormonal symptoms began at age fifteen.": "entailed",
+   "Physical symptoms appeared as early as 2004.": "entailed",
+   "By 2015, she had already been living for over two decades in what she describes as a slow, progressive loss of self — a process that began, she believes, when she married in 1991 and gradually submerged her identity into a new country, a new family, and a new role.": "entailed",
+   "The nodal events of 2015 didn't introduce a new vulnerability.": "entailed",
+   "They overwhelmed the coping strategies that had been managing an existing one.": "entailed",
+   "This is a critical reframe.": "entailed",
+   "When we treat the crisis as the cause, we aim our interventions at the wrong target.": "entailed",
+   "We manage the grief, address the stress, treat the symptom — and leave the underlying deficit untouched.": "entailed",
+   "When we recognize the crisis as a diagnostic instrument, a different and more useful question opens up: *What was already broken, long before this moment arrived?*": "entailed",
+   "Family systems theory, developed by psychiatrist Murray Bowen, proposes that human beings exist not as isolated individuals but as participants in emotional systems — families, marriages, communities — that exert powerful, often invisible pressure on how we think, feel, and function.": "entailed",
+   "One of Bowen's central concepts is differentiation of self: the degree to which a person can maintain a stable, grounded sense of identity while remaining emotionally connected to others.": "entailed",
+   "A well-differentiated person can be close to others without being absorbed by them.": "entailed",
+   "A less-differentiated person is more vulnerable to what Bowen called fusion — the blurring of self into the emotional field of the relationship system.": "entailed",
+   "Linda's account is a vivid illustration of what low differentiation looks like over time.": "entailed",
+   "She describes entering her marriage with \"some self\" — a degree, a career, family connections — but then experiencing a gradual erosion as she adapted to a new country, a new language, a new family, and a new identity organized around her husband and her work in Christian missions.": "entailed",
+   "She describes the result plainly: *\"I had no me to wade through those waters of betrayal, of illness, of death.": "entailed",
+   "I had some me, but I had a very small me.\"*": "entailed",
+   "This is what family systems theory means by loss of self.": "entailed",
+   "It is not a dramatic event.": "entailed",
+   "It is a slow process, often invisible to the person living it, in which the solid core of identity is progressively replaced by what Bowen called pseudo-self — a performed, adaptive self that functions adequately under normal conditions but has no reserves when conditions become extreme.": "entailed",
+   "The 2015 events were extreme.": "entailed",
+   "And the reserves weren't there.": "entailed",
+   "Dr. Kerr draws a parallel to the work of physician Jeffrey Rediger, whose book *Cured* examines cases of radical, unexpected recovery from serious illness.": "entailed",
+   "The pattern Rediger identifies — and that Dr. Kerr explicitly connects to Linda's story — is that conventional medicine tends to treat symptoms without investigating causes.": "entailed",
+   "As Dr. Kerr puts it in the interview: *\"Doctors spend too much time treating symptoms without really understanding causes.\"*": "entailed",
+   "Linda experienced this directly.": "entailed",
+   "She underwent surgery and radiation for her uterine cancer — interventions she accepted with what she describes as \"51% conviction\" — while understanding clearly that they would not address what had actually gone wrong. *\"Surgery and radiation was not going to heal anything,\"* she says. *\"It was going to remove something, but it was not going to really get at the cause.\"*": "entailed",
+   "The cause, as she came to understand it across eighteen months of reflection, was an identity problem.": "entailed",
+   "She had been living a life that was not, in any deep sense, hers.": "entailed",
+   "She had lost the thread of who she was — as a writer, as a creative person, as an individual with her own convictions and direction — and had replaced it with roles and functions that kept her busy but left her, in her own words, saying: *\"I've lost my life and I don't know how to get it back.\"*": "entailed",
+   "She recognized, even before her diagnosis, that this was what she later called \"cancer language\" — the language of someone who has run out of escape hatches, who sees no way forward, who has stopped believing that change is possible.": "entailed",
+   "Family systems theory would recognize this as a description of a person whose level of differentiation has dropped so low that the system — the body included — has begun to signal distress in the only language left available.": "entailed",
+   "Linda's recovery did not begin with treating the cancer.": "entailed",
+   "It began with what she describes as a period of enforced stillness — a shutting down, a stopping — in which she began, for the first time in years, to see herself clearly.": "entailed",
+   "She describes a process of what she calls \"separating from the person who had been living my life in my place.\" This is not metaphor.": "entailed",
+   "In family systems terms, it is a description of beginning to distinguish solid self from pseudo-self — to identify which beliefs, behaviors, and ways of relating were genuinely hers, and which had been borrowed, fused, or performed.": "entailed",
+   "Dr. Kerr frames this in terms of Bowen's observation that differentiation of self can be raised in two ways: through systematic work in one's family of origin, or through an unusual life experience that forces a fundamental reckoning.": "entailed",
+   "Linda's experience was the second kind.": "entailed",
+   "The practical results were measurable.": "entailed",
+   "She describes her marriage — long characterized by a pursuer-distancer pattern in which she chased connection and her husband withdrew — shifting in observable ways.": "entailed",
+   "Conflicts that once lasted months began resolving by noon.": "entailed",
+   "Her husband maintained eye contact rather than leaving the room.": "entailed",
+   "She found herself less reactive, more able to see her own contribution to the dynamic, less invested in being right.": "entailed",
+   "\"I'm simply more separate from those,\"* she says, referring to the habitual emotional patterns. *\"I can see how the damage of those constant habits — they become a routine way of being emotionally.\"*": "entailed",
+   "This is what differentiation looks like in practice.": "entailed",
+   "Not the absence of conflict, but a changed relationship to it.": "entailed",
+   "Not the elimination of difficulty, but a self stable enough to meet it without being consumed.": "entailed",
+   "The lesson family systems theory draws from stories like Linda's is not that crises are unimportant.": "entailed",
+   "It is that crises are informative in a way we rarely allow them to be.": "entailed",
+   "When a person — or a family, or a couple — reaches a breaking point, the first and most urgent question is usually: *What happened?* What event, what loss, what stressor pushed things over the edge?": "entailed",
+   "Family systems theory asks a prior question: *What was the level of functioning before the crisis arrived?* How much solid self was present?": "entailed",
+   "How fused or differentiated were the key relationships?": "entailed",
+   "How long had the physical or emotional symptoms been building, beneath the surface, before the convergence of events made them impossible to ignore?": "entailed",
+   "Linda's hormonal symptoms began at fifteen.": "entailed",
+   "Her physical symptoms appeared in 2004.": "entailed",
+   "Her sense of having lost her life was present years before her diagnosis.": "entailed",
+   "The 2015 events did not create any of this.": "entailed",
+   "They simply removed the last of the adaptive capacity that had been managing it.": "entailed",
+   "Treating the crisis as the cause produces interventions aimed at the wrong target.": "entailed",
+   "Recognizing it as a diagnostic instrument — a moment when what was already broken finally becomes visible — opens the possibility of addressing what actually needs to change.": "entailed",
+   "That is a harder question.": "entailed",
+   "It is also the more useful one.": "entailed",
+   "When multiple stressors converge and a person breaks down, family systems theory asks not what the crisis caused, but what it revealed about the level of self that was present before it arrived.": "entailed",
+   "The erosion of identity through fusion — absorbing into relationships, roles, and systems at the expense of a grounded self — can accumulate over decades before it becomes visible.": "entailed",
+   "Whether the symptom is physical illness, relational conflict, or emotional collapse, recovery that addresses only the surface presentation is unlikely to produce lasting change.": "entailed",
+   "Bowen identified two pathways to raising one's basic level of differentiation: systematic family-of-origin work, and the kind of forced reckoning that a serious crisis can produce — if the person is willing to look at what the crisis is actually showing them.": "entailed",
+   "Linda's recovery showed up not in the elimination of conflict but in her ability to see her own part in it, stay present rather than escalate, and maintain a self stable enough to engage without being consumed.": "entailed",
+   "A framework developed by psychiatrist Murray Bowen that understands human behavior in the context of the emotional systems — families, marriages, communities — in which people are embedded, rather than as a property of isolated individuals.": "entailed",
+   "The degree to which a person can maintain a stable, grounded sense of identity and values while remaining emotionally connected to others.": "entailed",
+   "Higher differentiation means greater resilience under stress and less susceptibility to fusion.": "entailed",
+   "In Bowen theory, the portion of a person's apparent identity that is borrowed, performed, or adapted in response to relationship pressure rather than grounded in genuine conviction.": "entailed",
+   "It functions adequately under normal conditions but is unstable under stress.": "entailed",
+   "The portion of identity that is genuinely one's own — beliefs, values, and ways of being that remain stable regardless of relationship pressure or external circumstances.": "entailed",
+   "The blurring of emotional boundaries between self and others in a relationship system, in which a person's sense of identity, feelings, and functioning becomes entangled with those of the people around them.": "entailed",
+   "Significant life events — deaths, births, divorces, retirements, diagnoses — that alter the structure or functioning of a family system and can trigger shifts in emotional process across the system.": "entailed",
+   "A common relational dynamic in which one person responds to anxiety by moving toward the other (pursuing connection, resolution, or engagement) while the other responds by withdrawing (distancing).": "entailed",
+   "The pattern tends to be self-reinforcing and escalating.": "entailed",
+   "Dr. Kerr's term for the function a crisis plays in revealing a pre-existing deficit of self, rather than creating the problem itself.": "unsupported",
+   "The crisis is diagnostic, not causal.": "entailed",
+   "Family Systems Theory": "entailed",
+   "Solid Self": "entailed",
+   "Nodal Events": "entailed"
+  },
+  "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - abstract-generated.md": {
+   "Michael Kerr presents a webinar exploring the convergence between systems biology and Bowen family systems theory, arguing that biological sciences are moving toward frameworks long familiar to Bowen theorists.": "unsupported",
+   "Drawing on recent cancer research literature, particularly work by Marta Bertoluzzo and colleagues on niche reconstruction, Kerr examines how cancer arises not from driver genes alone but from breakdown of healthy tissue niches into cancer-permissive environments.": "entailed",
+   "He introduces the extended evolutionary synthesis, which emphasizes developmental processes and relational biology over genetic reductionism, and discusses how cancer can be understood as morphogenesis gone awry.": "entailed",
+   "Kerr then explores the role of the autonomic nervous system and neuroendocrine signaling in tumor progression, connecting chronic stress and allostatic load to cancer outcomes.": "entailed",
+   "He draws explicit parallels between the figure-ground shift in cancer treatment—moving from targeting cancer cells to reconstructing niches—and the Bowenian clinical move of shifting focus from the identified patient to the family system.": "entailed",
+   "The presentation demonstrates that systems biology increasingly recognizes the importance of understanding dynamic relationships between cellular, organismic, and environmental factors, a perspective central to Bowen theory's approach to human functioning.": "entailed"
+  },
+  "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+   "Michael Kerr, a clinician and theorist deeply engaged with Bowen family systems theory, presents a fifty-minute lecture exploring an unexpected convergence between contemporary systems biology and family systems thinking.": "unsupported",
+   "Kerr's stated purpose is to demonstrate that biological sciences are moving toward conceptual territory long occupied by Bowen theory—a development he describes as genuinely surprising and professionally exciting.": "entailed",
+   "The presentation draws on three recent books on cancer research and theory, particularly the final chapter of *Rethinking Cancer*, to construct an argument that cancer prevention, detection, and treatment must shift from targeting cancer cells to restoring the tissue environments (niches) in which cancer arises.": "entailed",
+   "The core argument rests on a fundamental figure-ground reversal in cancer biology.": "entailed",
+   "Rather than focusing on the proliferation of cancer cells themselves—the dominant approach of the past four decades—contemporary researchers increasingly recognize that cancer results from the breakdown of healthy tissue niches into cancer-permissive environments.": "entailed",
+   "This shift reflects what Robert Weinberg, the discoverer of the first oncogene, has called a misjudgment of complexity: the reductionist focus on driver genes and cellular mechanisms has yielded limited therapeutic progress despite decades of intensive research.": "entailed",
+   "The emerging systems approach, by contrast, views cancer as arising within an ecosystem of interdependent niches shaped by developmental processes, environmental factors, and relational dynamics.": "entailed",
+   "Mena Bissell's foundational research at Berkeley demonstrates that cell morphology and tissue-specific gene expression are intimately dependent on the extracellular matrix and tissue microenvironment—findings that emphasize the inseparability of cells from their surrounding context, a principle Kerr explicitly parallels to Bowen theory's insistence on understanding the identified patient within the family system rather than in isolation.": "entailed",
+   "The extended evolutionary synthesis (EES) provides theoretical scaffolding for this reorientation.": "entailed",
+   "Unlike the modern synthesis, which reduced evolution to genetic variability and natural selection, the EES emphasizes developmental processes occurring within an organism's lifetime and recognizes that dysfunctions in evolutionary programs cannot be reduced to gene dysfunction alone.": "entailed",
+   "Cancer, in this framework, emerges as a process of morphogenesis gone awry—developmental processes that have become dysregulated.": "entailed",
+   "Kerr notes that Conrad Waddington, credited with laying foundations for systems biology, posed the central question that still animates this work: how do networks of interaction organize a collection of cells into organs with unitary character?": "entailed",
+   "This question applies equally to understanding how healthy tissue organization breaks down and becomes permissive to cancer.": "entailed",
+   "A critical and underappreciated dimension emerges in the final chapters of the book Kerr cites: the role of chronic stress and autonomic nervous system signaling in tumor progression.": "entailed",
+   "Recent molecular research reveals that the peripheral autonomic nervous system and hypothalamic-pituitary-adrenal neuroendocrine signaling regulate inflammation, immune function, and tumor growth through pleiotropic effects on tumor, adipose, and immune cells.": "entailed",
+   "Autonomic neurons release substances that increase arterial blood flow to tumors, enabling their expansion.": "entailed",
+   "This physiological cascade connects relational and psychological stress to cellular-level cancer progression through a continuous chain: chronic anxiety activates the stress response, which generates allostatic load—the cumulative physiological cost of sustained activation.": "entailed",
+   "When allostatic load persists rather than recovering, it triggers cascading effects on cellular functioning and pathophysiologic changes.": "entailed",
+   "Kerr emphasizes that this stress dimension is the first serious engagement with psychological factors in the entire book, marking it as an underappreciated variable even within systems-biology literature.": "entailed",
+   "The concept of allostasis itself—the body's adaptive effort to maintain homeostasis through physiological adjustment—illuminates how stress-associated physiologies, while initially adaptive, become pathogenic when chronically activated.": "entailed",
+   "Relief of chronic stress mediators and reduction of allostatic load through long-term behavioral and lifestyle changes offer a pathway to reverting cancer-promoting niches toward health.": "entailed",
+   "Kerr suggests that differentiation of self and family-level changes that reduce chronic anxiety directly address this physiological mechanism, creating a bridge between Bowen clinical work and cancer biology.": "entailed",
+   "The lecture's implicit architecture proposes that the same fundamental process—cooperation versus self-promotion, healthy niche versus cancer niche—operates isomorphically across multiple scales: within tissues, within organisms, within families, and within societies.": "entailed",
+   "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim.": "unsupported",
+   "The convergence between systems biology and Bowen theory suggests that family systems thinking may offer valuable conceptual and clinical resources for understanding cancer as a relational, multi-generational phenomenon shaped by chronic stress, environmental context, and systemic dysregulation rather than genetic determinism alone.": "entailed"
+  },
+  "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+   "Systems Biology Meets Bowen Theory Rethinking Cancer* is a lecture by Michael Kerr (June 25, 2021) about how systems biology and Bowen Family Systems theory are converging in their understanding of cancer as a relational, context-dependent phenomenon.": "unsupported",
+   "Michael Kerr argues that cancer arises not from defective genes alone but from the breakdown of healthy tissue environments, a view that mirrors how Bowen Family Systems theory understands human dysfunction as emerging from relational context rather than individual pathology.": "entailed",
+   "Both fields are arriving at the same core insight independently.": "unsupported",
+   "Robert Weinberg, discoverer of the first oncogene, lamented in 2014 that cancer research had misjudged the complexity of the problem.": "entailed",
+   "Mena Bissell's research established that cell morphology and gene expression are both intimately shaped by the tissue microenvironment surrounding cells.": "entailed",
+   "Chronic stress and social isolation are linked by epidemiological evidence to worse cancer outcomes, implicating the autonomic nervous system in tumor progression.": "entailed",
+   "Michael Kerr presented this lecture in June 2021 to an audience familiar with Bowen theory, drawing on a cluster of recent books in cancer biology to argue that the biological sciences are moving toward systems-level thinking.": "unsupported",
+   "The central claim is that cancer research is undergoing a paradigm shift: away from targeting individual cancer cells and their driver genes, and toward understanding the broader tissue niche in which cancer arises.": "entailed",
+   "Kerr traces this shift through the work of researchers including Mena Bissell, Marta Bertoluzzo, Carlos Sonenshein, and Anne Soto.": "entailed",
+   "He focuses especially on the final chapter of the edited volume *Rethinking Cancer*, which proposes that cancer prevention and treatment should target the reconstruction of healthy tissue niches rather than the destruction of cancer cells.": "entailed",
+   "The lecture also introduces the Extended Evolutionary Synthesis, the role of the autonomic nervous system in tumor progression, and the concept of allostatic load as a mechanism linking chronic stress to cancer-permissive physiology.": "entailed",
+   "For readers familiar with Bowen Family Systems theory, this lecture offers evidence that mainstream biology is independently validating a systems-level worldview.": "unsupported",
+   "Kerr draws explicit parallels: just as Bowen clinicians shift focus from the identified patient to the surrounding family system, cancer researchers are now shifting focus from the cancer cell to the surrounding tissue niche.": "entailed",
+   "The structural logic is the same in both cases.": "entailed",
+   "For general readers, the lecture reframes cancer as something that happens in a context — shaped by stress, relationships, behavior, and environment — rather than as a purely genetic fate.": "entailed",
+   "This has practical implications: reducing chronic stress and allostatic load through long-term behavioral change is described as a legitimate strategy for reverting cancer-promoting niches.": "entailed",
+   "Kerr describes how cancer arises when a healthy tissue niche breaks down into a cancer-permissive environment, and argues that therapeutic efforts should focus on restoring that environment rather than killing cancer cells.": "entailed",
+   "Mena Bissell, Carlos Sonenshein, and Anne Soto are identified as key contributors to this framework.": "unsupported",
+   "The EES extends the modern synthesis of Darwin and genetics by emphasizing developmental processes within an organism's lifetime, arguing that cancer dysfunction cannot be reduced to genetic mutations alone.": "entailed",
+   "Recent findings show that the peripheral autonomic nervous system and hypothalamic-pituitary-adrenal neuroendocrine signaling regulate tumor growth, inflammation, and metastasis, including by increasing arterial blood flow to tumor sites.": "entailed",
+   "Kerr explains allostasis as the body's adaptive stress response and allostatic load as the cumulative burden when that response persists.": "entailed",
+   "Prolonged allostatic load is linked to steroid receptor activation and immune dysregulation relevant to cancer.": "entailed",
+   "Kerr repeatedly maps Bowen Family Systems concepts — chronic anxiety, differentiation of self, the identified patient — onto systems biology principles such as emergence, niche regulation, and relational biology.": "entailed",
+   "A cancer registry interview study is cited showing that patients who were confident in their treatment decisions had better outcomes, illustrating the importance of a patient's sense of control and self-direction.": "contradicted",
+   "Waddington, credited with laying the foundations of systems biology, is quoted on the central question of how networks of cellular interaction produce organized organs — a question Kerr links directly to Bowen theory's core concerns.": "entailed",
+   "A localized area of tissue, including both cells and extracellular material, that either supports normal cell function or becomes permissive to cancer development when it breaks down.": "entailed",
+   "A set of extensions to the modern synthesis of evolutionary theory that emphasizes developmental processes within an organism's lifetime and holds that cancer dysfunction cannot be reduced to genetic mutations alone.": "entailed",
+   "A systems concept, originally developed in the study of social insects, describing how collective communities of agents self-organize into the emergent structures of complex systems.": "entailed",
+   "The cumulative duration of a stress-activated physiological response; when this response persists rather than resolving, it is associated with pathophysiological changes relevant to cancer progression.": "entailed",
+   "Properties that arise from the collective behavior of a system's components and cannot be explained by studying individual parts, such as driver genes, in isolation.": "entailed",
+   "The structural and biochemical surroundings outside of cells, identified by Mena Bissell's research as playing a central role in determining cell morphology and tissue-specific gene expression.": "entailed",
+   "A framing of cancer as a disrupted developmental process rather than a product of defective genes, extended analogically in the lecture to conditions such as schizophrenia.": "entailed",
+   "The peripheral autonomic nervous system and the hypothalamic-pituitary-adrenal axis, recently recognized as regulators of tumor progression through effects on inflammation, metastasis, and blood flow to tumor sites.": "entailed",
+   "The assemblage of eukaryotic cells and symbiotic microorganisms that together constitute an individual's biological context, within which the cancer state is described as evolving.": "entailed",
+   "The earlier integration of Darwinian natural selection with genetics, presented in the lecture as the baseline from which the Extended Evolutionary Synthesis departs by incorporating developmental and environmental processes.": "entailed",
+   "Michael Kerr argues that systems biology is converging on principles long central to Bowen Family Systems theory, particularly the primacy of relational context over individual pathology.": "entailed",
+   "Robert Weinberg, the discoverer of the first oncogene, publicly acknowledged in 2014 that cancer research had misjudged the complexity of the problem by focusing too narrowly on cancer cells.": "entailed",
+   "Mena Bissell's research demonstrated that cell morphology and gene expression are shaped by the tissue microenvironment, not by genes alone.": "entailed",
+   "The autonomic nervous system is now known to regulate tumor progression, including by increasing arterial blood flow to cancer sites through effects on vessel walls.": "entailed",
+   "Reducing allostatic load through long-term behavioral and lifestyle change — which differentiation of self promotes — is described as a legitimate strategy for reverting cancer-promoting niches.": "entailed",
+   "Michael Kerr argues that systems biology is independently arriving at principles long central to Bowen Family Systems theory, including the primacy of context over individual pathology and the importance of relational networks.": "unsupported",
+   "Both fields now emphasize that dysfunction cannot be understood by studying isolated parts alone.": "entailed",
+   "Kerr presented this convergence in his June 2021 lecture.": "unsupported",
+   "A cancer niche is a localized area of tissue that has broken down from a healthy state into one that is permissive to cancer development.": "entailed",
+   "Researchers including Mena Bissell argue that targeting the niche environment, rather than killing individual cancer cells, represents a more promising therapeutic direction.": "entailed",
+   "This approach parallels the Bowenian clinical move of shifting focus from the identified patient to the surrounding family system.": "entailed",
+   "Michael Kerr describes how the autonomic nervous system and the hypothalamic-pituitary-adrenal axis regulate tumor progression, inflammation, and metastasis.": "entailed",
+   "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress.": "unsupported",
+   "Epidemiological evidence cited in the lecture links chronic stress and social isolation to worse cancer outcomes.": "entailed",
+   "Allostatic load refers to the cumulative burden of a prolonged, unrelieved stress-activated physiological response.": "entailed",
+   "In the lecture, Michael Kerr distinguishes a brief, task-appropriate stress response from one that persists over time.": "entailed",
+   "It is the persisting allostatic load that is associated with pathophysiological changes, including altered steroid receptor signaling, relevant to cancer progression.": "entailed",
+   "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer.": "unsupported",
+   "He also cites Marta Bertoluzzo, Carlos Sonenshein, Anne Soto, and Robert Weinberg, who lamented in 2014 that cancer research had misjudged the complexity of the problem.": "entailed",
+   "The Extended Evolutionary Synthesis is a set of recent extensions to the modern synthesis of evolutionary theory that emphasizes developmental processes occurring within an organism's lifetime.": "entailed",
+   "It holds that cancer dysfunction cannot be reduced to genetic mutations alone.": "entailed",
+   "This framework supports the view that relational and environmental factors, not genes alone, drive cancer development.": "entailed"
+  },
+  "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - blog.md": {
+   "For decades, cancer research operated on a straightforward premise: find the broken gene, fix the broken gene, stop the cancer.": "entailed",
+   "It was a logical approach, and it produced genuine discoveries.": "entailed",
+   "Robert Weinberg, one of the field's most celebrated scientists, built much of his career on it — he was the researcher who identified the first oncogene, a gene whose malfunction was believed to drive cancer growth.": "entailed",
+   "If anyone had reason to trust the reductionist playbook, it was him.": "entailed",
+   "Then, in 2014, Weinberg said something that stopped the field in its tracks.": "unsupported",
+   "After four decades of limited progress in finding cancer cures, and with cancer incidence continuing to rise, he admitted: \"We seem to have again misjudged the complexity of the problem.\" He went further, suggesting that a revised theory of cancer may be needed — one that incorporates processes that cannot be reduced to what is happening inside a single cell.": "entailed",
+   "That kind of reckoning, from that kind of source, is rare in science.": "entailed",
+   "It is also, as systems biologist Michael Kerr argued in a 2021 lecture, a moment that carries profound implications — not just for oncology, but for how we understand living systems at every scale, including the family systems that shape human health and behavior.": "unsupported",
+   "The dominant framework in cancer research for most of the twentieth century was built on a simple logic: cancer cells behave badly because something inside them has gone wrong.": "entailed",
+   "Identify the defective molecule, the mutated gene, the rogue protein — and you have your target.": "entailed",
+   "This approach, known broadly as reductionism, produced the oncogene hypothesis and an enormous body of molecular research.": "entailed",
+   "The problem was not that this research was wrong.": "entailed",
+   "It was that it was incomplete in ways that only became visible over time.": "entailed",
+   "As Weinberg's 2014 lament acknowledged, the complexity of cancer had been systematically underestimated.": "entailed",
+   "Treatments designed to kill cancer cells often failed to produce lasting cures.": "entailed",
+   "Patients who appeared genetically similar responded to the same treatment in wildly different ways.": "unsupported",
+   "Something was being missed.": "entailed",
+   "What was being missed, a growing number of researchers now argue, was the ground beneath the figure — the tissue environment surrounding the cancer cell, not just the cell itself.": "entailed",
+   "The concept at the center of this paradigm shift is the tissue niche.": "entailed",
+   "A niche, in this biological sense, is not simply a location.": "entailed",
+   "It is a dynamic environment made up of cells, extracellular matrix — the structural scaffolding between cells — and a web of chemical signals, immune interactions, and physical conditions that together determine what kinds of cellular behavior are possible in that space.": "entailed",
+   "In a healthy niche, cells receive signals that keep their proliferation regulated, their identity stable, and their cooperation with neighboring cells intact.": "entailed",
+   "The niche, in other words, is not a passive backdrop.": "entailed",
+   "It is an active participant in determining what cells do.": "entailed",
+   "Mena Bissell, a researcher at Lawrence Berkeley National Laboratory whose work Kerr highlighted in his lecture, spent years demonstrating exactly this.": "entailed",
+   "Her findings showed that cell morphology — what a cell actually becomes — and the expression of tissue-specific genes are both intimately tied to the nature of the surrounding environment.": "entailed",
+   "A cancer cell placed in a healthy tissue environment can, under the right conditions, be coaxed back toward normal behavior.": "unsupported",
+   "The environment is not incidental.": "entailed",
+   "This is what makes the niche concept so disruptive to the older framework.": "entailed",
+   "If the environment shapes what cells do, then targeting only the cell while leaving the environment intact is, at best, an incomplete strategy.": "entailed",
+   "One of the most striking formulations Kerr drew on in his lecture came from an oncologist who described cancer as \"a wound that does not heal.\" The phrase captures something important: cancer is not simply a local malfunction.": "entailed",
+   "It reflects a systemic perturbation — a disruption in the broader conditions that normally allow tissue to regenerate and maintain itself.": "entailed",
+   "When a healthy niche breaks down, it can be transformed into what researchers now call a cancer niche: an environment that is permissive to, and in some cases actively promotes, the development of cancer.": "entailed",
+   "The cancer does not arise in spite of its surroundings.": "entailed",
+   "It arises, in part, because of them.": "entailed",
+   "This reframing has direct therapeutic implications.": "entailed",
+   "If the goal is to prevent or reverse cancer, then restoring the niche — bringing the tissue environment back to a state in which cancer cannot easily take hold — becomes as important as targeting the cancer cells themselves.": "entailed",
+   "Researchers working in this space describe this as \"reverting or transcending the cancer state,\" a phrase that signals a fundamental shift in what treatment is trying to accomplish.": "entailed",
+   "To explain why the niche matters in the way it does, systems biologists have reached for two concepts that do not appear in classical molecular biology: emergence and stigmergy.": "entailed",
+   "Emergence refers to properties or behaviors that arise from the interactions of a system's components and cannot be predicted from studying those components in isolation.": "entailed",
+   "A cancer niche has emergent features — characteristics that belong to the system as a whole, not to any single cell or molecule within it.": "entailed",
+   "Driver-gene models, which focus on identifying the specific genetic mutations that \"cause\" cancer, are structurally unable to capture these emergent features.": "entailed",
+   "They are looking at the parts when the explanation lives in the pattern.": "entailed",
+   "Stigmergy, a concept originally developed in the study of social insects, describes how complex, coordinated structures can arise from the indirect interactions of many agents — none of whom has a blueprint for the whole.": "entailed",
+   "Applied to biology, it offers a way of thinking about how tissues self-organize, and how that self-organization can go wrong.": "entailed",
+   "When the signals that coordinate collective cellular behavior are disrupted, the result is not simply a misbehaving cell.": "entailed",
+   "It is a breakdown in the system's capacity to maintain coherent organization.": "entailed",
+   "These are not minor theoretical refinements.": "entailed",
+   "They represent a different way of asking the question.": "entailed",
+   "Instead of \"what is wrong with this cell?\" the systems approach asks \"what has gone wrong in the network of interactions that this cell depends on?\"": "entailed",
+   "For those familiar with family systems thinking, the logic of this shift will feel recognizable.": "entailed",
+   "Bowen Family Systems Theory, developed by psychiatrist Murray Bowen, rests on a similar premise: that an individual's symptoms cannot be fully understood by studying the individual in isolation.": "entailed",
+   "The person exists within a network of relationships — a family system — and the functioning of that system shapes what is possible for each person within it.": "entailed",
+   "Just as cancer researchers spent decades focusing on the cancer cell while the tissue environment went largely unexamined, clinicians spent decades focusing on the symptomatic individual while the relational environment went largely unaddressed.": "entailed",
+   "In both cases, the figure was studied intensively while the ground was treated as background noise.": "entailed",
+   "The Extended Evolutionary Synthesis, which Kerr discussed in his lecture, formalizes this broader view at the level of evolutionary biology.": "entailed",
+   "It emphasizes that developmental processes occurring within an organism's lifetime — processes shaped by environment, experience, and relationship — cannot be reduced to genetic dysfunction alone.": "entailed",
+   "The organism and its context are inseparable.": "entailed",
+   "This is the same argument that family systems thinking has made about human behavior for more than half a century.": "unsupported",
+   "The convergence is not coincidental.": "entailed",
+   "It reflects a broader shift in how science is learning to think about living systems at every scale.": "entailed",
+   "One of the most striking sections of Kerr's lecture addressed the role of chronic stress in cancer progression — a connection that has historically been underemphasized in oncology research but is now gaining serious scientific attention.": "entailed",
+   "The autonomic nervous system, which regulates the body's stress response, is now known to influence tumor progression through its effects on blood flow, immune function, and inflammation.": "entailed",
+   "When the body is under chronic stress, the sustained activation of stress-response systems — what researchers call allostatic load — creates physiological conditions that can make tissue environments more permissive to cancer development and progression.": "entailed",
+   "This is where the family systems perspective becomes directly relevant to cancer biology.": "entailed",
+   "Chronic anxiety — the kind that is embedded in relational patterns across generations — is one of the primary drivers of sustained stress-response activation.": "entailed",
+   "Understanding why some individuals carry higher levels of chronic anxiety than others, and how that anxiety is shaped by family and social context, is precisely what Bowen theory was designed to address.": "entailed",
+   "The niche, in other words, is not only a biological environment.": "entailed",
+   "It is also a relational one.": "entailed",
+   "Robert Weinberg, the discoverer of the first oncogene, publicly acknowledged in 2014 that four decades of cancer research focused on driver genes had misjudged the complexity of the problem — a landmark concession that helped open the door to systems-level approaches.": "entailed",
+   "The tissue niche — the dynamic environment surrounding cancer cells, including the extracellular matrix and the web of signals that regulate cellular behavior — is now understood to play an active role in whether cancer arises, progresses, or can be reversed.": "entailed",
+   "Emergence and stigmergy are the conceptual tools systems biologists are using to describe collective cellular behavior that driver-gene models cannot capture; these tools require looking at the pattern of interactions, not just the individual components.": "entailed",
+   "Chronic stress and the sustained activation of the autonomic nervous system are now recognized as factors in cancer progression, connecting the biological niche to the relational and social environments that shape stress levels over a lifetime.": "entailed",
+   "The paradigm shift in cancer biology — from figure to ground, from cell to niche, from individual to system — mirrors the foundational logic of family systems thinking, suggesting that these two fields are converging on a shared understanding of how living systems work.": "entailed",
+   "A localized biological environment within the body, composed of cells, extracellular matrix, and chemical signals, that actively regulates the behavior of the cells living within it.": "entailed",
+   "The structural scaffolding of proteins and other molecules that surrounds and supports cells within a tissue, playing an active role in signaling and regulation.": "entailed",
+   "A gene whose mutation or abnormal activation is associated with the development of cancer; the focus of much reductionist cancer research in the twentieth century.": "entailed",
+   "The appearance of properties or behaviors in a system that cannot be predicted from studying the system's individual components in isolation.": "entailed",
+   "A mechanism of indirect coordination in which the actions of agents modify their shared environment in ways that influence the subsequent actions of other agents, enabling complex collective behavior without central direction.": "entailed",
+   "The cumulative physiological cost of sustained stress-response activation; high allostatic load is associated with a range of adverse health outcomes, including conditions that may make tissue environments more permissive to cancer.": "entailed",
+   "A set of extensions to classical evolutionary theory that emphasize the role of developmental processes, environmental interaction, and epigenetic inheritance — factors that cannot be reduced to genetic variation and natural selection alone.": "entailed",
+   "A framework, central to Bowen Family Systems Theory, that understands individual behavior and health as shaped by the individual's position and functioning within a network of multigenerational family relationships, rather than by individual traits or pathology alone.": "entailed",
+   "A therapeutic strategy in cancer biology that aims to restore the tissue environment to a healthy state — rather than targeting cancer cells directly — so that the conditions permissive to cancer are removed.": "entailed",
+   "A scientific approach that seeks to explain complex phenomena by breaking them down into their smallest constituent parts; the dominant paradigm in molecular biology and cancer research for much of the twentieth century.": "entailed",
+   "Tissue Niche": "entailed",
+   "Extracellular Matrix": "entailed",
+   "Allostatic Load": "entailed",
+   "Family Systems": "entailed",
+   "Niche Reconstruction": "entailed"
+  },
+  "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - abstract-generated.md": {
+   "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)": "entailed",
+   "Michael Kerr delivers a webinar exploring the historical and biological roots of Bowen Family Systems Theory, arguing that understanding the deep origins of the theory across physical, biological, and social domains illuminates its mechanisms and predictive power.": "entailed",
+   "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.": "unsupported",
+   "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.": "unsupported",
+   "He then examines what physical principles, particularly forces and constraints, carry over into biological organization, using Frank Wilczek's account of elementary particles and their properties to establish continuity between the physical and living worlds.": "entailed",
+   "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.": "contradicted",
+   "He posits that when cells lose multicellular coordination they regress to ancestral properties of self-reproduction, mirroring how undifferentiation in families produces dysfunction.": "entailed",
+   "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life.": "entailed",
+   "In his second presentation, Kerr synthesizes neuroscientific research on emotion and motivation, examining Leonard Malodenau's concept of core affect as a neurological sentinel monitoring homeostatic threats, Kent Berridge's distinction between liking and wanting as separate reward subsystems, and William Seeley's identification of the emotional salience network and executive control network.": "entailed",
+   "Kerr highlights the determination node within the salience network as a fundamental emotional function enabling goal-directed action, connecting this neurological finding to the sustained effort required for differentiation of self in family work.": "entailed",
+   "Kerr concludes that while definitive answers about Bowen theory's roots remain incomplete, knowledge of non-living and living systems will ultimately provide those answers, extending understanding beyond the boundaries of the human species.": "entailed",
+   "The presentation generates substantial audience engagement, with participants exploring connections between chronic anxiety as vigilance, state-holding processes, homeostatic disturbance, and the neurological substrates of determination and adaptive capacity.": "entailed"
+  },
+  "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+   "Where Roots Bowen Theory Reside in the Brain* is a lecture by Michael Kerr (2022-02-18) about the physical, biological, and neuroscientific foundations underlying Bowen theory's core concepts.": "entailed",
+   "Michael Kerr argues that Bowen theory has deep roots extending through cellular biology, evolutionary history, and physical law.": "entailed",
+   "He connects the individuality and togetherness life forces to counterbalancing processes in cancer cell biology, and grounds the capacity for differentiation of self in identifiable brain networks.": "entailed",
+   "Michael Kerr uses the 2,000-year geocentric-to-heliocentric paradigm shift as a structural metaphor for the eventual acceptance of Bowen theory.": "entailed",
+   "Kent Berridge's neuroscience research identifies wanting and liking as two distinct brain subsystems, which Kerr connects to motivation in family emotional functioning.": "entailed",
+   "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self.": "unsupported",
+   "Michael Kerr delivers two linked presentations in this 2022 webinar.": "entailed",
+   "The first traces the historical and biological roots of Bowen theory, arguing that the forces Bowen identified — individuality and togetherness — may have origins in physical laws, cellular biology, and evolutionary processes that predate multicellular life.": "entailed",
+   "The second presents neuroscientific research on emotion and motivation as a mechanistic account of how differentiation of self operates in the brain.": "entailed",
+   "Kerr opens by reviewing the 2,000-year suppression of heliocentrism from Aristarchus through Einstein, using this arc as a model for how paradigm shifts face resistance before eventual vindication.": "contradicted",
+   "He then draws on Frank Wilczek's physics, cancer research by Sonenschein, Soto, and Marta Bertolaso, and neuroscience by Leonard Mlodinow, Kent Berridge, and William Seeley to build a multi-level account of where Bowen theory's roots reside.": "entailed",
+   "The extended Q&A, involving participants Amy Post, Dave Galloway, Kathy Kerr, and Janice Norton, focuses on chronic anxiety as the central disruptor of differentiation — examining it at cellular, organismic, familial, and individual levels simultaneously.": "entailed",
+   "Clinicians and students who understand this material gain a framework for situating Bowen theory within a broader scientific context.": "entailed",
+   "Knowing that the individuality and togetherness life forces may have roots in cellular differentiation versus state-holding dynamics — as Bertolaso's cancer research suggests — makes those forces feel less abstract and more grounded in observable biological processes.": "entailed",
+   "The neuroscience material is equally practical.": "entailed",
+   "Understanding that determination is a locatable neural function within the salience network — and that chronic anxiety competes directly with it — gives clinicians a concrete way to think about why sustained effort toward differentiation of self is difficult and what is happening in the brain when it succeeds or fails.": "entailed",
+   "For students of Bowen theory, Kerr's formula DOS = EO + A (differentiation of self equals emotional objectivity plus action) anchors both presentations.": "entailed",
+   "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates.": "unsupported",
+   "Kerr traces the 2,000-year arc from Aristotle through Aristarchus, Ptolemy, Copernicus, Kepler, Galileo, Newton, and Einstein, using it as a structural metaphor for how Bowen theory may eventually displace entrenched models of human behavior.": "contradicted",
+   "Frank Wilczek's account of elementary particles — electrons, photons, quarks, and gluons — raises the question of what physical forces carry over into biological organization and ultimately into human emotional functioning.": "entailed",
+   "Marta Bertolaso frames cancer as blocked cell differentiation rather than multiplication, with regressing cells reverting to ancestral properties.": "entailed",
+   "Kerr draws a direct parallel to Bowen theory's concept of blocked development through undifferentiation in families.": "entailed",
+   "Leonard Mlodinow's concept of core affect describes a neurological sentinel that monitors threats to homeostasis, connecting to Bowen's view of the intellectual and emotional systems as a working team.": "entailed",
+   "Kent Berridge demonstrated that pleasure and motivation are produced by two distinct brain subsystems.": "entailed",
+   "Dopamine drives the wanting circuit independently of the liking circuit, with direct implications for understanding driven behavior in family emotional systems.": "entailed",
+   "William Seeley identified the emotional salience network and executive control network as the brain's paired self-regulation system.": "entailed",
+   "A Stanford electrode implantation study located a specific neural node for determination within the salience network.": "entailed",
+   "Participants and Kerr together describe chronic anxiety as emotional programming from the family of origin that creates a persistent vigilance loop, functioning as a chronic stress response to homeostatic disturbance and competing directly with goal-directed determination.": "entailed",
+   "Expressed by the formula DOS = EO + A, it is the capacity for emotional objectivity and action that allows a person to engage others non-reactively without violating boundaries.": "entailed",
+   "The capacity that permits emotional neutrality, enabling non-reactive engagement and principled action in relationships.": "entailed",
+   "A neurological state in higher animals that acts as a sentinel monitoring threats to homeostasis and influencing the organism to respond accordingly.": "entailed",
+   "A brain network anchored in limbic structures that monitors internal emotions and external inputs, identifies what is most relevant, and spurs action or restraint.": "entailed",
+   "A brain network in the prefrontal cortex that marshals resources for goal-directed action once activated by the salience network, maintaining focus while filtering distractions.": "entailed",
+   "Two distinct, interconnected reward subsystems: liking refers to pleasure; wanting refers to motivation — the drive to pursue something independent of whether it is enjoyed.": "entailed",
+   "The ability of an organism or cell to maintain stable internal order in the face of environmental threats, operating at cellular, individual, and family levels.": "entailed",
+   "A description of cancer as arrested cell differentiation, paralleled in Bowen theory by the arrest of individual development caused by fusion between parent and offspring.": "entailed",
+   "Bowen theory's two opposing forces: individuality linked to self-regulation, togetherness linked to regulation by others, conjectured by Kerr to have roots in physical and biological history.": "entailed",
+   "A positive feeling of urgent need to act or persevere, identified as a fundamental emotional function locatable in a specific node of the salience-executive control complex in the brain.": "entailed",
+   "Michael Kerr argues in this 2022 lecture that Bowen theory's individuality and togetherness life forces may have evolutionary roots in cellular self-regulation and other-regulation processes.": "entailed",
+   "Marta Bertolaso's framing of cancer as blocked ontogeny parallels Bowen theory's account of blocked individual development through undifferentiation.": "entailed",
+   "Kent Berridge's research establishes that wanting and liking are separate brain subsystems, providing a neural basis for understanding motivation in emotional functioning.": "entailed",
+   "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self.": "unsupported",
+   "Chronic anxiety, described by Dave Galloway as a vigilance pattern shaped by family emotional programming, functions as a persistent homeostatic stress response that competes with determination.": "entailed",
+   "Michael Kerr argues that Bowen theory's core concepts — particularly the individuality and togetherness life forces — may have roots in physical laws, cellular biology, and evolutionary processes predating multicellular life.": "entailed",
+   "In his 2022 lecture, Kerr draws parallels between Bowen's counterbalancing life forces and the differentiation versus state-holding dynamics identified in cancer cell biology by researcher Marta Bertolaso.": "entailed",
+   "Michael Kerr uses the 2,000-year suppression of heliocentrism — from Aristarchus through Copernicus, Kepler, Galileo, Newton, and Einstein — as a structural metaphor for how paradigm shifts face institutional resistance before eventual acceptance.": "contradicted",
+   "Kerr suggests Bowen theory represents a comparable paradigm shift in understanding human behavior, one that may take significant time to dominate public and scientific consciousness.": "entailed",
+   "William Seeley identified two brain networks relevant to self-regulation: the emotional salience network, anchored in limbic structures, which monitors internal emotions and external threats to homeostasis; and the executive control network, located in the prefrontal cortex, which marshals brain resources for goal-directed action.": "entailed",
+   "Michael Kerr connects these networks to the intellectual-emotional working team described in Bowen theory.": "entailed",
+   "Kent Berridge's research demonstrated that wanting (motivation) and liking (pleasure) are produced by two distinct, interconnected subsystems in the brain's reward system.": "entailed",
+   "Michael Kerr highlights this distinction in his 2022 lecture as a brain-level account of how motivation operates, connecting it to the emotional forces that drive or inhibit differentiation of self in family work.": "entailed",
+   "In Michael Kerr's 2022 lecture, chronic anxiety is framed as a vigilance pattern shaped by family emotional programming that functions as a persistent stress response to homeostatic disturbance.": "entailed",
+   "Participants and Kerr together argue that chronic anxiety competes directly with determination — the neural capacity for goal-directed perseverance — and may drive regression to earlier, less differentiated patterns of functioning.": "entailed",
+   "Blocked ontogeny describes cancer as a disease of cell differentiation rather than multiplication, in which cells regress to ancestral self-reproductive properties when released from multicellular coordination.": "entailed",
+   "Michael Kerr draws a direct parallel to Bowen theory, where differentiation of an individual is hampered by fusion between parent and offspring, producing a comparable arrest of full development.": "entailed"
+  },
+  "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - blog.md": {
+   "A nine-year-old boy with a brain tumor fired his family therapist, directed his own treatment through visualization and peer support, and survived.": "entailed",
+   "A Stanford research team accidentally discovered that the feeling driving that kind of behavior — not fear, not dread, but the specific positive urge to *push harder and keep going* — can be located in a single anatomical node inside the brain.": "entailed",
+   "Move the electrode a few millimeters in any direction, and the feeling disappears entirely.": "entailed",
+   "These two facts, one clinical and one neuroscientific, turn out to be about the same thing.": "entailed",
+   "And for anyone working with family systems — whether as a therapist, a researcher, or someone trying to change their own patterns — the implications are worth sitting with carefully.": "entailed",
+   "In a February 2022 lecture, psychiatrist and Bowen Theory scholar Dr. Michael Kerr drew a direct line between this neuroscience research and the work of differentiation of self.": "unsupported",
+   "His conclusion was straightforward: sustained change requires determination, chronic anxiety continuously activates the same brain network around threat-monitoring, and the two are in direct competition with each other.": "unsupported",
+   "Understanding that competition may be one of the most practically useful things a person working in family systems can do.": "entailed",
+   "The finding came from a clinical procedure, not a planned experiment.": "entailed",
+   "A team of neurologists at Stanford was implanting electrodes in a patient's brain as part of a standard clinical assessment.": "entailed",
+   "During one of the implantation cycles, they asked the patient to describe his sensations, thoughts, and feelings as the electrode was positioned in a specific location.": "entailed",
+   "The patient did not report pain.": "entailed",
+   "He did not report fear or dread.": "entailed",
+   "He reported *determination* — a positive feeling, he said, that told him to push harder, to keep going, to get through whatever was in front of him.": "entailed",
+   "The doctors moved the electrode a few millimeters in one direction.": "entailed",
+   "They located the same node in a second patient and found it in the same anatomical position.": "entailed",
+   "What they had stumbled onto was a single tiny node within what neuroscientists call the emotional salience network — the brain system that monitors internal emotional states and the external environment, identifies what matters most among all incoming signals, and spurs the organism to act or not act accordingly.": "entailed",
+   "This network sits in close anatomical relationship with the executive control network, which keeps attention focused on goals and marshals the brain's resources once the salience network has flagged something as important.": "entailed",
+   "Kerr described the researchers' conclusion this way: they had activated a kind of \"grit switch\" inside the emotional salience and executive control complex.": "entailed",
+   "The feeling of determination, it turns out, is not a vague motivational state.": "entailed",
+   "It is produced by specific neurons.": "unsupported",
+   "Kerr made the bridge explicit.": "entailed",
+   "\"It takes a determination to change,\" he said, connecting the electrode finding directly to the work of differentiation of self — the lifelong effort, central to Bowen Family Systems Theory, to develop a more clearly defined sense of self within one's emotional system while remaining in genuine contact with others.": "entailed",
+   "Differentiation work is not primarily intellectual.": "entailed",
+   "It requires a person to stay present in emotionally activating relationships, to resist the pull toward automatic, anxiety-driven responses, and to act from a more considered position rather than a reactive one.": "entailed",
+   "Anyone who has tried this seriously knows that it is metabolically and emotionally costly in a way that is difficult to explain to someone who hasn't.": "unsupported",
+   "The neuroscience gives that cost a clearer shape.": "unsupported",
+   "The emotional salience network — the same network that contains the determination node — is also the network that chronic anxiety never stops activating.": "unsupported",
+   "This is not a coincidence.": "unsupported",
+   "During the Q&A following Kerr's lecture, several participants offered formulations that, taken together, build a remarkably complete picture of how chronic anxiety interferes with the kind of sustained effort differentiation requires.": "entailed",
+   "Therapist Amy Post offered the most direct formulation.": "entailed",
+   "She proposed that the degree to which life energy is going into maintaining what she called \"state-holding\" — the organism's effort to preserve homeostatic stability, to keep the emotional system in its familiar equilibrium — is energy that is not available for determination.": "entailed",
+   "The chronic anxiety that lives in a family system, she suggested, functions as a latent pull back toward that prior state, continuously drawing on the same neural resources that determination requires.": "unsupported",
+   "Kerr found the formulation worth sitting with.": "entailed",
+   "\"I'll keep thinking about that one,\" he said.": "entailed",
+   "Dave Galloway offered a complementary account from his own experience.": "entailed",
+   "He described chronic anxiety not as a feeling of dread but as a continuous background state of vigilance — a scanning process, largely below conscious awareness, oriented around a single question: *What does the other person want?* This vigilance, he explained, was adaptive to the emotional programming of his family of origin.": "entailed",
+   "It was tuned to that system.": "entailed",
+   "But it runs constantly, generating a low-level anxiousness that then produces soothing behaviors — over-functioning, seeking the right answer, trying to please — that temporarily reduce the discomfort without resolving the underlying state.": "entailed",
+   "Kerr connected this to the homeostasis framework: a disturbance in homeostasis activates the stress response, the stress response becomes chronic, and that chronic state is experienced as chronic anxiety within the individual.": "entailed",
+   "The stress response, he said, is central to understanding what is happening in the body as a whole.": "entailed",
+   "Kathy Kerr added a further distinction.": "entailed",
+   "Acute anxiety, she noted, is adaptive — no one gets through a day without it.": "entailed",
+   "But chronic anxiety, especially when it pushes organisms to regress toward previous states that are not adaptive to their current situation, raises a harder question: what is its adaptive value?": "entailed",
+   "The answer she and Kerr arrived at together was that regression can sometimes motivate a call for action — but only when the pressure becomes severe enough to force a genuine break from the old pattern.": "entailed",
+   "Kerr cited Murray Bowen's observation that families dealing with schizophrenia often didn't change until their backs were literally against the wall, financial and emotional resources exhausted, and someone finally said: *I cannot keep doing this this way.*": "entailed",
+   "The determination node, in that framing, is what gets activated when the wall is finally reached.": "unsupported",
+   "Two threads in the Q&A pushed the determination finding beyond the clinical and into something more vivid.": "entailed",
+   "Lana Hardy raised the connection to cancer survival research.": "entailed",
+   "Kerr described a study in which a researcher examined a hospital's cancer registry, identified patients who had survived against the odds, and tried to determine what distinguished them from those who had not.": "entailed",
+   "The answer that emerged was not a specific treatment protocol or a particular drug regimen.": "entailed",
+   "It was determination — but determination expressed in two completely opposite directions.": "entailed",
+   "One patient told the doctor: *Throw everything you've got at me.": "entailed",
+   "I'm determined to get the best treatment available.* Another patient said: *If I stay in this hospital any longer, you're going to kill me.": "entailed",
+   "I'm determined to get out of here.* The common denominator was not the direction of the choice.": "entailed",
+   "It was the quality of the commitment behind it.": "entailed",
+   "Janice Norton brought the final piece.": "entailed",
+   "She described a short paperback called *I Choose Life*, written by a therapist and a nine-year-old boy named Garrett Porter who survived an astrocytoma brain tumor that was, by medical expectation, going to kill him.": "entailed",
+   "The boy used visualization.": "entailed",
+   "He relied on a network of adults and friends for support.": "entailed",
+   "And at a certain point, he told his parents to keep going to family therapy — and stopped attending himself.": "entailed",
+   "He had decided he had had enough of that particular form of help, and he redirected his energy accordingly.": "entailed",
+   "\"The determination thing really comes through,\" Norton said.": "entailed",
+   "Kerr's response was quiet but pointed.": "unsupported",
+   "The book's title, he noted, is itself a statement of the determination node firing: *I choose life.* Not *I hope to survive.* Not *I am afraid of dying.* A choice.": "unsupported",
+   "An active, forward-directed commitment to a specific outcome, sustained over time against significant opposition.": "unsupported",
+   "Neuroscience now has a name for what that nine-year-old was running on.": "unsupported",
+   "And a location for it in the brain.": "entailed",
+   "The picture that emerges from Kerr's lecture, the electrode study, and the Q&A discussion is not comfortable, but it is clarifying.": "entailed",
+   "Differentiation of self — the central developmental task in Bowen Family Systems Theory — requires sustained determination.": "unsupported",
+   "That determination is produced by a specific node in the emotional salience network.": "entailed",
+   "Chronic anxiety, which is the accumulated residue of a family system's multigenerational emotional programming, continuously activates the same network around threat-monitoring and state-holding.": "unsupported",
+   "The two processes are not simply in tension.": "unsupported",
+   "They are competing for the same neural real estate.": "unsupported",
+   "This means that the cost of differentiation work is not primarily intellectual.": "unsupported",
+   "It is not a matter of learning the right concepts or understanding the theory clearly enough.": "unsupported",
+   "It is a matter of having enough determination available — enough activation of that specific node — to sustain forward movement in the face of a system that is continuously pulling toward the familiar equilibrium.": "unsupported",
+   "It also means that chronic anxiety is not simply a symptom to be managed.": "unsupported",
+   "It is, in a neurological sense, determination's most direct competitor.": "unsupported",
+   "Understanding that competition — naming it, tracking it, working with it rather than around it — may be one of the most practically useful contributions neuroscience has yet made to family systems thinking.": "unsupported",
+   "A Stanford research team accidentally discovered that determination — the specific positive urge to persevere — is locatable in a single anatomical node of the emotional salience network, reproducible across patients, and eliminated by moving the electrode a few millimeters in any direction.": "unsupported",
+   "Chronic anxiety continuously activates the same salience network around threat-monitoring and state-holding, making it determination's most direct neural competitor and helping explain why sustained differentiation work is so metabolically and emotionally costly.": "unsupported",
+   "Evidence from cancer survivor research and clinical accounts — including a nine-year-old who directed his own treatment and survived a brain tumor — suggests that the direction of determined action matters less than the quality of commitment behind it; determination toward opposite choices can produce the same survival outcome.": "unsupported",
+   "In Bowen Family Systems Theory, the lifelong process of developing a more clearly defined sense of self within one's emotional system while remaining in genuine contact with others, rather than either fusing with or cutting off from significant relationships.": "unsupported",
+   "A brain system that monitors internal emotional states and the external environment, identifies the most relevant inputs among all incoming signals, and spurs the organism to act or not act accordingly; the network within which the determination node was located.": "entailed",
+   "A brain system that keeps attention focused on goals relevant to the organism and marshals neural resources once the salience network has flagged something as important; works in close coordination with the salience network.": "entailed",
+   "In Bowen Theory, a sustained background level of anxiety that reflects the accumulated emotional programming of a multigenerational family system, distinct from acute anxiety, which is adaptive and time-limited.": "unsupported",
+   "A term used in the lecture to describe the organism's ongoing effort to preserve homeostatic stability — to keep the emotional system in its familiar equilibrium — which competes with the energy available for forward-directed determination.": "unsupported",
+   "A neurological state in higher animals that acts as a sentinel to watch for threats to homeostasis and influences an organism to respond accordingly; described as the input of the body combined with situational context and background knowledge to produce experienced emotions.": "entailed",
+   "The ability of an organism or individual cell to maintain stable internal order even in the face of environmental changes that could threaten it; disruptions to homeostasis activate the stress response, which can become chronic and be experienced as chronic anxiety.": "entailed"
+  },
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - summary-generated.md": {
+   "Michael Kerr, a psychiatrist who has spent over sixty years engaged with Bowen family systems theory, reflects on how understanding emotional systems transforms one's ability to navigate family relationships, personal development, and societal dysfunction.": "entailed",
+   "Speaking from decades of clinical practice and personal application of Murray Bowen's theoretical framework, Kerr explores the mechanisms by which anxiety circulates through families across generations, how individual differentiation can alter system functioning, and why chronic anxiety now pervades institutions and societies worldwide.": "entailed",
+   "His conversation weaves personal testimony—including his relationship with his schizophrenic brother Billy and his marriage of fifty-nine years—with theoretical insight to illuminate why families repeat destructive patterns and how visibility of those patterns becomes the precondition for change.": "entailed",
+   "Kerr's entry into Bowen theory came through a chance encounter in medical school.": "entailed",
+   "When he heard Bowen lecture, what struck him most was a radical departure from prevailing psychiatric wisdom: rather than blaming the mother for schizophrenia, Bowen implicated the entire family as an emotional system.": "entailed",
+   "This insight resonated deeply because Kerr's own brother Billy had been diagnosed with schizophrenia, and Kerr could recognize in Bowen's framework an explanation for family dynamics he had lived but never understood.": "entailed",
+   "His mother, convinced Billy was fragile, had protected him intensely, and this protection—rooted in the mother's anxiety rather than Billy's actual condition—became the crucible in which Billy's illness developed.": "unsupported",
+   "Years later, when his mother told Kerr, \"Michael, I love you, but I love Billy the most,\" Kerr responded with gratitude rather than resentment.": "entailed",
+   "This response was not resignation; it was the emotional signature of understanding the system clearly enough to see that Billy had absorbed the family's anxiety so that others, including Kerr himself, could develop more freely.": "entailed",
+   "Standing at Billy's grave, Kerr said, \"Thank you for allowing me to grow up\"—an acknowledgment that one person's burden had been another's liberation.": "entailed",
+   "Bowen's central concept, the family projection process, describes how chronic anxiety does not distribute evenly across family members but concentrates in one person, typically a child perceived as vulnerable.": "entailed",
+   "This process is not malicious; it feels like love and protection to those generating it.": "unsupported",
+   "Yet its consequence is structural: one person carries a disproportionate share of the system's emotional weight while others are paradoxically freed.": "entailed",
+   "Understanding this dynamic requires grasping the distinction between acute and chronic anxiety.": "entailed",
+   "Acute anxiety responds to real threats; chronic anxiety is largely imagined, generated by the system itself and flooding through relationships largely unrecognized.": "entailed",
+   "Most people, Kerr observes, drift toward blaming others or themselves without seeing that anxiety is the invisible enemy driving reactivity.": "entailed",
+   "Chronic anxiety, he argues, generates chronic inflammation in the body, linking psychological stress directly to physiological disease.": "entailed",
+   "This connection operates at every scale: the individual body, the nuclear family, the multigenerational system, and society itself.": "unsupported",
+   "Self-differentiation, Bowen's answer to this dynamic, means developing a solid self rather than a pseudo-self—functioning as an authentic individual rather than a reactive mask shaped by the system's demands.": "entailed",
+   "Bowen described the ideal family leader as one who defines self clearly, invests energy in changing self rather than controlling others, and remains neither angry nor dogmatic.": "entailed",
+   "When such a person moves toward differentiation, family symptoms begin to disappear, and mature leadership qualities emerge automatically in other family members.": "entailed",
+   "Kerr illustrates this through a sailboat incident: when his wife remained calm and non-reactive as he took the helm, she modeled differentiation in real time.": "entailed",
+   "Her response—\"I know you're trying to do the best you can\"—rather than anger, helped Kerr see a pattern he had never recognized: when he reacted, she reacted, and neither was victim or perpetrator.": "entailed",
+   "This mutual reactivity, once visible, becomes changeable.": "entailed",
+   "Yet differentiation cannot be achieved through distance.": "entailed",
+   "When Kerr considered leaving psychiatry to return home and care for his mother and brother, Bowen corrected him sharply: healing requires staying in the system that generates the wound.": "contradicted",
+   "Physical distance changes the setting but not the self; emotional cutoff preserves anxiety in different form rather than resolving it.": "entailed",
+   "This paradox—that freedom runs through the source of constraint—defines the difficulty of genuine change.": "entailed",
+   "Kerr spent two years in the Navy after his psychiatric training, and Bowen's letter made clear that running away was not his theory's path.": "entailed",
+   "Differentiation means remaining in contact, staying grounded in one's own position without being pulled into the system's emotional reactivity.": "entailed",
+   "Bowen's concept of societal regression extends this family logic to entire societies.": "entailed",
+   "As chronic anxiety spreads through institutions and communities, people become more reactive, more polarized, and more focused on immediate relief than long-term consequences.": "entailed",
+   "Kerr notes that by the early 1990s, statistics showed rising divorce rates and youth criminality—indicators that societal regression had already begun, roughly fifteen years after Bowen predicted it.": "entailed",
+   "Now, thirty-five years later, chronic anxiety floods into living rooms nightly through news cycles focused entirely on trauma.": "entailed",
+   "Societies, like families, can become fused in anxiety, losing the capacity for mature leadership and differentiated response.": "entailed",
+   "Kerr acknowledges he does not know how to change this trajectory.": "entailed",
+   "Congress and government are so infected by emotionality that change seems impossible.": "entailed",
+   "Yet understanding the system, even without the power to alter it, has value: it reduces reactivity, provides orientation, and preserves the observer's functioning.": "entailed",
+   "Throughout the conversation, the interviewer presses Kerr on practical application.": "entailed",
+   "When asked what steps one can take toward differentiation, Kerr emphasizes motivation and the multigenerational perspective—recognizing that problems are interactive processes, not individual failings.": "entailed",
+   "A notable exchange explores how a more mature person navigates an immature world; Kerr admits he lacks a pithy answer but suggests that watching and studying the system, rather than trying to fix it, may be the most honest response.": "entailed",
+   "The interviewer's own reflection—\"falling into the trap again\" with family members—illustrates how visibility and reactivity remain in tension even for those who understand the theory.": "entailed",
+   "Kerr's final recommendation is direct: read Murray Bowen's collected papers.": "entailed",
+   "Understanding the system, even when one cannot change it, settles people and provides explanation for what they are living through.": "entailed",
+   "The conversation ends where it began—with gratitude—as Kerr expresses hope that he will live long enough to witness societal change, a hope grounded not in optimism but in the differentiated capacity to observe, understand, and remain functional within systems larger than any individual can control.": "entailed"
+  },
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - overview.md": {
+   "Why Families Repeat the Same Patterns* is a lecture by Michael Kerr (2026-09-13) about how family systems transmit anxiety across generations, why individuals repeat relational patterns, and what it takes to change them.": "unsupported",
+   "Michael Kerr draws on more than 60 years with Bowen theory to explain that families are emotional systems driven by chronic anxiety.": "entailed",
+   "Dysfunction is not caused by one bad actor — it is an interactive process that moves through relationships and can extend across generations and into society.": "entailed",
+   "Michael Kerr studied directly under Murray Bowen and later led the Georgetown Family Center.": "unsupported",
+   "Bowen theory treats the family as an emotional system, not a collection of separate individuals.": "entailed",
+   "Kerr argues that physical distance from family is not the same as self-differentiation.": "entailed",
+   "Why Families Repeat the Same Patterns* is a recorded conversation with Michael Kerr, a psychiatrist who has engaged with Bowen theory for over 60 years — first as Murray Bowen's student and later as one of the primary figures who carried Bowen's work forward.": "entailed",
+   "The lecture was recorded on 2026-09-13.": "unsupported",
+   "Kerr argues that understanding why families repeat patterns requires replacing individual-focused thinking with systems thinking.": "entailed",
+   "The family is not a group of separate people who happen to live together.": "entailed",
+   "It is an emotional system in which anxiety circulates, concentrates, and drives behavior in ways that most members never consciously recognize.": "entailed",
+   "The conversation moves from theory to personal memoir to clinical example to societal commentary.": "entailed",
+   "Kerr illustrates each concept with material from his own family, his 59-year marriage, his supervision under Murray Bowen, and his observations about political polarization and global instability.": "entailed",
+   "Most people who struggle in relationships default to one of two explanations: someone else is to blame, or they themselves are defective.": "entailed",
+   "Bowen theory, as presented by Michael Kerr in this lecture, offers a third explanation — chronic anxiety is flooding through the system, and everyone is reacting to it without seeing it.": "entailed",
+   "That shift in perspective changes what a person looks for and what they try to change.": "entailed",
+   "For a reader who understands this material, the practical stakes are concrete.": "entailed",
+   "Kerr shows that leaving a difficult family system does not produce the relief people expect, because the patterns travel with the person.": "entailed",
+   "The work of change must happen inside the relationships that generate the anxiety, not away from them.": "entailed",
+   "At the widest scale, Kerr applies the same logic to society.": "entailed",
+   "Polarization, authoritarian leadership, and institutional dysfunction are not separate problems — they are expressions of chronic anxiety operating at a larger scale.": "entailed",
+   "Understanding the mechanism does not immediately fix it, but Kerr argues that visibility precedes change.": "entailed",
+   "Bowen's concept describes how anxiety concentrates on one family member.": "entailed",
+   "Kerr illustrates this through his brother Billy, who was diagnosed with schizophrenia and absorbed the greater force of the family emotional system while other siblings were relatively freed from it.": "entailed",
+   "Kerr distinguishes chronic anxiety — more imagined than real, largely unrecognized — from acute anxiety tied to real threats.": "entailed",
+   "He argues that chronic anxiety floods through emotional systems invisibly and can generate chronic inflammation and contribute to physiological illness.": "entailed",
+   "Bowen's scale runs from no-self to pseudo-self to solid self.": "entailed",
+   "Kerr describes pseudo-self as wearing masks and reacting to the system's anxiety rather than acting from a stable internal position.": "entailed",
+   "Moving toward a solid self requires motivation, time, and the ability to see one's own part in the interaction.": "entailed",
+   "Kerr recounts Murray Bowen's direct challenge — delivered in a letter during Kerr's Navy posting — that leaving the family system is not differentiation.": "entailed",
+   "Physical distance changes the setting; differentiation changes how a person functions within the relationships.": "entailed",
+   "Kerr argues that a multigenerational perspective is the most important entry point for understanding one's role in a family system.": "entailed",
+   "Dysfunction is an interactive process built across generations, not the fault of any single individual.": "entailed",
+   "Bowen introduced the concept of societal regression in 1975.": "entailed",
+   "Kerr identifies rising divorce rates, youth criminality, authoritarianism, and political polarization as observable indicators.": "entailed",
+   "He applies Bowen's leadership framework to argue that reversing regression requires a self-differentiated leader invested in the welfare of the whole system.": "entailed",
+   "Kerr describes Bowen's demonstration of neutrality during supervision — staying outside the emotional system while Kerr reported on his family — as one of the most formative experiences of his clinical training.": "entailed",
+   "Bowen's influence shaped Kerr's marriage, his clinical work, and his understanding of his own family across more than 60 years.": "entailed",
+   "A framework developed by Murray Bowen that uses systems thinking rather than individual-focused thinking to explain how anxiety, behavior, and dysfunction move through family relationships across generations.": "entailed",
+   "The network of emotional connections and reactivity shared by all members of a family, in which what one person feels and does moves through the relationships and changes the system around them.": "entailed",
+   "The mechanism by which one child becomes the focus of the family's anxiety, worry, and emotional intensity, absorbing a disproportionate share of the system's chronic anxiety.": "entailed",
+   "A form of anxiety that is more imagined than real, operates largely unrecognized, floods through family and social systems invisibly, and is capable of generating chronic inflammation and contributing to physical illness.": "entailed",
+   "A form of anxiety tied to real, identifiable threats, distinguished from chronic anxiety by its connection to a concrete and recognizable source.": "entailed",
+   "The capacity to remain grounded in one's own values and position within a family system without being automatically pulled into its emotional reactivity, achieved by changing oneself rather than managing or blaming others.": "entailed",
+   "A level of functioning in which a person wears masks, fits into the system, and reacts to the anxiety flooding through it rather than acting from a stable, internally defined position.": "entailed",
+   "The pattern of managing an unbearable family system through physical distance, which changes the setting but does not change how a person functions in relation to the system.": "entailed",
+   "Bowen's 1975 concept describing how chronic anxiety spreads beyond the family into institutions and entire societies, producing polarization, emotional reactivity, and short-term thinking.": "entailed",
+   "An approach to understanding family problems that looks across generations rather than blaming any single individual, framing dysfunction as an interactive process built up over time.": "entailed",
+   "Michael Kerr argues that chronic anxiety — not individual pathology — is the primary driver of dysfunction in family systems.": "entailed",
+   "Bowen theory distinguishes pseudo-self (reactive, mask-wearing) from solid self (stable, internally defined) on a continuous scale of self-differentiation.": "entailed",
+   "Murray Bowen told Kerr directly that leaving the family system is not differentiation; healing must happen within the relationships that generate the anxiety.": "entailed",
+   "Kerr identifies political polarization and rising authoritarianism as observable indicators of societal regression, applying the same emotional-system logic Bowen used for families.": "entailed",
+   "Understanding the system — even when one cannot immediately change it — is itself a foundation for navigating family and social life, according to Kerr.": "entailed",
+   "Bowen theory is a framework developed by Murray Bowen that treats the family as an emotional system rather than a collection of separate individuals.": "entailed",
+   "Anxiety flows through the system and affects all members, though not equally.": "entailed",
+   "Michael Kerr has applied and extended this framework for over 60 years.": "entailed",
+   "Acute anxiety is tied to real, identifiable threats.": "entailed",
+   "Chronic anxiety is more imagined than real, operates largely unrecognized, and floods through family and social systems invisibly.": "entailed",
+   "Michael Kerr argues that chronic anxiety can also generate chronic inflammation and contribute to physical illness.": "entailed",
+   "Self-differentiation is the capacity to remain grounded in one's own values and position within a family system without being automatically pulled into its emotional reactivity.": "entailed",
+   "Michael Kerr emphasizes that differentiation means changing oneself rather than managing or blaming others, and that it must happen within the system, not by leaving it.": "entailed",
+   "Emotional cutoff is the pattern of managing an unbearable family system through physical distance — moving away, calling less, or going silent.": "entailed",
+   "Murray Bowen told Michael Kerr directly that leaving the system is not differentiation.": "entailed",
+   "Societal regression is Bowen's 1975 concept describing how chronic anxiety spreads beyond the family into institutions and entire societies, producing polarization, emotional reactivity, and short-term thinking.": "entailed",
+   "Michael Kerr identifies rising authoritarianism and political polarization as current indicators of societal regression.": "entailed",
+   "The family projection process is the mechanism by which one child becomes the focus of the family's anxiety, worry, and emotional intensity.": "entailed",
+   "Michael Kerr illustrates this through his brother Billy, who was diagnosed with schizophrenia and absorbed a disproportionate share of the family system's anxiety while other siblings were relatively freed from it.": "entailed"
+  }
+ },
+ "cost_usd": 1.0943,
+ "parse_retries": 0
+}

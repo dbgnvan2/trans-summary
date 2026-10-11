@@ -3,7 +3,8 @@
   "sources": {
     "dave_g": "dave_g_test2/formatted.md",
     "where_roots": "where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
-    "roots_bowen": "roots_bowen_test/formatted.md"
+    "roots_bowen": "roots_bowen_test/formatted.md",
+    "kerr_families": "prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md"
   },
   "cases": [
     {"id": "e1", "source": "dave_g", "label": "entailed",
@@ -110,6 +111,36 @@
      "note": "EDITORIAL FRAMING (precision): source ties the resistance to the church/Jesuits and 'a lot of resistance' — framing of grounded material, not a new fact"},
     {"id": "ef2", "source": "where_roots", "label": "entailed",
      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow.",
-     "note": "EDITORIAL FRAMING (precision): source explicitly asks what course Bowen theory will take 'as did heliocentrism' — connects two grounded elements"}
+     "note": "EDITORIAL FRAMING (precision): source explicitly asks what course Bowen theory will take 'as did heliocentrism' — connects two grounded elements"},
+    {"id": "k1", "source": "kerr_families", "label": "entailed",
+     "claim": "Kerr states explicitly, \"You have to heal in the system.\"",
+     "note": "Speaker labels in the formatted transcript are the record (D1 2026-10-10): the line follows **Michael Kerr:**."},
+    {"id": "k2", "source": "kerr_families", "label": "contradicted",
+     "claim": "The interviewer says, \"You have to heal in the system.\"",
+     "note": "Labelled as Kerr's line."},
+    {"id": "k3", "source": "kerr_families", "label": "contradicted",
+     "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\"",
+     "note": "The letter said 'Mike, if this is how you deal with your family, no wonder you had so much trouble.'"},
+    {"id": "k4", "source": "kerr_families", "label": "unsupported",
+     "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over.",
+     "note": "She said 'here, you take it in'; 'took over' adds what the source does not give (D1)."},
+    {"id": "k5", "source": "kerr_families", "label": "unsupported",
+     "claim": "The practical stakes are significant.",
+     "note": "Writer's filler with no content in the source (D1: strict rule for summaries/overviews)."},
+    {"id": "k6", "source": "kerr_families", "label": "unsupported",
+     "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists.",
+     "note": "The overview's own framing; the source never says 'central' (D1)."},
+    {"id": "k7", "source": "kerr_families", "label": "entailed",
+     "claim": "Kerr is the youngest of five brothers.",
+     "note": "'me and my four brothers. I'm the youngest'."},
+    {"id": "k8", "source": "kerr_families", "label": "contradicted",
+     "claim": "Billy was the youngest of the Kerr brothers.",
+     "note": "Kerr is the youngest."},
+    {"id": "k9", "source": "kerr_families", "label": "unsupported",
+     "claim": "Kerr was Bowen's student in the 1950s.",
+     "note": "No date for Kerr meeting Bowen; the 1950s line is about the schizophrenogenic-mother idea."},
+    {"id": "k10", "source": "kerr_families", "label": "entailed",
+     "claim": "Kerr notes that it is now 35 years later.",
+     "note": "'And now we are 35 years later.' (2026-10-08 routing false flag)"}
   ]
 }

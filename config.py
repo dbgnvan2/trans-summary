@@ -1065,6 +1065,10 @@ REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
 # invalidates cached verdicts (it is part of the judge logic version) and needs a
 # re-calibration (P20).
 JUDGE_EFFORT = None
+# A judge reply that is not the required JSON is asked for again this many times in
+# total before the check reports ERROR (JC.3: Sonnet 5.5, which takes no temperature,
+# occasionally answered a theme without the JSON array).
+JUDGE_PARSE_ATTEMPTS = 2
 # Cost estimate: thinking tokens per call on models that always think, by effort
 # (billed as output). Approximate; used only for the pre-run estimate.
 THINKING_TOKENS_ESTIMATE = {"low": 500, "medium": 1500, "high": 3000, "xhigh": 5000, "max": 8000}

@@ -534,6 +534,17 @@ def _extract_json_array(text: str) -> list:
     if candidate is None:
         start, end = text.find("["), text.rfind("]")
         if start == -1 or end == -1 or end <= start:
+            # A single verdict sometimes comes back as one bare object instead of a
+            # one-item array (claude-sonnet-5-5, JC.3). Accept exactly that shape;
+            # every verdict still needs its index and label downstream.
+            ostart, oend = text.find("{"), text.rfind("}")
+            if ostart != -1 and oend > ostart:
+                try:
+                    obj = json.loads(text[ostart:oend + 1])
+                except ValueError:
+                    obj = None
+                if isinstance(obj, dict) and "index" in obj and "label" in obj:
+                    return [obj]
             raise ValueError("no JSON array found in judge response")
         candidate = text[start:end + 1]
     data = json.loads(candidate)
@@ -578,6 +589,31 @@ parse_judge_response = _parse_judge_response
 cached_judge_content = _cached_judge_content
 
 
+def call_and_parse(call, parse, logger, what: str):
+    """Run a judge call and parse its reply; if the reply is not the required JSON,
+    ask again, up to config.JUDGE_PARSE_ATTEMPTS calls in total. The final failure
+    raises ValueError naming the start of the reply (callers map it to ERROR —
+    fail closed). API errors are not retried here (call_claude_with_retry does).
+
+    Purpose: One malformed reply must not block publication; a persistent one must.
+    Spec:    docs/plan_judge_recalibration_sonnet55_2026-10-10.md#JC.3
+    Tests:   tests/test_judge_recalibration_jc.py::test_jc3_parse_retry
+    """
+    attempts = max(1, int(getattr(config, "JUDGE_PARSE_ATTEMPTS", 1)))
+    last_error, text = None, ""
+    for attempt in range(1, attempts + 1):
+        text = call()
+        try:
+            return parse(text)
+        except ValueError as e:
+            last_error = e
+            if attempt < attempts:
+                logger.warning("%s reply was not valid JSON (%s); asking again (%d/%d).",
+                               what, e, attempt + 1, attempts)
+    excerpt = " ".join((text or "").split())[:300]
+    raise ValueError(f"{last_error} — after {attempts} attempt(s); reply began: {excerpt!r}")
+
+
 def judge_claims(claims: list, source: str, client, *,
                  model: Optional[str] = None, logger=None) -> list:
     """Judge every claim against the source in ONE batched call. Returns a list of
@@ -586,19 +622,22 @@ def judge_claims(claims: list, source: str, client, *,
 
     model = model or config.FAITHFULNESS_JUDGE_MODEL
     prompt = build_judge_prompt(claims, source)
-    message = call_claude_with_retry(
-        client=client,
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
-        temperature=config.TEMP_STRICT,
-        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
-        min_length=1,
-        logger=logger or logging.getLogger("faithfulness_judge"),
-        timeout=config.TIMEOUT_DEFAULT,
-    )
-    text = transcript_utils.response_text(message)
-    return _parse_judge_response(text, claims)
+    log = logger or logging.getLogger("faithfulness_judge")
+
+    def _call():
+        return transcript_utils.response_text(call_claude_with_retry(
+            client=client,
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
+            temperature=config.TEMP_STRICT,
+            effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
+            min_length=1,
+            logger=log,
+            timeout=config.TIMEOUT_DEFAULT,
+        ))
+    return call_and_parse(_call, lambda text: _parse_judge_response(text, claims), log,
+                          "Faithfulness judge")
 
 
 def judge_artifact(artifact_text: str, source: str, client, *,
@@ -755,19 +794,24 @@ def judge_themes(themes: list, source: str, client, *,
     from transcript_utils import call_claude_with_retry
 
     model = model or config.THEME_JUDGE_MODEL
-    message = call_claude_with_retry(
-        client=client,
-        model=model,
-        messages=[{"role": "user", "content": build_theme_judge_prompt(themes, source)}],
-        max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
-        temperature=config.TEMP_STRICT,
-        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
-        min_length=1,
-        logger=logger or logging.getLogger("theme_judge"),
-        timeout=config.TIMEOUT_DEFAULT,
-    )
+    log = logger or logging.getLogger("theme_judge")
     names = [t["name"] for t in themes]
-    return _parse_judge_response(transcript_utils.response_text(message), names, valid_labels=_THEME_LABELS)
+
+    def _call():
+        return transcript_utils.response_text(call_claude_with_retry(
+            client=client,
+            model=model,
+            messages=[{"role": "user", "content": build_theme_judge_prompt(themes, source)}],
+            max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
+            temperature=config.TEMP_STRICT,
+            effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
+            min_length=1,
+            logger=log,
+            timeout=config.TIMEOUT_DEFAULT,
+        ))
+    return call_and_parse(
+        _call, lambda text: _parse_judge_response(text, names, valid_labels=_THEME_LABELS),
+        log, "Theme judge")
 
 
 def with_theme_evidence(items: list, themes_markdown: str) -> list:

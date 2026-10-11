@@ -94,19 +94,25 @@ def judge_key_terms(terms: list, source: str, client, *,
     from transcript_utils import call_claude_with_retry
 
     model = model or config.KEY_TERMS_JUDGE_MODEL
-    message = call_claude_with_retry(
-        client=client,
-        model=model,
-        messages=[{"role": "user", "content": build_key_terms_judge_prompt(terms, source)}],
-        max_tokens=config.KEY_TERMS_JUDGE_MAX_TOKENS,
-        temperature=config.TEMP_STRICT,
-        effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
-        min_length=1,
-        logger=logger or logging.getLogger("key_terms_semantic_judge"),
-        timeout=config.TIMEOUT_DEFAULT,
-    )
+    log = logger or logging.getLogger("key_terms_semantic_judge")
     names = [t for t, _ in terms]
-    return parse_judge_response(transcript_utils.response_text(message), names, valid_labels=_LABELS)
+
+    def _call():
+        return transcript_utils.response_text(call_claude_with_retry(
+            client=client,
+            model=model,
+            messages=[{"role": "user", "content": build_key_terms_judge_prompt(terms, source)}],
+            max_tokens=config.KEY_TERMS_JUDGE_MAX_TOKENS,
+            temperature=config.TEMP_STRICT,
+            effort=config.JUDGE_EFFORT,  # not the GUI Effort setting (calibrated)
+            min_length=1,
+            logger=log,
+            timeout=config.TIMEOUT_DEFAULT,
+        ))
+    from faithfulness_judge import call_and_parse
+    return call_and_parse(
+        _call, lambda text: parse_judge_response(text, names, valid_labels=_LABELS),
+        log, "Key-terms judge")
 
 
 def parse_key_terms_artifact(markdown: str) -> list:

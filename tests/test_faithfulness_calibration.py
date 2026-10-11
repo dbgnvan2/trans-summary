@@ -31,6 +31,17 @@ pytestmark = pytest.mark.skipif(
     reason="live calibration: set RUN_FAITHFULNESS_CALIBRATION=1 and ANTHROPIC_API_KEY",
 )
 
+# JC.0: calibrate a candidate model/effort without changing config.
+_MODEL = os.getenv("CALIBRATION_JUDGE_MODEL") or config.FAITHFULNESS_JUDGE_MODEL
+_THEME_MODEL = os.getenv("CALIBRATION_JUDGE_MODEL") or config.THEME_JUDGE_MODEL
+
+
+@pytest.fixture(autouse=True)
+def _calibration_effort(monkeypatch):
+    effort = os.getenv("CALIBRATION_JUDGE_EFFORT")
+    if effort:
+        monkeypatch.setattr(config, "JUDGE_EFFORT", effort)
+
 
 def _load_gold():
     gold = json.loads(GOLD.read_text(encoding="utf-8"))
@@ -59,11 +70,11 @@ def test_m2b1_judge_meets_gold_thresholds():
     import anthropic
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    pairs, rows = evaluate_gold(client, model=config.FAITHFULNESS_JUDGE_MODEL)
+    pairs, rows = evaluate_gold(client, model=_MODEL)
     m = fj.binary_faithfulness_metrics(pairs)
 
     print("\n=== M2.B.1 faithfulness gold calibration "
-          f"(model={config.FAITHFULNESS_JUDGE_MODEL}) ===")
+          f"(model={_MODEL}, effort={config.JUDGE_EFFORT}) ===")
     for cid, truth, pred, why in rows:
         flag = "" if (fj.is_unfaithful(truth) == fj.is_unfaithful(pred)) else "  <-- MISS"
         print(f"  {cid:5} truth={truth:12} pred={pred:12} {why[:50]}{flag}")
@@ -106,7 +117,7 @@ def test_m2b1_real_abstract_artifacts_judged_correctly():
     print("\n=== M2.B.1 real-artifact calibration ===")
     for label, src, ab, expect, must_flag in REAL_ARTIFACTS:
         r = fj.judge_artifact(ab.read_text(encoding="utf-8"),
-                              src.read_text(encoding="utf-8"), client)
+                              src.read_text(encoding="utf-8"), client, model=_MODEL)
         flagged = " | ".join(c.claim[:50] for c in r.unfaithful)
         print(f"  {label:12} status={r.status} (expect {expect})  {flagged[:80]}")
         assert r.status == expect, f"{label}: got {r.status}, expected {expect}"
@@ -125,7 +136,7 @@ def test_m2b1_injected_fabrication_in_real_abstract_is_caught():
     clean = (_RB / "abstract-generated.md").read_text(encoding="utf-8").rstrip()
     injected = clean + (" The webinar was funded by a 2021 grant from the "
                         "Vienna Institute for Family Systems.")
-    r = fj.judge_artifact(injected, src, client)
+    r = fj.judge_artifact(injected, src, client, model=_MODEL)
     assert r.status == "FAIL"
     assert any("Vienna" in c.claim or "grant" in c.claim for c in r.unfaithful)
 
@@ -151,7 +162,7 @@ def test_theme_judge_meets_gold_thresholds():
         text = (FIX / ga["dir"] / f"{ga['suffix']}.md").read_text(encoding="utf-8")
         obj = ac.codec("themes").parse_markdown(text, ga["kind"])
         items = fj.with_theme_evidence(obj["items"], text)  # as production judges (R7)
-        verdicts = fj.judge_themes(items, src, client)
+        verdicts = fj.judge_themes(items, src, client, model=_THEME_MODEL)
         for t, v in zip(items, verdicts):
             pairs.append(("grounded", v.label))
             rows.append((ga["source"], "grounded", v.label, t["name"][:45]))
@@ -160,7 +171,7 @@ def test_theme_judge_meets_gold_thresholds():
     for ut in gold["ungrounded_themes"]:
         src = (FIX / gold["sources"][ut["source"]]).read_text(encoding="utf-8")
         theme = {k: ut[k] for k in ("name", "description", "evidence") if k in ut}
-        v = fj.judge_themes([theme], src, client)[0]
+        v = fj.judge_themes([theme], src, client, model=_THEME_MODEL)[0]
         pairs.append(("ungrounded", v.label))
         rows.append((ut["source"], "ungrounded", v.label, ut["name"][:45]))
 
@@ -171,7 +182,7 @@ def test_theme_judge_meets_gold_thresholds():
     recall = tp / (tp + fn) if (tp + fn) else 1.0
     precision = tp / (tp + fp) if (tp + fp) else 1.0
 
-    print(f"\n=== theme grounding calibration (model={config.THEME_JUDGE_MODEL}) ===")
+    print(f"\n=== theme grounding calibration (model={_THEME_MODEL}, effort={config.JUDGE_EFFORT}) ===")
     for source, truth, pred, name in rows:
         flag = "" if (truth == pred) else "  <-- MISS"
         print(f"  {source:12} truth={truth:10} pred={pred:10} {name}{flag}")
