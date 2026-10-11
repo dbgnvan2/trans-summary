@@ -1,7 +1,9 @@
 # Plan: tighten the faithfulness judge on the writer's own framing (TF.1–TF.6)
 
-Status: **awaiting approval** (and decisions TD1–TD4). Request 2026-10-11: option 3 of
-the independent-reviewer result ("put the effort on the Claude side").
+Status: **TF.1 + TF.2 built on local branch `judge-framing` (`99568fd`, not on main);
+awaiting TD3 (gold labels) before the live runs.** TD1 = both, refined (below); TD2 = yes.
+Request 2026-10-11: option 3 of the independent-reviewer result ("put the effort on the
+Claude side").
 
 ## Why
 
@@ -30,6 +32,11 @@ Narrow the framing exemption instead of removing it:
   "The environment is not incidental."; "It was a logical approach, and it produced
   genuine discoveries."; "They are looking at the parts when the explanation lives in
   the pattern."
+- **Still entailed (TD1 refine, 2026-10-11)** — a sentence about what the material
+  offers the reader (who it helps, what a reader who understands it sees or does
+  differently) when it follows from content the speaker gave. The overview prompt
+  requires this in "Why does this matter?" (`prompts/Transcript Summary Overview Post
+  v1.md:114`); rejecting it would fail every overview.
 - **Unsupported (new, TD1a)** — a sentence that states the *status, importance or role*
   of an idea within a theory or field ("central to Bowen theory's explanation of …",
   "the key mechanism", "Bowen's most important insight"), or a generalization about a
@@ -37,8 +44,10 @@ Narrow the framing exemption instead of removing it:
 - **Unsupported (new, TD1b)** — a sentence that changes *who did what*, or adds a motive
   or feeling the source does not give (k4: "anxious about her speed, took over" when she
   handed him the helm).
-- The example "That kind of reckoning is rare in science." moves from the entailed list
-  to the unsupported description (TD2).
+- The example "That kind of reckoning is rare in science." leaves the entailed list
+  (TD2); it is gold case tf_u1, so it is not used as a prompt example.
+- Prompt examples are never gold cases (test `test_tf1_prompt_does_not_quote_gold_claims`),
+  so calibration measures the rule, not recall of the examples.
 
 ## Acceptance criteria → tests
 
