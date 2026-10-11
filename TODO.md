@@ -16,6 +16,15 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **Stale worktree** `.claude/worktrees/hungry-wilbur` still has the pre-RF.O web
   checker; anything run from it fails every simple page.
 
+### ⏸ Open — from the Hermes QA gate (`docs/cycles/2026-10-11_rfop-qa-gate.md`, APPROVED)
+- **LOW (P7)** `transcript_validate_webpage.missing_names`: a source name that is a
+  substring of a *different* page item ("Self" inside "Differentiation of Self") counts
+  as present. Only hides a warning. Fix: match on word boundaries.
+- **LOW (decision)** a page missing some (not all) topics/themes/key terms is a
+  warning, so the stage passes (RF.P.3 as approved). Revisit if partial misses should block.
+- The "7/7, 10/10, 10/10" Kerr result is a manual run, not an automated test (the
+  tests use a 2-item fixture through the same parsers).
+
 ## 2026-10-04 — Full-repo review (`REVIEW-trans-summary-2026-10-04.md`)
 
 Plan: `docs/plan_review_fixes_2026-10-04.md` (R1–R18). Fixed on branch
