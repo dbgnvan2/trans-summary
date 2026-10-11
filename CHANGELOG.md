@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-10 (Simple Web check)
+
+RF.O in `docs/plan_run_fixes_2026-10-09.md`. The "8b. Simple Web" check failed every
+real simple page: it read an older page layout and found no sections, abstract or
+highlights. It now reads the current `templates/simple_webpage.html` layout, counts
+highlights in the transcript only, and shares one parser with the full page. Bowen
+highlight labels no longer carry the timestamp, so the "Missing N Bowen reference(s)"
+list is correct on both pages. Tests generate real pages with the real templates.
+
 ## [Unreleased] - 2026-10-10 (judges on Sonnet 5.5)
 
 Plan: `docs/plan_judge_recalibration_sonnet55_2026-10-10.md`; results:

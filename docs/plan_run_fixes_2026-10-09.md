@@ -298,3 +298,45 @@ CONTRADICTED claims are never overridden; THEME_JUDGE_ENABLED is respected; a mi
 blog WARNs; the PASS detail counts claims accepted as interpretation.
 Adjacent, not fixed: the judge disk cache lives in the real `logs/` and tests that
 enable a mocked judge without patching LOGS_DIR can write to it.
+
+## RF.O — The Simple Web check reads the current simple-page layout (approved 2026-10-10)
+
+Run 20:35: gate ALLOW, Full Web/PDF passed, then "8b. Simple Web" failed with 7
+critical issues (0 sections, abstract/summary/topics/themes missing, no highlights).
+The page was complete (21 sections, 11 Bowen and 27 emphasis highlights). Cause:
+`extract_html_simple_metadata` and `count_sections_in_html` looked for
+`div.content` / `div.summary-section` / `div.appendices`, a layout
+`templates/simple_webpage.html` stopped producing in early 2026. Nothing ran the
+simple check until RF.E added the stage, and RF.E's test mocked the check.
+
+- RF.O.1 The simple reader finds each `<section class="section">` by its `<h2>`, and
+  counts transcript sections and highlights inside the Transcript section only (the
+  legend's `<mark>`s are not counted). Sidebar and simple layouts share one parser
+  (`_metadata_from_sections`).
+  - Tests (real generator + real templates): `tests/test_simple_web_validation.py::
+    test_rfo1_real_simple_page_passes`, `test_rfo1_real_full_page_still_passes`.
+- RF.O.2 A broken simple page still fails: empty abstract, empty Key Topics / Themes
+  body, highlights stripped from the transcript (legend left), or sections the reader
+  cannot find.
+  - Tests: `test_rfo2_simple_page_missing_abstract_fails`,
+    `test_rfo2_simple_page_empty_section_fails[Key Topics/Themes]`,
+    `test_rfo2_legend_marks_do_not_count_as_highlights`, `test_rfo2_unrecognised_layout_fails`.
+- RF.O.3 Highlight labels stop at the next `|` (`_title_label`), so a timestamped
+  Bowen title ("… | Timestamp: 00:09:15") matches its source label; a merged source
+  label "A; B" is present when every part is highlighted. Before, every Bowen
+  reference was listed as missing on both layouts (printed only, never blocked).
+  - Tests: `test_rfo3_bowen_label_stops_at_timestamp`,
+    `test_rfo3_no_bowen_reported_missing_on_real_page[True/False]`.
+
+Adjacent issues found, not fixed:
+- `extract_topics_themes_metadata` (source side) does not fit the current artifacts:
+  key-terms.md has no `## Key Terms` heading, so it reports 0 terms (the Key Terms
+  check is skipped); themes are read from `### ` sub-headings ("Summary Paragraph")
+  rather than the numbered bold theme names, so the theme sampling check compares the
+  wrong strings.
+
+### Sweep on RF.O (learning-qa, 2026-10-10) — 1 finding, fixed
+The simple layout always renders each section's body `<div>`, so empty Key Topics /
+Themes counted as present; "present" now means the section has text (as for Abstract
+and Summary). Not fixed: the stale worktree `.claude/worktrees/hungry-wilbur` still has
+the old reader (not shipped code).

@@ -55,13 +55,10 @@ def count_sections_in_html(html_file):
         sections = [h2.get_text(strip=True) for h2 in main_content.find_all("h2")]
         return len(sections), sections
 
-    # Try simple layout (content class, no sidebar)
-    content_div = soup.find("div", class_="content")
-    if content_div:
-        # Simple layout - count h2 but exclude metadata headers
-        sections = [h2.get_text(strip=True) for h2 in content_div.find_all("h2")]
-        # Filter out metadata sections (Abstract, Key Terms)
-        sections = [s for s in sections if s not in ["Abstract", "Key Terms"]]
+    # Simple layout - count h2 inside the Transcript section's body
+    transcript = _simple_section(soup, "Transcript")
+    if transcript is not None:
+        sections = [h2.get_text(strip=True) for h2 in transcript.find_all("h2")]
         return len(sections), sections
 
     return 0, []
@@ -97,9 +94,8 @@ def find_missing_emphasis_items(base_name, html_file):
     soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
     highlighted_labels = []
     for mark in soup.find_all("mark", class_="emphasis"):
-        title = mark.get("title", "")
-        if "Emphasized:" in title:
-            label = title.split("Emphasized:", 1)[1].split("|")[0].strip()
+        label = _title_label(mark.get("title", ""), "Emphasized:")
+        if label:
             highlighted_labels.append(label)
 
     # Find missing items
@@ -120,16 +116,17 @@ def find_missing_bowen_items(base_name, html_file):
     soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
     highlighted_labels = []
     for mark in soup.find_all("mark", class_="bowen-ref"):
-        title = mark.get("title", "")
-        if "Bowen Reference:" in title:
-            label = title.split("Bowen Reference:", 1)[1].strip()
+        label = _title_label(mark.get("title", ""), "Bowen Reference:")
+        if label:
             highlighted_labels.append(label)
 
-    highlighted_labels = split_multi_labels(highlighted_labels)
+    highlighted_labels = set(split_multi_labels(highlighted_labels))
 
+    # A merged reference is listed as "A; B" (load_bowen_references); it is
+    # present when every part is highlighted.
     missing = []
     for label in source_labels:
-        if label not in highlighted_labels:
+        if not all(part in highlighted_labels for part in split_multi_labels([label])):
             missing.append(label)
 
     return missing
@@ -237,11 +234,16 @@ def extract_topics_themes_metadata(base_name: str):
     return metadata
 
 
-def extract_html_metadata(html_file):
-    """Extract metadata from HTML sidebar."""
-    soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
+def _title_label(title: str, key: str) -> str:
+    """The label after ``key`` in a highlight's title, up to the next ``|``.
+    Titles look like "Emphasized: X (92%) | Bowen Reference: Y | Timestamp: 00:05:29"."""
+    if key not in title:
+        return ""
+    return title.split(key, 1)[1].split("|")[0].strip()
 
-    metadata = {
+
+def _empty_html_metadata() -> dict:
+    return {
         "has_abstract": False,
         "abstract_length": 0,
         "abstract_text": "",
@@ -259,12 +261,85 @@ def extract_html_metadata(html_file):
         "emphasis_labels": [],
     }
 
-    # Extract sidebar content
-    sidebar = soup.find("aside", class_="sidebar")
-    if not sidebar:
+
+def _metadata_from_sections(get_section, transcript_root) -> dict:
+    """Fill the HTML metadata from ``get_section(heading) -> [elements] | None``
+    and count the highlights inside ``transcript_root`` (so the legend is not
+    counted). Shared by the sidebar and the simple layout."""
+    metadata = _empty_html_metadata()
+
+    abstract_elems = get_section("Abstract")
+    if abstract_elems:
+        text = " ".join(e.get_text(strip=True) for e in abstract_elems)
+        if text:
+            metadata["has_abstract"] = True
+            metadata["abstract_text"] = text
+            metadata["abstract_length"] = len(text)
+
+    summary_elems = get_section("Summary")
+    if summary_elems:
+        text = " ".join(e.get_text(strip=True) for e in summary_elems)
+        if text:
+            metadata["has_summary"] = True
+            metadata["summary_length"] = len(text)
+
+    # Headings are searched INSIDE each element (as the sidebar reader always
+    # did); the simple layout passes its section's body <div> as the one element.
+    def _h3s(elems):
+        return [h.get_text(strip=True) for e in elems for h in e.find_all("h3")]
+
+    topics_elems = get_section("Key Topics")
+    if topics_elems:
+        # Present = the section has text (the simple layout always renders the
+        # body <div>, so "the section exists" proves nothing).
+        metadata["has_topics"] = any(e.get_text(strip=True) for e in topics_elems)
+        metadata["topics_list"] = _h3s(topics_elems)
+
+    themes_elems = get_section("Themes")
+    if themes_elems:
+        metadata["has_themes"] = any(e.get_text(strip=True) for e in themes_elems)
+        metadata["themes_list"] = _h3s(themes_elems)
+        for elem in themes_elems:
+            for p in elem.find_all("p"):
+                if re.match(r"\d+\.", p.get_text(strip=True)):
+                    strong = p.find("strong")
+                    if strong:
+                        metadata["themes_list"].append(strong.get_text(strip=True))
+
+    terms_elems = get_section("Key Terms")
+    if terms_elems:
+        dls = [d for e in terms_elems for d in ([e] if e.name == "dl" else e.find_all("dl"))]  # sidebar: <dl> sibling; simple: inside the body
+        if dls:
+            metadata["key_terms_list"] = [dt.get_text(strip=True) for d in dls for dt in d.find_all("dt")]
+            metadata["has_key_terms"] = bool(metadata["key_terms_list"])
+        else:
+            text = " ".join(e.get_text(strip=True) for e in terms_elems)
+            if text and "No key terms found" not in text:
+                metadata["has_key_terms"] = True
+                metadata["key_terms_list"] = [t.strip() for t in text.split(",") if t.strip()]
+
+    if transcript_root is None:
         return metadata
 
-    # Helper to find section content
+    bowen_marks = transcript_root.find_all("mark", class_="bowen-ref")
+    metadata["bowen_highlights"] = len(bowen_marks)
+    metadata["bowen_labels"] = split_multi_labels(
+        [label for m in bowen_marks if (label := _title_label(m.get("title", ""), "Bowen Reference:"))])
+
+    emphasis_marks = transcript_root.find_all("mark", class_="emphasis")
+    metadata["emphasis_highlights"] = len(emphasis_marks)
+    metadata["emphasis_labels"] = [
+        label for m in emphasis_marks if (label := _title_label(m.get("title", ""), "Emphasized:"))]
+    return metadata
+
+
+def extract_html_metadata(html_file):
+    """Extract metadata from the sidebar layout (sidebar sections, transcript highlights)."""
+    soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
+    sidebar = soup.find("aside", class_="sidebar")
+    if not sidebar:
+        return _empty_html_metadata()
+
     def get_sidebar_section(heading_text):
         h2 = sidebar.find("h2", string=heading_text)
         if not h2:
@@ -276,235 +351,31 @@ def extract_html_metadata(html_file):
             curr = curr.find_next_sibling()
         return content
 
-    # Abstract
-    abstract_elems = get_sidebar_section("Abstract")
-    if abstract_elems:
-        text = " ".join(e.get_text(strip=True) for e in abstract_elems)
-        if text:
-            metadata["has_abstract"] = True
-            metadata["abstract_text"] = text
-            metadata["abstract_length"] = len(text)
-
-    # Summary
-    summary_elems = get_sidebar_section("Summary")
-    if summary_elems:
-        text = " ".join(e.get_text(strip=True) for e in summary_elems)
-        if text:
-            metadata["has_summary"] = True
-            metadata["summary_length"] = len(text)
-
-    # Topics
-    topics_elems = get_sidebar_section("Key Topics")
-    if topics_elems:
-        metadata["has_topics"] = True
-        for elem in topics_elems:
-            metadata["topics_list"].extend(
-                [h3.get_text(strip=True) for h3 in elem.find_all("h3")]
-            )
-
-    # Themes
-    themes_elems = get_sidebar_section("Themes")
-    if themes_elems:
-        metadata["has_themes"] = True
-        for elem in themes_elems:
-            metadata["themes_list"].extend(
-                [h3.get_text(strip=True) for h3 in elem.find_all("h3")]
-            )
-            # Also check numbered items
-            for p in elem.find_all("p"):
-                if re.match(r"\d+\.", p.get_text()):
-                    strong = p.find("strong")
-                    if strong:
-                        metadata["themes_list"].append(strong.get_text(strip=True))
-
-    # Key Terms
-    terms_elems = get_sidebar_section("Key Terms")
-    if terms_elems:
-        # Check for definition list first
-        dl = next((e for e in terms_elems if e.name == "dl"), None)
-        if dl:
-            metadata["has_key_terms"] = True
-            metadata["key_terms_list"] = [
-                dt.get_text(strip=True) for dt in dl.find_all("dt")
-            ]
-        else:
-            text = " ".join(e.get_text(strip=True) for e in terms_elems)
-            if text and "No key terms found" not in text:
-                metadata["has_key_terms"] = True
-                metadata["key_terms_list"] = [
-                    t.strip() for t in text.split(",") if t.strip()
-                ]
-
-    # Count Bowen reference highlights in main content (exclude legend)
     main_content = soup.find("div", class_="transcript") or soup.find(
-        "div", class_="content"
-    )
-    if not main_content:
-        main_content = soup
+        "div", class_="content") or soup
+    return _metadata_from_sections(get_sidebar_section, main_content)
 
-    bowen_marks = main_content.find_all("mark", class_="bowen-ref")
-    metadata["bowen_highlights"] = len(bowen_marks)
 
-    metadata["bowen_labels"] = []
-    for mark in bowen_marks:
-        title = mark.get("title", "")
-        if "Bowen Reference:" in title:
-            label = title.split("Bowen Reference:", 1)[1].strip()
-            metadata["bowen_labels"].append(label)
-
-    metadata["bowen_labels"] = [label.strip() for label in metadata["bowen_labels"]]
-    metadata["bowen_labels"] = split_multi_labels(metadata["bowen_labels"])
-
-    # Count emphasis highlights in main content (exclude legend) - use title attribute for accurate count
-    emphasis_marks = main_content.find_all("mark", class_="emphasis")
-    metadata["emphasis_highlights"] = len(emphasis_marks)
-
-    metadata["emphasis_labels"] = []
-    for mark in emphasis_marks:
-        title = mark.get("title", "")
-        if "Emphasized:" in title:
-            label = title.split("Emphasized:", 1)[1].split("|")[0].strip()
-            metadata["emphasis_labels"].append(label)
-
-    metadata["emphasis_labels"] = [
-        label.strip() for label in metadata["emphasis_labels"]
-    ]
-
-    return metadata
+def _simple_section(soup, heading_text):
+    """The body <div> of ``<section class="section"><h2>heading</h2><div>…`` in
+    templates/simple_webpage.html, or None."""
+    for section in soup.find_all("section", class_="section"):
+        h2 = section.find("h2", recursive=False)
+        if h2 and h2.get_text(strip=True) == heading_text:
+            return section.find("div", recursive=False)
+    return None
 
 
 def extract_html_simple_metadata(html_file):
-    """Extract metadata from simple HTML (single column, no sidebar)."""
+    """Extract metadata from the simple single-column layout
+    (templates/simple_webpage.html: one <section class="section"> per block)."""
     soup = BeautifulSoup(html_file.read_text(encoding="utf-8"), "html.parser")
 
-    metadata = {
-        "has_abstract": False,
-        "abstract_length": 0,
-        "abstract_text": "",
-        "has_summary": False,
-        "summary_length": 0,
-        "has_topics": False,
-        "topics_list": [],
-        "has_themes": False,
-        "themes_list": [],
-        "has_key_terms": False,
-        "key_terms_list": [],
-        "bowen_highlights": 0,
-        "emphasis_highlights": 0,
-        "bowen_labels": [],
-        "emphasis_labels": [],
-    }
+    def get_section(heading_text):
+        body = _simple_section(soup, heading_text)
+        return [body] if body is not None else None
 
-    # Extract content div
-    main_content = soup.find("div", class_="content")
-    if not main_content:
-        return metadata
-
-    # 1. Summary Section (Abstract + Summary)
-    summary_section = soup.find("div", class_="summary-section")
-    if summary_section:
-        # Abstract
-        abs_h2 = summary_section.find("h2", string="Abstract")
-        if abs_h2:
-            text = ""
-            curr = abs_h2.find_next_sibling()
-            while curr and curr.name != "h2":
-                text += curr.get_text(strip=True) + " "
-                curr = curr.find_next_sibling()
-            if text.strip():
-                metadata["has_abstract"] = True
-                metadata["abstract_text"] = text.strip()
-                metadata["abstract_length"] = len(text.strip())
-
-        # Summary
-        sum_h2 = summary_section.find("h2", string="Summary")
-        if sum_h2:
-            text = ""
-            curr = sum_h2.find_next_sibling()
-            while curr and curr.name != "h2":
-                text += curr.get_text(strip=True) + " "
-                curr = curr.find_next_sibling()
-            if text.strip():
-                metadata["has_summary"] = True
-                metadata["summary_length"] = len(text.strip())
-
-    # 2. Appendices (Topics, Themes, Key Terms)
-    appendices = soup.find("div", class_="appendices")
-    if appendices:
-        # Topics
-        topics_h2 = appendices.find("h2", string="Key Topics")
-        if topics_h2:
-            metadata["has_topics"] = True
-            curr = topics_h2.find_next_sibling()
-            while curr and curr.name != "h2":
-                if curr.name == "h3":
-                    metadata["topics_list"].append(curr.get_text(strip=True))
-                curr = curr.find_next_sibling()
-
-        # Themes
-        themes_h2 = appendices.find("h2", string="Themes")
-        if themes_h2:
-            metadata["has_themes"] = True
-            curr = themes_h2.find_next_sibling()
-            while curr and curr.name != "h2":
-                if curr.name == "h3":
-                    metadata["themes_list"].append(curr.get_text(strip=True))
-                if curr.name == "p":
-                    strong = curr.find("strong")
-                    if strong and re.match(r"\d+\.", curr.get_text(strip=True)):
-                        metadata["themes_list"].append(strong.get_text(strip=True))
-                curr = curr.find_next_sibling()
-
-        # Key Terms
-        terms_h2 = appendices.find("h2", string="Key Terms")
-        if terms_h2:
-            curr = terms_h2.find_next_sibling()
-            while curr and curr.name != "h2":
-                if curr.name == "dl":
-                    metadata["has_key_terms"] = True
-                    metadata["key_terms_list"].extend(
-                        [dt.get_text(strip=True) for dt in curr.find_all("dt")]
-                    )
-                elif curr.name == "p" and "No key terms found" not in curr.get_text():
-                     # If it's a paragraph but NOT the 'No key terms found' message, count it
-                     # This covers cases where terms might be comma-separated in a <p>
-                     text = curr.get_text(strip=True)
-                     if text:
-                         metadata["has_key_terms"] = True
-                         metadata["key_terms_list"].extend(
-                             [t.strip() for t in text.split(",") if t.strip()]
-                         )
-                curr = curr.find_next_sibling()
-
-    # Count highlights
-    bowen_marks = main_content.find_all("mark", class_="bowen-ref")
-    metadata["bowen_highlights"] = len(bowen_marks)
-
-    metadata["bowen_labels"] = []
-    for mark in bowen_marks:
-        title = mark.get("title", "")
-        if "Bowen Reference:" in title:
-            label = title.split("Bowen Reference:", 1)[1].strip()
-            metadata["bowen_labels"].append(label)
-
-    metadata["bowen_labels"] = [label.strip() for label in metadata["bowen_labels"]]
-    metadata["bowen_labels"] = split_multi_labels(metadata["bowen_labels"])
-
-    emphasis_marks = main_content.find_all("mark", class_="emphasis")
-    metadata["emphasis_highlights"] = len(emphasis_marks)
-
-    metadata["emphasis_labels"] = []
-    for mark in emphasis_marks:
-        title = mark.get("title", "")
-        if "Emphasized:" in title:
-            label = title.split("Emphasized:", 1)[1].split("|")[0].strip()
-            metadata["emphasis_labels"].append(label)
-
-    metadata["emphasis_labels"] = [
-        label.strip() for label in metadata["emphasis_labels"]
-    ]
-
-    return metadata
+    return _metadata_from_sections(get_section, _simple_section(soup, "Transcript"))
 
 
 def validate_css_definitions(html_file):
