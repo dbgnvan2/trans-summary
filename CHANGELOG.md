@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-11 (judge framing rule — investigated, not shipped)
+
+No behaviour change. A narrower faithfulness-judge rule for the writer's own framing was
+built and measured (`docs/plan_judge_framing_2026-10-11.md`,
+`docs/calibration_framing_2026-10-11.md`); it failed more good writing than the current
+prompt and was not shipped. Also recorded: the DeepSeek independent-reviewer experiment
+(`docs/calibration/independent_reviewer_experiment_2026-10-11/`, spec on hold).
+
 ## [Unreleased] - 2026-10-11 (web checks read topics, themes, key terms)
 
 RF.P in `docs/plan_run_fixes_2026-10-09.md`. The Full Web and Simple Web checks now

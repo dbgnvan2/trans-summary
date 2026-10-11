@@ -1,0 +1,85 @@
+{
+ "prompt_sha": "96e5ab257296",
+ "files": {
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - abstract-generated.md": "a6d954a578ec9493bb778c75ae3e1dbd0833f894a143f7811944fec87f9e520c",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - summary-generated.md": "b565114f839147fc691965f74a3db37609eca6a931f7ae2dcb1ca77936a8c634",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - overview.md": "7949466a2a00064c84082bac692536636d540ab8813ac2efd9d568e609b26d40"
+ },
+ "runs": [
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.1305
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0799
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0803
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0808
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0803
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0805
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0795
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.08
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0793
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0802
+  }
+ ]
+}

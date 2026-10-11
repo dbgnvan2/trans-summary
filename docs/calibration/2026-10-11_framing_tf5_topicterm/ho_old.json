@@ -1,0 +1,207 @@
+{
+ "prompt_sha": "96e5ab257296",
+ "runs": [
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Michael Kerr presented this webcast on December 12, 2021, as part of an ongoing series on Bowen theory."
+     ],
+     [
+      "contradicted",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ],
+     [
+      "unsupported",
+      "Kerr frames the illness not as the cause of change but as the occasion for it."
+     ],
+     [
+      "contradicted",
+      "Linda does not describe reading about Bowen theory and applying it; she describes the theory becoming visible to her through lived experience."
+     ],
+     [
+      "unsupported",
+      "That distinction matters clinically: it illustrates how crisis can function as a catalyst rather than merely a stressor."
+     ],
+     [
+      "unsupported",
+      "Kerr described these events not as causes but as revealers of a self-deficit accumulated over decades."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Michael Kerr presented this lecture in June 2021 to an audience familiar with Bowen theory, drawing on a cluster of recent books in cancer biology to argue that the biological sciences are moving toward systems-level thinking."
+     ],
+     [
+      "unsupported",
+      "Mena Bissell, Carlos Sonenshein, and Anne Soto are identified as key contributors to this framework."
+     ],
+     [
+      "unsupported",
+      "A cancer registry interview study is cited showing that patients who were confident in their treatment decisions had better outcomes, illustrating the importance of a patient's sense of control and self-direction."
+     ],
+     [
+      "unsupported",
+      "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "This physiological cascade connects relational and psychological stress to cellular-level cancer progression through a continuous chain: chronic anxiety activates the stress response, which generates allostatic load\u2014the cumulative physiological cost of sustained activation."
+     ],
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "contradicted",
+      "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "contradicted",
+      "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self."
+     ]
+    ]
+   }
+  },
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ],
+     [
+      "unsupported",
+      "Kerr described these events not as causes but as revealers of a self-deficit accumulated over decades."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The lecture's implicit architecture proposes that the same fundamental process\u2014cooperation versus self-promotion, healthy niche versus cancer niche\u2014operates isomorphically across multiple scales: within tissues, within organisms, within families, and within societies."
+     ],
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "contradicted",
+      "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "contradicted",
+      "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self."
+     ]
+    ]
+   }
+  },
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Prolonged allostatic load is linked to steroid receptor activation and immune dysregulation relevant to cancer."
+     ],
+     [
+      "unsupported",
+      "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The presentation draws on three recent books on cancer research and theory, particularly the final chapter of *Rethinking Cancer*, to construct an argument that cancer prevention, detection, and treatment must shift from targeting cancer cells to restoring the tissue environments (niches) in which cancer arises."
+     ],
+     [
+      "unsupported",
+      "The lecture's implicit architecture proposes that the same fundamental process\u2014cooperation versus self-promotion, healthy niche versus cancer niche\u2014operates isomorphically across multiple scales: within tissues, within organisms, within families, and within societies."
+     ],
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "contradicted",
+      "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "contradicted",
+      "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self."
+     ]
+    ]
+   }
+  }
+ ]
+}

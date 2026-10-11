@@ -1,9 +1,10 @@
 # Plan: tighten the faithfulness judge on the writer's own framing (TF.1–TF.6)
 
-Status: **TF.1 + TF.2 built on local branch `judge-framing` (`99568fd`, not on main);
-awaiting TD3 (gold labels) before the live runs.** TD1 = both, refined (below); TD2 = yes.
-Request 2026-10-11: option 3 of the independent-reviewer result ("put the effort on the
-Claude side").
+Status: **closed 2026-10-11 — not shipped.** TD1 = both, refined; TD2 = yes; TD3 = 8 (+3)
+gold labels approved; TD4 = keep → option B → v4 → don't ship: the general version failed
+more good writing than the current prompt (Kerr 7/10 vs 5/10 fresh checks). Main keeps the
+old prompt; the work is archived on local branch `judge-framing`. Record:
+`docs/calibration_framing_2026-10-11.md`.
 
 ## Why
 

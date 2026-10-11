@@ -16,6 +16,20 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **Stale worktree** `.claude/worktrees/hungry-wilbur` still has the pre-RF.O web
   checker; anything run from it fails every simple page.
 
+### ⏸ Open — faithfulness judge (2026-10-11)
+- **Random false flags** on supported sentences: the Kerr 2026-09-13 files fail 5 of 10
+  fresh checks with the current prompt. Plan (approved): `docs/plan_judge_confirm_flags_2026-10-11.md` (CF).
+- **Sticky cached FAIL**: a false FAIL is stored on disk and replayed on gate re-runs of
+  unchanged files until the artifact is regenerated.
+- **k6 gap (known, accepted)**: the judge accepts the writer's own claims about a theory
+  ("…central to Bowen theory's explanation…"). A narrower framing rule was tried and not
+  shipped (`docs/calibration_framing_2026-10-11.md`).
+- `judge_recalibration.py --prose-real` omits the filename metadata the gate includes, so
+  date/year claims are over-reported; its output does not record the prompt sha (fixed only
+  on the archived `judge-framing` branch).
+- Prompt example "attributes recovery to medication" (since 2026-07-15) paraphrases gold
+  us6. Replace in the next prompt change.
+
 ### ⏸ Open — from the Hermes QA gate (`docs/cycles/2026-10-11_rfop-qa-gate.md`, APPROVED)
 - **LOW (P7)** `transcript_validate_webpage.missing_names`: a source name that is a
   substring of a *different* page item ("Self" inside "Differentiation of Self") counts

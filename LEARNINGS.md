@@ -80,6 +80,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Framing-rule change to the faithfulness judge — tuned to its own test cases, not shipped (2026-10-11).**
+- Issue: a narrower "writer's framing" rule scored recall 1.00 / precision 0.96–1.00 on the gold set in four versions, and one version cut the Kerr project's false-fail rate from 5/10 to 2/10. The learning-qa sweep found the prompt's examples paraphrased gold cases (k6, tf_u1, tf_e1) and a carve-out described the one Kerr sentence it was then measured on. The general version (v4) failed the Kerr files 7/10 and raised flags on a held-out overview from ~3 to ~8 per run.
+- Root cause (P20, P7): the gold set rewards strictness and cannot show precision on real summaries; the prompt was fitted to the measurement data twice; one fresh real-project check was reported as a pass when the judge varies run to run (Sonnet 5.5 takes no temperature).
+- What would have caught it: from the start, repeated fresh checks (≥10) on real artifacts that did not shape the prompt, compared with the current prompt; a test that no prompt example shares subject or shape with a gold case.
+- Fix: not shipped; main keeps the old prompt. Tests for example/gold overlap and calibration-output prompt fingerprints exist on the archived branch `judge-framing` for any future prompt change. Record: `docs/calibration_framing_2026-10-11.md`.
+- Rule: for a judge prompt change, measure real-artifact false fails with repeated runs against held-out material before deciding; never word a prompt rule or example after the case you will measure it on. (P20)
+
 **Archive Logs zipped the folder it was writing into — the zip read itself (2026-10-09).**
 - Issue: the GUI "Clean Logs → Archive" button ran `shutil.make_archive(base=logs/archives/logs_<ts>, root_dir=logs/)`. The zip was written inside the tree being zipped, so the walk read it: 20.5 GB after ~9 minutes from a few MB of logs, growing ~80 MB/s with 68 GB free. The user saw only "taking a long time" and killed the GUI. Earlier archives had also swallowed every older zip in `archives/`, plus `runtime_settings.json` and the judge cache.
 - Root cause (new global **P39**, with P5/P32 sibling drift): output path inside the input root; and the code enumerated `*.log` + `*.csv` to delete but zipped all of `logs/`, so the deleted set and the archived set differed. The CLI (`transcript_clean_logs.py`) did the same job correctly via a temp copy — two implementations of one operation, only one right.

@@ -1,0 +1,95 @@
+{
+ "prompt_sha": "f8274e2daa8e",
+ "files": {
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - abstract-generated.md": "a6d954a578ec9493bb778c75ae3e1dbd0833f894a143f7811944fec87f9e520c",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - summary-generated.md": "b565114f839147fc691965f74a3db37609eca6a931f7ae2dcb1ca77936a8c634",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - overview.md": "7949466a2a00064c84082bac692536636d540ab8813ac2efd9d568e609b26d40"
+ },
+ "runs": [
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.1347
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "summary-generated.md",
+     "Years later he stood at Billy's grave and said, \"Billy, thank you for allowing me to grow up.\""
+    ]
+   ],
+   "cost": 0.0821
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "It links chronic anxiety to chronic inflammation and physical illness."
+    ]
+   ],
+   "cost": 0.0836
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0818
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0817
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0827
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "summary-generated.md",
+     "Years later he stood at Billy's grave and said, \"Billy, thank you for allowing me to grow up.\""
+    ]
+   ],
+   "cost": 0.0823
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0829
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "cost": 0.0821
+  },
+  {
+   "status": "Status.FAIL",
+   "flagged": [
+    [
+     "overview.md",
+     "It links chronic anxiety to chronic inflammation and physical illness."
+    ]
+   ],
+   "cost": 0.0826
+  }
+ ]
+}

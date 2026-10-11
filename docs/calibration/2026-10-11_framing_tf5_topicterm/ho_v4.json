@@ -1,0 +1,243 @@
+{
+ "prompt_sha": "f8274e2daa8e",
+ "runs": [
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ],
+     [
+      "contradicted",
+      "Linda does not describe reading about Bowen theory and applying it; she describes the theory becoming visible to her through lived experience."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Both fields are arriving at the same core insight independently."
+     ],
+     [
+      "unsupported",
+      "Mena Bissell, Carlos Sonenshein, and Anne Soto are identified as key contributors to this framework."
+     ],
+     [
+      "unsupported",
+      "A cancer registry interview study is cited showing that patients who were confident in their treatment decisions had better outcomes, illustrating the importance of a patient's sense of control and self-direction."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr argues that systems biology is independently arriving at principles long central to Bowen Family Systems theory, including the primacy of context over individual pathology and the importance of relational networks."
+     ],
+     [
+      "unsupported",
+      "Researchers including Mena Bissell argue that targeting the niche environment, rather than killing individual cancer cells, represents a more promising therapeutic direction."
+     ],
+     [
+      "unsupported",
+      "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "contradicted",
+      "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "contradicted",
+      "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self."
+     ]
+    ]
+   }
+  },
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ],
+     [
+      "contradicted",
+      "Linda does not describe reading about Bowen theory and applying it; she describes the theory becoming visible to her through lived experience."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Both fields are arriving at the same core insight independently."
+     ],
+     [
+      "unsupported",
+      "For readers familiar with Bowen Family Systems theory, this lecture offers evidence that mainstream biology is independently validating a systems-level worldview."
+     ],
+     [
+      "unsupported",
+      "The structural logic is the same in both cases."
+     ],
+     [
+      "unsupported",
+      "Mena Bissell, Carlos Sonenshein, and Anne Soto are identified as key contributors to this framework."
+     ],
+     [
+      "contradicted",
+      "A cancer registry interview study is cited showing that patients who were confident in their treatment decisions had better outcomes, illustrating the importance of a patient's sense of control and self-direction."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr argues that systems biology is independently arriving at principles long central to Bowen Family Systems theory, including the primacy of context over individual pathology and the importance of relational networks."
+     ],
+     [
+      "unsupported",
+      "Researchers including Mena Bissell argue that targeting the niche environment, rather than killing individual cancer cells, represents a more promising therapeutic direction."
+     ],
+     [
+      "unsupported",
+      "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The lecture's implicit architecture proposes that the same fundamental process\u2014cooperation versus self-promotion, healthy niche versus cancer niche\u2014operates isomorphically across multiple scales: within tissues, within organisms, within families, and within societies."
+     ],
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "William Seeley's discovery of a locatable neural node for determination links brain-level findings directly to the effort required for differentiation of self."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "unsupported",
+      "William Seeley's identification of a determination node within the salience network connects brain-level findings to the sustained effort required for differentiation of self."
+     ]
+    ]
+   }
+  },
+  {
+   "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The interviewee achieved what she called \"a notch of differentiation\" following her cancer diagnosis and treatment in 2019\u20132020."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "Both fields are arriving at the same core insight independently."
+     ],
+     [
+      "unsupported",
+      "For readers familiar with Bowen Family Systems theory, this lecture offers evidence that mainstream biology is independently validating a systems-level worldview."
+     ],
+     [
+      "unsupported",
+      "Mena Bissell, Carlos Sonenshein, and Anne Soto are identified as key contributors to this framework."
+     ],
+     [
+      "contradicted",
+      "A cancer registry interview study is cited showing that patients who were confident in their treatment decisions had better outcomes, illustrating the importance of a patient's sense of control and self-direction."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr argues that systems biology is independently arriving at principles long central to Bowen Family Systems theory, including the primacy of context over individual pathology and the importance of relational networks."
+     ],
+     [
+      "unsupported",
+      "Researchers including Mena Bissell argue that targeting the niche environment, rather than killing individual cancer cells, represents a more promising therapeutic direction."
+     ],
+     [
+      "unsupported",
+      "Cumulative allostatic load from chronic stress creates physiological conditions that permit cancer to arise and progress."
+     ],
+     [
+      "unsupported",
+      "Michael Kerr draws primarily on the work of Mena Bissell, whose research established the central role of the extracellular matrix and tissue microenvironment in cancer."
+     ]
+    ]
+   },
+   "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - summary-generated.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "This multi-scale nesting remains underdeveloped but surfaces as the lecture's most ambitious claim."
+     ]
+    ]
+   },
+   "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - overview.md": {
+    "status": "FAIL",
+    "flagged": [
+     [
+      "unsupported",
+      "The extended Q&A, involving participants Amy Post, Dave Galloway, Kathy Kerr, and Janice Norton, focuses on chronic anxiety as the central disruptor of differentiation \u2014 examining it at cellular, organismic, familial, and individual levels simultaneously."
+     ],
+     [
+      "unsupported",
+      "For students of Bowen theory, Kerr's formula DOS = EO + A (differentiation of self equals emotional objectivity plus action) anchors both presentations."
+     ],
+     [
+      "unsupported",
+      "The evolutionary argument explains where emotional objectivity comes from; the neuroscience argument explains where in the brain it operates."
+     ],
+     [
+      "unsupported",
+      "William Seeley identified the emotional salience network and executive control network as the brain's paired self-regulation system."
+     ]
+    ]
+   }
+  }
+ ]
+}
