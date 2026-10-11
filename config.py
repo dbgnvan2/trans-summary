@@ -649,7 +649,11 @@ FAITHFULNESS_JUDGE_ENABLED = True
 # tests/test_judge_model_pin.py fails on any change to this string, forcing a
 # re-calibration; (b) last calibrated 2026-07-19 (recall/precision 1.0). When changing
 # it, re-run tests/test_faithfulness_calibration.py and update that pin test.
-FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-4-6"
+# 2026-10-10: moved to claude-sonnet-5-5 at its default effort (JUDGE_EFFORT None)
+# after re-calibration (docs/calibration_sonnet55_2026-10-10.md): gold recall
+# 0.91-0.95 / precision 1.00 over 3 runs, real abstracts + injected fabrication
+# correct every run, speaker labels read correctly (4.6 misread them).
+FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-5-5"
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # Version tag folded into the persisted judge-verdict cache key (release_gate H2) so a
 # change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
@@ -660,7 +664,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-09b"  # J1-J4: routing recheck, stemming, heading rule
+JUDGE_LOGIC_VERSION = "2026-10-10"  # judges on claude-sonnet-5-5 (JC.6); parse retry
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
@@ -777,7 +781,7 @@ FAITHFULNESS_MIN_PRECISION_UNFAITHFUL = 0.70
 # -> ungrounded (recall 1.0 / precision 1.0). Same fail-closed Hard-BLOCK posture as
 # the faithfulness judge; forced OFF in the unit suite via the root-conftest fixture.
 THEME_JUDGE_ENABLED = True
-THEME_JUDGE_MODEL = "claude-sonnet-4-6"
+THEME_JUDGE_MODEL = "claude-sonnet-5-5"  # re-calibrated 2026-10-10: 1.00/1.00, 3 runs
 THEME_ARTIFACT_SUFFIXES = [
     SUFFIX_STRUCTURAL_THEMES,
     SUFFIX_INTERPRETIVE_THEMES,

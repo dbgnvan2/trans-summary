@@ -112,3 +112,14 @@ accepted (mostly blog rhetoric — the blog is advisory — and overview/summary
 
 Baseline $1.20; Sonnet 5.5 default $1.31; medium $1.09 (each: 3 runs + real prose; 4.6 one
 run). Earlier interrupted runs added roughly $1. Total about $4.60.
+
+## Decision and switch (JC.6, 2026-10-10)
+
+Author decision: "switch, default effort". `FAITHFULNESS_JUDGE_MODEL` and
+`THEME_JUDGE_MODEL` = `claude-sonnet-5-5`, `JUDGE_EFFORT` = None (model default, high);
+`JUDGE_LOGIC_VERSION` = 2026-10-10 so no cached Sonnet 4.6 verdict is reused; pins in
+`tests/test_judge_model_pin.py` updated (model and effort). The blog's second stage uses
+the theme judge, so it moved too. Live check after the switch (production config):
+roots_bowen PASS, where_roots FAIL, dave_g FAIL, injected fabrication caught.
+Accepted trade-off: Sonnet 5.5 is more lenient than 4.6 on the writer's own framing
+(k6; 45 real-prose claims newly accepted). The key-terms judge (disabled) stays on 4.6.

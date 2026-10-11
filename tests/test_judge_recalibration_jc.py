@@ -74,3 +74,9 @@ def test_jc3_single_verdict_object_accepted():
     assert v[0].label == "ungrounded"
     with pytest.raises(ValueError):  # an object that is not a verdict is still rejected
         fj._extract_json_array('{"note": "no verdict"}')
+
+
+def test_jc6_cache_version_bumped():
+    # Cached Sonnet 4.6 verdicts must not be served after the switch.
+    assert config.JUDGE_LOGIC_VERSION >= "2026-10-10"
+    assert config.FAITHFULNESS_JUDGE_MODEL == config.THEME_JUDGE_MODEL == "claude-sonnet-5-5"

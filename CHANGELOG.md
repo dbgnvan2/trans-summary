@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-10 (judges on Sonnet 5.5)
+
+Plan: `docs/plan_judge_recalibration_sonnet55_2026-10-10.md`; results:
+`docs/calibration_sonnet55_2026-10-10.md`. The faithfulness and theme judges (and so
+the blog's second stage) now run on claude-sonnet-5-5 at its default effort, after
+re-calibration: gold recall 0.91–0.95 / precision 1.00 over 3 runs, themes 1.00/1.00,
+real abstracts and an injected fabrication correct every run, and speaker labels read
+correctly (Sonnet 4.6 misread them, which falsely blocked the Kerr overview). It is more
+lenient than 4.6 on the writer's own framing. Cached 4.6 verdicts are not reused
+(`JUDGE_LOGIC_VERSION` 2026-10-10). Judges retry a malformed reply once and accept a
+single verdict returned as a bare object. New tool: `judge_recalibration.py`; the gold
+set gained 10 Kerr cases.
+
 ## [Unreleased] - 2026-10-10 (Claude 5 models)
 
 Plan: `docs/plan_v5_models_2026-10-10.md`. The pipeline now runs on claude-opus-5-5,
