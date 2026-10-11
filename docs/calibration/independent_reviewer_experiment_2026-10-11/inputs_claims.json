@@ -1,0 +1,126 @@
+[
+ {
+  "id": "gold:kerr_families",
+  "claims": [
+   "Kerr states explicitly, \"You have to heal in the system.\"",
+   "The interviewer says, \"You have to heal in the system.\"",
+   "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\"",
+   "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over.",
+   "The practical stakes are significant.",
+   "This distinction is central to Bowen theory's explanation of how family dysfunction persists.",
+   "Kerr is the youngest of five brothers.",
+   "Billy was the youngest of the Kerr brothers.",
+   "Kerr was Bowen's student in the 1950s.",
+   "Kerr notes that it is now 35 years later."
+  ],
+  "case_ids": [
+   "k1",
+   "k2",
+   "k3",
+   "k4",
+   "k5",
+   "k6",
+   "k7",
+   "k8",
+   "k9",
+   "k10"
+  ],
+  "truth": [
+   "entailed",
+   "contradicted",
+   "contradicted",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "entailed",
+   "contradicted",
+   "unsupported",
+   "entailed"
+  ]
+ },
+ {
+  "id": "gold:roots_bowen",
+  "claims": [
+   "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism.",
+   "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action.",
+   "Kerr credits Ptolemy with restoring the heliocentric model.",
+   "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+  ],
+  "case_ids": [
+   "rb_e1",
+   "rb_e2",
+   "rb_c1",
+   "rb_u1"
+  ],
+  "truth": [
+   "entailed",
+   "entailed",
+   "contradicted",
+   "unsupported"
+  ]
+ },
+ {
+  "id": "gold:where_roots",
+  "claims": [
+   "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus.",
+   "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds.",
+   "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted.",
+   "Aristarchus authored a geocentric model of the solar system.",
+   "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny.",
+   "Kerr cites a 2019 World Health Organization study on global cancer incidence.",
+   "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience.",
+   "The resistance to heliocentrism was not merely scientific but deeply institutional and religious.",
+   "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+  ],
+  "case_ids": [
+   "e9",
+   "e10",
+   "e14",
+   "c6",
+   "u1",
+   "u5",
+   "us7",
+   "ef1",
+   "ef2"
+  ],
+  "truth": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "contradicted",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "entailed",
+   "entailed"
+  ]
+ },
+ {
+  "id": "real:roots_bowen",
+  "claims": [
+   "Mike Kerr presents a webinar exploring the historical and scientific roots of Bowen Family Systems Theory.",
+   "His central purpose is to demonstrate how understanding paradigm shifts in physical science can illuminate the foundations and future trajectory of Bowen theory.",
+   "Kerr traces the 2,000-year evolution from Aristotle's geocentric model through Aristarchus's underground heliocentric proposal, Ptolemy's epicycle refinements, Copernicus's restoration of heliocentrism, Kepler's laws of elliptical orbits, Galileo's observational astronomy, and Newton's theory of universal gravitation to Einstein's relativity.",
+   "Throughout this arc, he examines how religious and institutional resistance delayed acceptance of the heliocentric model despite its correctness.",
+   "Kerr connects this history to Bowen theory by introducing the equation differentiation of self equals emotional objectivity plus action, emphasizing how emotional neutrality enables non-reactive engagement.",
+   "He argues that broadening perspective from nuclear family through multigenerational systems to evolution and cosmology strengthens emotional objectivity, suggesting that understanding physical-to-biological continuities may deepen comprehension of human differentiation processes."
+  ]
+ },
+ {
+  "id": "real:where_roots",
+  "claims": [
+   "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+   "Michael Kerr delivers a webinar exploring the historical and biological roots of Bowen Family Systems Theory, arguing that understanding the deep origins of the theory across physical, biological, and social domains illuminates its mechanisms and predictive power.",
+   "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+   "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+   "He then examines what physical principles, particularly forces and constraints, carry over into biological organization, using Frank Wilczek's account of elementary particles and their properties to establish continuity between the physical and living worlds.",
+   "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+   "He posits that when cells lose multicellular coordination they regress to ancestral properties of self-reproduction, mirroring how undifferentiation in families produces dysfunction.",
+   "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life.",
+   "In his second presentation, Kerr synthesizes neuroscientific research on emotion and motivation, examining Leonard Malodenau's concept of core affect as a neurological sentinel monitoring homeostatic threats, Kent Berridge's distinction between liking and wanting as separate reward subsystems, and William Seeley's identification of the emotional salience network and executive control network.",
+   "Kerr highlights the determination node within the salience network as a fundamental emotional function enabling goal-directed action, connecting this neurological finding to the sustained effort required for differentiation of self in family work.",
+   "Kerr concludes that while definitive answers about Bowen theory's roots remain incomplete, knowledge of non-living and living systems will ultimately provide those answers, extending understanding beyond the boundaries of the human species.",
+   "The presentation generates substantial audience engagement, with participants exploring connections between chronic anxiety as vigilance, state-holding processes, homeostatic disturbance, and the neurological substrates of determination and adaptive capacity."
+  ]
+ }
+]

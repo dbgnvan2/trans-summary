@@ -1,0 +1,202 @@
+[
+ {
+  "run": 0,
+  "id": "gold:kerr_families",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"entailed\", \"rationale\": \"Kerr says exactly, \\\"You have to heal in the system\\\" after discussing Bowen's judgment.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Interviewer expresses the same idea: \\\"healing in the system\\\" and leaving family does not solve the problem.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 3, \"label\": \"contradicted\", \"rationale\": \"Source gives Bowen's letter as \\\"if this is how you deal with your family...\\\" not the claimed quote.\", \"source_quote\": \"Mike, if this is how you deal with your family, no wonder you had so much trouble.\", \"unsupported_element\": null},\n{\"index\": 4, \"label\": \"entailed\", \"rationale\": \"Wife was at the helm coming into mooring; Kerr thought she was going too fast and took over.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 5, \"label\": \"entailed\", \"rationale\": \"Source shows health, relational, and societal stakes; this is a reasonable summary-level inference.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 6, \"label\": \"entailed\", \"rationale\": \"Source contrasts distance and differentiation and says leaving family does not solve the problem.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 7, \"label\": \"entailed\", \"rationale\": \"Kerr says the photo is him and four brothers, and he is the youngest.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 8, \"label\": \"contradicted\", \"rationale\": \"Kerr says he is the youngest; Billy is a brother, so Billy cannot be youngest.\", \"source_quote\": \"I'm the youngest there on the floor.\", \"unsupported_element\": null},\n{\"index\": 9, \"label\": \"unsupported\", \"rationale\": \"Source mentions the 1950s for Bowen's NIMH work, not Kerr being his student then.\", \"source_quote\": null, \"unsupported_element\": \"Kerr was Bowen's student in the 1950s\"},\n{\"index\": 10, \"label\": \"entailed\", \"rationale\": \"Kerr says, \\\"And now we are 35 years later\\\" about societal regression.\", \"source_quote\": null, \"unsupported_element\": null}]",
+  "usage": {
+   "prompt_tokens": 6567,
+   "completion_tokens": 6641,
+   "total_tokens": 13208,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 6081
+   },
+   "prompt_cache_hit_tokens": 0,
+   "prompt_cache_miss_tokens": 6567
+  },
+  "secs": 64.8
+ },
+ {
+  "run": 0,
+  "id": "gold:roots_bowen",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"entailed\", \"rationale\": \"Speaker traces solar system models from Aristotle's geocentric model through Copernicus restoring heliocentric credibility.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Source presents DOS equals EO plus A, meaning differentiation of self equals emotional objectivity plus action.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 3, \"label\": \"contradicted\", \"rationale\": \"Source credits Copernicus, not Ptolemy, with restoring heliocentric credibility; Ptolemy supported the geocentric model.\", \"source_quote\": \"But that all changed with Nicholas Copernicus, who probably almost everyone is familiar with. He restored credibility in the heliocentric universe\", \"unsupported_element\": null},\n{\"index\": 4, \"label\": \"unsupported\", \"rationale\": \"Source mentions no 2018 Stanford replication study; it only presents the equation without such research.\", \"source_quote\": null, \"unsupported_element\": \"2018 Stanford replication study confirming the differentiation-of-self equation\"}]",
+  "usage": {
+   "prompt_tokens": 3985,
+   "completion_tokens": 3740,
+   "total_tokens": 7725,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 3487
+   },
+   "prompt_cache_hit_tokens": 0,
+   "prompt_cache_miss_tokens": 3985
+  },
+  "secs": 44.6
+ },
+ {
+  "run": 0,
+  "id": "gold:where_roots",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"entailed\", \"rationale\": \"Kerr describes Aristarchus's heliocentric model going underground for 2,000 years and Copernicus restoring credibility.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Kerr cites Wilczek's elementary particles and asks how they are expressed in biological bodies and cells.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 3, \"label\": \"entailed\", \"rationale\": \"Kerr illustrates long paradigm shifts via the 2,000-year geocentric model and church/Inquisition resistance.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 4, \"label\": \"contradicted\", \"rationale\": \"Source states Aristarchus authored a heliocentric model, not geocentric.\", \"source_quote\": \"he authored a heliocentric model.\", \"unsupported_element\": null},\n{\"index\": 5, \"label\": \"unsupported\", \"rationale\": \"The source never names 'Luciano Malorni'; the cancer book author is an unnamed female philosopher.\", \"source_quote\": null, \"unsupported_element\": \"Luciano Malorni\"},\n{\"index\": 6, \"label\": \"unsupported\", \"rationale\": \"No WHO study, 2019 date, or global cancer incidence appears in the transcript.\", \"source_quote\": null, \"unsupported_element\": \"2019 World Health Organization study on global cancer incidence\"},\n{\"index\": 7, \"label\": \"contradicted\", \"rationale\": \"Kerr says answers are not there yet, not definitively proven.\", \"source_quote\": \"Certainly aren't there yet.\", \"unsupported_element\": null},\n{\"index\": 8, \"label\": \"entailed\", \"rationale\": \"Kerr details church, Pope, Jesuit, and Inquisition opposition to heliocentrism.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 9, \"label\": \"entailed\", \"rationale\": \"Kerr explicitly compares Bowen theory's possible public acceptance timeline to heliocentrism's slow dominance.\", \"source_quote\": null, \"unsupported_element\": null}]",
+  "usage": {
+   "prompt_tokens": 15486,
+   "completion_tokens": 2845,
+   "total_tokens": 18331,
+   "prompt_tokens_details": {
+    "cached_tokens": 1152
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 2346
+   },
+   "prompt_cache_hit_tokens": 1152,
+   "prompt_cache_miss_tokens": 14334
+  },
+  "secs": 29.8
+ },
+ {
+  "run": 0,
+  "id": "real:roots_bowen",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"unsupported\", \"rationale\": \"Source speaks in first person and never names the presenter 'Mike Kerr'; that specific name is absent from the transcript.\", \"source_quote\": null, \"unsupported_element\": \"Mike Kerr\"}, {\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Source says his intent is to explore where Bowen theory's roots reside and use physical science progress to frame Bowen theory's trajectory.\", \"source_quote\": null, \"unsupported_element\": null}, {\"index\": 3, \"label\": \"entailed\", \"rationale\": \"The source covers all listed figures from Aristotle through Einstein, including heliocentrism, epicycles, Kepler's laws, Galileo, Newton, and Einstein.\", \"source_quote\": null, \"unsupported_element\": null}, {\"index\": 4, \"label\": \"entailed\", \"rationale\": \"Source describes religious opposition (Church, Jesuits, Inquisition) and resistance delaying heliocentrism's acceptance over centuries.\", \"source_quote\": null, \"unsupported_element\": null}, {\"index\": 5, \"label\": \"entailed\", \"rationale\": \"Source presents DOS=EO+A and states emotional neutrality enables non-reactive engagement; connects roots and Bowen theory.\", \"source_quote\": null, \"unsupported_element\": null}, {\"index\": 6, \"label\": \"entailed\", \"rationale\": \"Source says broad perspective from nuclear family to cosmos contributes to emotional objectivity and physical-to-biological carryovers deepen human functioning understanding.\", \"source_quote\": null, \"unsupported_element\": null}]",
+  "usage": {
+   "prompt_tokens": 4125,
+   "completion_tokens": 3491,
+   "total_tokens": 7616,
+   "prompt_tokens_details": {
+    "cached_tokens": 1152
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 3144
+   },
+   "prompt_cache_hit_tokens": 1152,
+   "prompt_cache_miss_tokens": 2973
+  },
+  "secs": 40.0
+ },
+ {
+  "run": 0,
+  "id": "real:where_roots",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"unsupported\", \"rationale\": \"Source never states this exact title or a June video date; only describes two mini lectures.\", \"source_quote\": null, \"unsupported_element\": \"Where Roots of Bowen Theory Reside in the Brain (June video)\"},\n{\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Fair summary of Kerr's webcast exploring roots across physical, biological, and family levels and their implications.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 3, \"label\": \"entailed\", \"rationale\": \"Kerr compares Bowen theory's future paradigm shift to heliocentrism and links its concepts to physical and biological foundations.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 4, \"label\": \"entailed\", \"rationale\": \"Source traces heliocentrism from Aristarchus to Einstein and notes church opposition and multiple independent contributions.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 5, \"label\": \"entailed\", \"rationale\": \"Kerr uses Wilczek's elementary particles and asks about forces, constraints, and carryovers from physical to biological realms.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 6, \"label\": \"unsupported\", \"rationale\": \"The cancer dynamic relational view is from an unnamed female philosopher; the source never names Luciano Malorni.\", \"source_quote\": null, \"unsupported_element\": \"Luciano Malorni\"},\n{\"index\": 7, \"label\": \"entailed\", \"rationale\": \"Kerr describes cancer cells regaining ancestral self-reproduction properties and parallels blocked ontogeny with family undifferentiation and dysfunction.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 8, \"label\": \"entailed\", \"rationale\": \"Kerr explicitly proposes individuality and togetherness life forces may have roots in self-regulatory and other-regulatory processes.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 9, \"label\": \"entailed\", \"rationale\": \"Source covers Malodenau's core affect, Berridge's liking/wanting distinction, and Seeley's salience and executive control networks.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 10, \"label\": \"entailed\", \"rationale\": \"Kerr links the salience-network determination node to goal-directed perseverance and the determination needed for differentiation of self.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 11, \"label\": \"entailed\", \"rationale\": \"Kerr states answers remain incomplete but knowledge of non-living and living systems will ultimately provide answers beyond species boundaries.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 12, \"label\": \"entailed\", \"rationale\": \"Audience Q&A explores chronic anxiety, vigilance, state-holding, homeostasis, determination, and adaptive capacity.\", \"source_quote\": null, \"unsupported_element\": null}]",
+  "usage": {
+   "prompt_tokens": 15802,
+   "completion_tokens": 5693,
+   "total_tokens": 21495,
+   "prompt_tokens_details": {
+    "cached_tokens": 7168
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 5012
+   },
+   "prompt_cache_hit_tokens": 7168,
+   "prompt_cache_miss_tokens": 8634
+  },
+  "secs": 63.8
+ },
+ {
+  "run": 1,
+  "id": "gold:kerr_families",
+  "finish": "length",
+  "text": "",
+  "usage": {
+   "prompt_tokens": 6567,
+   "completion_tokens": 8192,
+   "total_tokens": 14759,
+   "prompt_tokens_details": {
+    "cached_tokens": 6528
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 8192
+   },
+   "prompt_cache_hit_tokens": 6528,
+   "prompt_cache_miss_tokens": 39
+  },
+  "secs": 85.8
+ },
+ {
+  "run": 1,
+  "id": "gold:roots_bowen",
+  "finish": "stop",
+  "text": "[{\"index\": 1, \"label\": \"entailed\", \"rationale\": \"The source traces Aristotle's geocentric model through Copernicus restoring heliocentrism.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 2, \"label\": \"entailed\", \"rationale\": \"Source explicitly states DOS equals EO plus A, meaning differentiation of self equals emotional objectivity plus action.\", \"source_quote\": null, \"unsupported_element\": null},\n{\"index\": 3, \"label\": \"contradicted\", \"rationale\": \"The source credits Copernicus, not Ptolemy, with restoring heliocentrism; Ptolemy supported the geocentric model.\", \"source_quote\": \"But that all changed with Nicholas Copernicus, who probably almost everyone is familiar with. He restored credibility in the heliocentric universe\", \"unsupported_element\": null},\n{\"index\": 4, \"label\": \"unsupported\", \"rationale\": \"The source mentions no 2018 Stanford replication study.\", \"source_quote\": null, \"unsupported_element\": \"2018 Stanford replication study confirming the differentiation-of-self equation\"}]",
+  "usage": {
+   "prompt_tokens": 3985,
+   "completion_tokens": 962,
+   "total_tokens": 4947,
+   "prompt_tokens_details": {
+    "cached_tokens": 3968
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 718
+   },
+   "prompt_cache_hit_tokens": 3968,
+   "prompt_cache_miss_tokens": 17
+  },
+  "secs": 10.1
+ },
+ {
+  "run": 1,
+  "id": "gold:where_roots",
+  "finish": "stop",
+  "text": "[\n  {\n    \"index\": 1,\n    \"label\": \"entailed\",\n    \"rationale\": \"Source traces Aristarchus' heliocentric model going underground until Copernicus restored credibility.\",\n    \"source_quote\": null,\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 2,\n    \"label\": \"entailed\",\n    \"rationale\": \"Source cites Wilczek's elementary particles (electron, photon, quarks, gluon) and connects physical to biological realms.\",\n    \"source_quote\": null,\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 3,\n    \"label\": \"entailed\",\n    \"rationale\": \"Source uses heliocentrism to illustrate long paradigm stagnation and resistance; generalization is fair.\",\n    \"source_quote\": null,\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 4,\n    \"label\": \"contradicted\",\n    \"rationale\": \"Source explicitly says Aristarchus authored a heliocentric model, not geocentric.\",\n    \"source_quote\": \"he authored a heliocentric model\",\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 5,\n    \"label\": \"unsupported\",\n    \"rationale\": \"Dynamic relational view and blocked ontogeny appear, but the named person 'Luciano Malorni' is absent from source.\",\n    \"source_quote\": null,\n    \"unsupported_element\": \"Luciano Malorni\"\n  },\n  {\n    \"index\": 6,\n    \"label\": \"unsupported\",\n    \"rationale\": \"Source never mentions a 2019 World Health Organization study or global cancer incidence.\",\n    \"source_quote\": null,\n    \"unsupported_element\": \"2019 World Health Organization study on global cancer incidence\"\n  },\n  {\n    \"index\": 7,\n    \"label\": \"contradicted\",\n    \"rationale\": \"Source says answers 'Certainly aren't there yet,' denying definitive proof.\",\n    \"source_quote\": \"Certainly aren't there yet.\",\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 8,\n    \"label\": \"entailed\",\n    \"rationale\": \"Source describes church, Pope, Jesuits, and Inquisition opposing heliocentrism.\",\n    \"source_quote\": null,\n    \"unsupported_element\": null\n  },\n  {\n    \"index\": 9,\n    \"label\": \"entailed\",\n    \"rationale\": \"Source explicitly compares Bowen theory's future acceptance to heliocentrism's long course.\",\n    \"source_quote\": null,\n    \"unsupported_element\": null\n  }\n]",
+  "usage": {
+   "prompt_tokens": 15486,
+   "completion_tokens": 5521,
+   "total_tokens": 21007,
+   "prompt_tokens_details": {
+    "cached_tokens": 15360
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 4947
+   },
+   "prompt_cache_hit_tokens": 15360,
+   "prompt_cache_miss_tokens": 126
+  },
+  "secs": 58.0
+ },
+ {
+  "run": 1,
+  "id": "real:roots_bowen",
+  "finish": "length",
+  "text": "",
+  "usage": {
+   "prompt_tokens": 4125,
+   "completion_tokens": 8192,
+   "total_tokens": 12317,
+   "prompt_tokens_details": {
+    "cached_tokens": 4096
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 8192
+   },
+   "prompt_cache_hit_tokens": 4096,
+   "prompt_cache_miss_tokens": 29
+  },
+  "secs": 97.9
+ },
+ {
+  "run": 1,
+  "id": "real:where_roots",
+  "finish": "stop",
+  "text": "[{\"index\":1,\"label\":\"unsupported\",\"rationale\":\"The title's thematic framing is supported, but the parenthetical date 'June video' is absent from the source transcript.\",\"source_quote\":null,\"unsupported_element\":\"June video\"},\n{\"index\":2,\"label\":\"entailed\",\"rationale\":\"Source frames webcast as exploring roots across physical/biological/social domains and says such knowledge will provide answers; fair summary-level inference.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":3,\"label\":\"entailed\",\"rationale\":\"Source uses heliocentrism as paradigm-shift analogy for Bowen theory and says grounding in physical/biological concepts strengthens perspective; fair abstraction.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":4,\"label\":\"entailed\",\"rationale\":\"Source traces Aristarchus to Einstein, describes religious/institutional resistance, and convergent contributions from multiple fields; accurately condenses.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":5,\"label\":\"entailed\",\"rationale\":\"Source explicitly asks what forces and constraints carry from physical to biological worlds and uses Wilczek's particles to establish continuity.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":6,\"label\":\"unsupported\",\"rationale\":\"Source describes a female philosopher's dynamic relational cancer view as blocked ontogeny but never names 'Luciano Malorni'.\",\"source_quote\":null,\"unsupported_element\":\"Luciano Malorni\"},\n{\"index\":7,\"label\":\"entailed\",\"rationale\":\"Source states cells freed from multicellular coordination reacquire ancestral proliferation/mobility, linking this to blocked ontogeny and family dysfunction.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":8,\"label\":\"entailed\",\"rationale\":\"Kerr explicitly conjectures individuality/togetherness life forces evolved from self-regulatory and other-regulatory processes rooted deep in biological/physical history.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":9,\"label\":\"entailed\",\"rationale\":\"Source covers Malodenau's core affect, Berridge's liking/wanting, and Seeley's salience/executive control networks exactly as summarized.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":10,\"label\":\"entailed\",\"rationale\":\"Source describes determination node as urge to persevere and says determination is needed to change in family/Bowen work.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":11,\"label\":\"entailed\",\"rationale\":\"Source states answers aren't yet there but non-living/living systems knowledge will provide them and extend beyond human species.\",\"source_quote\":null,\"unsupported_element\":null},\n{\"index\":12,\"label\":\"entailed\",\"rationale\":\"Q&A participants discuss chronic anxiety as vigilance, state-holding, homeostasis, determination, and adaptive capacity, showing substantial engagement.\",\"source_quote\":null,\"unsupported_element\":null}]",
+  "usage": {
+   "prompt_tokens": 15802,
+   "completion_tokens": 7439,
+   "total_tokens": 23241,
+   "prompt_tokens_details": {
+    "cached_tokens": 15744
+   },
+   "completion_tokens_details": {
+    "reasoning_tokens": 6806
+   },
+   "prompt_cache_hit_tokens": 15744,
+   "prompt_cache_miss_tokens": 58
+  },
+  "secs": 78.0
+ }
+]
