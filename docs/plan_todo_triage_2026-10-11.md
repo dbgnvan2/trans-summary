@@ -2,7 +2,7 @@
 
 Status: **approved 2026-10-11** (U-a Haiku 5.5, D1/D2/D3/D5 yes). Built: S, Q1–Q5, D1, D2,
 D3, D5, U1–U5, HV (2026-10-12: Sonnet 5.5 formatting, Haiku 5.5 AUX, header fix).
-Q6/C1/C2 later.
+Q6, C1, C2, D6 done 2026-10-12. Open: the end-to-end GUI run (user).
 
 Source: every open entry in `TODO.md` as of `4ffd3c9`, checked against the code on main.
 Groups: **S** stale (close in TODO), **U** urgent, **Q** quick fixes with tests,
@@ -144,7 +144,8 @@ U-a (candidate model), D1, D2, D3, D5. D4/D6/D7 default to my recommendation unl
 | Q3 | done | `tests/test_emphasis_save_q3.py` (5 tests), incl. the error path and the pipeline warning |
 | Q4 | done | `tests/test_abstract_pipeline_topics_parsing.py::test_q4_*` (3 tests); no change on 34 real topics files |
 | Q5 | done | `tests/test_judge_recalibration_jc.py::test_q5_*` |
-| Q6 | not started | with C1 |
+| Q6 | done 2026-10-12 | `tests/test_judge_prompt_examples_q6.py` (5 tests) |
+| C1 | done 2026-10-12 | `docs/calibration_q6_prompt_2026-10-12.md`: no loss (0.95 vs 0.91, difference = ambiguous k4), Kerr 0/10 vs 1/10; other "entailed" examples still from measured material (open) |
 | D1 | done | `tests/test_webpage_themes_d1.py`; exact on 48 real theme files / 240 themes |
 | D2 | done | `tests/test_judge_cache_pass_only_d2.py` (9 tests): a PASS after a FAIL (or an old FAIL entry) is not stored; a flagged file needs two PASSes in a row |
 | D3 | done | worktree and 5 merged branches removed |

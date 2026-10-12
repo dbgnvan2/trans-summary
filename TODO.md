@@ -30,8 +30,18 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   shipped (`docs/calibration_framing_2026-10-11.md`).
 - ~~`judge_recalibration.py --prose-real` omits the filename metadata~~ — fixed 2026-10-11
   (Q5, shared `release_gate.with_recording_metadata`); the prompt sha is recorded since CF.
-- Prompt example "attributes recovery to medication" (since 2026-07-15) paraphrases gold
-  us6. Replace in the next prompt change (plan Q6, with calibration C1).
+- ~~Prompt example "attributes recovery to medication" paraphrases gold us6~~ — fixed
+  2026-10-12 (Q6/C1, `docs/calibration_q6_prompt_2026-10-12.md`); also "definitively
+  proven" (us7). No loss: gold recall 0.95 vs 0.91 (the difference is ambiguous k4), Kerr 0/10.
+- **Open (Q6 review, needs a decision):** the prompt's "entailed" examples still come from
+  measured material. The DOS-equation example mirrors gold rb_e1/rb_e2; three framing
+  sentences are copied from the Systems Biology blog in `prose_real`; "rare in science"
+  shares a subject with ef1/ef2. Replacing them changes framing behaviour (not changed on
+  2026-10-11) and needs a same-day measurement with `--prose-real` and the Kerr checks.
+- **Open risk (D2 × version bumps):** the judge disk key includes the logic version, so a
+  prompt edit or `JUDGE_LOGIC_VERSION` bump re-keys every entry and drops D2's "flagged"
+  markers. A previously failed artifact then needs only one PASS, which is stored. Keep
+  flagged markers keyed without the version.
 
 ### ⏸ Open — from the Hermes QA gate (`docs/cycles/2026-10-11_rfop-qa-gate.md`, APPROVED)
 - ~~**LOW (P7)** `missing_names` substring match~~ — fixed 2026-10-11 (Q1): the page

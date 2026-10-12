@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (judge prompt examples — Q6/C1)
+
+- **Q6** Two faithfulness judge prompt examples that paraphrased gold cases were
+  replaced: the medication example (us6) and "definitively proven" (us7) now use an
+  unrelated subject. Other "entailed" examples still come from measured material (open).
+  No rule changed. `JUDGE_LOGIC_VERSION` is now 2026-10-12, so cached verdicts are re-judged.
+- **C1** Measured against the old prompt on the same day
+  (`docs/calibration_q6_prompt_2026-10-12.md`): gold recall 0.95 ×3 (was 0.91 ×3; the
+  difference is the one ambiguous case k4, so read it as no loss), precision 1.00;
+  0 of 10 false fails on the Kerr project (old prompt: 1 of 10).
+
 ## [Unreleased] - 2026-10-12 (emphasis check matches the gate — D6)
 
 - **D6** Measured the emphasis quote threshold on 752 real quotes (33 projects). The

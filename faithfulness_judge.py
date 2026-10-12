@@ -478,8 +478,8 @@ faithful.
 - "unsupported" is for a claim whose core element or assertion is ABSENT from the \
 source entirely — an invented fact, a cited study, or a specific conclusion / stance \
 / causal claim the source never makes and that does not follow from what it says \
-(e.g. "attributes recovery to medication" when medication appears nowhere in the \
-source). This holds even when the claim names no specific entity.
+(e.g. "blames the bridge's failure on a design flaw" when no design flaw appears in \
+the source). This holds even when the claim names no specific entity.
 
 When unsure whether the source supports a claim built from grounded elements, prefer \
 "entailed". Reserve "unsupported" for a claim introducing substance the source does \
@@ -494,12 +494,12 @@ is in the source: "It was a logical approach, and it produced genuine discoverie
 explanation lives in the pattern."; "That kind of reckoning is rare in science." \
 Reserve "unsupported" for a sentence that ADDS substance the source does not contain \
 — a fabricated concrete specific, or a specific conclusion / stance / causal claim / \
-attribution with no basis in the source (e.g. "attributes recovery to medication" when \
-medication is never mentioned). A rhetorical flourish on top of grounded material is \
+attribution with no basis in the source (e.g. "blames the bridge's failure on a design \
+flaw" when no design flaw is mentioned). A rhetorical flourish on top of grounded material is \
 still "entailed"; a NEW factual claim the source does not support is "unsupported". \
 Careful with strength escalations: a claim that the source is TENTATIVE about (\"may\", \
 \"perhaps\", \"remains unclear\") is NOT entailed when restated as settled fact — \
-\"definitively proven\" or \"conclusively established\" asserts a specific factual stance \
+\"beyond any doubt\" or \"now settled\" asserts a specific factual stance \
 the source does not take, and is \"unsupported\" (or \"contradicted\" if the source says \
 the opposite).
 
