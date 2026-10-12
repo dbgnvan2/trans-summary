@@ -1,4 +1,4 @@
-# Formatting model: Haiku 4.5 vs Haiku 5.5 — 2026-10-11
+# Formatting model: Haiku 4.5 vs Haiku 5.5 vs Sonnet 5.5 — 2026-10-11
 
 Plan: `docs/plan_todo_triage_2026-10-11.md` (U3). Haiku 4.5 (`claude-haiku-4-5-20251001`)
 retires no sooner than 2026-10-15. Candidate chosen by the user: `claude-haiku-5-5`.
@@ -58,10 +58,38 @@ switched. Decision for the user (below).
 Not code-testable: formatting quality beyond these counts. A side-by-side read of one
 formatted transcript per model is the human check.
 
-## Options
+## Round 2 — Haiku 5.5 at low effort, Sonnet 5.5 (default effort)
 
-1. Switch to Haiku 5.5 now and accept more review items. The format check stops bad output.
-2. Measure Haiku 5.5 at `low` effort, and Sonnet 5.5 for formatting only, on the same 3
-   talks (about $1–2), then decide.
-3. Keep Haiku 4.5 until Anthropic retires it and switch then. Risk: formatting fails on
-   the retirement day until the setting is changed (GUI model menu, or `config.py`).
+User chose option 2 (measure before deciding). Same 3 talks, 2 runs each, same method;
+counts in `docs/calibration/2026-10-11_formatting_haiku/results_round2.json`.
+
+Review items per run (Roots ×2, Societal ×2, Making ×2), all four configurations:
+
+| Model | Review items | Other errors | Passed | Cost (6 runs) | Long-talk time |
+|---|---|---|---|---|---|
+| Haiku 4.5 | 0, 0, 3, 20, 1, 0 | 5 heading timestamps not in source (1 run) | 3 of 6 | $0.42 | 3.5–5 min |
+| Haiku 5.5 (medium) | 0, 0, 9, 7, 2, 34 | 14-word repeat (1 run) | 2 of 6 | $0.12 | 2–3.5 min |
+| Haiku 5.5 (low) | 1, 1, 9, 4, 3, 56 | heading timestamps wrong (2 runs) | 0 of 6 | $0.09 | 1.5–2.5 min |
+| Sonnet 5.5 | 0, 0, 1, 2, 2, 1 | 1 heading timestamp off by a minute (1 run) | 1 of 6 | $3.38 | 6–8.5 min |
+
+What the differences are:
+- **Haiku 5.5 low** edits as much as medium. It changed "Cell" to "Self" and "Brahe" to
+  "Bra", changed "Bertoloso" to "Bartoloso" again, deleted phrases, and wrote 45
+  heading-timestamp errors in one run.
+- **Sonnet 5.5** review items are only:
+  - dropped single words ("that", "to,");
+  - "[unintelligible]" removed;
+  - one ASR double fixed ("Universityversity").
+
+  It made no grammar edits and no name changes. It writes more section headings (54–77
+  on the long talks vs 46–58 for Haiku 4.5). Its few "passed: no" results are 1–2
+  one-word review items or one heading timestamp.
+
+## Conclusion (round 2)
+
+Sonnet 5.5 keeps the speaker's words best of the four, including Haiku 4.5. Its cost is
+about $0.10 for a 2k-word talk and $0.67–1.00 for a 10–15k-word talk, versus about
+$0.02 / $0.08–0.12 for Haiku 4.5. It also takes about twice as long. Haiku 5.5 at either
+effort is not a fit for verbatim formatting. **Recommendation:** `FORMATTING_MODEL =
+claude-sonnet-5-5`. `VALIDATION_MODEL` / `AUX_MODEL` (also Haiku 4.5) were not measured
+here; they are not verbatim tasks, and U5 measures them separately.

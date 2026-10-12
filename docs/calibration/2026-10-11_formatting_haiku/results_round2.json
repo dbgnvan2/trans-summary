@@ -1,0 +1,274 @@
+{
+  "prompt_file": "Transcript Formatting Prompt v12-Lite.md",
+  "pricing": {
+    "claude-haiku-5-5@low": {
+      "input": 0.1,
+      "output": 0.5,
+      "cache_write": 0.125,
+      "cache_read": 0.01
+    },
+    "claude-sonnet-5-5": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_write": 2.5,
+      "cache_read": 0.2
+    }
+  },
+  "results": [
+    {
+      "seconds": 52.0,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "1 difference(s) from the source need review"
+      ],
+      "warnings": 0,
+      "headings": 15,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 1,
+      "mismatch_ratio": 0.00052,
+      "max_contiguous_run": 1,
+      "items": 2,
+      "unresolved": 1,
+      "raw_words": 1989,
+      "formatted_words": 2106,
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 1
+    },
+    {
+      "seconds": 40.9,
+      "passed": false,
+      "errors": 2,
+      "error_sample": [
+        "Section 12: heading timestamp 00:15:04 does not match where the section starts in the raw transcript (expected one of: 00:16:04, 00:17:04)",
+        "1 difference(s) from the source need review"
+      ],
+      "warnings": 0,
+      "headings": 14,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 1,
+      "mismatch_ratio": 0.00052,
+      "max_contiguous_run": 1,
+      "items": 2,
+      "unresolved": 1,
+      "raw_words": 1989,
+      "formatted_words": 2087,
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 2
+    },
+    {
+      "seconds": 50.2,
+      "passed": true,
+      "errors": 0,
+      "error_sample": [],
+      "warnings": 0,
+      "headings": 16,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 0,
+      "mismatch_ratio": 0.0,
+      "max_contiguous_run": 0,
+      "items": 0,
+      "unresolved": 0,
+      "raw_words": 1989,
+      "formatted_words": 2127,
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 1
+    },
+    {
+      "seconds": 50.1,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "Section 4: heading timestamp 00:01:11 does not match where the section starts in the raw transcript (expected one of: 00:02:10, 00:03:09)"
+      ],
+      "warnings": 0,
+      "headings": 17,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 0,
+      "mismatch_ratio": 0.0,
+      "max_contiguous_run": 0,
+      "items": 0,
+      "unresolved": 0,
+      "raw_words": 1989,
+      "formatted_words": 2134,
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 2
+    },
+    {
+      "seconds": 151.6,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "9 difference(s) from the source need review"
+      ],
+      "warnings": 3,
+      "headings": 34,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 5,
+      "mismatch_ratio": 0.00051,
+      "max_contiguous_run": 3,
+      "items": 10,
+      "unresolved": 9,
+      "raw_words": 9901,
+      "formatted_words": 10471,
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 1
+    },
+    {
+      "seconds": 139.3,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "4 difference(s) from the source need review"
+      ],
+      "warnings": 1,
+      "headings": 51,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 4,
+      "mismatch_ratio": 0.00041,
+      "max_contiguous_run": 1,
+      "items": 6,
+      "unresolved": 4,
+      "raw_words": 9901,
+      "formatted_words": 10480,
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 2
+    },
+    {
+      "seconds": 450.9,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "1 difference(s) from the source need review"
+      ],
+      "warnings": 3,
+      "headings": 64,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 64,
+      "mismatch_ratio": 0.00649,
+      "max_contiguous_run": 8,
+      "items": 39,
+      "unresolved": 1,
+      "raw_words": 9901,
+      "formatted_words": 10766,
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 1
+    },
+    {
+      "seconds": 360.3,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "2 difference(s) from the source need review"
+      ],
+      "warnings": 3,
+      "headings": 54,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 26,
+      "mismatch_ratio": 0.00264,
+      "max_contiguous_run": 2,
+      "items": 24,
+      "unresolved": 2,
+      "raw_words": 9901,
+      "formatted_words": 10743,
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 2
+    },
+    {
+      "seconds": 80.9,
+      "passed": false,
+      "errors": 45,
+      "error_sample": [
+        "Section 2: timestamp 00:00:45 does not occur in the raw transcript",
+        "Section 3: timestamp 00:01:50 does not occur in the raw transcript",
+        "Section 4: timestamp 00:02:50 does not occur in the raw transcript",
+        "Section 6: timestamp 00:06:20 does not occur in the raw transcript",
+        "Section 7: timestamp 00:07:10 does not occur in the raw transcript"
+      ],
+      "warnings": 2,
+      "headings": 33,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 3,
+      "mismatch_ratio": 0.00021,
+      "max_contiguous_run": 1,
+      "items": 4,
+      "unresolved": 3,
+      "raw_words": 14314,
+      "formatted_words": 14690,
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 1
+    },
+    {
+      "seconds": 119.6,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "56 difference(s) from the source need review"
+      ],
+      "warnings": 3,
+      "headings": 44,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 89,
+      "mismatch_ratio": 0.00624,
+      "max_contiguous_run": 7,
+      "items": 61,
+      "unresolved": 56,
+      "raw_words": 14314,
+      "formatted_words": 14864,
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "model": "claude-haiku-5-5@low",
+      "repeat": 2
+    },
+    {
+      "seconds": 341.9,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "2 difference(s) from the source need review"
+      ],
+      "warnings": 4,
+      "headings": 77,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 2,
+      "mismatch_ratio": 0.00014,
+      "max_contiguous_run": 1,
+      "items": 3,
+      "unresolved": 2,
+      "raw_words": 14314,
+      "formatted_words": 15438,
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 1
+    },
+    {
+      "seconds": 506.0,
+      "passed": false,
+      "errors": 1,
+      "error_sample": [
+        "1 difference(s) from the source need review"
+      ],
+      "warnings": 6,
+      "headings": 69,
+      "heading_ts_rewrites": 0,
+      "mismatch_count": 6,
+      "mismatch_ratio": 0.00042,
+      "max_contiguous_run": 1,
+      "items": 6,
+      "unresolved": 1,
+      "raw_words": 14314,
+      "formatted_words": 15397,
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "model": "claude-sonnet-5-5",
+      "repeat": 2
+    }
+  ]
+}

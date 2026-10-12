@@ -5,7 +5,9 @@ projects folders), applies the same post-processing as format_transcript, and
 runs verify_source_fidelity with no review approvals. Writes one JSON with all
 counts plus the formatted text of each run.
 
-Usage: python compare_formatting_models.py OUT_DIR MODEL [MODEL...] -- FILE [FILE...]
+Usage: python compare_formatting_models.py OUT_DIR MODEL[@EFFORT] [...] -- FILE [FILE...]
+EFFORT (low/medium/high/...) is set in-process only (config.settings.runtime_settings,
+not saved); without it the model's default effort is used.
 """
 import json
 import sys
@@ -19,7 +21,12 @@ import model_specs  # noqa: E402
 REPEATS = 2
 
 
-def run_one(raw, prompt, model):
+def run_one(raw, prompt, spec):
+    model, _, effort = spec.partition("@")
+    fp.config.settings.runtime_settings.pop("effort", None)
+    if effort:
+        fp.config.settings.runtime_settings["effort"] = effort  # in-process only
+    assert fp.config.settings.EFFORT == (effort or None)
     t0 = time.time()
     text = fp.format_transcript_with_claude(raw, prompt, model=model)
     elapsed = time.time() - t0
@@ -70,7 +77,7 @@ def main():
                 print(json.dumps(row), flush=True)
                 (out_dir / "results.json").write_text(json.dumps(
                     {"prompt_file": str(fp.config.PROMPT_FORMATTING_FILENAME),
-                     "pricing": {m: model_specs.PRICING.get(m) for m in models},
+                     "pricing": {m: model_specs.PRICING.get(m.partition("@")[0]) for m in models},
                      "results": results}, indent=2), encoding="utf-8")
 
 
