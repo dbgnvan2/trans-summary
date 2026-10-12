@@ -1,0 +1,93 @@
+[
+  {
+    "run": 1,
+    "project": "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged); 1 first-pass flag(s) not confirmed",
+    "flagged": [],
+    "overturned": [
+      "Function of Belief: Kerr states that \"the belief supports it being functional,\" and uses this concept to explain how Bowen incorporated supernatural p"
+    ]
+  },
+  {
+    "run": 1,
+    "project": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged)",
+    "flagged": [],
+    "overturned": []
+  },
+  {
+    "run": 1,
+    "project": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+    "status": "Status.FAIL",
+    "detail": "check failed in topics \u2014 regenerate and try again",
+    "flagged": [
+      "Cancer as Blocked Ontogeny and Cell Differentiation: Researchers Sonenschein, Soto, and Bertoloso's work framing cancer as a disease of blocked cell differentiation rather than multiplication, with regressing cells reverting to ancestral properties, and the parallels drawn to Bowen Theory's concept of blocked development through undifferentiation."
+    ],
+    "overturned": []
+  },
+  {
+    "run": 1,
+    "project": "Beautiful Boy Review - Kathleen Kerr - 2023-02-17_182707_v-valid",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged)",
+    "flagged": [],
+    "overturned": []
+  },
+  {
+    "run": 1,
+    "project": "Monika Baege and Michael Kerr interview - Michael Kerr - 2010-09-23",
+    "status": "Status.FAIL",
+    "detail": "check failed in key-terms \u2014 regenerate and try again",
+    "flagged": [
+      "Societal Regression: A concept referenced by Kerr in the context of broader cultural and intellectual trends, describing a period in which systems thinking is resisted or suppressed in favor of reductionist, cause-and-effect models, with the implication that a return to systems-oriented thinking is both possible and necessary for scientific progress."
+    ],
+    "overturned": []
+  },
+  {
+    "run": 2,
+    "project": "Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged)",
+    "flagged": [],
+    "overturned": []
+  },
+  {
+    "run": 2,
+    "project": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged)",
+    "flagged": [],
+    "overturned": []
+  },
+  {
+    "run": 2,
+    "project": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+    "status": "Status.FAIL",
+    "detail": "check failed in topics \u2014 regenerate and try again",
+    "flagged": [
+      "Cancer as Blocked Ontogeny and Cell Differentiation: Researchers Sonenschein, Soto, and Bertoloso's work framing cancer as a disease of blocked cell differentiation rather than multiplication, with regressing cells reverting to ancestral properties, and the parallels drawn to Bowen Theory's concept of blocked development through undifferentiation."
+    ],
+    "overturned": []
+  },
+  {
+    "run": 2,
+    "project": "Beautiful Boy Review - Kathleen Kerr - 2023-02-17_182707_v-valid",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged)",
+    "flagged": [],
+    "overturned": []
+  },
+  {
+    "run": 2,
+    "project": "Monika Baege and Michael Kerr interview - Michael Kerr - 2010-09-23",
+    "status": "Status.PASS",
+    "detail": "all topic/key-term claims entailed by source (2 artifact(s) judged); 2 first-pass flag(s) not confirmed",
+    "flagged": [],
+    "overturned": [
+      "Challenges Presenting Bowen Theory to the Medical Establishment: Kerr recounts resistance from the National Cancer Institute, oncology grand rounds, a",
+      "Future of Systems Thinking and Bowen Theory: Kerr situates Bowen alongside Copernicus, Darwin, and Einstein as a contributor whose framework will even"
+    ]
+  }
+]
