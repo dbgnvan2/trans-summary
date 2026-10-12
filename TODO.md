@@ -17,10 +17,12 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   checker; anything run from it fails every simple page.
 
 ### ⏸ Open — faithfulness judge (2026-10-11)
-- **Random false flags** on supported sentences: the Kerr 2026-09-13 files fail 5 of 10
-  fresh checks with the current prompt. Plan (approved): `docs/plan_judge_confirm_flags_2026-10-11.md` (CF).
+- ~~Random false flags~~ — fixed 2026-10-11 (CF): a flag fails a run only when a fresh
+  judgement agrees; Kerr false fails 5/10 → 0/10 (`docs/calibration_confirm_2026-10-11.md`).
+  Still open: first-pass misses on the borderline policy cases k4/k5/k6 (gold recall
+  0.86–0.91 per run); the theme judge and key-terms judge have no confirmation (CD2).
 - **Sticky cached FAIL**: a false FAIL is stored on disk and replayed on gate re-runs of
-  unchanged files until the artifact is regenerated.
+  unchanged files until the artifact is regenerated (less likely since CF).
 - **k6 gap (known, accepted)**: the judge accepts the writer's own claims about a theory
   ("…central to Bowen theory's explanation…"). A narrower framing rule was tried and not
   shipped (`docs/calibration_framing_2026-10-11.md`).

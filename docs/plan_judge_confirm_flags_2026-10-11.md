@@ -1,7 +1,9 @@
 # Plan: confirm a faithfulness flag before it fails a run (CF.1–CF.6)
 
-Status: **approved 2026-10-11, building.** CD1 = majority of 3 with early stop; CD2 =
-faithfulness judge only; CD3 = on the current prompt (the framing change was not shipped).
+Status: **done 2026-10-11, merged.** CD1 = majority of 3 with early stop; CD2 =
+faithfulness judge only; CD3 = current prompt. Results: `docs/calibration_confirm_2026-10-11.md`
+(Kerr 0/10 false fails, was 5/10; no gold flag overturned; one gold run at recall 0.86 from
+a first-pass miss, merged on the author's decision).
 
 ## Problem
 
