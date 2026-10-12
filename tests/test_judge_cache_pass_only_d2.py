@@ -146,3 +146,59 @@ def test_d2_blog_pass_after_a_flag_is_not_persisted(tmp_path, monkeypatch):
         monkeypatch.setattr(rg, "_BLOG_GROUNDING_CACHE", {})
         rg._judge_blog_grounding_cached(fj, ["a claim"], "src", object(), None)
     assert len(calls) == 3
+
+
+def test_d2_flag_survives_a_logic_version_bump(tmp_path, monkeypatch):
+    """Q6 review: a prompt edit / JUDGE_LOGIC_VERSION bump re-keys the cache; a file
+    judged FAIL under the old version must still need two PASSes, and its PASS must
+    not be stored."""
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _i: "v1")
+    monkeypatch.setattr(fj, "judge_artifact", lambda a, s, c, logger=None: _result(fj.FAIL, ["x"]))
+    _cold(monkeypatch)
+    rg._judge_cached(fj, "art", "src", object(), None)  # flagged under v1
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _i: "v2")
+    results = [_result(fj.PASS), _result(fj.FAIL, ["x"])]
+    monkeypatch.setattr(fj, "judge_artifact", lambda a, s, c, logger=None: results.pop(0))
+    _cold(monkeypatch)
+    assert rg._judge_cached(fj, "art", "src", object(), None).status == fj.FAIL
+    assert results == []
+    assert all(v.get("status") != fj.PASS for v in rg._load_judge_disk_cache().values())
+
+
+def test_d2_old_version_fail_entry_counts_as_flagged(tmp_path, monkeypatch):
+    """Dirty state: a FAIL entry written under an older version (like the 35 in the
+    live cache) still marks the file as flagged after a bump."""
+    import hashlib
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
+    a = hashlib.sha256(b"art").hexdigest()
+    s = hashlib.sha256(b"src").hexdigest()
+    old_key = f"{a}:{s}:{config.FAITHFULNESS_JUDGE_MODEL}:oldver"
+    (tmp_path / "gate_judge_cache.json").write_text(json.dumps(
+        {old_key: _result(fj.FAIL, ["x"]).to_dict()}), encoding="utf-8")
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _i: "newver")
+    calls = []
+    monkeypatch.setattr(fj, "judge_artifact",
+                        lambda a, s, c, logger=None: calls.append(1) or _result(fj.PASS))
+    _cold(monkeypatch)
+    assert rg._judge_cached(fj, "art", "src", object(), None).status == fj.PASS
+    assert calls == [1, 1]  # two PASSes needed
+    new_key = f"{a}:{s}:{config.FAITHFULNESS_JUDGE_MODEL}:newver"
+    assert rg._load_judge_disk_cache().get(new_key, {}).get("status") != fj.PASS
+
+
+def test_d2_theme_flag_survives_a_logic_version_bump(tmp_path, monkeypatch):
+    """P5 sibling: the theme judge key keeps its flag across a version bump."""
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _i: "v1")
+    monkeypatch.setattr(fj, "judge_themes_artifact",
+                        lambda t, s, k, c, logger=None: _result(fj.FAIL, ["x"]))
+    _cold(monkeypatch)
+    rg._judge_theme_cached(fj, "themes", "src", "structural", object(), None)
+    monkeypatch.setattr(rg, "_judge_logic_version", lambda _i: "v2")
+    results = [_result(fj.PASS), _result(fj.PASS)]
+    monkeypatch.setattr(fj, "judge_themes_artifact", lambda t, s, k, c, logger=None: results.pop(0))
+    _cold(monkeypatch)
+    assert rg._judge_theme_cached(fj, "themes", "src", "structural", object(), None).status == fj.PASS
+    assert results == []  # two PASSes were needed
+    assert all(v.get("status") != fj.PASS for v in rg._load_judge_disk_cache().values())

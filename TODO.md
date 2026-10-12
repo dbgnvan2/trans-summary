@@ -38,10 +38,9 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   sentences are copied from the Systems Biology blog in `prose_real`; "rare in science"
   shares a subject with ef1/ef2. Replacing them changes framing behaviour (not changed on
   2026-10-11) and needs a same-day measurement with `--prose-real` and the Kerr checks.
-- **Open risk (D2 × version bumps):** the judge disk key includes the logic version, so a
-  prompt edit or `JUDGE_LOGIC_VERSION` bump re-keys every entry and drops D2's "flagged"
-  markers. A previously failed artifact then needs only one PASS, which is stored. Keep
-  flagged markers keyed without the version.
+- ~~**Open risk (D2 × version bumps)**~~ — fixed 2026-10-12: a FAIL under any logic version
+  marks the content as flagged (`release_gate._flagged_any_version`); the 35 flagged entries
+  in the live cache still count after the Q6 bump.
 
 ### ⏸ Open — from the Hermes QA gate (`docs/cycles/2026-10-11_rfop-qa-gate.md`, APPROVED)
 - ~~**LOW (P7)** `missing_names` substring match~~ — fixed 2026-10-11 (Q1): the page

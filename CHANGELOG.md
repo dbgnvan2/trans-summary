@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
   (`docs/calibration_q6_prompt_2026-10-12.md`): gold recall 0.95 ×3 (was 0.91 ×3; the
   difference is the one ambiguous case k4, so read it as no loss), precision 1.00;
   0 of 10 false fails on the Kerr project (old prompt: 1 of 10).
+- **D2 follow-up** A file judged FAIL under an older judge version still counts as flagged
+  after a prompt edit or version bump (the cache key includes the version). Before
+  this, the Q6 bump would have dropped the 35 flagged entries in the live cache.
 
 ## [Unreleased] - 2026-10-12 (emphasis check matches the gate — D6)
 

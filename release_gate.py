@@ -711,6 +711,25 @@ def _is_flagged(entry) -> bool:
     return True
 
 
+def _key_without_version(disk_key: str) -> str:
+    """The disk key minus its trailing judge-logic-version segment: content, kind and
+    model. Every judge key ends in ``:<_judge_logic_version>``."""
+    return disk_key.rsplit(":", 1)[0]
+
+
+def _flagged_any_version(disk_key: str) -> bool:
+    """True when this content was judged FAIL under ANY logic version (a prompt edit
+    or JUDGE_LOGIC_VERSION bump re-keys the cache; the flag must survive it — Q6
+    review). Scans the bounded cache (<= _JUDGE_DISK_CACHE_MAX entries).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D2
+    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_flag_survives_a_logic_version_bump
+    """
+    prefix = _key_without_version(disk_key)
+    return any(_key_without_version(k) == prefix and _is_flagged(v)
+               for k, v in _load_judge_disk_cache().items())
+
+
 def _persist_judge_outcome(disk_key: str, passed: bool, record: dict, logger=None):
     """D2: keep only a clean PASS on disk. A FAIL is not stored as a verdict (it is
     re-judged next run) but leaves a "flagged" marker; once a key is flagged (marker,
@@ -723,7 +742,7 @@ def _persist_judge_outcome(disk_key: str, passed: bool, record: dict, logger=Non
     """
     if not passed:
         _store_judge_disk_cache(disk_key, dict(_FLAGGED_MARKER), logger)
-    elif not _is_flagged(_load_judge_disk_cache().get(disk_key)):
+    elif not _flagged_any_version(disk_key):
         _store_judge_disk_cache(disk_key, record, logger)
 
 
@@ -736,7 +755,7 @@ def _judge_flag_aware(disk_key: str, fjudge, judge, logger=None):
     Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_flagged_needs_two_passes_in_a_row
     """
     result = judge()
-    if result.status == fjudge.PASS and _is_flagged(_load_judge_disk_cache().get(disk_key)):
+    if result.status == fjudge.PASS and _flagged_any_version(disk_key):
         second = judge()
         if second.status != fjudge.PASS:
             if logger:

@@ -46,7 +46,8 @@ Pull from the global catalogue; the ones that bite this repo most:
   but the gate is broader than the stages that actually consume the raw source file. Revisit if
   users hit spurious "run Init Val first" blocks when re-running only late stages.
 - ~~`_load_runtime_settings` non-dict JSON~~ — fixed by review C1 (`config.py`, `isinstance` reset).
-- Judge disk cache (D2, 2026-10-11): the "flagged" marker can be evicted by the 2000-entry cap,
+- Judge disk cache (D2, 2026-10-11): a version bump re-keyed entries and dropped flags — fixed
+  2026-10-12 (`_flagged_any_version`). The "flagged" marker can still be evicted by the 2000-entry cap,
   after which a PASS for that file is stored; the advisory blog-grounding check has no two-PASS rule.
 - ~~**Key-terms WEAK tier is definition-rescuable (P7).**~~ **Resolved** (pre-flight review, same
   session): `validate_key_terms_fidelity` now FAILs any term with `term_ratio < 0.50` regardless of
