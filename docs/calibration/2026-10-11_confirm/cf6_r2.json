@@ -1,0 +1,95 @@
+{
+ "prompt_sha": "96e5ab257296",
+ "files": {
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - abstract-generated.md": "a6d954a578ec9493bb778c75ae3e1dbd0833f894a143f7811944fec87f9e520c",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - summary-generated.md": "b565114f839147fc691965f74a3db37609eca6a931f7ae2dcb1ca77936a8c634",
+  "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - overview.md": "7949466a2a00064c84082bac692536636d540ab8813ac2efd9d568e609b26d40"
+ },
+ "runs": [
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [],
+   "cost": 0.1305
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [],
+   "cost": 0.0806
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [],
+   "cost": 0.0792
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [],
+   "cost": 0.0798
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0858
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [
+    [
+     "summary-generated.md",
+     "Finally, the conversation addresses societal regression, a concept Bowen introduced in 1975."
+    ]
+   ],
+   "cost": 0.0879
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [
+    [
+     "summary-generated.md",
+     "Finally, the conversation addresses societal regression, a concept Bowen introduced in 1975."
+    ]
+   ],
+   "cost": 0.0869
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [],
+   "cost": 0.079
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0875
+  },
+  {
+   "status": "Status.PASS",
+   "flagged": [],
+   "overturned": [
+    [
+     "overview.md",
+     "Michael Kerr calls a multigenerational perspective the best entry point."
+    ]
+   ],
+   "cost": 0.0867
+  }
+ ]
+}
