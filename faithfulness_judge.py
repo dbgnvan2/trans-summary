@@ -672,23 +672,44 @@ def judge_claims_confirmed(claims: list, source: str, client, *,
     if mode == "off" or not flagged:
         return verdicts, []
 
-    def _again(idxs: list) -> list:
-        return judge_claims([claims[i] for i in idxs], source, client, model=model, logger=log)
+    def _again(idxs: list) -> dict:
+        # Each flagged claim is re-sent with the claim before it, so a sentence whose
+        # subject depends on its predecessor ("This distinction…", "It links…") keeps
+        # its referent; only the flagged claims' verdicts are read (sweep finding 5).
+        batch = sorted(set(idxs) | {i - 1 for i in idxs if i > 0})
+        got = judge_claims([claims[j] for j in batch], source, client, model=model, logger=log)
+        return {j: v for j, v in zip(batch, got) if j in idxs}
 
-    second = dict(zip(flagged, _again(flagged)))
+    passes = {i: [verdicts[i]] for i in flagged}
+    second = _again(flagged)
+    for i in flagged:
+        passes[i].append(second[i])
     disputed = [i for i in flagged if second[i].faithful]
-    overturned = []
     if disputed:
-        third = dict(zip(disputed, _again(disputed)))
+        third = _again(disputed)
         for i in disputed:
-            if third[i].faithful:
-                first = verdicts[i]
-                overturned.append({"claim": first.claim, "first_label": first.label,
-                                   "first_rationale": first.rationale, "votes": "1 of 3"})
-                verdicts[i] = ClaimVerdict(
-                    first.claim, ENTAILED,
-                    f"first-pass {first.label} not confirmed (1 of 3 judgements): "
-                    f"{first.rationale}")
+            passes[i].append(third[i])
+    overturned = []
+    for i in flagged:
+        votes = passes[i]
+        rejections = sum(not v.faithful for v in votes)
+        record = [{"label": v.label, "rationale": v.rationale} for v in votes]
+        first = votes[0]
+        if rejections * 2 > len(votes):  # majority rejects: the flag stands
+            later = "; ".join(f"pass {k + 2}: {v.label}: {v.rationale}"
+                              for k, v in enumerate(votes[1:]))
+            verdicts[i] = ClaimVerdict(first.claim, first.label,
+                                       f"{first.rationale} [{rejections} of {len(votes)} "
+                                       f"judgements reject; {later}]")
+        else:
+            overturned.append({"claim": first.claim, "first_label": first.label,
+                               "first_rationale": first.rationale,
+                               "votes": f"{rejections} of {len(votes)} reject",
+                               "passes": record})
+            verdicts[i] = ClaimVerdict(
+                first.claim, ENTAILED,
+                f"first-pass {first.label} not confirmed ({rejections} of {len(votes)} "
+                f"judgements reject): {votes[-1].rationale}")
     if overturned:
         log.info("Faithfulness judge: %d of %d first-pass flag(s) not confirmed: %s",
                  len(overturned), len(flagged), [o["claim"][:80] for o in overturned])

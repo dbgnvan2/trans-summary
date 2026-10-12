@@ -59,7 +59,7 @@ def evaluate_gold(client, model=None):
     pairs, rows = [], []
     for source_id, group in by_source.items():
         claims = [c["claim"] for c in group]
-        verdicts = fj.judge_claims(claims, sources[source_id], client, model=model)
+        verdicts, _ = fj.judge_claims_confirmed(claims, sources[source_id], client, model=model)
         for case, v in zip(group, verdicts):
             pairs.append((case["label"], v.label))
             rows.append((case["id"], case["label"], v.label, v.rationale))

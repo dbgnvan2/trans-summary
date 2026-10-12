@@ -39,9 +39,25 @@ def _run(labels, mode="majority3"):
 
 
 def test_cf1_reject_reject_is_unfaithful():
-    v, over, calls = _run({A: ["entailed"], B: ["unsupported", "unsupported"]})
+    v, over, calls = _run({A: ["entailed", "entailed"], B: ["unsupported", "unsupported"]})
     assert [x.label for x in v] == ["entailed", "unsupported"]
-    assert over == [] and calls == [[A, B], [B]]  # pass 2 carries only the flag
+    # pass 2 carries the flag plus the claim before it (context, sweep finding 5)
+    assert over == [] and calls == [[A, B], [A, B]]
+    assert "2 of 2 judgements reject" in v[1].rationale
+
+
+def test_cf1_context_claim_verdict_is_ignored():
+    """The predecessor is sent for context only: its pass-2 verdict changes nothing."""
+    v, over, calls = _run({A: ["entailed", "unsupported"], B: ["unsupported", "unsupported"]})
+    assert [x.label for x in v] == ["entailed", "unsupported"]
+    assert calls[1] == [A, B]
+
+
+def test_cf1_only_flagged_and_predecessors_resent():
+    C = "The bird sang a song at dawn."
+    _, _, calls = _run({A: ["entailed"], B: ["entailed", "entailed"],
+                        C: ["unsupported", "unsupported"]})
+    assert calls[1] == [B, C]  # A is neither flagged nor C's predecessor
 
 
 def test_cf1_reject_accept_reject_is_unfaithful():
@@ -51,9 +67,11 @@ def test_cf1_reject_accept_reject_is_unfaithful():
 
 
 def test_cf1_reject_accept_accept_is_overturned():
-    v, over, calls = _run({A: ["entailed"], B: ["unsupported", "entailed", "entailed"]})
+    v, over, calls = _run({A: ["entailed"] * 3, B: ["unsupported", "entailed", "entailed"]})
     assert [x.label for x in v] == ["entailed", "entailed"]
     assert len(over) == 1 and over[0]["claim"] == B and over[0]["first_label"] == "unsupported"
+    assert over[0]["votes"] == "1 of 3 reject"
+    assert [p["label"] for p in over[0]["passes"]] == ["unsupported", "entailed", "entailed"]
     assert "not confirmed" in v[1].rationale
     assert len(calls) == 3
 
@@ -125,6 +143,51 @@ def test_cf2_gate_items_show_overturned(tmp_path, monkeypatch):
     assert v.items and v.items[0]["overturned"][0]["claim"] == B
 
 
+def _gate_setup(tmp_path, monkeypatch, base, files):
+    proj = tmp_path / base
+    proj.mkdir()
+    for suffix, text in files.items():
+        (proj / f"{base}{suffix}").write_text(text, encoding="utf-8")
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "LOGS_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True)
+    monkeypatch.setattr(release_gate, "_FAITHFULNESS_CACHE", {})
+
+
+_OVER = [{"claim": B, "first_label": "unsupported", "votes": "1 of 3 reject"}]
+
+
+def test_cf2_fail_keeps_overturned_of_other_artifacts(tmp_path, monkeypatch):
+    base = "T - P - 2026-01-01"
+    _gate_setup(tmp_path, monkeypatch, base, {config.SUFFIX_ABSTRACT_GEN: "x",
+                                               config.SUFFIX_SUMMARY_GEN: "y"})
+    passed = fj.FaithfulnessResult(fj.PASS, "ok", overturned=_OVER)
+    failed = fj.FaithfulnessResult(fj.FAIL, "bad", claims=[fj.ClaimVerdict(A, "unsupported")])
+    with patch.object(release_gate, "_source_with_metadata", return_value=SRC), \
+            patch("transcript_utils.resolve_anthropic_key", return_value="k"), \
+            patch("transcript_utils.get_anthropic_client", return_value=object()), \
+            patch.object(release_gate, "_judge_cached", side_effect=[passed, failed]):
+        v = release_gate.check_faithfulness(
+            base, None, suffixes=[config.SUFFIX_ABSTRACT_GEN, config.SUFFIX_SUMMARY_GEN])
+    assert v.status is release_gate.Status.FAIL
+    assert any(it.get("overturned") == _OVER for it in v.items)
+
+
+def test_cf2_topic_term_check_records_overturned(tmp_path, monkeypatch):
+    base = "T - P - 2026-01-01"
+    _gate_setup(tmp_path, monkeypatch, base,
+                {config.SUFFIX_TOPICS: "### A Topic\nThe cat sat on the mat today.\n"})
+    result = fj.FaithfulnessResult(fj.PASS, "ok", overturned=_OVER)
+    with patch.object(release_gate, "_source_with_metadata", return_value=SRC), \
+            patch("transcript_utils.resolve_anthropic_key", return_value="k"), \
+            patch("transcript_utils.get_anthropic_client", return_value=object()), \
+            patch.object(release_gate, "_judge_cached", return_value=result):
+        v = release_gate.check_topic_term_faithfulness(base, None)
+    assert v.status is release_gate.Status.PASS
+    assert "1 first-pass flag(s) not confirmed" in v.detail
+    assert v.items[0]["overturned"] == _OVER
+
+
 def _calls_in(path: Path) -> set:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     return {n.func.attr for n in ast.walk(tree)
@@ -135,7 +198,8 @@ def test_cf3_all_callers_use_confirmed_judgement():
     # the gate goes through judge_artifact (via _judge_cached), which confirms
     assert "judge_artifact" in _calls_in(ROOT / "release_gate.py")
     # calibration and drift monitoring measure the behaviour that ships (P5)
-    for f in ("judge_recalibration.py", "judge_drift_monitor.py"):
+    for f in ("judge_recalibration.py", "judge_drift_monitor.py",
+              "tests/test_faithfulness_calibration.py"):
         calls = _calls_in(ROOT / f)
         assert "judge_claims_confirmed" in calls, f
     # judge_artifact and classify_claim call the confirmed function

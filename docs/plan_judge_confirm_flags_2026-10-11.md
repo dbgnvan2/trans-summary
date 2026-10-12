@@ -33,8 +33,9 @@ if the confirmation agrees.
   pass misses is lost).
 - Extra calls happen only when pass 1 flags something, and they carry only the flagged
   claims (the source prefix is prompt-cached).
-- The final verdict keeps pass 1's label and rationale and adds the confirming
-  rationale; overturned flags are logged and recorded ("2 of 3 first-pass flags not
+- The final verdict keeps pass 1's label and rationale and adds the later passes' labels
+  and rationales and the vote count; each re-sent flagged claim is accompanied by the claim
+  before it, for context only (sweep); overturned flags are logged and recorded ("2 of 3 first-pass flags not
   confirmed: …") so nothing is dropped silently (P2).
 - A judge error in any confirmation call → ERROR (fail closed), as today.
 - The cached verdict is the confirmed one; the confirmation settings are part of the
@@ -61,7 +62,10 @@ if the confirmation agrees.
   items. Test: `test_cf2_overturned_flags_recorded`.
 - **CF.3 Every caller confirms** — the gate's faithfulness check, the topic/key-term
   check, blog stage 1 and the generation pre-check all go through `judge_artifact`.
-  Test: `test_cf3_all_callers_use_judge_artifact` (source scan + one mocked path each).
+  Tests: `test_cf3_all_callers_use_confirmed_judgement` (source scan: gate, calibration
+  tool, drift monitor, live calibration test, `judge_artifact`, `classify_claim`);
+  `test_cf2_topic_term_check_records_overturned` (mocked topic/key-term path). Blog stage 1
+  and the generation pre-check call `check_faithfulness`, covered by the source scan.
 - **CF.4 Cache** — the stored verdict is the confirmed one; changing
   `FAITHFULNESS_CONFIRM_MODE` changes the logic version. Test: `test_cf4_*`.
 - **CF.5 Live: recall kept** — gold set (50 cases), 3 runs: recall ≥ 0.90 and precision

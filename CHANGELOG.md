@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-11 (faithfulness: confirm a flag before it fails a run)
+
+Plan: `docs/plan_judge_confirm_flags_2026-10-11.md`; results: `docs/calibration_confirm_2026-10-11.md`.
+A claim the faithfulness judge rejects is judged again (only flagged claims, each with the
+claim before it for context); it fails the run only if the majority of judgements reject
+it (`config.FAITHFULNESS_CONFIRM_MODE = "majority3"`). Flags not confirmed are recorded in
+the gate's verdict items and the run manifest. Applies to the faithfulness and
+topic/key-term checks, the blog's first stage, the generation pre-check, and the
+calibration and drift tools. Sonnet 5.5 takes no temperature and sometimes rejects a
+supported sentence; on the Kerr 2026-09-13 files fresh checks failed 5 of 10 before.
+
 ## [Unreleased] - 2026-10-11 (judge framing rule — investigated, not shipped)
 
 No behaviour change. A narrower faithfulness-judge rule for the writer's own framing was

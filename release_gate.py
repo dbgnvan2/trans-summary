@@ -881,13 +881,14 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         # Actionable message naming the artifact(s) — rendered as
         # "faithfulness: check failed in <artifact> — regenerate and try again".
         arts = ", ".join(f["artifact"].removesuffix(".md") for f in fails)
+        failed = {f["artifact"] for f in fails}
         return Verdict("faithfulness", Status.FAIL,
                        f"check failed in {arts} — regenerate and try again",
-                       items=fails + errors)
+                       items=fails + errors + [o for o in overturned if o["artifact"] not in failed])
     if errors:
         return Verdict("faithfulness", Status.ERROR,
                        f"{len(errors)} of {judged} artifact(s) could not be verified",
-                       items=errors)
+                       items=errors + overturned)
     # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
     n_over = sum(len(o["overturned"]) for o in overturned)
     return Verdict("faithfulness", Status.PASS,
@@ -953,7 +954,7 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors = [], []
+    fails, errors, overturned = [], [], []
     judged = 0
     for suffix in config.TOPIC_TERM_FAITHFULNESS_SUFFIXES:
         path = proj / f"{base_name}{suffix}"
@@ -966,23 +967,31 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
             continue
         judged += 1
         result = _judge_cached(fjudge, claims_text, transcript, client, logger)
+        if getattr(result, "overturned", None):
+            overturned.append({"artifact": art, "overturned": result.overturned})
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
-                          "unfaithful": [c.claim for c in result.unfaithful]})
+                          "unfaithful": [c.claim for c in result.unfaithful],
+                          "overturned": getattr(result, "overturned", [])})
         elif result.status == fjudge.ERROR:
             errors.append({"artifact": art, "detail": result.detail})
     if fails:
         arts = ", ".join(f["artifact"] for f in fails)
+        failed = {f["artifact"] for f in fails}
         return Verdict("topic_term_faithfulness", Status.FAIL,
                        f"check failed in {arts} — regenerate and try again",
-                       items=fails + errors)
+                       items=fails + errors + [o for o in overturned if o["artifact"] not in failed])
     if errors or judged == 0:
         return Verdict("topic_term_faithfulness", Status.ERROR,
                        "topics/key-terms could not be verified" if errors
                        else "no topics or key-terms artifact present to verify",
-                       items=errors)
+                       items=errors + overturned)
+    # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
+    n_over = sum(len(o["overturned"]) for o in overturned)
     return Verdict("topic_term_faithfulness", Status.PASS,
-                   f"all topic/key-term claims entailed by source ({judged} artifact(s) judged)")
+                   f"all topic/key-term claims entailed by source ({judged} artifact(s) judged)"
+                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else ""),
+                   items=overturned)
 
 
 # --------------------------------------------------------------------------- theme grounding

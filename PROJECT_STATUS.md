@@ -22,10 +22,11 @@ longer silently publishes wrong/fabricated/unverifiable content.
   schema-validated on both sides; producer/consumer format drift (P19) is a hard,
   loud error, never a silent zero.
 - **Semantic faithfulness judge** (`faithfulness_judge.py`, M2): **ARMED** — a
-  claim-level LLM entailment check on prose artifacts (abstract/summary/overview/blog)
-  catches fluent hallucinations the lexical checks miss (it FAILs the real
-  `Luciano Malorni` fabrication). Policy: Hard BLOCK; model pinned to the calibrated
-  `claude-sonnet-4-6`; key resolves from env or the shared `~/.config/llm/keys.json`.
+  claim-level LLM entailment check on prose artifacts (abstract/summary/overview; the
+  blog has its own advisory check) catches fluent hallucinations the lexical checks miss
+  (it FAILs the real `Luciano Malorni` fabrication). Policy: Hard BLOCK on a flag that a
+  fresh judgement confirms (majority of 3, 2026-10-11); model pinned to the calibrated
+  `claude-sonnet-5-5`; key resolves from env or the shared `~/.config/llm/keys.json`.
 - **Test-validity gate** (`quality_gates.py` + CI, M6) and **fault-injection matrix**
   (`tests/test_m5_fault_injection.py`, M5) prove the fail-closed behaviour.
 
