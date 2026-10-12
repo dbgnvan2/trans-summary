@@ -471,10 +471,9 @@ The distinction that matters — apply this test:
 are each present in the source is "entailed" — faithful abstraction, not \
 fabrication. In particular, a claim that connects or relates two things is \
 "entailed" when BOTH things appear in the source, EVEN IF the source never states \
-the connection in those words (e.g. "connects this history to Bowen theory by \
-introducing the DOS equation" is entailed when the history, Bowen theory, and the \
-DOS equation are all in the source). Reasonable inference from grounded material is \
-faithful.
+the connection in those words (e.g. "links the town's flood records to its new \
+zoning rules" is entailed when the flood records and the zoning rules are both in the \
+source). Reasonable inference from grounded material is faithful.
 - "unsupported" is for a claim whose core element or assertion is ABSENT from the \
 source entirely — an invented fact, a cited study, or a specific conclusion / stance \
 / causal claim the source never makes and that does not follow from what it says \
@@ -489,9 +488,9 @@ EDITORIAL / RHETORICAL FRAMING IS "entailed", NOT "unsupported". A blog, overvie
 or summary sentence that merely EMPHASIZES, RESTATES, or FRAMES grounded material — \
 without introducing a NEW specific fact, name, date, number, study, causal claim, or \
 attribution — is faithful. Examples that are "entailed" when their underlying content \
-is in the source: "It was a logical approach, and it produced genuine discoveries."; \
-"The environment is not incidental."; "They are looking at the parts when the \
-explanation lives in the pattern."; "That kind of reckoning is rare in science." \
+is in the source: "This is the part most readers will remember."; "Put simply, the \
+town learned to plan ahead."; "The lesson is easy to state and hard to live by."; \
+"Few crews keep such tidy logbooks." \
 Reserve "unsupported" for a sentence that ADDS substance the source does not contain \
 — a fabricated concrete specific, or a specific conclusion / stance / causal claim / \
 attribution with no basis in the source (e.g. "blames the bridge's failure on a design \
@@ -551,10 +550,44 @@ def _extract_json_array(text: str) -> list:
                     return [obj]
             raise ValueError("no JSON array found in judge response")
         candidate = text[start:end + 1]
-    data = json.loads(candidate)
+    try:
+        data = json.loads(candidate)
+    except ValueError as e:
+        data = _read_verdict_objects(candidate)
+        if not data:
+            raise
+        REPLY_REPAIRS["count"] += 1
+        logging.getLogger("faithfulness_judge").warning(
+            "Judge reply was not valid JSON (%s); read verdict by verdict (%d object(s)).",
+            e, len(data))
     if not isinstance(data, list):
         raise ValueError("judge response JSON is not an array")
     return data
+
+
+# How often a reply had to be read verdict by verdict (not valid JSON), so the
+# rate can be tracked (P2).
+REPLY_REPAIRS = {"count": 0}
+
+# One verdict object as the judge writes it, read without trusting the rationale's
+# quoting: the rationale runs to the '"}' that closes the object (before ',{' or ']').
+_VERDICT_OBJECT_RE = re.compile(
+    r'\{\s*"index"\s*:\s*(\d+)\s*,\s*"label"\s*:\s*"([^"]*)"\s*,'
+    r'\s*"rationale"\s*:\s*"(.*?)"\s*\}(?=\s*(?:,\s*\{|\]|$))',
+    re.DOTALL)
+
+
+def _read_verdict_objects(candidate: str) -> list:
+    """Verdict objects from a reply that is not valid JSON because a rationale holds
+    unescaped double quotes (seen 2026-10-12: "The "June video" detail…"). Only the
+    index and label decide anything; the caller still requires a valid label for every
+    claim (fail closed). Returns [] when the reply does not have this shape.
+
+    Spec:  docs/calibration_fx_examples_2026-10-12.md (judge reply format)
+    Tests: tests/test_judge_reply_repair.py::test_jr1_unescaped_quotes_in_rationale_are_read
+    """
+    return [{"index": int(m.group(1)), "label": m.group(2), "rationale": m.group(3)}
+            for m in _VERDICT_OBJECT_RE.finditer(candidate)]
 
 
 def _parse_judge_response(response_text: str, claims: list,
@@ -566,6 +599,7 @@ def _parse_judge_response(response_text: str, claims: list,
     valid = valid_labels if valid_labels is not None else _LABELS
     data = _extract_json_array(response_text)
     by_index = {}
+    seen = set()
     for obj in data:
         if not isinstance(obj, dict) or "index" not in obj:
             continue
@@ -573,6 +607,11 @@ def _parse_judge_response(response_text: str, claims: list,
             idx = int(obj["index"])
         except (TypeError, ValueError):
             continue
+        if idx in seen:
+            # A repeated index (two arrays, a draft then a "correction") must not let a
+            # later verdict replace an earlier flag: fail closed (review 2026-10-12).
+            raise ValueError(f"judge returned more than one verdict for claim {idx}")
+        seen.add(idx)
         label = str(obj.get("label", "")).strip().lower()
         if label in valid:
             by_index[idx] = (label, str(obj.get("rationale", "")).strip())

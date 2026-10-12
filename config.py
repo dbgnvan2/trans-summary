@@ -676,7 +676,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-12"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 prompt examples
+JUDGE_LOGIC_VERSION = "2026-10-12d"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",

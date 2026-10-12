@@ -119,8 +119,9 @@ def test_q5_prose_real_source_has_metadata(monkeypatch):
                for s in seen)
 
 
-def test_q5_real_abstracts_use_metadata_where_named(monkeypatch):
-    """Sweep finding 5: where_roots (a real base name) gets the gate's metadata."""
+def test_q5_real_abstracts_use_gate_metadata(monkeypatch):
+    """Sweep finding 5 / FX: every real-abstract case gets the gate's recording
+    metadata from its talk's real base name."""
     import faithfulness_judge as fj
     import judge_recalibration as jr
 
@@ -134,4 +135,22 @@ def test_q5_real_abstracts_use_metadata_where_named(monkeypatch):
     labels = [r[0] for r in jr.REAL_ABSTRACTS]
     by_label = dict(zip(labels, seen.values()))
     assert by_label["where_roots"].startswith("Recording metadata")
-    assert not by_label["roots_bowen"].startswith("Recording metadata")
+    # FX: the formatted.md fixtures get their talks' real base names too
+    assert "Presenter: Mike Kerr" in by_label["roots_bowen"].split("\n\n")[0]
+    assert by_label["dave_g"].startswith("Recording metadata")
+
+
+
+def test_fx_injected_fabrication_uses_gate_metadata(monkeypatch):
+    """FX review: the injected-fabrication check judges the same source as the gate."""
+    import faithfulness_judge as fj
+    import judge_recalibration as jr
+
+    seen = []
+
+    def fake(art, source, client, *, model=None, logger=None):
+        seen.append(source)
+        return fj.FaithfulnessResult(fj.FAIL, "x", claims=[fj.ClaimVerdict("Vienna grant", "unsupported")])
+    monkeypatch.setattr(fj, "judge_artifact", fake)
+    assert jr.injected_fabrication(client=None, model="m")["caught"] is True
+    assert "Presenter: Mike Kerr" in seen[0].split("\n\n")[0]

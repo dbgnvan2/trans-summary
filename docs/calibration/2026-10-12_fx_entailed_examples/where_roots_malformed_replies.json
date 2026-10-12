@@ -1,0 +1,23 @@
+{
+ "sha": "316397ff3180",
+ "statuses": [
+  "FAIL",
+  "FAIL",
+  "FAIL",
+  "FAIL",
+  "FAIL",
+  "FAIL",
+  "FAIL",
+  "ERROR"
+ ],
+ "bad": [
+  {
+   "error": "Expecting ',' delimiter: line 2 column 52 (char 53)",
+   "reply": "[\n{\"index\":1,\"label\":\"unsupported\",\"rationale\":\"The \"June video\" detail is absent; the recording date is 2022-02-18, and the abstract label is not in the source.\"},\n{\"index\":2,\"label\":\"entailed\",\"rationale\":\"Kerr explores the roots of Bowen theory across physical and biological realms; the general framing is fair, though 'predictive power' is a mild stretch.\"},\n{\"index\":3,\"label\":\"unsupported\",\"rationale\":\"Kerr says he suspects Bowen theory will not take 2000 years to dominate; he does not contend it is a paradigm shift comparable to heliocentrism, nor that it is strengthened.\"},\n{\"index\":4,\"label\":\"unsupported\",\"rationale\":\"Kerr traces the history but does not claim it demonstrates organized institutional resistance or the need for convergent evidence from multiple independent domains.\"},\n{\"index\":5,\"label\":\"entailed\",\"rationale\":\"Kerr asks what forces carried over from the physical to the biological world and uses Wilczek's book on particles.\"},\n{\"index\":6,\"label\":\"contradicted\",\"rationale\":\"The speaker is never named Luciano Malorni; the source gives no name for the philosopher, who is described as an assistant professor from Rome.\"}\n]"
+  },
+  {
+   "error": "Expecting ',' delimiter: line 2 column 52 (char 53)",
+   "reply": "[\n{\"index\":1,\"label\":\"unsupported\",\"rationale\":\"The \"June video\" detail is absent; the recording date is 2022-02-18, and this label is not from the transcript.\"},\n{\"index\":2,\"label\":\"entailed\",\"rationale\":\"Kerr explores the roots of Bowen theory across physical and biological realms; the framing is a reasonable summary, though 'predictive power' is slightly embellished.\"},\n{\"index\":3,\"label\":\"unsupported\",\"rationale\":\"Kerr compares how long paradigm shifts take, but never says Bowen theory itself is a shift comparable to geocentric-to-heliocentric, only that it may not take 2000 years.\"},\n{\"index\":4,\"label\":\"unsupported\",\"rationale\":\"The history is covered, but 'convergent evidence from multiple independent domains' as a demonstrated lesson is not stated; religious resistance is mentioned.\"},\n{\"index\":5,\"label\":\"entailed\",\"rationale\":\"Kerr asks what forces carried from the physical into the biological world, using Wilczek's particles and physical laws.\"},\n{\"index\":6,\"label\":\"contradicted\",\"rationale\":\"The source never names the speaker as Luciano Malorni, and calls her an assistant professor in Rome; the name conflicts with no stated name, but the source gives none.\"}\n]"
+  }
+ ]
+}

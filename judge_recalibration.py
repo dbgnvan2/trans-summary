@@ -30,15 +30,19 @@ THEME_GOLD = FIX / "theme_gold" / "gold.json"
 PROSE_REAL = FIX / "prose_real"
 PROSE_SUFFIXES = (" - abstract-generated.md", " - summary-generated.md", " - overview.md", " - blog.md")
 
-# (label, source, artifact, expected status, a word the FAIL must name)
+# (label, source, artifact, expected status, a word the FAIL must name, base name for the
+# gate's recording metadata). The roots_bowen / dave_g fixture files are named
+# "formatted.md", so their real base names are given here (FX, 2026-10-12).
 _DG = FIX / "dave_g_test2"
 _RB = FIX / "roots_bowen_test"
 _WR = FIX / "where_roots" / "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid"
 REAL_ABSTRACTS = [
-    ("roots_bowen", _RB / "formatted.md", _RB / "abstract-generated.md", "PASS", None),
+    ("roots_bowen", _RB / "formatted.md", _RB / "abstract-generated.md", "PASS", None,
+     "Roots of Bowen TEST - Mike Kerr - 2026-07015"),  # = _RB_BASE
     ("where_roots", _WR / f"{_WR.name} - formatted.md", _WR / f"{_WR.name} - abstract-generated.md",
-     "FAIL", "Malorni"),
-    ("dave_g", _DG / "formatted.md", _DG / "abstract-generated.md", "FAIL", "nubbin"),
+     "FAIL", "Malorni", _WR.name),
+    ("dave_g", _DG / "formatted.md", _DG / "abstract-generated.md", "FAIL", "nubbin",
+     "TEST FILE 2 - DAVE G - 2026-07-14"),
 ]
 
 
@@ -63,12 +67,9 @@ def faithfulness_gold(client, model: str) -> dict:
 def real_abstracts(client, model: str) -> list:
     out = []
     import release_gate
-    for label, src, art, expect, must in REAL_ABSTRACTS:
-        source = src.read_text(encoding="utf-8")
-        # Q5: add the gate's recording metadata where the file carries a real base
-        # name (where_roots); roots_bowen / dave_g fixtures are named "formatted.md".
-        if src.name.endswith(" - formatted.md"):
-            source = release_gate.with_recording_metadata(src.name[:-len(" - formatted.md")], source)
+    for label, src, art, expect, must, base in REAL_ABSTRACTS:
+        # Q5/FX: the gate's recording metadata, from each talk's real base name.
+        source = release_gate.with_recording_metadata(base, src.read_text(encoding="utf-8"))
         r = fj.judge_artifact(art.read_text(encoding="utf-8"), source, client, model=model)
         flagged = [c.claim for c in r.unfaithful]
         ok = r.status == expect and (must is None or any(must in c for c in flagged))
@@ -77,8 +78,13 @@ def real_abstracts(client, model: str) -> list:
     return out
 
 
+_RB_BASE = "Roots of Bowen TEST - Mike Kerr - 2026-07015"
+
+
 def injected_fabrication(client, model: str) -> dict:
-    src = (_RB / "formatted.md").read_text(encoding="utf-8")
+    import release_gate
+    src = release_gate.with_recording_metadata(
+        _RB_BASE, (_RB / "formatted.md").read_text(encoding="utf-8"))
     clean = (_RB / "abstract-generated.md").read_text(encoding="utf-8").rstrip()
     text = clean + (" The webinar was funded by a 2021 grant from the "
                     "Vienna Institute for Family Systems.")

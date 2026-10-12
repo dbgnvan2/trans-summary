@@ -1,0 +1,89 @@
+{
+ "prompt_sha": "316397ff3180",
+ "runs": [
+  [
+   {
+    "artifact": "roots_bowen",
+    "status": "PASS",
+    "ok": true,
+    "flagged": []
+   },
+   {
+    "artifact": "where_roots",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+     "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+     "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+     "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+     "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+    ]
+   },
+   {
+    "artifact": "dave_g",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"\u2014small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans\u2014as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+    ]
+   }
+  ],
+  [
+   {
+    "artifact": "roots_bowen",
+    "status": "PASS",
+    "ok": true,
+    "flagged": []
+   },
+   {
+    "artifact": "where_roots",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+     "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+     "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+     "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation."
+    ]
+   },
+   {
+    "artifact": "dave_g",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"\u2014small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans\u2014as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+    ]
+   }
+  ],
+  [
+   {
+    "artifact": "roots_bowen",
+    "status": "PASS",
+    "ok": true,
+    "flagged": []
+   },
+   {
+    "artifact": "where_roots",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+     "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+     "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+     "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+    ]
+   },
+   {
+    "artifact": "dave_g",
+    "status": "FAIL",
+    "ok": true,
+    "flagged": [
+     "Kathleen Kerr presents a clinical case study of a male client seen in weekly psychotherapy since May 2021, using a detailed family diagram to illustrate intergenerational patterns of anxiety, differentiation, and functioning.",
+     "The presentation traces the client's family-of-origin structure, marked by parental conflict, alcohol use, and the progressive loss of stabilizing grandparents in the 1950s and 1960s, which the client observes correlated with increased family destabilization.",
+     "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"\u2014small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans\u2014as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+    ]
+   }
+  ]
+ ]
+}

@@ -97,13 +97,9 @@ _RB = FIX / "roots_bowen_test"
 _WR = (FIX / "where_roots"
        / "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid")
 _WR_BASE = _WR.name
-REAL_ARTIFACTS = [
-    # (label, source_path, abstract_path, expect_status, must_flag_substr)
-    ("roots_bowen", _RB / "formatted.md", _RB / "abstract-generated.md", "PASS", None),
-    ("where_roots", _WR / f"{_WR_BASE} - formatted.md",
-     _WR / f"{_WR_BASE} - abstract-generated.md", "FAIL", "Malorni"),
-    ("dave_g", _DG / "formatted.md", _DG / "abstract-generated.md", "FAIL", "nubbin"),
-]
+# One list, shared with judge_recalibration (label, source, abstract, expected status,
+# word the FAIL must name, base name for the gate's recording metadata — FX).
+from judge_recalibration import REAL_ABSTRACTS as REAL_ARTIFACTS, _RB_BASE  # noqa: E402
 
 
 def test_m2b1_real_abstract_artifacts_judged_correctly():
@@ -115,9 +111,10 @@ def test_m2b1_real_abstract_artifacts_judged_correctly():
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     print("\n=== M2.B.1 real-artifact calibration ===")
-    for label, src, ab, expect, must_flag in REAL_ARTIFACTS:
-        r = fj.judge_artifact(ab.read_text(encoding="utf-8"),
-                              src.read_text(encoding="utf-8"), client, model=_MODEL)
+    import release_gate
+    for label, src, ab, expect, must_flag, base in REAL_ARTIFACTS:
+        source = release_gate.with_recording_metadata(base, src.read_text(encoding="utf-8"))
+        r = fj.judge_artifact(ab.read_text(encoding="utf-8"), source, client, model=_MODEL)
         flagged = " | ".join(c.claim[:50] for c in r.unfaithful)
         print(f"  {label:12} status={r.status} (expect {expect})  {flagged[:80]}")
         assert r.status == expect, f"{label}: got {r.status}, expected {expect}"
@@ -132,7 +129,9 @@ def test_m2b1_injected_fabrication_in_real_abstract_is_caught():
     import anthropic
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    src = (_RB / "formatted.md").read_text(encoding="utf-8")
+    import release_gate
+    src = release_gate.with_recording_metadata(
+        _RB_BASE, (_RB / "formatted.md").read_text(encoding="utf-8"))
     clean = (_RB / "abstract-generated.md").read_text(encoding="utf-8").rstrip()
     injected = clean + (" The webinar was funded by a 2021 grant from the "
                         "Vienna Institute for Family Systems.")

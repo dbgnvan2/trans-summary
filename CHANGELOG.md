@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (judge prompt "entailed" examples — FX)
+
+- The faithfulness judge prompt's examples of what "entailed" means (the DOS-equation
+  example and the four framing sentences) came from a measured abstract, the Systems
+  Biology blog fixture and the gold subject. They now use unrelated subjects; no rule
+  changed. `JUDGE_LOGIC_VERSION` is 2026-10-12d.
+- Measured against the current prompt on the same day
+  (`docs/calibration_fx_examples_2026-10-12.md`): no loss on gold, real abstracts (with
+  the gate's metadata), injected fabrication, or the Kerr project (0 of 10 false fails).
+  Real prose was flagged at a similar rate: final 46 vs current 48 of 602, with 14
+  sentences changing status in one run each. Two drafts were rejected in review (slot-for-
+  slot rewrites of the blog sentences; the same meaning in new words); a test now checks
+  for both.
+- Judge replies with unescaped quotes inside a rationale (not valid JSON) are now read
+  verdict by verdict instead of becoming an ERROR that blocks publication. It is still
+  fail closed: every claim needs a valid label. Each repair is logged and counted. A
+  repeated claim index in any reply is now an ERROR; before, the later verdict silently
+  won, which could replace a flag.
+- Calibration: the real-abstract and injected-fabrication checks now judge against the
+  same source as the gate, with the recording metadata from each talk's real base name.
+  `tests/test_faithfulness_calibration.py` uses the same list (`judge_recalibration.REAL_ABSTRACTS`).
+
 ## [Unreleased] - 2026-10-12 (judge prompt examples — Q6/C1)
 
 - **Q6** Two faithfulness judge prompt examples that paraphrased gold cases were
