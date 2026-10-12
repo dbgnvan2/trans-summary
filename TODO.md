@@ -66,7 +66,17 @@ summary-coverage gates (R15).
   not mis-sectioned or partly-fabricated ones.
 - **Stated-purpose extraction** picked "I'm going to be presenting from PowerPoints."
   on a real run; summary/abstract coverage reports it as missing (advisory under 3a).
-- **Emphasis "verbatim" threshold is fuzzy (sweep note, pre-existing).** A quote passes
+- ~~**Emphasis "verbatim" threshold is fuzzy.**~~ ✅ Measured 2026-10-12 (D6, 752 real
+  quotes, 33 projects): the gate also requires full word coverage, so the example below
+  is rejected. The gate's 0.80 is kept (0.95 would reject 4 real near-verbatim quotes to
+  catch 2). The Emphasis validator now uses the gate's test (it passed 24 quotes as
+  "partial" that the gate blocks). **Still open (P7):** a quote with a swapped word
+  passes when the quote's words also occur in order nearby, e.g. "I think the future…"
+  for "to me the future…", "My mother" for "her mother" (2 of 752). Needs a check that
+  the matched span itself has no substituted words.
+  The standalone CLI `transcript_validate_emphasis.py` crashed on scored files (2- vs
+  3-tuples) and matched 15 words only; it now uses the gate's test and exits non-zero.
+  Was: **Emphasis "verbatim" threshold is fuzzy (sweep note, pre-existing).** A quote passes
   at `EMPHASIS_QUOTE_PARTIAL_RATIO` 0.80, so "the family is a rational unit" against
   "…an emotional unit" scores 0.919. Now that emphasis gates publication, consider a
   stricter threshold — check it against the real fixtures first.

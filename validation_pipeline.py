@@ -741,8 +741,10 @@ def validate_emphasis_items(
 ) -> bool:
     """Validate all emphasis quotes exist verbatim in the formatted transcript.
 
-    Returns True when every emphasis quote is grounded (no invalid quote and no
-    parse-drift). Previously matched only the first 15 words of each quote, so a
+    Returns True when every emphasis quote passes the release gate's verbatim test
+    (``quote_is_verbatim_for_gate``) and there is no parse-drift. Spec:
+    docs/plan_todo_triage_2026-10-11.md#D6; Tests:
+    tests/test_emphasis_threshold_d6.py::test_d6_one_changed_word_fails_validator_like_the_gate. Previously matched only the first 15 words of each quote, so a
     verbatim opening followed by a fabricated tail passed silently (P2/P9); it now
     probes both ends via ``_emphasis_quote_found_ratio``.
     """
@@ -766,15 +768,18 @@ def validate_emphasis_items(
     valid_count, partial_count, invalid_count = 0, 0, 0
 
     for label, quote in quotes:
-        ratio = _emphasis_quote_found_ratio(quote, formatted_content)
+        # D6: the release gate's own test decides found / not found, so this check
+        # cannot pass a quote the gate will block (a "partial" match used to pass).
+        ok, ratio, coverage = quote_is_verbatim_for_gate(quote, formatted_content)
 
-        if ratio >= config.EMPHASIS_QUOTE_FOUND_RATIO:
-            valid_count += 1
-        elif ratio >= config.EMPHASIS_QUOTE_PARTIAL_RATIO:
-            partial_count += 1
-        else:
-            logger.error("NOT FOUND: %s - Quote: %s...", label, quote[:100])
+        if not ok:
+            logger.error("NOT FOUND: %s (match %.2f, word coverage %.2f) - Quote: %s...",
+                         label, ratio, coverage, quote[:100])
             invalid_count += 1
+        elif ratio >= config.EMPHASIS_QUOTE_FOUND_RATIO:
+            valid_count += 1
+        else:
+            partial_count += 1
 
     logger.info("Emphasis Items Validation:")
     logger.info(f"  Exact matches: {valid_count}")

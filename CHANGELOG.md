@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (emphasis check matches the gate — D6)
+
+- **D6** Measured the emphasis quote threshold on 752 real quotes (33 projects). The
+  release gate already rejects altered quotes because it also needs full word coverage,
+  so its 0.80 head/tail threshold is kept: 0.95 would reject 4 real near-verbatim quotes
+  to catch 2. The Emphasis validator (`validate_emphasis_items`) now uses the gate's test:
+  it had passed 24 real quotes as "partial matches" that the gate blocks. Still open: a
+  swapped word can pass when the quote's words also occur in order nearby (2 of 752).
+  The standalone `transcript_validate_emphasis.py` CLI, which crashed on every project
+  with a scored emphasis file, now uses the same test and exits non-zero on a failure.
+
 ## [Unreleased] - 2026-10-12 (models: Haiku 4.5 retirement; header validation)
 
 Results: `docs/calibration_formatting_model_2026-10-11.md`.

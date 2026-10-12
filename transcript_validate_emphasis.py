@@ -72,47 +72,45 @@ def find_best_match(needle, haystack, threshold=0.85):
     return (best_ratio, None)
 
 
-def validate_emphasis_items(base_name: str, formatted_file: Path):
-    """Validate all emphasis quotes exist in the formatted transcript."""
+def validate_emphasis_items(base_name: str, formatted_file: Path) -> bool:
+    """Check every emphasis quote with the release gate's verbatim test
+    (``validation_pipeline.quote_is_verbatim_for_gate``) and print a report.
+    Returns True when every quote passes (False when none were found or any fails).
 
-    # Read formatted transcript
-    with open(formatted_file, "r", encoding="utf-8") as f:
-        formatted_content = f.read()
+    It used to unpack 2-tuples (crashing when the scored file gives 3-tuples) and
+    match only a quote's first 15 words.
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D6
+    Tests: tests/test_emphasis_threshold_d6.py::test_d6_standalone_cli_runs_and_uses_gate_test
+    """
+    from validation_pipeline import quote_is_verbatim_for_gate
 
-    # Extract quotes using the centralized loader
+    formatted_content = Path(formatted_file).read_text(encoding="utf-8")
     quotes = load_emphasis_items(base_name)
 
     if not quotes:
         print("❌ No emphasis quotes found to validate")
-        return
+        return False
 
     print(f"Found {len(quotes)} emphasis items to validate\n")
     print("=" * 80)
 
-    valid_count = 0
-    invalid_count = 0
-    partial_count = 0
-
-    for i, (label, quote) in enumerate(quotes, 1):
-        # Try to find a substantial portion of the quote (first 50+ chars for matching)
-        # Use smaller snippet to avoid issues with context boundaries
-        quote_core = " ".join(quote.split()[:15])  # First 15 words
-        ratio, match = find_best_match(quote_core, formatted_content, threshold=0.80)
+    valid_count = partial_count = invalid_count = 0
+    for i, item in enumerate(quotes, 1):
+        label, quote = item[0], item[1]
+        ok, ends, coverage = quote_is_verbatim_for_gate(quote, formatted_content)
 
         print(f"\n{i}. {label}")
         print(f"   Quote preview: {quote[:80]}...")
-
-        if ratio >= 0.95:
-            print(f"   ✅ EXACT MATCH (ratio: {ratio:.2f})")
-            valid_count += 1
-        elif ratio >= 0.80:
-            print(f"   ⚠️  PARTIAL MATCH (ratio: {ratio:.2f})")
-            print("   May have minor formatting differences")
-            partial_count += 1
-        else:
-            print(f"   ❌ NOT FOUND (best ratio: {ratio:.2f})")
-            print("   WARNING: Quote may be fabricated or heavily paraphrased")
+        if not ok:
+            print(f"   ❌ NOT FOUND (match {ends:.2f}, word coverage {coverage:.2f})")
+            print("   The release gate will block this quote.")
             invalid_count += 1
+        elif ends >= config.EMPHASIS_QUOTE_FOUND_RATIO:
+            print(f"   ✅ EXACT MATCH (ratio: {ends:.2f})")
+            valid_count += 1
+        else:
+            print(f"   ⚠️  PARTIAL MATCH (ratio: {ends:.2f}); passes the gate")
+            partial_count += 1
 
     print("\n" + "=" * 80)
     print("\nValidation Summary:")
@@ -120,13 +118,9 @@ def validate_emphasis_items(base_name: str, formatted_file: Path):
     print(f"  ⚠️  Partial matches: {partial_count}")
     print(f"  ❌ Not found: {invalid_count}")
     print(f"  Total: {len(quotes)}")
-
-    accuracy = (valid_count + partial_count) / len(quotes) * 100 if quotes else 0
-    print(f"\n  Overall accuracy: {accuracy:.1f}%")
-
-    if invalid_count > 0:
-        print(f"\n⚠️  WARNING: {invalid_count} quotes could not be validated!")
-        print("  Review these manually to check if Claude fabricated content.")
+    if invalid_count:
+        print(f"\n⚠️  WARNING: {invalid_count} quote(s) are not verbatim in the transcript.")
+    return invalid_count == 0
 
 
 if __name__ == "__main__":
@@ -147,4 +141,4 @@ if __name__ == "__main__":
     print(f"Validating emphasis items for {base_name}...")
     print(f"  Formatted: {formatted_file.name}")
 
-    validate_emphasis_items(base_name, formatted_file)
+    sys.exit(0 if validate_emphasis_items(base_name, formatted_file) else 1)

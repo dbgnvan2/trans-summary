@@ -1170,8 +1170,10 @@ LENS_STOPWORDS = frozenset({
 # Emphasis-quote grounding: match BOTH the head and tail of each quote (not just
 # the opening words), so a quote whose first words are verbatim but whose
 # remainder is fabricated is flagged rather than silently accepted. A quote is
-# "found" only if BOTH ends clear EMPHASIS_QUOTE_FOUND_RATIO; below
-# EMPHASIS_QUOTE_PARTIAL_RATIO on either end it is reported NOT FOUND.
+# "found" only if BOTH ends clear EMPHASIS_QUOTE_FOUND_RATIO. NOT FOUND means the
+# release gate's test failed (validation_pipeline.quote_is_verbatim_for_gate: an end
+# below EMPHASIS_QUOTE_PARTIAL_RATIO, or word coverage below QUOTE_MIN_WORD_COVERAGE).
+# 0.80 measured on 752 real quotes, 2026-10-12 (D6).
 EMPHASIS_HEADTAIL_WORDS = 12
 EMPHASIS_QUOTE_FOUND_RATIO = 0.95
 EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
