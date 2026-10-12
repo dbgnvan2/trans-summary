@@ -49,9 +49,10 @@ Remaining follow-ups tracked in `TODO.md`.
 
 ## Effective Runtime Defaults (from `config.py`)
 
-- `DEFAULT_MODEL`: `claude-sonnet-4-20250514`
-- `AUX_MODEL`: `claude-3-5-haiku-20241022`
-- `FORMATTING_MODEL`: `claude-3-7-sonnet-20250219`
+- `DEFAULT_MODEL`: `claude-sonnet-4-6`
+- `AUX_MODEL`: `claude-haiku-5-5`
+- `FORMATTING_MODEL`: `claude-sonnet-5-5`
+- `VALIDATION_MODEL`: `claude-haiku-5-5` (not read by any step)
 - `DEFAULT_SUMMARY_WORD_COUNT`: `650`
 - Data roots derived from `TRANSCRIPTS_BASE`:
   - `source/`

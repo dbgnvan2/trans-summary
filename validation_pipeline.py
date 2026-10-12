@@ -17,12 +17,7 @@ import summary_pipeline
 import summary_validation
 from transcript_utils import (
     CURLY_QUOTE_MAP,
-    get_anthropic_client,
     get_anthropic_client_or_none,
-    call_claude_with_retry,
-    cap_max_tokens_for_model,
-    count_header_verdicts,
-    create_system_message_with_cache,
     extract_emphasis_items,
     extract_section,
     find_text_in_content,
@@ -35,22 +30,6 @@ from transcript_utils import (
     validate_input_file,
     warn_if_empty_parse,
 )
-
-# Reuse the helper from formatting pipeline or define here if private
-# It was private in pipeline.py, let's redefine generic helper or import if possible.
-# Ideally, we load generic prompts via a utility.
-# For now, I'll reimplement a specific loader for validation prompts to avoid circular deps.
-
-
-def _load_validation_prompt(prompt_filename: str) -> str:
-    """Load a validation prompt template."""
-    prompt_path = config.PROMPTS_DIR / prompt_filename
-    if not prompt_path.exists():
-        raise FileNotFoundError(
-            f"Prompt file not found: {prompt_path}\nExpected location: {config.PROMPTS_DIR}/{prompt_filename}"
-        )
-    return prompt_path.read_text(encoding="utf-8")
-
 
 def _load_formatted_transcript(filename: str) -> str:
     """Load the formatted transcript."""
@@ -74,43 +53,6 @@ def _load_formatted_transcript(filename: str) -> str:
     # If not found, validate_input_file will raise the appropriate error for the expected path
     validate_input_file(transcript_path)
     return transcript_path.read_text(encoding="utf-8")
-
-
-def _generate_validation_response(
-    prompt: str,
-    model: str,
-    temperature: float,
-    logger,
-    min_length: int = 50,
-    system: Optional[list] = None,
-    **kwargs
-) -> str:
-    client = get_anthropic_client()
-
-    if system:
-        kwargs["system"] = system
-
-    max_tokens = cap_max_tokens_for_model(
-        model, config.MAX_TOKENS_HEADER_VALIDATION, logger=logger
-    )
-
-    message = call_claude_with_retry(
-        client=client,
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,  # Use ample tokens (capped per model)
-        temperature=temperature,
-        stream=True,
-        min_length=min_length,
-        logger=logger,
-        **kwargs,
-    )
-    return transcript_utils.response_text(message)
-
-
-# ============================================================================
-# EMPHASIS VALIDATION
-# ============================================================================
 
 
 def _extract_emphasis_quotes_from_file(all_key_items_file):
@@ -856,8 +798,15 @@ def validate_emphasis_items(
 def validate_headers(
     formatted_filename: str, model: str = config.AUX_MODEL, logger=None
 ) -> bool:
-    """
-    Validate that the section headers in the formatted transcript make sense.
+    """Validate that the section headers in the formatted transcript make sense,
+    using the batched HeaderValidator (the GUI's "Val Headers" step) so there is one
+    implementation. Returns False when the key is missing or any batch failed.
+
+    Before HV this sent the whole transcript in one call capped at 4096 output
+    tokens, which was cut off on a real 10k-word talk (2026-10-12).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#HV
+    Tests: tests/test_header_validation_hv.py::test_hv1_validate_headers_uses_batched_validator
     """
     if logger is None:
         logger = setup_logging("validate_headers")
@@ -871,66 +820,15 @@ def validate_headers(
         formatted_path = config.PROJECTS_DIR / base_name / formatted_filename
         validate_input_file(formatted_path)
 
-        logger.info(f"Loading formatted transcript: {formatted_filename}")
-        transcript = formatted_path.read_text(encoding="utf-8")
-
-        # Create cached system message
-        system_message = create_system_message_with_cache(transcript)
-
-        prompt_template = _load_validation_prompt(
-            config.PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME
-        )
-
-        # Remove transcript placeholder or text from prompt
-        full_prompt = prompt_template.replace(
-            "{{batch_content}}", "(See transcript in system message)"
-        )
-        if "{{batch_content}}" not in prompt_template:
-            # Fallback if the template doesn't use that variable, but usually it does.
-            # The code previously appended the transcript. We just need the template.
-            full_prompt = prompt_template
-
-        logger.info("Sending transcript to Claude for header validation...")
-
-        response = _generate_validation_response(
-            full_prompt,
-            model,
-            config.TEMP_STRICT,
-            logger,
-            min_length=100,
-            system=system_message,
-            suppress_caching_warnings=True
-        )
-
-        report_path = (
-            config.PROJECTS_DIR
-            / base_name
-            / f"{base_name}{config.SUFFIX_HEADER_VAL_REPORT}"
-        )
-        report_path.write_text(response, encoding="utf-8")
-
-        # A5/P19: surface the AI verdicts so a real FAIL isn't hidden by the
-        # "report written -> return True" success path (drift-tolerant counter).
-        # ADVISORY BY DESIGN: the bool return means "report generated", not "all
-        # sections passed" — consistent with the coverage validators, which also
-        # produce a human-reviewed report rather than gating the pipeline. A content
-        # FAIL is surfaced via this warning + the report's Verdict Summary, not the
-        # return value; no caller aborts on it.
-        verdicts = count_header_verdicts(response)
-        if verdicts["FAIL"] > 0:
-            logger.warning(
-                "Header validation: %d section(s) reported STATUS: FAIL, %d WARN "
-                "(%d PASS) — review %s",
-                verdicts["FAIL"], verdicts["WARN"], verdicts["PASS"], report_path,
-            )
-        elif response.strip() and verdicts["total"] == 0:
-            logger.warning(
-                "Header validation: report has content but ZERO parseable STATUS "
-                "verdicts — prompt/output format drift (A5/P19)."
-            )
-
-        logger.info("✓ Header validation report saved to: %s", report_path)
-        return True
+        import transcript_utils
+        import transcript_validate_headers
+        api_key = transcript_utils.resolve_anthropic_key()
+        if not api_key:
+            logger.error("Header validation: no Anthropic API key found "
+                         "(ANTHROPIC_API_KEY or ~/.config/llm/keys.json).")
+            return False
+        validator = transcript_validate_headers.HeaderValidator(api_key, logger)
+        return bool(validator.run(formatted_path, model=model))
 
     except Exception as e:
         logger.error(
@@ -1042,7 +940,7 @@ def _summary_coverage_logic_version() -> str:
 
     prompt = config.PROMPTS_DIR / config.PROMPT_VALIDATION_COVERAGE_FILENAME
     parts = [
-        config.AUX_MODEL,
+        config.settings.AUX_MODEL,  # the model the GUI runs the check with (U5 sweep)
         repr(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES)),
         prompt.read_text(encoding="utf-8") if prompt.exists() else "<no prompt>",
         *(inspect.getsource(fn) for fn in (
@@ -1095,13 +993,16 @@ def _write_summary_coverage_verdict(base_name: str, status: str, detail: str) ->
                                 "detail": detail}, indent=2), encoding="utf-8")
 
 
-def validate_summary_coverage(base_name: str, logger=None, model: str = config.AUX_MODEL) -> bool:
+def validate_summary_coverage(base_name: str, logger=None, model: Optional[str] = None) -> bool:
     """Validate the summary using the coverage validation module.
 
     Also stores the gate verdict (PASS / FAIL; ERROR is not stored) keyed to
     ``summary_coverage_key`` for ``release_gate.check_summary_coverage``.
+    ``model`` defaults to the GUI-selected AUX model (config.settings), the same
+    model the freshness key hashes (U5 sweep).
     Spec: docs/plan_review_fixes_2026-10-04.md#R15
     """
+    model = model or config.settings.AUX_MODEL
     if logger is None:
         logger = setup_logging("validate_summary_coverage")
 

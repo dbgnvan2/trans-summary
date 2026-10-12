@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (models: Haiku 4.5 retirement; header validation)
+
+Results: `docs/calibration_formatting_model_2026-10-11.md`.
+- **U4** `FORMATTING_MODEL` = `claude-sonnet-5-5` (was Haiku 4.5, retiring no sooner than
+  2026-10-15). Of Haiku 4.5, Haiku 5.5 (medium, low) and Sonnet 5.5, Sonnet kept the
+  speaker's words best (0–2 review items per run). It costs about $0.67–1.00 per 10–15k-word
+  talk and is about twice as slow. Its formatting thinking is now in the cost estimate
+  (3.5 per transcript token) and the single-pass length check (stops a talk over about
+  20k words before a paid call; warns above about 14.7k, the measured maximum of 5.0). Formatting runs at the model's default effort, not the GUI
+  Effort setting. The cost estimate reads the model selected in the GUI.
+- **U5** `AUX_MODEL` = `claude-haiku-5-5`. Measured on header validation, abstract
+  generation, stated purpose and summary coverage: close to Haiku 4.5, stricter header
+  verdicts, one abstract of 6 left unfaithful (blocked by the gate). `VALIDATION_MODEL`
+  is also Haiku 5.5; no step reads it. Summary-coverage verdicts already saved were made
+  with Haiku 4.5. Their freshness key includes the model, so the next gate run re-checks
+  each project with Haiku 5.5, and a verdict can change.
+- **HV** `validation_pipeline.validate_headers` (whole transcript in one 4096-token call;
+  cut off on a 10k-word talk) now uses the batched `HeaderValidator`; per-batch ceiling
+  `MAX_TOKENS_HEADER_VALIDATION` 4096 → 8192 (margin). Its two dead helpers were removed.
+  Header batches use the strict temperature again. A transcript with no sections now
+  rewrites the report to say so instead of leaving an older one.
+
 ## [Unreleased] - 2026-10-11 (TODO triage: quick fixes and decisions)
 
 Plan: `docs/plan_todo_triage_2026-10-11.md`.

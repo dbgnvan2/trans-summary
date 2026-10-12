@@ -124,6 +124,26 @@ def formatting_max_tokens(model: str) -> int:
     return config.MODEL_OUTPUT_TOKEN_LIMITS.get(name, config.MAX_TOKENS_FORMATTING)
 
 
+def formatting_output_needed(model: str, raw_transcript: str, ratio: float = None) -> tuple:
+    """``(needed, limit)`` output tokens for formatting ``raw_transcript`` in one pass.
+    ``needed`` is the transcript estimate x config.FORMATTING_OUTPUT_EXPANSION, plus
+    x ``ratio`` thinking tokens (default config.FORMATTING_THINKING_RATIO) on a model
+    that always thinks (its thinking shares max_tokens); ``limit`` is the model's max
+    output.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#U4
+    Tests: tests/test_formatting_model_u4.py::test_u4_length_check_counts_thinking
+    """
+    import model_specs
+    tokens = transcript_utils.estimate_token_count(raw_transcript)
+    cap = model_specs.capabilities(model.lower())
+    if cap["thinking"] == "always":
+        if ratio is None:
+            ratio = config.FORMATTING_THINKING_RATIO
+        return int(tokens * (config.FORMATTING_OUTPUT_EXPANSION + ratio)), cap["max_output"]
+    return int(tokens * config.FORMATTING_OUTPUT_EXPANSION), formatting_max_tokens(model)
+
+
 def format_transcript_with_claude(
     raw_transcript: str,
     prompt_template: str,
@@ -178,6 +198,7 @@ def format_transcript_with_claude(
         logger=logger,
         timeout=config.TIMEOUT_FORMATTING,
         min_words=min_expected_words,
+        effort=config.FORMATTING_EFFORT,  # measured at the model default (U4)
     )
 
     return transcript_utils.response_text(message)
@@ -259,18 +280,25 @@ def format_transcript(
             f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
         )
         max_output = formatting_max_tokens(model)
-        expected_output = int(
-            transcript_utils.estimate_token_count(raw_transcript)
-            * config.FORMATTING_OUTPUT_EXPANSION
-        )
-        if expected_output > max_output:
+        expected_output, output_limit = formatting_output_needed(model, raw_transcript)
+        if expected_output > output_limit:
             logger.error(
                 "Transcript too long for single-pass formatting with %s: about %d "
-                "output tokens needed, model limit %d. Use a model with a larger "
-                "output limit (config FORMATTING_MODEL) or split the transcript.",
-                model, expected_output, max_output,
+                "output tokens needed (including thinking), model limit %d. Use a "
+                "model with a larger output limit (config FORMATTING_MODEL) or split "
+                "the transcript.",
+                model, expected_output, output_limit,
             )
             return False
+        worst, _ = formatting_output_needed(model, raw_transcript,
+                                            ratio=config.FORMATTING_THINKING_RATIO_MAX)
+        if worst > output_limit:
+            logger.warning(
+                "Long transcript for %s: at the most thinking measured it needs about %d "
+                "output tokens (limit %d), so the answer may be cut off. A cut-off answer "
+                "fails this step; re-run it, or use a model with more output room.",
+                model, worst, output_limit,
+            )
         max_context_input_budget = max(
             config.MAX_CONTEXT_TOKENS - max_output,
             config.MAX_TOKENS_FORMATTING,

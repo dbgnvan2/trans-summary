@@ -93,3 +93,65 @@ $0.02 / $0.08–0.12 for Haiku 4.5. It also takes about twice as long. Haiku 5.5
 effort is not a fit for verbatim formatting. **Recommendation:** `FORMATTING_MODEL =
 claude-sonnet-5-5`. `VALIDATION_MODEL` / `AUX_MODEL` (also Haiku 4.5) were not measured
 here; they are not verbatim tasks, and U5 measures them separately.
+
+## Decision (2026-10-12)
+
+`FORMATTING_MODEL = claude-sonnet-5-5` (user approved). Sonnet thinks about 3.5 tokens
+per transcript token while formatting (measured 2.0–5.0). `config.FORMATTING_THINKING_RATIO`
+is used for the cost estimate and the single-pass length check, so a talk that would
+not fit even at the typical ratio (about 20k words) is stopped before a paid call. Above
+the measured maximum, 5.0 (`FORMATTING_THINKING_RATIO_MAX`, about 14.7k words), the step
+runs but warns that the answer may be cut off. A cut-off answer fails loudly. The longest
+of the 70 real transcripts on disk (14,609 words in the file; 14,314 after the validation
+footer is removed) comes out at 124k of the 128k limit at
+the maximum ratio; in the test runs it actually used 60–92k. Formatting always runs at the model's default effort
+(`FORMATTING_EFFORT = None`), the setting these ratios were measured at.
+
+## AUX model — Haiku 4.5 vs Haiku 5.5 (U5, 2026-10-12)
+
+`AUX_MODEL` runs:
+- header validation;
+- the structured abstract (GUI "Gen Abstract" stage, with the gate's faithfulness
+  pre-check and up to 3 attempts);
+- stated-purpose extraction;
+- the summary-coverage check, which blocks publication.
+
+`VALIDATION_MODEL` is not read by any step: Initial Validation uses `DEFAULT_MODEL`.
+Measured on the 3 public prose_real projects, 2 runs per model. Data:
+`docs/calibration/2026-10-11_formatting_haiku/aux_results.json` and
+`header_validation_results.json`.
+
+| Task | Haiku 4.5 | Haiku 5.5 |
+|---|---|---|
+| Abstract: passes the faithfulness gate | 6 of 6 | 5 of 6 (Societal run 2 kept one unsupported Q&A claim after 3 attempts; the gate blocks it) |
+| Abstract: attempts used | 9 | 11 |
+| Abstract: words | 189–236 | 150–265 (one over the 250 limit; abstract validation flags it) |
+| Stated purpose | the transcript's own sentences | the same, but one run tidied the sentence (not word for word) |
+| Summary coverage (Systems Biology) | fails both runs | fails both runs (same result) |
+| Header validation (batched), verdicts | 54/54, 77/77 | 54/54, 77/77 |
+| Header validation, FAIL / WARN | 1/9 and 4/6 | 7/27 and 18/30 |
+| Header validation, largest batch output | 2,410 tokens | 6,525 tokens (includes thinking) |
+
+Haiku 5.5's extra header FAILs that I read were reasonable:
+- a heading term that is not in the section;
+- a "Speaker Transition" heading over Q&A logistics;
+- a heading that leads with a minor topic.
+
+Header validation is advisory.
+
+**Decision:** `AUX_MODEL = claude-haiku-5-5` (Haiku 4.5 retires; Haiku 5.5 is close on
+these tasks, and the gate catches the abstract it could not fix). If abstracts regress
+in real use, move abstract generation to `DEFAULT_MODEL`. The main pipeline (Core)
+already generates its abstract with `DEFAULT_MODEL`; only the GUI "Gen Abstract" stage
+uses `AUX_MODEL`.
+
+## Header validation fix (HV)
+
+The 4096-token ceiling cut off `validation_pipeline.validate_headers` on the Societal
+talk with both models. That function sent the whole transcript in one call. Nothing in
+the app called it; it was reachable through `pipeline.validate_headers`. It now uses
+the batched `HeaderValidator`, the GUI's step, 5 sections per call. The batched path
+was never cut off: the largest batch measured 2,410 tokens on Haiku 4.5, and 6,525
+including thinking on Haiku 5.5, which also gets the 8000-token thinking headroom. The
+per-batch ceiling was raised from 4096 to 8192 as margin. That costs nothing unless it
+is used.

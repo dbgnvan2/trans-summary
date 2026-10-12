@@ -44,9 +44,14 @@ class ProjectSettings:
 
         # Initialize model variables
         self.DEFAULT_MODEL = "claude-sonnet-4-6"  # Primary generation model
-        self.AUX_MODEL = "claude-haiku-4-5-20251001"      # Low-cost default for validation/light analysis
-        self.FORMATTING_MODEL = "claude-haiku-4-5-20251001"  # Haiku sufficient for structural formatting
-        self.VALIDATION_MODEL = "claude-haiku-4-5-20251001" # Cheaper model for validation
+        # U5 (2026-10-12): Haiku 4.5 retires; Haiku 5.5 measured on header validation,
+        # abstract generation, stated purpose, summary coverage
+        # (docs/calibration_formatting_model_2026-10-11.md, "AUX model").
+        self.AUX_MODEL = "claude-haiku-5-5"  # Low-cost default for validation/light analysis
+        # U4 (2026-10-12): Sonnet 5.5 keeps the speaker's words best; Haiku 4.5 retires
+        # and Haiku 5.5 edits wording (docs/calibration_formatting_model_2026-10-11.md).
+        self.FORMATTING_MODEL = "claude-sonnet-5-5"
+        self.VALIDATION_MODEL = "claude-haiku-5-5"  # Not read by any pipeline step (Initial Validation uses DEFAULT_MODEL)
         
         self.runtime_settings = {}
         self._load_runtime_settings()
@@ -915,7 +920,10 @@ MAX_TOKENS_FORMATTING = 20000
 MAX_TOKENS_SUMMARY = 4096
 MAX_TOKENS_EXTRACTION = 8192
 MAX_TOKENS_AUDIT = 4096
-MAX_TOKENS_HEADER_VALIDATION = 4096
+# Per 5-section batch (transcript_validate_headers.BATCH_SIZE). A ceiling, not a
+# charge. Largest batch measured 2026-10-12: 2,410 tokens (Haiku 4.5), 6,525 incl.
+# thinking (Haiku 5.5, which also gets THINKING_TOKEN_HEADROOM). 4096 fit; 8192 is margin.
+MAX_TOKENS_HEADER_VALIDATION = 8192
 MAX_TOKENS_VALIDATION_VERIFY = 4096
 MAX_TOKENS_REVIEW_SEMANTIC = 8192
 MAX_TOKENS_MODEL_PROBE = 32
@@ -935,6 +943,17 @@ MODEL_OUTPUT_TOKEN_LIMITS = {
 # Formatting output grows over the input by headings and speaker labels; the
 # pre-call check requires input-token estimate x this factor to fit max output.
 FORMATTING_OUTPUT_EXPANSION = 1.15
+# Thinking tokens per transcript token when an always-thinking (5-family) model
+# formats a transcript, at its default effort. Measured 2026-10-11 on 3 real talks
+# with Sonnet 5.5: 2.0-5.0, median ~3.6 (docs/calibration_formatting_model_2026-10-11.md).
+# The cost estimate and the single-pass length check use this typical value (a talk
+# that would not fit even then is stopped before a paid call); above the measured
+# maximum the step warns that the answer may be cut off (U4).
+FORMATTING_THINKING_RATIO = 3.5
+FORMATTING_THINKING_RATIO_MAX = 5.0
+# Formatting always runs at the model's default effort (None), the setting the ratios
+# were measured at; the GUI Effort setting does not apply to it.
+FORMATTING_EFFORT = None
 
 # Temperature Settings
 TEMP_STRICT = 0.0

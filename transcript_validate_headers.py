@@ -187,6 +187,7 @@ class HeaderValidator:
             model=model,
             messages=[{"role": "user", "content": batch_content}],
             max_tokens=max_tokens,
+            temperature=config.TEMP_STRICT,  # as the old single-call path did (HV sweep)
             logger=self.logger,
             stream=True,
             system=self.cached_system_message,
@@ -201,7 +202,10 @@ class HeaderValidator:
             self.logger.error(
                 "No sections found in transcript (expected '## Heading' format)."
             )
-            return
+            # HV sweep (P8): don't leave an earlier run's report looking current.
+            self._save_report(input_path, [], [],
+                              note="No sections found (expected '## Heading' format); nothing validated.")
+            return False
 
         results = []
         failed_batches = []
@@ -276,7 +280,8 @@ class HeaderValidator:
             return False
         return True
 
-    def _save_report(self, input_path: Path, results: List[Dict], failed_batches: List[int]):
+    def _save_report(self, input_path: Path, results: List[Dict], failed_batches: List[int],
+                     note: str = ""):
         """Save validation report to file."""
         base_name = input_path.stem.replace(
             " - formatted", "").replace(" - yaml", "")
@@ -294,6 +299,8 @@ class HeaderValidator:
             f.write("# Header Validation Report\n")
             f.write(f"Source: {input_path.name}\n")
             f.write(f"Date: {os.path.getmtime(input_path)}\n\n")
+            if note:
+                f.write(f"**{note}**\n\n")
 
             f.write("## Verdict Summary\n")
             f.write(

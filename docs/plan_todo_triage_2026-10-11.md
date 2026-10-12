@@ -1,8 +1,8 @@
 # TODO triage and plan — 2026-10-11
 
 Status: **approved 2026-10-11** (U-a Haiku 5.5, D1/D2/D3/D5 yes). Built: S, Q1–Q5, D1, D2,
-D3, D5. U3 measured; **U4 not done** — Haiku 5.5 was not equal or better
-(`docs/calibration_formatting_model_2026-10-11.md`), decision pending. Q6/C1/C2 later.
+D3, D5, U1–U5, HV (2026-10-12: Sonnet 5.5 formatting, Haiku 5.5 AUX, header fix).
+Q6/C1/C2 later.
 
 Source: every open entry in `TODO.md` as of `4ffd3c9`, checked against the code on main.
 Groups: **S** stale (close in TODO), **U** urgent, **Q** quick fixes with tests,
@@ -134,8 +134,9 @@ U-a (candidate model), D1, D2, D3, D5. D4/D6/D7 default to my recommendation unl
 | U1 | done | Haiku defaults: `config.py:47-49`; formatting uses `formatting_pipeline.formatting_max_tokens` (model_specs for 5-family), not the cap |
 | U2 | not needed | see table above |
 | U3 | done | `docs/calibration_formatting_model_2026-10-11.md`, `docs/calibration/2026-10-11_formatting_haiku/` |
-| U4 | **not done** | Haiku 5.5 edits more; decision pending |
-| U5 | not done | follows U4 |
+| U4 | done 2026-10-12 | Sonnet 5.5 (user decision after round 2); `tests/test_formatting_model_u4.py` (formatting thinking in estimate and length check) |
+| U5 | done 2026-10-12 | `AUX_MODEL` = Haiku 5.5 after measuring 4 AUX tasks; `tests/test_formatting_model_u4.py::test_u5_no_default_on_the_retiring_haiku_45` |
+| HV | done 2026-10-12 (user request) | `tests/test_header_validation_hv.py` (5 tests); measured on 2 real transcripts, both models |
 | Q1 | done | `tests/test_simple_web_validation.py::test_q1_name_inside_a_different_item_is_missing`; same result on 15 real page lists |
 | Q2 | done | `tests/test_emphasis_quote_parsing_q2.py`; 1 of 1,053 real items changed (a quoted concept name was taken as the quote) |
 | Q3 | done | `tests/test_emphasis_save_q3.py` (5 tests), incl. the error path and the pipeline warning |

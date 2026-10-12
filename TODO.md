@@ -84,7 +84,8 @@ F11 manifest model provenance, G2/G13 other discarded return values, G8/G9, STRU
 - **Unify Terms File and pattern sets.** Initial Validation still uses the single global Terms File (`VALIDATION_APPROVED_TERMS_PATH`); pattern sets feed formatting. Approved-term lines in a pattern set currently have no effect. Decide whether Initial Validation should read the project's pattern set.
 - **Calibrate the new judge checks on real runs.** Heading claims (faithfulness, blocking) and `topic_term_faithfulness` (advisory: not in `GATE_BLOCKING_CHECKS`) were never run against real outputs (no API key in the implementing session). Run 3–5 known-good projects; demote to WARN if they false-block.
 - **Calibrate the gross limits.** `VALIDATION_MISMATCH_RATIO` (1.5%) and `VALIDATION_MAX_CONTIGUOUS_RUN` (10) rest on one real transcript (where_roots). Also `QUOTE_MIN_WORD_COVERAGE = 1.0`.
-- **Formatting model retirement.** `FORMATTING_MODEL` is Haiku 4.5; Anthropic lists its retirement as not sooner than 2026-10-15. **Measured 2026-10-11** (`docs/calibration_formatting_model_2026-10-11.md`): Haiku 5.5 passed 2 of 6 runs vs 3 of 6, and edits the speaker's words more (grammar, a name, a repeated passage); cheaper and faster on long talks. Not switched — decision pending (switch anyway / measure low effort and Sonnet 5.5 / wait). `VALIDATION_MODEL` and `AUX_MODEL` are also Haiku 4.5. `DEFAULT_MODEL` (Sonnet 4.6) is a legacy model.
+- ~~**Formatting model retirement.**~~ ✅ DONE 2026-10-12: `FORMATTING_MODEL` = Sonnet 5.5,
+  `AUX_MODEL` = Haiku 5.5 (`docs/calibration_formatting_model_2026-10-11.md`). Was: `FORMATTING_MODEL` is Haiku 4.5; Anthropic lists its retirement as not sooner than 2026-10-15. **Measured 2026-10-11** (`docs/calibration_formatting_model_2026-10-11.md`): Haiku 5.5 passed 2 of 6 runs vs 3 of 6, and edits the speaker's words more (grammar, a name, a repeated passage); cheaper and faster on long talks. Not switched — decision pending (switch anyway / measure low effort and Sonnet 5.5 / wait). `VALIDATION_MODEL` and `AUX_MODEL` are also Haiku 4.5. `DEFAULT_MODEL` (Sonnet 4.6) is a legacy model.
 - **Packaging can ship stale pages.** `package_transcript` zips existing webpage/PDF even if an artifact changed after they were built; regenerate or compare against the run-manifest hashes.
 - **PDF transcript text is not checked** word-for-word (the webpage is).
 - **Review keys and `skip_words_file`.** Approval keys use raw word positions after skip-word filtering; validating with a different skip-words file makes approvals not match (fails closed, but forces re-review).
@@ -332,6 +333,10 @@ Remaining boundaries stage one at a time behind the migration shim.
   to 0 emphasis items is still saved raw and reported as success
   (`extraction_pipeline.extract_scored_emphasis`, the `else response` fallback). The
   release gate then returns ERROR on that file, so it is loud at publish time.
+- **Adjacent (U5 sweep, not fixed):** `validate_headers`, the abstract helpers in
+  `abstract_validation.py` and `generate_structured_abstract` take `model=config.AUX_MODEL`
+  as a default bound at import, so a CLI call without a model ignores the model chosen in
+  the GUI. `validate_summary_coverage` was fixed (its gate key depends on the model).
 - **Adjacent (Q4, not fixed):** `parse_topics_from_extraction` strategy 2 treats text
   before the first `###` header as a topic (kept as before).
   `extract_scored_emphasis` (`extraction_pipeline.py:727`) does
@@ -587,14 +592,10 @@ with a reason; these need a product call, not a test edit.
   `cap_max_tokens_for_model` now caps at the model's own max output
   (`config.MODEL_OUTPUT_TOKEN_LIMITS`, else `model_specs.capabilities`); the 2 tests
   were rewritten and un-xfailed. In practice this changes only the abstract LLM check
-  with more than ~50 items. **Still open:** header validation itself requests
-  `MAX_TOKENS_HEADER_VALIDATION = 4096` per batch; whether that is enough is unmeasured. `cap_max_tokens_for_model`
-  floors *every* model to `config.MAX_TOKENS_SUMMARY` (4096), so the haiku 8192
-  entry in `MODEL_OUTPUT_TOKEN_LIMITS` and any higher per-model limit are always
-  dominated. Header-validation batches and long summaries may be truncated (P9).
-  **Decide:** is 4096 the intended global ceiling, or should the cap be the *model*
-  limit (raising header-validation / summary headroom)? xfail:
-  `test_header_validation_token_limits.py` (2 tests).
+  with more than ~50 items. Header validation: ✅ FIXED 2026-10-12 (HV) — the
+  whole-transcript call that was cut off now uses the batched validator; per-batch
+  ceiling 8192 as margin (largest measured batch 6,525 tokens incl. thinking; the
+  batched path fit at 4096 too). Was: the cap floored every model to 4096 (2 xfail tests).
 - **Config settings don't reload across `ProjectSettings` instances.** A new
   instance does not pick up a persisted `default_source_dir`. Real gap; fixing it
   is a config-wide change. xfail: `test_config_validation.py::test_runtime_settings_persistence`.

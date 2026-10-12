@@ -1,0 +1,116 @@
+[
+  {
+    "model": "claude-haiku-4-5-20251001",
+    "file": "2021 Webcast Jan Societal Regression - M",
+    "ok": true,
+    "sections": 54,
+    "verdicts": {
+      "PASS": 44,
+      "WARN": 9,
+      "FAIL": 1,
+      "total": 54
+    },
+    "batch_output_tokens": [
+      1715,
+      2129,
+      1846,
+      1649,
+      1446,
+      1591,
+      2040,
+      1784,
+      1562,
+      2410,
+      1785
+    ],
+    "errors": []
+  },
+  {
+    "model": "claude-haiku-4-5-20251001",
+    "file": "Making a difference in Self and Family -",
+    "ok": true,
+    "sections": 77,
+    "verdicts": {
+      "PASS": 67,
+      "WARN": 6,
+      "FAIL": 4,
+      "total": 77
+    },
+    "batch_output_tokens": [
+      1749,
+      2341,
+      1912,
+      2067,
+      1554,
+      2255,
+      2123,
+      2110,
+      2123,
+      2075,
+      1470,
+      1721,
+      1791,
+      1532,
+      1562,
+      706
+    ],
+    "errors": []
+  },
+  {
+    "model": "claude-haiku-5-5",
+    "file": "2021 Webcast Jan Societal Regression - M",
+    "ok": true,
+    "sections": 54,
+    "verdicts": {
+      "PASS": 20,
+      "WARN": 27,
+      "FAIL": 7,
+      "total": 54
+    },
+    "batch_output_tokens": [
+      4331,
+      5249,
+      4770,
+      5318,
+      4148,
+      4863,
+      5305,
+      5014,
+      6090,
+      4876,
+      4437
+    ],
+    "errors": []
+  },
+  {
+    "model": "claude-haiku-5-5",
+    "file": "Making a difference in Self and Family -",
+    "ok": true,
+    "sections": 77,
+    "verdicts": {
+      "PASS": 29,
+      "WARN": 30,
+      "FAIL": 18,
+      "total": 77
+    },
+    "batch_output_tokens": [
+      5116,
+      5428,
+      4859,
+      4055,
+      5261,
+      5346,
+      4303,
+      5544,
+      4654,
+      4522,
+      6525,
+      5053,
+      5194,
+      4832,
+      4708,
+      1904
+    ],
+    "errors": []
+  }
+]

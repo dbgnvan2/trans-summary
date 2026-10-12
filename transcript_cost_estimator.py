@@ -86,10 +86,13 @@ class CostEstimator:
         cached_tokens: int = 0,
         is_cache_write: bool = False,
         category: str = "processing",
+        add_thinking: bool = True,
     ):
-        """Calculates and records the cost for a single pipeline step."""
+        """Calculates and records the cost for a single pipeline step.
+        ``add_thinking=False`` when ``output_tokens`` already includes thinking."""
         prices = get_pricing(model)
-        output_tokens += thinking_tokens_estimate(model)
+        if add_thinking:
+            output_tokens += thinking_tokens_estimate(model)
 
         cost_input = 0.0
         cost_output = 0.0
@@ -131,11 +134,20 @@ class CostEstimator:
         prompt_tokens = estimate_token_count(prompt)
 
         input_tokens = prompt_tokens + self.transcript_tokens
-        # Output is roughly the same size as the input transcript
+        # Output is roughly the same size as the input transcript, plus the thinking
+        # of a model that always thinks: ~FORMATTING_THINKING_RATIO per transcript
+        # token when formatting, far more than the per-call estimate (U4).
+        # The model chosen in the GUI (config.settings), not the import-time global.
+        model = config.settings.FORMATTING_MODEL
         output_tokens = self.transcript_tokens
+        import model_specs
+        thinks = model_specs.capabilities(model)["thinking"] == "always"
+        if thinks:
+            output_tokens += int(self.transcript_tokens * config.FORMATTING_THINKING_RATIO)
 
         self._calculate_cost(
-            "1. Formatting", config.FORMATTING_MODEL, input_tokens, output_tokens, is_cache_write=True, category="processing")
+            "1. Formatting", model, input_tokens, output_tokens, is_cache_write=True,
+            category="processing", add_thinking=not thinks)
 
     def estimate_summarization_steps(self):
         """Estimate costs for all steps that use the cached transcript.
