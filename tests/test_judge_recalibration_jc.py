@@ -93,3 +93,45 @@ def test_jc0_output_records_prompt_and_versions():
     assert meta["judge_logic_version"] == config.JUDGE_LOGIC_VERSION
     assert meta["confirm_mode"] == config.FAITHFULNESS_CONFIRM_MODE
     assert meta["faithfulness_cache_version"] and meta["theme_prompt_sha"]
+
+
+def test_q5_prose_real_source_has_metadata(monkeypatch):
+    """Q5: --prose-real judges each artifact against the same source the gate uses
+    (transcript + recording metadata from the folder name), so dated claims are not
+    over-reported. Spec: docs/plan_todo_triage_2026-10-11.md#Q5"""
+    import faithfulness_judge as fj
+    import judge_recalibration as jr
+    import release_gate
+
+    seen = []
+
+    def fake(claims, source, client, *, model=None, logger=None):
+        seen.append(source)
+        return [fj.ClaimVerdict(c, "entailed") for c in claims], []
+    monkeypatch.setattr(fj, "judge_claims_confirmed", fake)
+    jr.prose_real(client=None, model="m")
+    assert seen
+    talks = sorted(p for p in jr.PROSE_REAL.iterdir() if p.is_dir())
+    expected = {release_gate.with_recording_metadata(
+        t.name, (t / f"{t.name} - formatted.md").read_text(encoding="utf-8")) for t in talks}
+    assert set(seen) <= expected
+    assert all(s.startswith("Recording metadata") and "Michael Kerr" in s.split("\n\n")[0]
+               for s in seen)
+
+
+def test_q5_real_abstracts_use_metadata_where_named(monkeypatch):
+    """Sweep finding 5: where_roots (a real base name) gets the gate's metadata."""
+    import faithfulness_judge as fj
+    import judge_recalibration as jr
+
+    seen = {}
+
+    def fake(art, source, client, *, model=None, logger=None):
+        seen[len(seen)] = source
+        return fj.FaithfulnessResult(fj.PASS, "ok")
+    monkeypatch.setattr(fj, "judge_artifact", fake)
+    jr.real_abstracts(client=None, model="m")
+    labels = [r[0] for r in jr.REAL_ABSTRACTS]
+    by_label = dict(zip(labels, seen.values()))
+    assert by_label["where_roots"].startswith("Recording metadata")
+    assert not by_label["roots_bowen"].startswith("Recording metadata")

@@ -184,6 +184,7 @@ MODEL_CAPABILITIES = {
     "claude-opus-4-6": dict(_V46),
     "claude-sonnet-4-6": dict(_V46),
     "claude-haiku-4-5-20251001": {**_LEGACY, "max_output": 64000},
+    "claude-haiku-4-5": {**_LEGACY, "max_output": 64000},
     "claude-sonnet-4-5-20250929": {**_LEGACY, "max_output": 64000},
     "claude-opus-4-5-20251101": {**_LEGACY, "effort_levels": ("low", "medium", "high"),
                                  "default_effort": "high", "max_output": 64000},

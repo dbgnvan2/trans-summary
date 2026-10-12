@@ -1,6 +1,8 @@
 # TODO triage and plan — 2026-10-11
 
-Status: **proposed, awaiting approval.** No code changed yet.
+Status: **approved 2026-10-11** (U-a Haiku 5.5, D1/D2/D3/D5 yes). Built: S, Q1–Q5, D1, D2,
+D3, D5. U3 measured; **U4 not done** — Haiku 5.5 was not equal or better
+(`docs/calibration_formatting_model_2026-10-11.md`), decision pending. Q6/C1/C2 later.
 
 Source: every open entry in `TODO.md` as of `4ffd3c9`, checked against the code on main.
 Groups: **S** stale (close in TODO), **U** urgent, **Q** quick fixes with tests,
@@ -41,7 +43,7 @@ could cap output at 4096 tokens (P9). U1 checks whether formatting goes through 
 | ID | Step | Verified by |
 |---|---|---|
 | U1 | Find every call path that uses the three Haiku defaults and whether each goes through `cap_max_tokens_for_model`. | list in the plan's results section |
-| U2 | Add `claude-haiku-5-5` (and `claude-sonnet-5-5`) output limits from Anthropic's models page. | `tests/test_v5_models.py::test_u2_output_limits_known` |
+| U2 | ~~Add output limits~~ Not needed: 5-family limits already come from `model_specs.capabilities`; the 4096 fallback was D5. | `tests/test_header_validation_token_limits.py::test_d5_limit_tables_agree` |
 | U3 | Run formatting on 3 public transcripts (roots_bowen, where_roots, Kerr 2026-09-13) with Haiku 4.5 and the candidate. Compare: mismatch count, contiguous-run max, heading errors, corrections, cost, time. | `docs/calibration_formatting_model_2026-10-11.md` + JSON in `docs/calibration/` |
 | U4 | If the candidate is equal or better: switch the three defaults, update `model_specs.py`, README, ARCHITECTURE_DESIGN, CHANGELOG. | `tests/test_v5_models.py::test_u4_no_retiring_model_defaults` (no default ends in a retiring model id) |
 | U5 | Run Initial Validation (V2) on the same 3 with the new `VALIDATION_MODEL`; findings count must not drop to zero (fail-open check). | same report |
@@ -61,10 +63,10 @@ Haiku 5.5 makes more heading errors.
 | ID | Fix | Test (written first) |
 |---|---|---|
 | Q1 | `transcript_validate_webpage.missing_names`: match on word boundaries, so "Self" is not found inside "Differentiation of Self". (Hermes LOW, P7) | `tests/test_simple_web_validation.py::test_q1_substring_of_other_item_is_missing` (adversarial) + existing extra-text case still passes |
-| Q2 | Emphasis saver writes `"` inside quote/concept raw (`extraction_pipeline.py:682`); map to `'` like `_format_bowen_refs`. | `tests/test_emphasis_roundtrip.py::test_q2_nested_quote_round_trips` (save → `parse_scored_emphasis_output` returns the full quote) |
-| Q3 | Emphasis: when items parse but none validate for a reason other than verbatim, the raw response is saved (`extraction_pipeline.py:701`). Return False and save nothing, as the verbatim branch already does. | `tests/test_emphasis_roundtrip.py::test_q3_all_items_rejected_saves_nothing` |
-| Q4 | `abstract_pipeline.parse_topics_from_extraction`: skip a topic whose name strips to `""`. | `tests/test_abstract_pipeline.py::test_q4_blank_topic_name_skipped` |
-| Q5 | `judge_recalibration --prose-real` builds the source without the filename metadata the gate adds, so date/year claims are over-reported. Use the same metadata block as `release_gate._source_with_metadata`. | `tests/test_judge_recalibration.py::test_q5_prose_real_source_has_metadata` |
+| Q2 | As built: the cause was the parser, not the saver. `parse_scored_emphasis_output` cut a quote at an inner quote mark and could take a quoted concept name as the quote; it now reads to the closing mark at the end of the quote's line. The saver is unchanged. | `tests/test_emphasis_quote_parsing_q2.py` (7 tests) |
+| Q3 | Emphasis: when items parse but none validate for a reason other than verbatim, the raw response is saved (`extraction_pipeline.py:701`). Return False and save nothing, as the verbatim branch already does. | `tests/test_emphasis_save_q3.py::test_q3_all_items_rejected_saves_nothing`, `::test_q3_failed_run_sets_aside_older_emphasis_file` |
+| Q4 | `abstract_pipeline.parse_topics_from_extraction`: skip a topic whose name strips to `""`. | `tests/test_abstract_pipeline_topics_parsing.py::test_q4_blank_topic_name_skipped`, `::test_q4_blank_header_does_not_take_the_next_line_as_name` |
+| Q5 | `judge_recalibration --prose-real` builds the source without the filename metadata the gate adds, so date/year claims are over-reported. Use the same metadata block as `release_gate._source_with_metadata`. | `tests/test_judge_recalibration_jc.py::test_q5_prose_real_source_has_metadata`, `::test_q5_real_abstracts_use_metadata_where_named` |
 | Q6 | Replace the prompt example "attributes recovery to medication" (paraphrases gold us6) with one not in the gold set. This changes the judge prompt, so it needs a calibration run (C1). | `tests/test_faithfulness_judge.py::test_q6_prompt_examples_not_in_gold` (no example shares ≥5 content words with any gold claim) |
 
 Q1–Q5 do not change the judge; Q6 does. I propose Q6 rides with C1, not this batch.
@@ -121,3 +123,30 @@ leniency (G9), key-terms gate (decided advisory).
 ## Decisions needed now
 
 U-a (candidate model), D1, D2, D3, D5. D4/D6/D7 default to my recommendation unless you say otherwise.
+
+---
+
+## Results (2026-10-11)
+
+| ID | Status | Evidence |
+|---|---|---|
+| S | done | TODO.md entries closed or reworded |
+| U1 | done | Haiku defaults: `config.py:47-49`; formatting uses `formatting_pipeline.formatting_max_tokens` (model_specs for 5-family), not the cap |
+| U2 | not needed | see table above |
+| U3 | done | `docs/calibration_formatting_model_2026-10-11.md`, `docs/calibration/2026-10-11_formatting_haiku/` |
+| U4 | **not done** | Haiku 5.5 edits more; decision pending |
+| U5 | not done | follows U4 |
+| Q1 | done | `tests/test_simple_web_validation.py::test_q1_name_inside_a_different_item_is_missing`; same result on 15 real page lists |
+| Q2 | done | `tests/test_emphasis_quote_parsing_q2.py`; 1 of 1,053 real items changed (a quoted concept name was taken as the quote) |
+| Q3 | done | `tests/test_emphasis_save_q3.py` (5 tests), incl. the error path and the pipeline warning |
+| Q4 | done | `tests/test_abstract_pipeline_topics_parsing.py::test_q4_*` (3 tests); no change on 34 real topics files |
+| Q5 | done | `tests/test_judge_recalibration_jc.py::test_q5_*` |
+| Q6 | not started | with C1 |
+| D1 | done | `tests/test_webpage_themes_d1.py`; exact on 48 real theme files / 240 themes |
+| D2 | done | `tests/test_judge_cache_pass_only_d2.py` (9 tests): a PASS after a FAIL (or an old FAIL entry) is not stored; a flagged file needs two PASSes in a row |
+| D3 | done | worktree and 5 merged branches removed |
+| D5 | done | `tests/test_header_validation_token_limits.py::test_d5_*` (4 tests) |
+
+learning-qa sweep: 7 findings, then 3 more on the fixes (old FAIL entries, re-run until
+one PASS, Q3 error path); all fixed except two adjacent issues logged in TODO.md
+(short raw emphasis response saved as success; topics preamble parsed as a topic).

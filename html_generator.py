@@ -25,6 +25,7 @@ from transcript_utils import (
     parse_filename_metadata,
     setup_logging,
     strip_yaml_frontmatter,
+    theme_display_blocks,
 )
 
 # ============================================================================
@@ -85,9 +86,18 @@ def _extract_webpage_metadata(base_name: str):
     # Get key terms with definitions
     key_term_defs = _extract_key_term_definitions(base_name)
 
-    structural = extract_section(structural_content, "Structural Themes") or structural_content.strip()
+    # D1: publish the parsed themes only, not the file's title, rule lines,
+    # "(N total)" headings or summary paragraph. A file the parser cannot read
+    # keeps the old whole-section fallback (the artifact-contract gate blocks
+    # publication of a non-conforming themes file).
+    structural = (
+        _themes_markdown(structural_content)
+        or extract_section(structural_content, "Structural Themes")
+        or structural_content.strip()
+    )
     interpretive = (
-        extract_section(interpretive_content, "Interpretive Themes")
+        _themes_markdown(interpretive_content)
+        or extract_section(interpretive_content, "Interpretive Themes")
         or extract_section(interpretive_content, "Themes")
         or interpretive_content.strip()
     )
@@ -111,6 +121,13 @@ def _extract_webpage_metadata(base_name: str):
         "key_terms": key_term_defs,
     }
     return metadata
+
+
+def _themes_markdown(content: str) -> str:
+    """The themes of one themes file as "**N. Name**" blocks with their fields, or
+    "" when the parser finds none (D1, docs/plan_todo_triage_2026-10-11.md)."""
+    return "\n\n".join(f"**{num}. {name}**\n\n{body}"
+                       for num, name, body in theme_display_blocks(content))
 
 
 def _load_abstract(base_name):

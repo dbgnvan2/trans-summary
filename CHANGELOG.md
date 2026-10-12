@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-11 (TODO triage: quick fixes and decisions)
+
+Plan: `docs/plan_todo_triage_2026-10-11.md`.
+- **D1** The published Themes section (web pages and PDF) shows only the parsed themes,
+  each as "**N. Name**" with its fields — not the themes file's title, `---` lines,
+  "(N total)" headings or summary paragraph. Checked on 48 real theme files (240 themes).
+- **D2** The judge disk cache keeps only PASS verdicts (faithfulness, theme, blog
+  grounding). A FAIL is re-judged on the next gate run instead of being replayed; FAILs
+  already on disk are ignored. Once a file has been judged FAIL (including FAIL
+  entries written before this change), a later PASS is not stored, and a run counts as
+  PASS for that file only when two judgements in a row pass it.
+- **D5** `cap_max_tokens_for_model` caps a request at the model's own max output
+  (`config.MODEL_OUTPUT_TOKEN_LIMITS`, else `model_specs.capabilities`) instead of 4096
+  for every model; a test keeps the two tables in agreement.
+- **Q1** Web-page check: a source name is found only at the start of a page item ("Self"
+  is not found in "Differentiation of Self"). No change on 15 real page lists.
+- **Q2** Emphasis parser reads a quote that contains a quotation in full, and no longer
+  takes a quoted concept name as the quote (one real case in 44 files, 1,053 items).
+- **Q3** Emphasis: when every parsed item fails validation, nothing is saved and the
+  step fails (it saved the raw response). When emphasis extraction saves nothing, an
+  emphasis file from an earlier run is renamed `.stale` (also when the step fails with
+  an error), and the main pipeline logs that
+  the pages will have no emphasis items.
+- **Q4** Abstract input: a topic header with no name is skipped and logged, and no
+  longer takes the next line as its name.
+- **Q5** `judge_recalibration --prose-real` (and the where_roots real-abstract check)
+  judge against the same source as the gate (transcript plus recording metadata).
+- **U3** Measured Haiku 5.5 as the formatting model (`docs/calibration_formatting_model_2026-10-11.md`).
+  Not switched: it edits the speaker's words more than Haiku 4.5.
+- **D3** Removed the stale `hungry-wilbur` worktree and 5 merged branches.
+
 ## [Unreleased] - 2026-10-11 (faithfulness: confirm a flag before it fails a run)
 
 Plan: `docs/plan_judge_confirm_flags_2026-10-11.md`; results: `docs/calibration_confirm_2026-10-11.md`.

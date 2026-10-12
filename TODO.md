@@ -8,34 +8,34 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-11 — Web page checks (RF.O / RF.P)
 
-### ⏸ Open — needs a decision
-- **Published Themes section shows file scaffolding.** Both web pages show the themes
-  file's own title as a heading, `---` lines and "Structural Themes (3 total)" inside
-  Themes (`html_generator._extract_webpage_metadata` falls back to the whole file).
-  Fix = render themes from the parsed items; changes the published page.
-- **Stale worktree** `.claude/worktrees/hungry-wilbur` still has the pre-RF.O web
-  checker; anything run from it fails every simple page.
+### ✅ Fixed 2026-10-11 (`docs/plan_todo_triage_2026-10-11.md`)
+- ~~Published Themes section shows file scaffolding~~ — D1: themes are rendered from the
+  parsed items (`transcript_utils.theme_display_blocks`).
+- ~~Stale worktree `hungry-wilbur`~~ — D3: removed (its one uncommitted change was
+  already on main), with 5 fully merged branches.
 
 ### ⏸ Open — faithfulness judge (2026-10-11)
 - ~~Random false flags~~ — fixed 2026-10-11 (CF): a flag fails a run only when a fresh
   judgement agrees; Kerr false fails 5/10 → 0/10 (`docs/calibration_confirm_2026-10-11.md`).
   Still open: first-pass misses on the borderline policy cases k4/k5/k6 (gold recall
-  0.86–0.91 per run); the theme judge and key-terms judge have no confirmation (CD2).
-- **Sticky cached FAIL**: a false FAIL is stored on disk and replayed on gate re-runs of
-  unchanged files until the artifact is regenerated (less likely since CF).
+  0.86–0.91 per run). Accepted (decision CD2): the theme and key-terms judges have no
+  confirmation.
+- ~~**Sticky cached FAIL**~~ — fixed 2026-10-11 (D2): only PASS verdicts are kept in the
+  disk cache; a FAIL is re-judged on the next gate run. A file judged FAIL before needs
+  two PASSes in a row to pass a run, and its PASS is not stored. Limits: the "flagged"
+  marker can be evicted by the 2000-entry cache cap (then a later PASS is stored); the
+  blog-grounding check (advisory) has no two-PASS rule.
 - **k6 gap (known, accepted)**: the judge accepts the writer's own claims about a theory
   ("…central to Bowen theory's explanation…"). A narrower framing rule was tried and not
   shipped (`docs/calibration_framing_2026-10-11.md`).
-- `judge_recalibration.py --prose-real` omits the filename metadata the gate includes, so
-  date/year claims are over-reported; its output does not record the prompt sha (fixed only
-  on the archived `judge-framing` branch).
+- ~~`judge_recalibration.py --prose-real` omits the filename metadata~~ — fixed 2026-10-11
+  (Q5, shared `release_gate.with_recording_metadata`); the prompt sha is recorded since CF.
 - Prompt example "attributes recovery to medication" (since 2026-07-15) paraphrases gold
-  us6. Replace in the next prompt change.
+  us6. Replace in the next prompt change (plan Q6, with calibration C1).
 
 ### ⏸ Open — from the Hermes QA gate (`docs/cycles/2026-10-11_rfop-qa-gate.md`, APPROVED)
-- **LOW (P7)** `transcript_validate_webpage.missing_names`: a source name that is a
-  substring of a *different* page item ("Self" inside "Differentiation of Self") counts
-  as present. Only hides a warning. Fix: match on word boundaries.
+- ~~**LOW (P7)** `missing_names` substring match~~ — fixed 2026-10-11 (Q1): the page
+  name must start with the source name.
 - **LOW (decision)** a page missing some (not all) topics/themes/key terms is a
   warning, so the stage passes (RF.P.3 as approved). Revisit if partial misses should block.
 - The "7/7, 10/10, 10/10" Kerr result is a manual run, not an automated test (the
@@ -82,9 +82,9 @@ F11 manifest model provenance, G2/G13 other discarded return values, G8/G9, STRU
 ## 2026-09-23 — Source fidelity, review and pattern sets (open items)
 
 - **Unify Terms File and pattern sets.** Initial Validation still uses the single global Terms File (`VALIDATION_APPROVED_TERMS_PATH`); pattern sets feed formatting. Approved-term lines in a pattern set currently have no effect. Decide whether Initial Validation should read the project's pattern set.
-- **Calibrate the new judge checks on real runs.** `topic_term_faithfulness` and heading claims (faithfulness) are blocking but were never run against real outputs (no API key in the implementing session). Run 3–5 known-good projects; demote to WARN if they false-block.
+- **Calibrate the new judge checks on real runs.** Heading claims (faithfulness, blocking) and `topic_term_faithfulness` (advisory: not in `GATE_BLOCKING_CHECKS`) were never run against real outputs (no API key in the implementing session). Run 3–5 known-good projects; demote to WARN if they false-block.
 - **Calibrate the gross limits.** `VALIDATION_MISMATCH_RATIO` (1.5%) and `VALIDATION_MAX_CONTIGUOUS_RUN` (10) rest on one real transcript (where_roots). Also `QUOTE_MIN_WORD_COVERAGE = 1.0`.
-- **Formatting model retirement.** `FORMATTING_MODEL` is Haiku 4.5; Anthropic lists its retirement as not sooner than 2026-10-15. Evaluate a replacement on the same transcripts (mismatch count, corrections, heading errors, cost). `DEFAULT_MODEL` (Sonnet 4.6) is a legacy model and the faithfulness judge was calibrated on it.
+- **Formatting model retirement.** `FORMATTING_MODEL` is Haiku 4.5; Anthropic lists its retirement as not sooner than 2026-10-15. **Measured 2026-10-11** (`docs/calibration_formatting_model_2026-10-11.md`): Haiku 5.5 passed 2 of 6 runs vs 3 of 6, and edits the speaker's words more (grammar, a name, a repeated passage); cheaper and faster on long talks. Not switched — decision pending (switch anyway / measure low effort and Sonnet 5.5 / wait). `VALIDATION_MODEL` and `AUX_MODEL` are also Haiku 4.5. `DEFAULT_MODEL` (Sonnet 4.6) is a legacy model.
 - **Packaging can ship stale pages.** `package_transcript` zips existing webpage/PDF even if an artifact changed after they were built; regenerate or compare against the run-manifest hashes.
 - **PDF transcript text is not checked** word-for-word (the webpage is).
 - **Review keys and `skip_words_file`.** Approval keys use raw word positions after skip-word filtering; validating with a different skip-words file makes approvals not match (fails closed, but forces re-review).
@@ -182,7 +182,8 @@ faithfulness judge (M2) is the semantic backstop for this class. Pinned by
 - **Follow-up (optional):** consider requiring the *surname* (last token) to be
   grounded, or ALL tokens, if false-negatives on presenter-token names prove real.
 
-## 2026-07-17 — faithfulness judge: re-calibrate after metadata-in-source change
+## 2026-07-17 — faithfulness judge: re-calibrate after metadata-in-source change ✅ DONE
+Re-calibrated since on 2026-07-19, 2026-10-04, 2026-10-09, 2026-10-10 and 2026-10-11.
 
 `release_gate.check_faithfulness` now prepends the recording metadata (title,
 presenter, date, year from the filename) to the source, so a legitimate
@@ -312,7 +313,8 @@ Follow-ups (not blockers) — incl. learning-qa arming-review findings:
 Codec layer (`artifact_contracts.py`) + bowen boundary landed (M3a, M3b-bowen).
 Remaining boundaries stage one at a time behind the migration shim.
 
-- **⚠️ Themes migration shim must handle TWO real formats.** A P6 sweep of the
+- ~~**⚠️ Themes migration shim must handle TWO real formats.**~~ ✅ Stale:
+  `parse_bold_numbered_theme_blocks` reads both (AC M3.D.1). A P6 sweep of the
   codec over every real artifact on the drive found `parse_bold_numbered_theme_blocks`
   (consumer) returns **zero** on a real structural-themes file that uses
   `### N. Title` (H3-numbered) instead of the `**N. Title**` (bold-numbered) format
@@ -323,7 +325,15 @@ Remaining boundaries stage one at a time behind the migration shim.
   first unattended re-publish of that (and any same-era) run will false-BLOCK
   (AC M3.D.1 requires legacy real artifacts to migrate). bowen/key-terms/topics/
   emphasis/interpretive-themes are all clean across the 6 real projects checked.
-- **Emphasis all-items-content-rejected raw fallback (adjacent, not fixed).**
+- ~~**Emphasis all-items-content-rejected raw fallback.**~~ ✅ FIXED 2026-10-11 (Q3):
+  nothing is saved, the step fails, an earlier run's emphasis file is renamed `.stale`,
+  and the main pipeline logs a warning.
+- **Adjacent (Q3 sweep, not fixed):** a response of 500 characters or less that parses
+  to 0 emphasis items is still saved raw and reported as success
+  (`extraction_pipeline.extract_scored_emphasis`, the `else response` fallback). The
+  release gate then returns ERROR on that file, so it is loud at publish time.
+- **Adjacent (Q4, not fixed):** `parse_topics_from_extraction` strategy 2 treats text
+  before the first `###` header as a topic (kept as before).
   `extract_scored_emphasis` (`extraction_pipeline.py:727`) does
   `final_content = "\n\n".join(lines) if validated_items else response` — when
   items parse but ALL fail `validate_emphasis_item` (content grounding), it saves
@@ -333,7 +343,8 @@ Remaining boundaries stage one at a time behind the migration shim.
   shape, not grounding); flagged per rule 10, not fixed here. Fix: on zero
   validated items, write a header-only/empty artifact (or fail) rather than the
   raw response.
-- **Abstract-input strategy-1 topic name edge (very low prob).** `parse_topics_from_extraction`
+- ~~**Abstract-input strategy-1 topic name edge.**~~ ✅ FIXED 2026-10-11 (Q4): a
+  header that strips to "" was reproducible; such topics are skipped and logged. `parse_topics_from_extraction`
   (`abstract_pipeline.py:108`) `name = match[0].strip()` on a `###\s+([^\n]+)`
   capture could strip to `""` on a whitespace-only header → `minLength:1` schema
   violation → fail-closed block. Real-data risk is negligible (names are non-empty
@@ -393,8 +404,8 @@ report: `TEST_VALIDITY_REPORT.md`. Harness: `mut_harness.py`.
   warning printed / stack trace logged); `test_validation_headless.py` (×2, live_api)
   now assert the findings list + schema keys and `pytest.skip` on missing preconditions.
   `KNOWN_VACUOUS` is now EMPTY (M6.B gate blocks any new vacuous test).
-- **Institutionalize:** add a mutation-score gate on the seven core modules to CI so
-  this cannot silently rot again (coverage % does not detect it).
+- ~~**Institutionalize:** mutation-score gate in CI~~ ✅ Stale: the nightly
+  `mutation-gate` job runs `quality_gates.py mutation`.
 
 ---
 
@@ -528,7 +539,7 @@ advisory); Bowen within-file dedup; `html_generator` 2-vs-3 tuple crash (+ sibli
 `tests/test_validator_gate_hardening.py`, fixtures `tests/fixtures/where_roots/`.
 
 **Adjacent issues (flagged by learning-qa review, not fixed — rule 10):**
-- **Dead duplicate `_generate_simple_html_page`.** `html_generator.py` defines it
+- ~~**Dead duplicate `_generate_simple_html_page`.**~~ ✅ Stale: one definition remains. `html_generator.py` defines it
   twice (~line 266 dead-shadowed, ~line 642 live); the first is unreachable. Pre-existing.
 - **`_best_local_grounding` re-normalizes the whole transcript per key term.**
   N terms × full-transcript `normalize_text` — fine at current scale (sub-second on
@@ -572,7 +583,12 @@ its findings were fixed except these two, kept as honest limitations:
 Raised while resolving the pre-existing red tests (M8.B). Each is xfail-annotated
 with a reason; these need a product call, not a test edit.
 
-- **Universal `MAX_TOKENS_SUMMARY=4096` output ceiling.** `cap_max_tokens_for_model`
+- ~~**Universal `MAX_TOKENS_SUMMARY=4096` output ceiling.**~~ ✅ FIXED 2026-10-11 (D5):
+  `cap_max_tokens_for_model` now caps at the model's own max output
+  (`config.MODEL_OUTPUT_TOKEN_LIMITS`, else `model_specs.capabilities`); the 2 tests
+  were rewritten and un-xfailed. In practice this changes only the abstract LLM check
+  with more than ~50 items. **Still open:** header validation itself requests
+  `MAX_TOKENS_HEADER_VALIDATION = 4096` per batch; whether that is enough is unmeasured. `cap_max_tokens_for_model`
   floors *every* model to `config.MAX_TOKENS_SUMMARY` (4096), so the haiku 8192
   entry in `MODEL_OUTPUT_TOKEN_LIMITS` and any higher per-model limit are always
   dominated. Header-validation batches and long summaries may be truncated (P9).
@@ -586,7 +602,8 @@ with a reason; these need a product call, not a test edit.
   ✅ FIXED 2026-07-15: repointed to the real consumer `parse_bowen_references_text`
   (the saved `### Concept\n> "quote"` format), un-xfailed, now passing; removed from
   `test_code_health.py::KNOWN_REDS`.
-- **6 vacuous (assertion-free) tests still on the allowlist.** `test_exception_fix.py`
+- ~~**6 vacuous (assertion-free) tests still on the allowlist.**~~ ✅ Stale: fixed
+  2026-07-15 (see Test-validity audit); `KNOWN_VACUOUS` no longer exists. `test_exception_fix.py`
   (×4) and `test_validation_headless.py` (×2) verify nothing (TEST_VALIDITY_REPORT §3).
   The M6.B gate (`quality_gates.find_vacuous_tests`) now blocks *new* ones and
   allowlists these; give them real assertions and drop them from `KNOWN_VACUOUS`
@@ -602,12 +619,15 @@ Tests: `test_validator_gate_hardening.py::test_extract_terms_passes_named_logger
 `::test_audit_voice_passes_named_logger`. (Abstract/summary sites pass the module
 logger directly.)
 
-### Emphasis saver doesn't sanitize `"` inside quote/concept text *(pre-existing)*
+### ~~Emphasis saver doesn't sanitize `"`~~ ✅ FIXED 2026-10-11 (Q2)
+The cause was the parser, not the saver: a quote with a quotation inside was cut short
+when first read, and a quoted concept name was taken as the quote (one real case in 44
+files). `parse_scored_emphasis_output` now reads to the line-ending closing mark.
 Unlike `_format_bowen_refs` (which maps `"`→`'`), the emphasis save block writes
 quotes raw, so a nested `"` inside a quote would truncate on re-parse (a P19
 round-trip hazard). Ref: `extraction_pipeline.py` `extract_scored_emphasis` save block.
 
-### `_load_runtime_settings` AttributeError on valid non-dict JSON *(pre-existing)*
+### ~~`_load_runtime_settings` AttributeError on valid non-dict JSON~~ ✅ Stale: fixed by review C1
 Corrupt JSON resets to `{}`, but a *valid* non-dict top-level (hand-edited `[]`
 or a string) would `AttributeError` on the first `.get`. Ref: `config.py` `_load_runtime_settings`.
 
@@ -619,8 +639,8 @@ Worth a dedicated pass; none related to the validator/estimator/Bowen fixes.
 - `test_config_validation.py::test_runtime_settings_persistence` — config singleton doesn't reload across instances (SOURCE_DIR).
 - ~~`test_html_generation.py::test_highlighting_logic` — highlight tuple unpack (`expected 3, got 2`).~~ ✅ FIXED 2026-07-15 (Step 2).
 - ~~`tests/test_html_generator.py::` `test_generate_simple_html_page_structure`, `test_highlight_html_content_basic`, `test_highlight_html_content_exact_word_match` — HTML highlighting.~~ ✅ FIXED 2026-07-15 (Step 2): both `_highlight_html_content` and `format_ref_list` now tolerate 2-/3-tuples.
-- `tests/test_header_validation_token_limits.py::` `test_validate_batch_caps_tokens_for_haiku`, `test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown` — token-cap logic.
-- `tests/test_bowen_references_integration.py::` `test_bowen_references_generation_and_extraction`, `test_bowen_references_fallback_to_primary_when_filter_invalid` — Bowen integration (may now behave differently after the Bowen fixes — recheck when investigating).
+- ~~token-cap tests~~ ✅ rewritten for D5 2026-10-11.
+- ~~Bowen integration (2)~~ ✅ repointed and un-xfailed 2026-07-15.
 
 ---
 

@@ -11,7 +11,7 @@ on:
 
 jobs:
   # M6 — strict test-validity gate. FAILS on a red suite: the suite is green
-  # (5 known reds are xfail-annotated) and the vacuity/mutation-config/no-shadow
+  # (the known red is xfail-annotated) and the vacuity/mutation-config/no-shadow
   # guards run here too. The `build` job below also runs strict, across the
   # supported 3.11/3.12 matrix (matches pyproject requires-python >= 3.11).
   quality-gates:

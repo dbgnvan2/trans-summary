@@ -62,9 +62,14 @@ def faithfulness_gold(client, model: str) -> dict:
 
 def real_abstracts(client, model: str) -> list:
     out = []
+    import release_gate
     for label, src, art, expect, must in REAL_ABSTRACTS:
-        r = fj.judge_artifact(art.read_text(encoding="utf-8"), src.read_text(encoding="utf-8"),
-                              client, model=model)
+        source = src.read_text(encoding="utf-8")
+        # Q5: add the gate's recording metadata where the file carries a real base
+        # name (where_roots); roots_bowen / dave_g fixtures are named "formatted.md".
+        if src.name.endswith(" - formatted.md"):
+            source = release_gate.with_recording_metadata(src.name[:-len(" - formatted.md")], source)
+        r = fj.judge_artifact(art.read_text(encoding="utf-8"), source, client, model=model)
         flagged = [c.claim for c in r.unfaithful]
         ok = r.status == expect and (must is None or any(must in c for c in flagged))
         out.append({"artifact": label, "status": r.status, "expect": expect, "ok": ok,
@@ -114,7 +119,9 @@ def prose_real(client, model: str) -> dict:
         src = talk / f"{talk.name} - formatted.md"
         if not src.exists():
             continue
-        source = src.read_text(encoding="utf-8")
+        import release_gate
+        # Q5: the same source the gate judges against (transcript + recording metadata).
+        source = release_gate.with_recording_metadata(talk.name, src.read_text(encoding="utf-8"))
         for suffix in PROSE_SUFFIXES:
             art = talk / f"{talk.name}{suffix}"
             if not art.exists():

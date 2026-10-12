@@ -101,7 +101,7 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     topics = []
 
     # Strategy 1: Strict format with explicit percentage + sections metadata
-    strict_pattern = r"###\s+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
+    strict_pattern = r"###[ \t]+([^\n]+)\s*\n\s*((?:(?!\n###).)+?)\s*\n\s*[\*_\-\s\[\(]+~?(\d+)%[^;\n]+;\s*Sections?\s+([\d\-,\s]+)(?:\)|\])?[\*_\-\s]*"
 
     matches = re.findall(strict_pattern, topics_markdown, re.DOTALL)
 
@@ -116,15 +116,20 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
 
     # Strategy 2: Header-based fallback (### Topic Name) even when metadata line is absent
     if not topics and "###" in topics_markdown:
-        blocks = [
-            b.strip() for b in re.split(r"(?:^|\n)###\s+", topics_markdown) if b.strip()
-        ]
-        for idx, block in enumerate(blocks):
-            lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
-            if not lines:
-                continue
-            name = lines[0]
-            body = " ".join(lines[1:])
+        # Q4: the name is the header's own line ("###[ \t]", not "\s", so a blank
+        # header does not take the next line as its name); a blank name is
+        # dropped below. Text before the first header keeps the old handling.
+        parts = re.split(r"(?:^|\n)###(?=[ \t\n]|$)[ \t]*", topics_markdown)
+        blocks = [(i == 0, b) for i, b in enumerate(parts) if b.strip()]
+        for idx, (preamble, block) in enumerate(blocks):
+            if preamble:
+                lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+                name, lines = lines[0], lines[1:]
+            else:
+                first, _, rest = block.partition("\n")
+                name = first.strip()
+                lines = [ln.strip() for ln in rest.split("\n") if ln.strip()]
+            body = " ".join(lines)
             pct_match = re.search(r"~?(\d+)%", body)
             percentage = int(pct_match.group(1)) if pct_match else max(5, 100 - idx * 10)
             sections_match = re.search(r"Sections?\s*([0-9,\-\s]+)", body, re.IGNORECASE)
@@ -145,6 +150,14 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
                         sections="",
                     )
                 )
+
+    # Q4: a header with no name (blank, or only emphasis marks) would fail the
+    # abstract-input schema (name minLength 1) and block the run; skip it, and say so.
+    named = [t for t in topics if t.name.strip("*_ \t")]
+    if len(named) < len(topics):
+        logger.warning("%d topic(s) with no name skipped (of %d parsed).",
+                       len(topics) - len(named), len(topics))
+    topics = named
 
     # Sort by percentage descending, take top 5
     topics.sort(key=lambda t: t.percentage, reverse=True)

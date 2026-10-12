@@ -45,9 +45,9 @@ Pull from the global catalogue; the ones that bite this repo most:
   read the source file. Matches prior `do_all` behaviour and spec SS.10, so not a regression —
   but the gate is broader than the stages that actually consume the raw source file. Revisit if
   users hit spurious "run Init Val first" blocks when re-running only late stages.
-- `_load_runtime_settings` resets to `{}` on corrupt JSON, but a *valid* non-dict top-level value
-  (e.g. a hand-edited `[]` or string) would `AttributeError` on the first `.get`. Pre-existing,
-  not introduced by the stage-selection change.
+- ~~`_load_runtime_settings` non-dict JSON~~ — fixed by review C1 (`config.py`, `isinstance` reset).
+- Judge disk cache (D2, 2026-10-11): the "flagged" marker can be evicted by the 2000-entry cap,
+  after which a PASS for that file is stored; the advisory blog-grounding check has no two-PASS rule.
 - ~~**Key-terms WEAK tier is definition-rescuable (P7).**~~ **Resolved** (pre-flight review, same
   session): `validate_key_terms_fidelity` now FAILs any term with `term_ratio < 0.50` regardless of
   definition support, so a paraphrased on-topic definition can no longer rescue an ungrounded term.
@@ -79,6 +79,13 @@ the six below are instances. In-repo guard: `warn_if_empty_parse` (`transcript_u
 into the key-terms, topics, and emphasis validators.
 
 ---
+
+**PASS-only judge cache would have turned a re-run into an override (2026-10-11, caught in review).**
+- Issue: to stop a false FAIL being replayed from the judge disk cache ("sticky FAIL"), D2 first stored only PASS verdicts. learning-qa found the reverse problem: the judges (Sonnet 5.5) take no temperature and vary per run, so a real fabrication judged FAIL could be re-run until one PASS came up, and that PASS was then stored and replayed for good. The first fix missed 35 FAIL entries already in the real cache, written by the old code.
+- Root cause (P1/P8 with a non-deterministic judge): a cache that keeps only one outcome of a varying check drifts toward that outcome; a format change to cached state ignored entries written before it.
+- What would have caught it: a test sequence across cold processes (FAIL, PASS, next run) and a dirty-state test with an old-format FAIL entry on disk, asserting what is *written*, not only what is re-judged.
+- Fix: a file once judged FAIL (marker or old FAIL entry) never gets a stored PASS, and a run passes it only when two judgements in a row pass (`release_gate._is_flagged`, `_judge_flag_aware`). Tests: `tests/test_judge_cache_pass_only_d2.py`.
+- Rule: when caching the verdicts of a non-deterministic judge, ask which way repeated runs push the cached state; asymmetric caching is an override path unless the opposite verdict is remembered. (P1, P8)
 
 **Framing-rule change to the faithfulness judge — tuned to its own test cases, not shipped (2026-10-11).**
 - Issue: a narrower "writer's framing" rule scored recall 1.00 / precision 0.96–1.00 on the gold set in four versions, and one version cut the Kerr project's false-fail rate from 5/10 to 2/10. The learning-qa sweep found the prompt's examples paraphrased gold cases (k6, tf_u1, tf_e1) and a carve-out described the one Kerr sentence it was then measured on. The general version (v4) failed the Kerr files 7/10 and raised flags on a held-out overview from ~3 to ~8 per run.

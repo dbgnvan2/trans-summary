@@ -129,7 +129,9 @@ def test_extract_scored_emphasis_succeeds_for_plain_rank_pipe_format(tmp_path, m
     projects_dir.mkdir()
 
     source_file = source_dir / "Direct Input_validated.txt"
-    source_file.write_text("Transcript text for emphasis extraction.", encoding="utf-8")
+    # The quote must be a valid item that is in the transcript: an item that fails
+    # validation is no longer saved (Q3, docs/plan_todo_triage_2026-10-11.md).
+    source_file.write_text("[00:03:22] Bowen said the emotional system is probably the most important idea in the theory.", encoding="utf-8")
 
     monkeypatch.setattr(config, "PROJECTS_DIR", projects_dir)
     monkeypatch.setattr(extraction_pipeline, "_load_summary_prompt", lambda _name: "Prompt")
@@ -138,7 +140,7 @@ def test_extract_scored_emphasis_succeeds_for_plain_rank_pipe_format(tmp_path, m
         "_generate_summary_with_claude",
         lambda *_args, **_kwargs: (
             "Explicit - A14 - Rank: 96% | Concept: Bowen quote on emotional system\n"
-            '"This I think is probably one of the most important quotes I found that Bowen ever said."\n'
+            '"Bowen said the emotional system is probably the most important idea in the theory."\n'
             "(00:03:22)\n"
         ),
     )

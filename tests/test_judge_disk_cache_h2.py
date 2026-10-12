@@ -51,26 +51,7 @@ def test_h2_corrupt_or_nondict_cache_is_ignored(tmp_path, monkeypatch):
     assert rg._load_judge_disk_cache() == {}
 
 
-def test_h2_fail_verdict_roundtrips_its_unfaithful_claims(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "LOGS_DIR", tmp_path)
-    monkeypatch.setattr(rg, "_FAITHFULNESS_CACHE", {})
-    # judge_artifact's source is part of the cache key (J5 sweep), and this test
-    # swaps it for stubs; fix the logic version so only the disk round trip is tested.
-    monkeypatch.setattr(rg, "_judge_logic_version", lambda _instructions: "fixed")
-    monkeypatch.setattr(
-        fj, "judge_artifact",
-        lambda a, s, c, logger=None: _result(fj.FAIL, "1 unfaithful", ["fabricated claim"]))
-    rg._judge_cached(fj, "art", "src", object(), None)
-
-    monkeypatch.setattr(rg, "_FAITHFULNESS_CACHE", {})
-
-    def _boom(*a, **k):
-        raise AssertionError("cold-memory call must read disk, not re-judge")
-
-    monkeypatch.setattr(fj, "judge_artifact", _boom)
-    r = rg._judge_cached(fj, "art", "src", object(), None)
-    assert r.status == fj.FAIL
-    assert [c.claim for c in r.unfaithful] == ["fabricated claim"]
+# A FAIL verdict is no longer persisted (D2): see tests/test_judge_cache_pass_only_d2.py.
 
 
 def test_h2_logic_version_change_invalidates_cached_pass(tmp_path, monkeypatch):

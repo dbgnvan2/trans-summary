@@ -8,17 +8,9 @@ import config
 import transcript_validate_headers
 from transcript_utils import cap_max_tokens_for_model
 
-# M8.B (2026-07-15): these two encode 8192 / 32000 caps, but cap_max_tokens_for_model
-# floors EVERY model to config.MAX_TOKENS_SUMMARY (currently 4096), so the haiku
-# 8192 limit and any 32000 default are always dominated. Whether that universal
-# 4096 ceiling is intended or a P9 truncation bug (header-validation batches may
-# need more) is a product decision — tracked in TODO.md — not a test bug to
-# rubber-stamp. xfail until that call is made.
-_TOKEN_CAP_XFAIL = pytest.mark.xfail(
-    reason="cap_max_tokens_for_model floors to MAX_TOKENS_SUMMARY=4096; intended "
-    "ceiling vs per-model limit is an open product decision (TODO.md, M8.B).",
-    strict=False,
-)
+# D5 (docs/plan_todo_triage_2026-10-11.md): the cap is the request, limited only by
+# the model's own max output (model_specs.capabilities). It used to floor every
+# model to config.MAX_TOKENS_SUMMARY (4096), which truncated larger requests (P9).
 
 
 def _build_validator():
@@ -37,8 +29,7 @@ def _fake_message(text: str = "ok"):
     return SimpleNamespace(content=[SimpleNamespace(text=text)])
 
 
-@_TOKEN_CAP_XFAIL
-def test_validate_batch_caps_tokens_for_haiku(monkeypatch):
+def test_d5_validate_batch_sends_configured_limit_for_haiku(monkeypatch):
     validator = _build_validator()
     captured = {}
 
@@ -51,7 +42,7 @@ def test_validate_batch_caps_tokens_for_haiku(monkeypatch):
     batch = [{"number": 1, "heading": "H1", "content": "Body"}]
     validator.validate_batch(batch, model="claude-3-5-haiku-20241022")
 
-    assert captured["max_tokens"] == 8192
+    assert captured["max_tokens"] == config.MAX_TOKENS_HEADER_VALIDATION
 
 
 def test_validate_batch_keeps_config_limit_for_non_haiku(monkeypatch):
@@ -91,11 +82,26 @@ def test_run_returns_false_when_batches_fail(monkeypatch):
     save_mock.assert_called_once()
 
 
-@_TOKEN_CAP_XFAIL
-def test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown():
-    capped = cap_max_tokens_for_model(
-        model="claude-sonnet-4-20250514",
-        requested_max_tokens=50000,
-        logger=None,
-    )
-    assert capped == 32000
+def test_d5_cap_honors_request_above_old_4096_floor():
+    assert config.MAX_TOKENS_SUMMARY < 12000
+    assert cap_max_tokens_for_model("claude-haiku-5-5", 12000) == 12000
+    assert cap_max_tokens_for_model("claude-sonnet-4-6", 12000) == 12000
+
+
+def test_d5_cap_clamps_to_model_max_output():
+    assert cap_max_tokens_for_model("claude-haiku-4-5-20251001", 100000) == 64000
+    assert cap_max_tokens_for_model("claude-haiku-5-5", 500000) == 128000
+    # an unknown legacy model gets model_specs' legacy limit
+    assert cap_max_tokens_for_model("claude-3-5-haiku-20241022", 50000) == 8192
+
+
+def test_d5_cap_never_raises_a_request():
+    assert cap_max_tokens_for_model("claude-haiku-5-5", 300) == 300
+
+
+def test_d5_limit_tables_agree():
+    """Sweep: config.MODEL_OUTPUT_TOKEN_LIMITS and model_specs capabilities must give
+    the same max output for every model config lists (two tables must not drift)."""
+    import model_specs
+    for name, limit in config.MODEL_OUTPUT_TOKEN_LIMITS.items():
+        assert model_specs.capabilities(name)["max_output"] == limit, name

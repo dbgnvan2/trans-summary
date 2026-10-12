@@ -77,3 +77,32 @@ These themes work together.
     assert themes[0].name == "Denial as a Structural Function"
     assert "maintains cutoff" in themes[0].description
     assert themes[1].name == "The Positive Occasion as Anxiety Accelerator"
+
+
+def test_q4_blank_topic_name_skipped(caplog):
+    """Q4: a header with no name (blank, or only emphasis marks) is skipped and
+    logged, so it cannot fail the abstract-input schema (name minLength 1)."""
+    md = ("###   \nFamily systems explain a lot here.\n*~20% of discussion; Sections 1-3*\n\n"
+          "###  **  **\nAnxiety spreads.\n*~15% of discussion; Sections 4-5*\n\n"
+          "### Topic A\nDescription text.\n*_(~25% of transcript; Sections 6-7)_*\n")
+    with caplog.at_level("WARNING"):
+        topics = parse_topics_from_extraction(md)
+    assert [t.name for t in topics] == ["Topic A"]
+    assert "2 topic(s) with no name skipped" in caplog.text
+
+
+def test_q4_blank_header_does_not_take_the_next_line_as_name(caplog):
+    """Adversarial (sweep): a blank header followed by a multi-line description must
+    not turn the description's first sentence into a topic name."""
+    md = ("###   \nFamily systems explain a lot here.\nMore on that.\n"
+          "*~20% of discussion; Sections 1-3*\n\n"
+          "### Topic A\nDescription text.\n*_(~25% of transcript; Sections 6-7)_*\n")
+    with caplog.at_level("WARNING"):
+        topics = parse_topics_from_extraction(md)
+    assert [t.name for t in topics] == ["Topic A"]
+
+
+def test_q4_header_fallback_blank_name_skipped():
+    """Strategy 2 (no metadata lines): a blank header is skipped, not named by its body."""
+    md = "### Topic A\nDescription only.\n\n###   \nBody of an unnamed topic.\n"
+    assert [t.name for t in parse_topics_from_extraction(md)] == ["Topic A"]

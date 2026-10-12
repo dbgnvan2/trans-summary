@@ -539,8 +539,8 @@ def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
         ac.json_sidecar_path(output_path).unlink(missing_ok=True)
 
 
-def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
-    """Save summary output."""
+def _summary_stem(original_filename: str) -> str:
+    """The project base name for a formatted / YAML transcript filename."""
     stem = clean_project_name(Path(original_filename).stem)
     if stem.endswith(config.SUFFIX_FORMATTED.replace(".md", "")):
         stem = stem.replace(config.SUFFIX_FORMATTED.replace(".md", ""), "")
@@ -548,6 +548,30 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         stem = stem[:-5]
     if stem.endswith(config.SUFFIX_YAML.replace(".md", "")):
         stem = stem.replace(config.SUFFIX_YAML.replace(".md", ""), "")
+    return stem
+
+
+def _set_aside_stale_emphasis(formatted_filename: str, logger) -> None:
+    """When emphasis extraction saves nothing, rename an emphasis file (and its JSON
+    sidecar) left by an earlier run to ``….stale``, so it is not published as this
+    run's result (P8). Renamed, not deleted, so it can still be inspected.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#Q3
+    Tests: tests/test_emphasis_save_q3.py::test_q3_failed_run_sets_aside_older_emphasis_file
+    """
+    import artifact_contracts as ac
+    stem = _summary_stem(formatted_filename)
+    md_path = config.PROJECTS_DIR / stem / f"{stem}{config.SUFFIX_EMPHASIS_SCORED}"
+    for path in (md_path, ac.json_sidecar_path(md_path)):
+        if path.exists():
+            stale = path.with_name(f"{path.name}.stale")
+            path.replace(stale)
+            logger.warning("Emphasis file from an earlier run set aside: %s", stale)
+
+
+def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
+    """Save summary output."""
+    stem = _summary_stem(original_filename)
 
     if summary_type == "emphasis-scored":
         suffix = config.SUFFIX_EMPHASIS_SCORED
@@ -697,6 +721,14 @@ def extract_scored_emphasis(
             # dropped, and report success (sweep, P2/P19).
             logger.error("No emphasis item is verbatim in the transcript (kept 0 of %d); "
                          "nothing saved. Re-run the extraction.", verbatim_checked)
+            _set_aside_stale_emphasis(formatted_filename, logger)
+            return False
+        if items and not validated_items:
+            # Q3: every parsed item failed item validation. Saving the raw response
+            # would write the rejected items and report success (P2/P19).
+            logger.error("No emphasis item passed validation (kept 0 of %d); "
+                         "nothing saved. Re-run the extraction.", len(items))
+            _set_aside_stale_emphasis(formatted_filename, logger)
             return False
         final_content = (
             "\n\n".join(final_content_lines) if validated_items else response
@@ -711,7 +743,28 @@ def extract_scored_emphasis(
     except Exception as e:
         logger.error("Error in scored emphasis extraction: %s",
                      e, exc_info=True)
+        # Q3 re-check: an API or parse failure must not leave an earlier run's file
+        # to be published as this run's result (P8).
+        try:
+            _set_aside_stale_emphasis(formatted_filename, logger)
+        except OSError as move_error:
+            logger.error("Could not set aside the earlier emphasis file: %s", move_error)
         return False
+
+
+def _run_emphasis_step(formatted_filename, model, logger, transcript_system_message) -> bool:
+    """Run emphasis extraction inside the main pipeline and say so when it produced
+    nothing: emphasis is optional, so the release gate does not block a run without
+    it, and this warning is the signal (Q3 sweep).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#Q3
+    Tests: tests/test_emphasis_save_q3.py::test_q3_pipeline_warns_when_emphasis_not_produced
+    """
+    ok = extract_scored_emphasis(formatted_filename, model, logger, transcript_system_message)
+    if not ok:
+        logger.warning("Emphasis items were not produced; the published pages will "
+                       "have no emphasis items.")
+    return ok
 
 
 def _gate_source_text(formatted_filename: str, fallback: str) -> str:
@@ -1603,9 +1656,7 @@ def summarize_transcript(
 
             if not skip_emphasis:
                 logger.info("\n--- PART 6: Extracting Emphasis Items ---")
-                extract_scored_emphasis(
-                    formatted_filename, model, logger, transcript_system_message
-                )
+                _run_emphasis_step(formatted_filename, model, logger, transcript_system_message)
             else:
                 logger.info("\n--- PART 6: Emphasis Extraction Skipped ---")
 

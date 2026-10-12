@@ -590,22 +590,19 @@ def cap_max_tokens_for_model(
     requested_max_tokens: int,
     logger: Optional[logging.Logger] = None,
 ) -> int:
-    """
-    Cap max output tokens to model-safe limits.
+    """Cap a request's max output tokens at the model's own max output:
+    ``config.MODEL_OUTPUT_TOKEN_LIMITS``, else ``model_specs.capabilities`` (5-family
+    and unknown legacy models). A request is never raised. It used to floor every
+    model to config.MAX_TOKENS_SUMMARY (4096), truncating larger requests (P9).
 
-    Currently enforces Anthropic Haiku output cap (8192). Other models pass through.
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D5
+    Tests: tests/test_header_validation_token_limits.py::test_d5_cap_clamps_to_model_max_output
     """
-    model_lower = model.lower()
+    import model_specs
 
-    # Use explicit model output limits where known; otherwise default to configured limit.
-    # Then honor the lower of requested max and allowed max.
-    known_model_output_limits = config.MODEL_OUTPUT_TOKEN_LIMITS
-    model_limit = known_model_output_limits.get(model_lower)
-    allowed_max_tokens = (
-        config.MAX_TOKENS_SUMMARY
-        if model_limit is None
-        else min(model_limit, config.MAX_TOKENS_SUMMARY)
-    )
+    name = (model or "").lower()
+    allowed_max_tokens = (config.MODEL_OUTPUT_TOKEN_LIMITS.get(name)
+                          or model_specs.capabilities(name)["max_output"])
     capped_max_tokens = min(requested_max_tokens, allowed_max_tokens)
 
     if capped_max_tokens != requested_max_tokens and logger:
@@ -1585,6 +1582,29 @@ def parse_bold_numbered_theme_blocks(text: str) -> list:
             for name, description, _ in parse_theme_blocks_with_evidence(text)]
 
 
+def theme_display_blocks(text: str) -> list:
+    """``(number, name, body)`` for each theme in document order, for publishing:
+    the same themes ``parse_bold_numbered_theme_blocks`` returns (both formats,
+    scaffolding names skipped, a description required), with ``body`` the theme's
+    own markdown fields minus ``---`` rule lines.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D1
+    Tests: tests/test_webpage_themes_d1.py::test_d1_bold_format_themes_only
+    """
+    for pattern in (_BOLD_THEME_RE, _H3_THEME_RE):
+        out = []
+        for match in re.finditer(pattern, text, re.DOTALL):
+            name = match.group(2).strip()
+            block = match.group(3).strip()
+            if is_scaffolding_theme_name(name) or not block or not _extract_theme_description(block):
+                continue
+            body = "\n".join(ln for ln in block.split("\n") if ln.strip() != "---").strip()
+            out.append((match.group(1), name, body))
+        if out:
+            return out
+    return []
+
+
 def _theme_blocks(text: str, pattern: str) -> list:
     themes = []
     for match in re.finditer(pattern, text, re.DOTALL):
@@ -1906,7 +1926,20 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
         ),
     ]
 
+    # Q2: when the line a quote opens on ENDS with a closing mark, the quote is that
+    # whole line, so a quotation inside it ('…say "be a self" and…') does not cut it
+    # short. Otherwise (text after the closing mark, or a quote over several lines)
+    # it ends at the first closing mark, as before. Only text after the header is
+    # searched, so a quoted concept name is not taken as the quote.
     quote_re = re.compile(r'["“](?P<quote>[\s\S]+?)["”]')
+    whole_line_quote_re = re.compile(r'["“](?P<quote>[^\n]+)["”][ \t]*$')
+
+    def _find_quote(region):
+        first = quote_re.search(region)
+        if first is None:
+            return None
+        line = region[first.start():].split("\n", 1)[0]
+        return whole_line_quote_re.match(line) or first
 
     def _find_header(block):
         if 'concept' not in block.lower():
@@ -1942,7 +1975,7 @@ def parse_scored_emphasis_output(text: str) -> list[dict]:
         if not block:
             continue
         header_match = _find_header(block)
-        quote_match = quote_re.search(block)
+        quote_match = _find_quote(block[header_match.end():] if header_match else block)
         if header_match and quote_match:
             _add_item(header_match, quote_match)
             pending_header = None

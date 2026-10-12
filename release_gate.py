@@ -150,7 +150,17 @@ def _source_with_metadata(base_name: str) -> Optional[str]:
     ``_filename_metadata_values``). See that function for the rationale.
     (P20: re-run the faithfulness calibration on this change.)
     """
-    transcript = _load_source_transcript(base_name)
+    return with_recording_metadata(base_name, _load_source_transcript(base_name))
+
+
+def with_recording_metadata(base_name: str, transcript: Optional[str]) -> Optional[str]:
+    """``transcript`` with the labeled catalogue-metadata block for ``base_name``
+    prepended (unchanged when empty or when no metadata parses). Shared by the gate
+    and judge_recalibration --prose-real, so calibration judges what the gate judges.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#Q5
+    Tests: tests/test_judge_recalibration_jc.py::test_q5_prose_real_source_has_metadata
+    """
     if not transcript or not transcript.strip():
         return transcript
     try:
@@ -353,14 +363,18 @@ def _judge_blog_grounding_cached(fjudge, claims: list, source: str, client, logg
     disk_key = (f"blog-grounding:{c}:{s}:{config.THEME_JUDGE_MODEL}:"
                 f"{_judge_logic_version(fjudge._THEME_JUDGE_INSTRUCTIONS)}")
     disk = _load_judge_disk_cache().get(disk_key)
-    if isinstance(disk, dict) and isinstance(disk.get("labels"), dict):
+    # D2: only an all-grounded result is kept on disk, so a false flag is re-judged
+    # on the next run instead of replayed (an older stored flag is ignored).
+    if (isinstance(disk, dict) and isinstance(disk.get("labels"), dict)
+            and all(v == fjudge.GROUNDED for v in disk["labels"].values())):
         _BLOG_GROUNDING_CACHE[mem_key] = disk["labels"]
         return disk["labels"]
     verdicts = fjudge.judge_themes([{"name": x, "description": ""} for x in claims],
                                    source, client, logger=logger)
     labels = {v.claim: v.label for v in verdicts}
     _BLOG_GROUNDING_CACHE[mem_key] = labels
-    _store_judge_disk_cache(disk_key, {"status": "grounding", "labels": labels}, logger)
+    _persist_judge_outcome(disk_key, all(v == fjudge.GROUNDED for v in labels.values()),
+                           {"status": "grounding", "labels": labels}, logger)
     return labels
 
 
@@ -682,6 +696,57 @@ def _store_judge_disk_cache(disk_key: str, verdict_dict: dict, logger=None):
             logger.warning("could not persist judge cache: %s", e)
 
 
+_FLAGGED_MARKER = {"status": "flagged"}
+
+
+def _is_flagged(entry) -> bool:
+    """A disk entry that is not a clean PASS: the D2 "flagged" marker, a FAIL written
+    by older code, or blog-grounding labels that are not all grounded (re-check 1)."""
+    if entry is None or not isinstance(entry, dict):
+        return False
+    if entry.get("status") == "PASS":
+        return False
+    if entry.get("status") == "grounding" and isinstance(entry.get("labels"), dict):
+        return not all(v == "grounded" for v in entry["labels"].values())
+    return True
+
+
+def _persist_judge_outcome(disk_key: str, passed: bool, record: dict, logger=None):
+    """D2: keep only a clean PASS on disk. A FAIL is not stored as a verdict (it is
+    re-judged next run) but leaves a "flagged" marker; once a key is flagged (marker,
+    or an old FAIL entry), a later PASS is not stored either, so every run re-judges
+    it. Without this, a judge with no temperature could fail a real fabrication, pass
+    it on a re-run, and that one PASS would be replayed for good (sweep finding 1).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D2
+    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_pass_after_a_fail_is_not_persisted
+    """
+    if not passed:
+        _store_judge_disk_cache(disk_key, dict(_FLAGGED_MARKER), logger)
+    elif not _is_flagged(_load_judge_disk_cache().get(disk_key)):
+        _store_judge_disk_cache(disk_key, record, logger)
+
+
+def _judge_flag_aware(disk_key: str, fjudge, judge, logger=None):
+    """``judge()`` once; for a key judged FAIL before, a PASS counts only when a second
+    judgement also passes, so re-running the gate until one PASS comes up does not
+    publish a flagged artifact (D2 re-check 2). Returns the deciding result.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D2
+    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_flagged_needs_two_passes_in_a_row
+    """
+    result = judge()
+    if result.status == fjudge.PASS and _is_flagged(_load_judge_disk_cache().get(disk_key)):
+        second = judge()
+        if second.status != fjudge.PASS:
+            if logger:
+                logger.warning("Judged FAIL before; this PASS was not confirmed by a "
+                               "second judgement (%s).", second.status)
+            return second
+        result.detail = f"{result.detail}; confirmed by a second judgement (judged FAIL before)"
+    return result
+
+
 def _judge_input_functions() -> list:
     """Functions whose code decides what the judges see (claims, theme text).
     Hashed into the judge cache key so editing any of them invalidates cached
@@ -776,9 +841,14 @@ def _judge_logic_version(instructions: str) -> str:
 
 
 def _disk_cached_verdict(disk_key: str, fjudge):
-    """Reconstruct a persisted verdict (never an ERROR) from disk, or None."""
+    """Reconstruct a persisted PASS verdict from disk, or None. A FAIL or ERROR is
+    never replayed (D2: a FAIL stored by an older version is re-judged).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D2
+    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_fail_left_on_disk_is_ignored
+    """
     disk = _load_judge_disk_cache().get(disk_key)
-    if isinstance(disk, dict) and disk.get("status") and disk.get("status") != fjudge.ERROR:
+    if isinstance(disk, dict) and disk.get("status") == fjudge.PASS:
         return fjudge.FaithfulnessResult(
             status=disk["status"],
             detail=disk.get("detail", ""),
@@ -803,17 +873,21 @@ def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
     # cold each time and the armed judge re-runs ~N calls per publish. A disk memo keyed
     # on (artifact-sha, source-sha, judge-model, judge-LOGIC-version) lets a later
     # subprocess reuse the verdict; the logic version invalidates it on any prompt /
-    # extraction-config / judge-code change (H2 finding 1). ERROR is never stored (P1).
+    # extraction-config / judge-code change (H2 finding 1). Only PASS is stored: ERROR
+    # is transient (P1) and a FAIL is re-judged on the next run, so a false flag is
+    # not replayed until the artifact changes (D2).
     disk_key = f"{a}:{s}:{config.FAITHFULNESS_JUDGE_MODEL}:{_judge_logic_version(fjudge._JUDGE_INSTRUCTIONS)}"
     result = _disk_cached_verdict(disk_key, fjudge)
     if result is not None:
         _FAITHFULNESS_CACHE[mem_key] = result
         return result
 
-    result = fjudge.judge_artifact(artifact_text, source, client, logger=logger)
+    result = _judge_flag_aware(
+        disk_key, fjudge,
+        lambda: fjudge.judge_artifact(artifact_text, source, client, logger=logger), logger)
     if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
         _FAITHFULNESS_CACHE[mem_key] = result
-        _store_judge_disk_cache(disk_key, result.to_dict(), logger)
+        _persist_judge_outcome(disk_key, result.status == fjudge.PASS, result.to_dict(), logger)
     return result
 
 
@@ -1014,16 +1088,19 @@ def _judge_theme_cached(fjudge, text: str, source: str, kind: str, client, logge
         return cached
     # Same cross-process disk memo as the faithfulness judge (H2 finding 2 / P5): the
     # theme judge is the OTHER armed hard blocker and pays the identical per-subprocess
-    # cold-memo cost. Keyed on the theme prompt + kind + logic version; ERROR not stored.
+    # cold-memo cost. Keyed on the theme prompt + kind + logic version; only PASS is
+    # stored on disk (D2).
     disk_key = f"theme:{kind}:{a}:{s}:{config.THEME_JUDGE_MODEL}:{_judge_logic_version(fjudge._THEME_JUDGE_INSTRUCTIONS)}"
     result = _disk_cached_verdict(disk_key, fjudge)
     if result is not None:
         _THEME_JUDGE_CACHE[mem_key] = result
         return result
-    result = fjudge.judge_themes_artifact(text, source, kind, client, logger=logger)
+    result = _judge_flag_aware(
+        disk_key, fjudge,
+        lambda: fjudge.judge_themes_artifact(text, source, kind, client, logger=logger), logger)
     if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
         _THEME_JUDGE_CACHE[mem_key] = result
-        _store_judge_disk_cache(disk_key, result.to_dict(), logger)
+        _persist_judge_outcome(disk_key, result.status == fjudge.PASS, result.to_dict(), logger)
     return result
 
 

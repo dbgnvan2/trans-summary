@@ -66,13 +66,20 @@ def count_sections_in_html(html_file):
 
 def missing_names(source_names, html_names):
     """Source names (topics / themes / key terms) not found among the page's names,
-    comparing normalized text. The page name may carry extra text around the
-    source name (e.g. a definition list entry); a shorter page name never matches."""
+    comparing normalized text. The page name must start with the source name; it
+    may carry extra text after it (e.g. "Pseudo-Self: masks people wear"), but not
+    before it or joined to it, so "Self" is not found in "Differentiation of Self"
+    or "Self-Regulation" (Q1, P7). A shorter page name never matches.
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#Q1
+    Tests: tests/test_simple_web_validation.py::test_q1_name_inside_a_different_item_is_missing
+    """
     page = [normalize_for_comparison(h) for h in html_names]
     out = []
     for name in source_names:
         n = normalize_for_comparison(name)
-        if not n or not any(n in h for h in page):
+        pattern = re.compile(re.escape(n) + r"(?![\w-])") if n else None
+        if not n or not any(pattern.match(h) for h in page):
             out.append(name)
     return out
 

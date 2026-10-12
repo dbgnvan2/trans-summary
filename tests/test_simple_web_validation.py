@@ -222,3 +222,13 @@ def test_rfp3_missing_names_needs_the_whole_source_name():
     assert tvw.missing_names(["Bowen Theory and the Brain"], ["Bowen Theory"]) == [
         "Bowen Theory and the Brain"]
     assert tvw.missing_names(["Pseudo-Self"], ["Pseudo-Self: masks people wear"]) == []
+
+
+def test_q1_name_inside_a_different_item_is_missing():
+    """Adversarial (P7, Hermes LOW): "Self" is not present because the page lists
+    "Differentiation of Self" or "Self-Regulation"; extra text may only follow the name."""
+    assert tvw.missing_names(["Self"], ["Differentiation of Self"]) == ["Self"]
+    assert tvw.missing_names(["Self"], ["Self-Regulation"]) == ["Self"]
+    assert tvw.missing_names(["Self"], ["Selfhood"]) == ["Self"]
+    assert tvw.missing_names(["Self"], ["Self (the person)"]) == []
+    assert tvw.missing_names(["Self"], ["self"]) == []

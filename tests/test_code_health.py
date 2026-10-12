@@ -33,8 +33,8 @@ CORE_MODULES = [
 # it failing unannotated.
 KNOWN_REDS = [
     ("test_config_validation.py", "test_runtime_settings_persistence"),
-    ("tests/test_header_validation_token_limits.py", "test_validate_batch_caps_tokens_for_haiku"),
-    ("tests/test_header_validation_token_limits.py", "test_cap_max_tokens_defaults_to_32000_when_model_limit_unknown"),
+    # The 2 token-cap tests were rewritten for D5 (cap = model max output) and
+    # un-xfailed 2026-10-11 — no longer red.
     # The 2 bowen integration tests were repointed to the real consumer
     # (parse_bowen_references_text) and un-xfailed 2026-07-15 — no longer red.
 ]
