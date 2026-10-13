@@ -616,6 +616,80 @@ def _quote_is_verbatim(quote: str, transcript: str) -> bool:
     return q.strip() != "" and q in _plain_word_string(transcript)
 
 
+_ELLIPSIS_RE = re.compile(r"\.\.\.|…")
+
+
+def _ellipsis_word_positions(quote: str) -> set:
+    """Normalized-word indices at which the quote marks an omission with "..." or "…":
+    the normalized length of the quote text before each marker. The whole prefix is
+    normalized (not each part), so a word repeated across a marker, which the
+    normalizer collapses, does not shift later positions; the uncached normalizer
+    keeps the transcript's cache entry (SW review)."""
+    normalize = _normalized_word_tuple.__wrapped__
+    return {len(normalize(quote[:m.start()])) for m in _ELLIPSIS_RE.finditer(quote)}
+
+
+def _stray_edge_words(quote: str, q, window, blocks) -> int:
+    """Number of quote words in a stray lead or tail. The lead is the run of matched
+    blocks at the start of the quote, up to the first skip of at least
+    config.QUOTE_STRAY_BLOCK_MIN_GAP source words; the tail is the same from the end.
+    It is stray when it has at most config.QUOTE_STRAY_BLOCK_MAX_WORDS words, its
+    words are not among the source words just before (or after) the rest of the quote
+    (config.QUOTE_STRAY_NEAR_WORDS plus its own length), and the quote does not mark
+    the omission there with "..." or "…".
+
+    Example: "I think the future is…" where the source says "…the way I see it
+    happening, to me the future is…". "I think" matches an earlier "I think", so every
+    word was found and the quote passed (D6 open item).
+
+    Only the ends: the alignment keeps order, so a changed word inside a quote is
+    already a mismatch, and a short block between two omissions inside a quote is the
+    speaker's word in its place.
+
+    Purpose: Catch a changed first or last word that also occurs nearby.
+    Spec:    docs/plan_swapped_word_quotes_2026-10-12.md#SW1
+    Tests:   tests/test_swapped_word_quotes_sw.py::test_sw1_changed_first_words_fail
+    """
+    blocks = [b for b in blocks if b.size]
+    if len(blocks) < 2:
+        return 0
+    gap_min, size_max = config.QUOTE_STRAY_BLOCK_MIN_GAP, config.QUOTE_STRAY_BLOCK_MAX_WORDS
+    marked = _ellipsis_word_positions(quote)
+    candidates = []  # (size, number of blocks in the unit, first?)
+    for ordered, first in ((blocks, True), (blocks[::-1], False)):
+        unit = [ordered[0]]
+        body = None
+        for prev, nxt in zip(ordered, ordered[1:]):
+            gap = (nxt.b - (prev.b + prev.size)) if first else (prev.b - (nxt.b + nxt.size))
+            if gap >= gap_min:
+                body = nxt
+                break
+            unit.append(nxt)
+        size = sum(b.size for b in unit)
+        if body is None or size > size_max:
+            continue
+        if first:
+            words = q[unit[0].a:unit[-1].a + unit[-1].size]
+            edge = unit[-1].a + unit[-1].size
+            near = window[max(unit[-1].b + unit[-1].size,
+                              body.b - (size + config.QUOTE_STRAY_NEAR_WORDS)):body.b]
+        else:
+            words = q[unit[-1].a:unit[0].a + unit[0].size]
+            edge = unit[-1].a
+            end = body.b + body.size
+            near = window[end:min(unit[-1].b, end + size + config.QUOTE_STRAY_NEAR_WORDS)]
+        if edge in marked:
+            continue  # the quote marks the omission with an ellipsis
+        if all(word in near for word in words):
+            continue  # the same words sit beside the rest of the quote: an omission
+        candidates.append((size, len(unit), first))
+    if len(candidates) == 2 and candidates[0][1] + candidates[1][1] >= len(blocks):
+        # One large gap: the lead and the tail are each other's "body". Only the
+        # shorter side can be the changed one (SW review: both were subtracted).
+        candidates = [min(candidates)]
+    return sum(size for size, _n, _first in candidates)
+
+
 def _quote_word_coverage(quote: str, transcript: str) -> float:
     """Fraction of the quote's words found, in order, at its location in the
     transcript.
@@ -624,6 +698,13 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     quote against a window around that spot. Words the quote omits from the source
     (e.g. an ellipsis) do not lower the score; words the quote adds or changes do —
     except a corrected one-off doubled-letter typo (J8, ``_doubled_letter_typo``).
+    One exception to the omission rule (SW, ``_stray_edge_words``): a lead or tail
+    of up to 4 words matched only across a skipped span, and not found beside the
+    rest of the quote, counts as changed unless the quote marks the omission there
+    with "..." or "…".
+
+    Spec:  docs/plan_swapped_word_quotes_2026-10-12.md#SW1
+    Tests: tests/test_swapped_word_quotes_sw.py
     """
     q = list(_normalized_word_tuple(quote))
     if not q:
@@ -640,8 +721,10 @@ def _quote_word_coverage(quote: str, transcript: str) -> float:
     lo = max(0, anchor.b - anchor.a - slack)
     hi = min(len(t), anchor.b + (len(q) - anchor.a) + slack)
     window = t[lo:hi]
-    matched = 0
-    for op, i1, i2, j1, j2 in SequenceMatcher(None, q, window, autojunk=False).get_opcodes():
+    matcher = SequenceMatcher(None, q, window, autojunk=False)
+    # SW: an edge word matched far from the rest of the quote is a changed word.
+    matched = -_stray_edge_words(quote, q, window, matcher.get_matching_blocks())
+    for op, i1, i2, j1, j2 in matcher.get_opcodes():
         if op == "equal":
             matched += i2 - i1
         elif op == "replace" and i2 - i1 == j2 - j1:

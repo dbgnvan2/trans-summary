@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (changed first or last word in a quote — SW)
+
+- The verbatim-quote check (blocking) now catches a quote whose first or last words
+  were changed to words that also occur nearby in the source ("I think the future…"
+  for "to me the future…").
+  - A lead or tail of up to 4 words that matches only across a skipped span of 3 or
+    more words, and is not found beside the rest of the quote, no longer counts as
+    found (`validation_pipeline._stray_edge_words`).
+  - Omissions marked with "..." or "…" are exempt.
+- **Measured on 835 real quotes from 35 projects:** 5 of the 782 that passed now fail,
+  each a real one-word change, and none newly pass.
+- **Known limit:** an unmarked omission right after a quote's first words fails too.
+  No real passing quote has that shape.
+- Those 5 projects need their Bowen or emphasis step re-run before they publish
+  again.
+
+Plan, measurement and the list: `docs/plan_swapped_word_quotes_2026-10-12.md`.
+
 ## [Unreleased] - 2026-10-12 (small open items — N1–N5)
 
 - **N1** An emphasis reply with no scored items is no longer saved raw and reported as

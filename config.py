@@ -1218,9 +1218,19 @@ EMPHASIS_QUOTE_FOUND_RATIO = 0.95
 EMPHASIS_QUOTE_PARTIAL_RATIO = 0.80
 # Release gate: fraction of a quote's words that must appear, in order, at its
 # location in the transcript. 1.0 = every quoted word is in the source (words the
-# quote omits, e.g. at an ellipsis, do not count against it). All 36 quotes in the
+# quote omits, e.g. at an ellipsis, do not count against it, except at a stray lead
+# or tail — see QUOTE_STRAY_* below). All 36 quotes in the
 # where_roots fixture score 1.0; one changed word in a 40-word quote scores 0.975.
 QUOTE_MIN_WORD_COVERAGE = 1.0
+# SW (docs/plan_swapped_word_quotes_2026-10-12.md): a quote's lead or tail (its matched
+# blocks up to the first skip of at least QUOTE_STRAY_BLOCK_MIN_GAP source words) of at
+# most QUOTE_STRAY_BLOCK_MAX_WORDS words is a changed word ("I think the future" for
+# "to me the future"), not an omission, unless its words are among the
+# QUOTE_STRAY_NEAR_WORDS (+ its length) source words next to the rest of the quote, or
+# the quote marks the omission with "..." / "…". Its words then do not count as found.
+QUOTE_STRAY_BLOCK_MAX_WORDS = 4
+QUOTE_STRAY_BLOCK_MIN_GAP = 3
+QUOTE_STRAY_NEAR_WORDS = 3
 # Spoken filler words ignored on BOTH sides when matching a quote to the
 # transcript; immediate repeats of 1-3 words ("my my", "it was, it was") are
 # also collapsed. A quote that only tidied disfluencies is still verbatim; one

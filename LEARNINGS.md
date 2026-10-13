@@ -81,6 +81,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Tests for a new rule passed with the rule switched off (2026-10-12, caught in review, SW).**
+- Issue: the first SW tests (changed first or last word in a quote) passed with `_stray_edge_words` replaced by `lambda *a: 0`. In one, the substitute word lay outside the alignment window; in the other, order-keeping alignment already failed it. The first version of the rule also missed a changed lead that aligned as two short blocks or three words, and rejected omissions marked with "...".
+- Root cause (P7): adversarial tests checked the end result ("fails") without checking that the input passed before the change, so they never exercised the new code.
+- What would have caught it: a mutation check, run as part of each adversarial test: switch the rule off, assert the input passes, then switch it on and assert it fails.
+- Fix: each SW adversarial test asserts coverage 1.0 with the rule patched off and below 1.0 with it on (`tests/test_swapped_word_quotes_sw.py::_caught`). The rule takes the lead or tail as a run of blocks up to 4 words and exempts ellipsis-marked omissions. Measured on 835 real quotes: same 5 real changes caught, nothing else.
+- Rule: an adversarial test for a new check must show the input passed without the check. Otherwise it may test nothing. (P7)
+
 **Context added to a claim hid a name from the "already judged" check (2026-10-12, caught in review, FQ).**
 - Issue: FQ attaches "[in answer to: <question>]" to an answer's first sentence. `extract_claims` judges an ungrounded heading name on its own only `if not any(name in c for c in claims)`. A fabricated name in a question heading then counted as already covered, inside a bracket the judge is not told to check.
 - Root cause (P2/P7): a coverage check written for claim text, applied to claim text plus context.
