@@ -35,6 +35,7 @@ def test_m6_backoff_uses_config_not_literal():
 def test_l5_set_validation_model_valid_and_invalid():
     s = config.settings
     orig = s.VALIDATION_MODEL
+    orig_module = config.VALIDATION_MODEL  # the setter also publishes it (T5)
     try:
         valid = next(iter(model_specs.PRICING))
         s.set_validation_model(valid)
@@ -43,6 +44,7 @@ def test_l5_set_validation_model_valid_and_invalid():
             s.set_validation_model("definitely-not-a-real-model-xyz")
     finally:
         s.VALIDATION_MODEL = orig
+        config.VALIDATION_MODEL = orig_module
 
 
 def test_l7_lens_stopwords_sourced_from_config():

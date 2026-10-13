@@ -1525,6 +1525,16 @@ _H3_THEME_RE = (
     r"(?:^|\n)#{3,6}\s+(\d+)\.\s+(.+?)\n(.*?)"
     r"(?=(?:\n#{3,6}\s+\d+\.\s+)|(?:\n#{1,2}\s+)|\Z)"
 )
+# Third real format (Opus 5.5, 2026-10-12): an unindented `N. **Title**` list item,
+# its fields indented below it. Only a column-0 item starts a theme, so an indented
+# numbered line inside a theme's body does not split it. A block ends at the next
+# such item, any markdown heading, or end-of-text (T1).
+_LIST_THEME_RE = (
+    r"(?:^|\n)(\d+)\.[ \t]+\*\*(.+?)\*\*[ \t]*\n(.*?)"
+    r"(?=(?:\n\d+\.[ \t]+\*\*.+?\*\*[ \t]*\n)|(?:\n#{1,6}\s+)|\Z)"
+)
+# Tried in this order; the first that finds themes wins (a file uses one format).
+_THEME_PATTERNS = (_BOLD_THEME_RE, _H3_THEME_RE, _LIST_THEME_RE)
 
 
 _THEME_FIELD_RE = re.compile(r"(?:^|\n)\*\*([A-Z][^:\n*]+):\*\*[ \t]*")
@@ -1560,23 +1570,25 @@ def parse_theme_blocks_with_evidence(text: str) -> list:
     Spec:    docs/plan_review_fixes_2026-10-04.md#R7
     Tests:   tests/test_theme_judge_input_r7.py::test_r7a_key_evidence_included
     """
-    themes = _theme_blocks(text, _BOLD_THEME_RE)
-    if not themes:
-        themes = _theme_blocks(text, _H3_THEME_RE)
-    return themes
+    for pattern in _THEME_PATTERNS:
+        themes = _theme_blocks(text, pattern)
+        if themes:
+            return themes
+    return []
 
 
 def parse_bold_numbered_theme_blocks(text: str) -> list:
     """Parse the real theme formats into ``(name, description)`` tuples in document
-    order. Handles BOTH producer formats seen in real runs: ``**N. Title**``
-    (current) and the legacy ``### N. Title`` (H3-numbered) blocks — each followed
-    by a ``**Description:**`` field. The bold format is tried first; the H3 format
-    is a fallback only when it finds nothing (a file uses one format consistently),
-    so a bold-format file can't be mis-parsed by the fallback.
+    order. Handles the three producer formats seen in real runs: ``**N. Title**``
+    (current), the legacy ``### N. Title`` (H3-numbered) blocks, and ``N. **Title**``
+    list items with indented fields (Opus 5.5, T1) — each with a ``**Description:**``
+    field. They are tried in that order and the first that finds themes wins (a file
+    uses one format consistently), so a bold-format file can't be mis-parsed by a
+    fallback.
 
-    Returns ``[]`` when the text has neither format, so callers can fall back to
+    Returns ``[]`` when the text has none of these formats, so callers can fall back to
     other legacy shapes; an empty result from *non-empty* input is contract drift
-    the caller should surface loudly (P19). Migrating both formats is required by
+    the caller should surface loudly (P19). Migrating the legacy formats is required by
     AC M3.D.1 (a real 2010-interview structural-themes file used ``### N.``)."""
     return [(name, description)
             for name, description, _ in parse_theme_blocks_with_evidence(text)]
@@ -1584,19 +1596,20 @@ def parse_bold_numbered_theme_blocks(text: str) -> list:
 
 def theme_display_blocks(text: str) -> list:
     """``(number, name, body)`` for each theme in document order, for publishing:
-    the same themes ``parse_bold_numbered_theme_blocks`` returns (both formats,
+    the same themes ``parse_bold_numbered_theme_blocks`` returns (all three formats,
     scaffolding names skipped, a description required), with ``body`` the theme's
     own markdown fields minus ``---`` rule lines.
 
     Spec:  docs/plan_todo_triage_2026-10-11.md#D1
     Tests: tests/test_webpage_themes_d1.py::test_d1_bold_format_themes_only
     """
-    for pattern in (_BOLD_THEME_RE, _H3_THEME_RE):
+    for pattern in _THEME_PATTERNS:
         out = []
         for match in re.finditer(pattern, text, re.DOTALL):
             name = match.group(2).strip()
-            block = match.group(3).strip()
-            if is_scaffolding_theme_name(name) or not block or not _extract_theme_description(block):
+            block = _theme_body(match.group(3))
+            if (is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block)
+                    or not _extract_theme_description(block)):
                 continue
             body = "\n".join(ln for ln in block.split("\n") if ln.strip() != "---").strip()
             out.append((match.group(1), name, body))
@@ -1605,12 +1618,28 @@ def theme_display_blocks(text: str) -> list:
     return []
 
 
+def _theme_body(raw: str) -> str:
+    """A theme block's body with each line's leading whitespace removed, so fields
+    indented under a list item (`   **Description:**`) read like column-0 fields,
+    whatever the indentation of continuation lines or sub-bullets (T1)."""
+    return "\n".join(line.lstrip() for line in raw.split("\n")).strip()
+
+
+def _is_theme_block(pattern: str, block: str) -> bool:
+    """A list-format item (`N. **Title**`) is a theme only with a **Description:**
+    field, so a numbered bold list elsewhere in the file (a Rationale section) is
+    not read as themes (T1 review). The bold and H3 formats keep their prose fallback."""
+    if pattern is _LIST_THEME_RE:
+        return re.search(r"(?m)^\*\*Description:\*\*", block) is not None
+    return True
+
+
 def _theme_blocks(text: str, pattern: str) -> list:
     themes = []
     for match in re.finditer(pattern, text, re.DOTALL):
         name = match.group(2).strip()
-        block = match.group(3).strip()
-        if is_scaffolding_theme_name(name) or not block:
+        block = _theme_body(match.group(3))
+        if is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block):
             continue
         description = _extract_theme_description(block)
         if description:

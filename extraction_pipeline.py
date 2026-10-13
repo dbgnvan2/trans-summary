@@ -512,7 +512,7 @@ def _artifact_contracts_logger():
     return _ARTIFACT_CONTRACTS_LOGGER
 
 
-def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
+def _self_validate_saved_summary(output_path: Path, summary_type: str, run_logger=None) -> None:
     """M3.B producer self-check for codec-backed artifacts: re-read the just-saved
     file through the schema codec and, on success, write the JSON sidecar. On
     drift, LEAVE the file on disk for the release gate to BLOCK on (deleting would
@@ -536,6 +536,12 @@ def _self_validate_saved_summary(output_path: Path, summary_type: str) -> None:
             "%s artifact failed schema self-check — leaving it on disk for the "
             "release gate to BLOCK (P19/U4); invalidating stale sidecar. %s", key, e
         )
+        if run_logger is not None:
+            # T3: say it in the run's own log too, not only the artifact_contracts
+            # log file, so the problem is seen when it happens, not at the gate.
+            run_logger.error(
+                "❌ %s failed its format check: %s The release gate will block "
+                "publication until it is regenerated.", summary_type, e)
         ac.json_sidecar_path(output_path).unlink(missing_ok=True)
 
 
@@ -569,8 +575,10 @@ def _set_aside_stale_emphasis(formatted_filename: str, logger) -> None:
             logger.warning("Emphasis file from an earlier run set aside: %s", stale)
 
 
-def _save_summary(content: str, original_filename: str, summary_type: str) -> Path:
-    """Save summary output."""
+def _save_summary(content: str, original_filename: str, summary_type: str,
+                  logger=None) -> Path:
+    """Save summary output. ``logger``: the run's logger, which also reports a
+    failed format self-check (T3)."""
     stem = _summary_stem(original_filename)
 
     if summary_type == "emphasis-scored":
@@ -580,7 +588,7 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
         project_dir.mkdir(parents=True, exist_ok=True)
         output_path = project_dir / output_filename
         output_path.write_text(content, encoding="utf-8")
-        _self_validate_saved_summary(output_path, summary_type)
+        _self_validate_saved_summary(output_path, summary_type, logger)
         return output_path
 
     suffix = f" - {summary_type}.md"
@@ -603,7 +611,7 @@ def _save_summary(content: str, original_filename: str, summary_type: str) -> Pa
     project_dir.mkdir(parents=True, exist_ok=True)
     output_path = project_dir / output_filename
     output_path.write_text(content, encoding="utf-8")
-    _self_validate_saved_summary(output_path, summary_type)
+    _self_validate_saved_summary(output_path, summary_type, logger)
     return output_path
 
 
@@ -658,7 +666,7 @@ def extract_scored_emphasis(
             # publish (U4, deliberate) — better than a silent absence. The saved raw
             # is also the operator's inspection copy. (This return False already
             # failed the stage; the gate is the publish-level backstop.)
-            output_path = _save_summary(response, formatted_filename, "emphasis-scored")
+            output_path = _save_summary(response, formatted_filename, "emphasis-scored", logger=logger)
             logger.warning(
                 "Parsed 0 scored emphasis items despite substantial response; saved raw "
                 "response to %s — the release gate will BLOCK publish on this drift.",
@@ -734,8 +742,7 @@ def extract_scored_emphasis(
             "\n\n".join(final_content_lines) if validated_items else response
         )
         output_path = _save_summary(
-            final_content, formatted_filename, "emphasis-scored"
-        )
+            final_content, formatted_filename, "emphasis-scored", logger=logger)
         logger.info("✓ Scored emphasis saved to: %s", output_path)
 
         return True
@@ -1033,7 +1040,7 @@ def generate_topics(
             topics_output,
             flags=re.MULTILINE | re.IGNORECASE,
         )
-        _save_summary(topics_output, formatted_filename, "topics")
+        _save_summary(topics_output, formatted_filename, "topics", logger=logger)
         return True
     except Exception as e:
         logger.error("Error generating topics: %s", e, exc_info=True)
@@ -1588,7 +1595,7 @@ def summarize_transcript(
                 transcript_system_message,
                 min_length=180,
             )
-            _save_summary(structural_output, formatted_filename, "structural-themes")
+            _save_summary(structural_output, formatted_filename, "structural-themes", logger=logger)
 
             logger.info("PART 2: Generating Interpretive Themes...")
             interpretive_output = _generate_with_cached_transcript(
@@ -1599,7 +1606,7 @@ def summarize_transcript(
                 min_length=260,
                 structural_themes=structural_output,
             )
-            _save_summary(interpretive_output, formatted_filename, "interpretive-themes")
+            _save_summary(interpretive_output, formatted_filename, "interpretive-themes", logger=logger)
 
             logger.info("PART 3: Generating Topics...")
             topics_output = _generate_with_cached_transcript(
@@ -1615,7 +1622,7 @@ def summarize_transcript(
                 topics_output,
                 flags=re.MULTILINE | re.IGNORECASE,
             )
-            _save_summary(topics_output, formatted_filename, "topics")
+            _save_summary(topics_output, formatted_filename, "topics", logger=logger)
 
             logger.info("PART 4: Generating Key Terms...")
             key_terms_output = _generate_with_cached_transcript(
@@ -1636,7 +1643,7 @@ def summarize_transcript(
                 key_terms_output,
                 flags=re.MULTILINE | re.IGNORECASE,
             )
-            _save_summary(key_terms_output, formatted_filename, "key-terms")
+            _save_summary(key_terms_output, formatted_filename, "key-terms", logger=logger)
 
             logger.info("PART 5: Generating Abstract...")
             # Capped so abstracts stay < 250 words (single source, P5).
@@ -1652,7 +1659,7 @@ def summarize_transcript(
             abstract_output = abstract_pipeline.generate_abstract(
                 abstract_input, client, model=model, system=transcript_system_message
             )
-            _save_summary(abstract_output, formatted_filename, "abstract-initial")
+            _save_summary(abstract_output, formatted_filename, "abstract-initial", logger=logger)
 
             if not skip_emphasis:
                 logger.info("\n--- PART 6: Extracting Emphasis Items ---")
@@ -1773,9 +1780,9 @@ def summarize_transcript(
                 )
                 return False
 
-            _save_summary(structural_output, formatted_filename, "structural-themes")
-            _save_summary(interpretive_output, formatted_filename, "interpretive-themes")
-            _save_summary(lenses_output, formatted_filename, "lenses-ranked")
+            _save_summary(structural_output, formatted_filename, "structural-themes", logger=logger)
+            _save_summary(interpretive_output, formatted_filename, "interpretive-themes", logger=logger)
+            _save_summary(lenses_output, formatted_filename, "lenses-ranked", logger=logger)
         else:
             stem = metadata["stem"]
             project_dir = config.PROJECTS_DIR / stem
@@ -1856,7 +1863,7 @@ def summarize_transcript(
                     key_terms=key_terms_output,
                     lens_count_guidance=f"Generate exactly {lens_count} lenses in ranked order.",
                 )
-                _save_summary(lenses_output, formatted_filename, "lenses-ranked")
+                _save_summary(lenses_output, formatted_filename, "lenses-ranked", logger=logger)
 
             if not skip_blog:
                 missing = [name for name, text in (
@@ -1901,7 +1908,7 @@ def summarize_transcript(
             blog_paths = []
 
             def _write_blog(text):
-                blog_paths.append(_save_summary(text, formatted_filename, "blog"))
+                blog_paths.append(_save_summary(text, formatted_filename, "blog", logger=logger))
 
             # RF.N: the blog is judged as interpretation and only ever warns.
             blog_saved_ok = _generate_until_faithful(
@@ -1962,7 +1969,7 @@ def summarize_transcript(
             overview_paths = []
 
             def _write_overview(text):
-                overview_paths.append(_save_summary(text, formatted_filename, "overview"))
+                overview_paths.append(_save_summary(text, formatted_filename, "overview", logger=logger))
 
             # Same check-and-regenerate loop as the summary and blog (sweep, P5).
             overview_ok = _generate_until_faithful(

@@ -137,6 +137,11 @@ U-a (candidate model), D1, D2, D3, D5. D4/D6/D7 default to my recommendation unl
 | U4 | done 2026-10-12 | Sonnet 5.5 (user decision after round 2); `tests/test_formatting_model_u4.py` (formatting thinking in estimate and length check) |
 | U5 | done 2026-10-12 | `AUX_MODEL` = Haiku 5.5 after measuring 4 AUX tasks; `tests/test_formatting_model_u4.py::test_u5_no_default_on_the_retiring_haiku_45` |
 | C2 | done 2026-10-12 | `docs/calibration_topic_term_2026-10-12.md`: 5 projects × 2 runs, no clear false flags; blocking or not is a user decision |
+| T1 | done 2026-10-12 (real run, Opus 5.5) | themes parser reads `N. **Title**` with indented fields; `tests/test_theme_list_format_t1.py`; 51 real theme files: only the new file changed (0 → 3) |
+| T2 | done 2026-10-12 | structural-themes prompt names the parsed layout; its example parses (`test_t2_structural_prompt_example_parses`) |
+| T3 | done 2026-10-12 | a failed format self-check is reported in the run log (`test_t3_*`) |
+| T5 | done 2026-10-12 (review) | GUI model choice reaches `config.*_MODEL`; manifest stamps `config.settings` models (`test_t5_*`) |
+| T4 | done 2026-10-12 | cost estimate prices the GUI-selected models; 3a and 6 on the main model as the GUI runs them (`test_t4_estimate_prices_the_gui_models`) |
 | FX | done 2026-10-12 (user request) | `docs/calibration_fx_examples_2026-10-12.md`: entailed examples from unrelated subjects (draft 1 rejected in review); no loss |
 | D6 | done 2026-10-12 | measured 752 real quotes; gate 0.80 kept; validator uses the gate test; `tests/test_emphasis_threshold_d6.py` |
 | HV | done 2026-10-12 (user request) | `tests/test_header_validation_hv.py` (5 tests); measured on 2 real transcripts, both models |

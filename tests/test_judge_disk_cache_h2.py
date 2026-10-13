@@ -118,6 +118,7 @@ def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     "extract_claims", "_is_claim", "_name_shaped_bold_labels", "_strip_scaffolding",
     "scaffolding_name_spans", "parse_theme_blocks_with_evidence", "_extract_theme_evidence",
     "with_theme_evidence",
+    "_theme_body",
 ])
 def test_r9a_component_change_changes_key(monkeypatch, fn_name):
     import inspect as inspect_mod

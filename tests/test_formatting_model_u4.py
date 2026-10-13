@@ -104,3 +104,47 @@ def test_u5_no_default_on_the_retiring_haiku_45():
         m = re.search(rf'self\.{name} = "([^"]+)"', src)
         assert m and "haiku-4-5" not in m.group(1), name
     assert re.search(r'self\.AUX_MODEL = "claude-haiku-5-5"', src)
+
+
+def test_t4_estimate_prices_the_gui_models(tmp_path, monkeypatch):
+    """T4: every estimate row prices the model the GUI will run that step with,
+    taken from config.settings (the GUI selection), not the import-time globals.
+    Structured summary and abstract coverage run on the main model (ts_gui)."""
+    transcript = tmp_path / "t.txt"
+    transcript.write_text(_text_with_tokens(8000), encoding="utf-8")
+    monkeypatch.setattr(config.settings, "DEFAULT_MODEL", "claude-opus-5-5")
+    monkeypatch.setattr(config.settings, "AUX_MODEL", "claude-haiku-5-5")
+    monkeypatch.setattr(config.settings, "FORMATTING_MODEL", "claude-sonnet-5-5")
+    monkeypatch.setattr(config, "DEFAULT_MODEL", "claude-sonnet-4-6")  # stale global
+    monkeypatch.setattr(config, "AUX_MODEL", "claude-haiku-4-5-20251001")
+    est = tce.CostEstimator(transcript)
+    est.run_full_estimation()
+    by_step = {row["step"]: row["model"] for row in est.costs}
+    assert by_step["1. Formatting"] == "claude-sonnet-5-5"
+    assert by_step["3a. Structured Summary"] == "claude-opus-5-5"
+    assert by_step["3b. Structured Abstract"] == "claude-haiku-5-5"
+    assert by_step["6. Abstract Coverage Validation"] == "claude-opus-5-5"
+    assert not any(m in ("claude-sonnet-4-6", "claude-haiku-4-5-20251001") for m in by_step.values())
+
+
+def test_t5_gui_model_choice_reaches_module_values_and_manifest(monkeypatch):
+    """T5 (review): choosing a model in the GUI (config.settings.set_*_model) also
+    updates config.DEFAULT_MODEL etc., and the run manifest records the models the
+    run used. The 2026-10-12 Opus run's manifest said claude-sonnet-4-6."""
+    import release_gate
+    s = config.settings
+    saved = (s.DEFAULT_MODEL, s.AUX_MODEL, s.FORMATTING_MODEL, s.VALIDATION_MODEL,
+             config.DEFAULT_MODEL, config.AUX_MODEL, config.FORMATTING_MODEL, config.VALIDATION_MODEL)
+    try:
+        s.set_default_model("claude-opus-5-5")
+        s.set_aux_model("claude-haiku-5-5")
+        s.set_formatting_model("claude-sonnet-5-5")
+        assert config.DEFAULT_MODEL == "claude-opus-5-5"
+        assert config.AUX_MODEL == "claude-haiku-5-5"
+        assert config.FORMATTING_MODEL == "claude-sonnet-5-5"
+        stamp = release_gate._models_stamp()
+        assert stamp == {"default": "claude-opus-5-5", "aux": "claude-haiku-5-5",
+                         "formatting": "claude-sonnet-5-5", "validation": s.VALIDATION_MODEL}
+    finally:
+        (s.DEFAULT_MODEL, s.AUX_MODEL, s.FORMATTING_MODEL, s.VALIDATION_MODEL,
+         config.DEFAULT_MODEL, config.AUX_MODEL, config.FORMATTING_MODEL, config.VALIDATION_MODEL) = saved

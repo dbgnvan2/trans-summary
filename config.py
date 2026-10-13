@@ -273,9 +273,21 @@ class ProjectSettings:
         """Returns a list of all model names from model_specs.PRICING."""
         return sorted(model_specs.PRICING.keys())
 
+    def _publish_models(self):
+        """Copy the model choices to the module-level names (config.DEFAULT_MODEL
+        etc.) that some code reads, so a model chosen in the GUI reaches them too.
+        Only the module's singleton publishes (T5: the 2026-10-12 Opus run's manifest
+        recorded the start-up model)."""
+        g = globals()
+        if g.get("settings") is not self:
+            return
+        for name in ("DEFAULT_MODEL", "AUX_MODEL", "FORMATTING_MODEL", "VALIDATION_MODEL"):
+            g[name] = getattr(self, name)
+
     def set_default_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.DEFAULT_MODEL = model_name
+            self._publish_models()
         else:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
@@ -283,6 +295,7 @@ class ProjectSettings:
     def set_aux_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.AUX_MODEL = model_name
+            self._publish_models()
         else:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
@@ -290,6 +303,7 @@ class ProjectSettings:
     def set_formatting_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.FORMATTING_MODEL = model_name
+            self._publish_models()
         else:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")
@@ -317,6 +331,7 @@ class ProjectSettings:
     def set_validation_model(self, model_name: str):
         if model_name in model_specs.PRICING:
             self.VALIDATION_MODEL = model_name
+            self._publish_models()
         else:
             raise ValueError(
                 f"Model '{model_name}' not found in model_specs.PRICING.")

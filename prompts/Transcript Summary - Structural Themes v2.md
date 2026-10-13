@@ -45,15 +45,27 @@ Instructions:
     - Key supporting evidence (specific sections, pages, quotes, or motifs from the document)
     - Approximate coverage / importance (e.g. “spans ~40% of content via repeated emphasis” or “anchors the entire convergence argument”)
 
-Output format: Present the structural themes in a clean, numbered list or table.
+Output format: the pipeline parses this file, so use exactly this layout. Each theme
+starts with a line `**N. Title**` (number and title both inside the bold), followed by
+the fields `**Description:**`, `**Key evidence:**` and `**Coverage / role:**`, each at
+the start of its own line (not indented). Do not use a table.
 
 Example output structure:
 
 ### Structural Themes (3 total)
 
-1. **Title of Theme 1** Description: 2–4 sentences. Key evidence: Sections X–Y, emphasized items, high-% topics, quotes, etc. Coverage / role: ...
-2. **Title of Theme 2** ...
-3. **Title of Theme 3** ...
+**1. Title of Theme 1**
+**Description:** 2–4 sentences.
+**Key evidence:** Sections X–Y, emphasized items, high-% topics, quotes, etc.
+**Coverage / role:** ...
+
+**2. Title of Theme 2**
+**Description:** ...
+**Key evidence:** ...
+**Coverage / role:** ...
+
+**3. Title of Theme 3**
+...
 
 If you identify only 2 very strong themes that fully cover the talk, stop at 2. If the content strongly supports 4 distinct high-level organizers, use 4 — but never exceed 4.
 

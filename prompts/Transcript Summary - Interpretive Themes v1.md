@@ -59,14 +59,24 @@ Instructions:
     - Key supporting evidence (specific sections, quotes, emphasized items, Q&A moments, etc.)
     - Why this is a useful "lens fuel" element (brief — 1 sentence)
 
-Output format: Use a clean, numbered list or table.
+Output format: the pipeline parses this file, so use exactly this layout. Each theme
+starts with a line `**N. Title**` (number and title both inside the bold), followed by
+the fields `**Description:**`, `**Nested under structural theme(s):**`, `**Key evidence:**` and
+`**Lens fuel value:**`, each at the start of its own line (not indented). Do not use a
+table.
 
 Example structure:
 
 ## Interpretive / Process Themes (7 total)
 
-1. **Title of Theme 1** Description: 2–4 sentences explaining the dynamic. Nested under structural theme(s): [list] Key evidence: Sections X–Y, emphasized item Z, Q&A moment A... Lens fuel value: Enables lenses on [practical implication / contrast / application].
-2. **Title of Theme 2** ...
+**1. Title of Theme 1**
+**Description:** 2–4 sentences explaining the dynamic.
+**Nested under structural theme(s):** [list]
+**Key evidence:** Sections X–Y, emphasized item Z, Q&A moment A...
+**Lens fuel value:** Enables lenses on [practical implication / contrast / application].
+
+**2. Title of Theme 2**
+...
 
 After the list, add one short paragraph summarizing:
 

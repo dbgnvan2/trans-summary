@@ -178,37 +178,37 @@ class CostEstimator:
             ("2d. Key Terms", config.PROMPT_KEY_TERMS_FILENAME, out(0.06, 450)),
         ]
         for step_name, prompt_file, output_tokens in core_items:
-            self._calculate_cost(step_name, config.DEFAULT_MODEL, _prompt_tokens(prompt_file),
+            self._calculate_cost(step_name, config.settings.DEFAULT_MODEL, _prompt_tokens(prompt_file),
                                  output_tokens, is_cached_read=True, cached_tokens=T, category="processing")
 
         # 2e. Scored Emphasis
         # Heuristic: ~20 items per 10k transcript tokens, each item ~150 output tokens
         num_items = (T / 10000) * 20
-        self._calculate_cost("2e. Scored Emphasis", config.DEFAULT_MODEL,
+        self._calculate_cost("2e. Scored Emphasis", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_EMPHASIS_SCORING_FILENAME),
                              int(num_items * 150), is_cached_read=True, cached_tokens=T, category="processing")
 
         # 2f. Bowen References: extraction (cached transcript) + a small semantic-filter call (no transcript)
-        self._calculate_cost("2f. Bowen Extraction", config.DEFAULT_MODEL,
+        self._calculate_cost("2f. Bowen Extraction", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_BOWEN_EXTRACTION_FILENAME),
                              out(0.10, 700), is_cached_read=True, cached_tokens=T, category="processing")
-        self._calculate_cost("2g. Bowen Semantic Filter", config.DEFAULT_MODEL,
+        self._calculate_cost("2g. Bowen Semantic Filter", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_BOWEN_FILTER_FILENAME) + 300,
                              300, category="processing")
 
         # 2h. Ranked Lenses (largest core call; prompt also carries the prior artifacts)
-        self._calculate_cost("2h. Ranked Lenses", config.DEFAULT_MODEL,
+        self._calculate_cost("2h. Ranked Lenses", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_LENS_GENERATION_FILENAME) + 2000,
                              out(0.15, 1800), is_cached_read=True, cached_tokens=T, category="processing")
 
         # 2i. Theme/Lens Validation (back-validation of structural/interpretive/top-lens).
         # Can iterate up to VALIDATION_MAX_ITERATIONS times; estimate a single pass.
-        self._calculate_cost("2i. Theme/Lens Validation", config.DEFAULT_MODEL,
+        self._calculate_cost("2i. Theme/Lens Validation", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_THEME_LENS_VALIDATION_FILENAME) + 2500,
                              out(0.08, 900), is_cached_read=True, cached_tokens=T, category="processing")
 
         # 2j. Blog Post
-        self._calculate_cost("2j. Blog Post", config.DEFAULT_MODEL,
+        self._calculate_cost("2j. Blog Post", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_BLOG_FILENAME),
                              estimate_token_count(" " * config.MIN_BLOG_CHARS),
                              is_cached_read=True, cached_tokens=T, category="processing")
@@ -224,7 +224,8 @@ class CostEstimator:
         prompt_tokens = estimate_token_count(prompt) + json_input_tokens
         output_tokens = estimate_token_count(
             " " * config.DEFAULT_SUMMARY_WORD_COUNT * 5)  # 5 chars/word
-        self._calculate_cost("3a. Structured Summary", config.AUX_MODEL, prompt_tokens,
+        # The GUI generates the structured summary with the main model (RF.J.1).
+        self._calculate_cost("3a. Structured Summary", config.settings.DEFAULT_MODEL, prompt_tokens,
                              output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
 
         # 3b. Structured Abstract
@@ -233,7 +234,7 @@ class CostEstimator:
         prompt_tokens = estimate_token_count(prompt) + json_input_tokens
         output_tokens = estimate_token_count(
             " " * config.ABSTRACT_MIN_WORDS * 5)
-        self._calculate_cost("3b. Structured Abstract", config.AUX_MODEL, prompt_tokens,
+        self._calculate_cost("3b. Structured Abstract", config.settings.AUX_MODEL, prompt_tokens,
                              output_tokens, is_cached_read=True, cached_tokens=self.transcript_tokens, category="processing")
 
     def estimate_validation_steps(self):
@@ -264,10 +265,10 @@ class CostEstimator:
 
         # The output is a report per batch.
         # Estimate 1000 output tokens per batch report.
-        total_output_tokens = num_batches * (1000 + thinking_tokens_estimate(config.AUX_MODEL))
+        total_output_tokens = num_batches * (1000 + thinking_tokens_estimate(config.settings.AUX_MODEL))
 
         # Calculate cost
-        prices = get_pricing(config.AUX_MODEL)
+        prices = get_pricing(config.settings.AUX_MODEL)
 
         cost_cache_write = (cached_prompt_tokens / 1_000_000) * \
             prices.get('cache_write', prices['input'])
@@ -277,7 +278,7 @@ class CostEstimator:
         self._record_cost(
             step_name="4. Header Validation",
             category="validation",
-            model=config.AUX_MODEL,
+            model=config.settings.AUX_MODEL,
             input_tokens=cached_prompt_tokens + total_content_tokens,
             output_tokens=total_output_tokens,
             breakdown={
@@ -312,9 +313,9 @@ class CostEstimator:
         total_content_tokens = num_chunks * average_chunk_tokens
 
         # Heuristic: compact lexical findings as JSON, roughly 450 output tokens/chunk.
-        total_output_tokens = num_chunks * (450 + thinking_tokens_estimate(config.DEFAULT_MODEL))
+        total_output_tokens = num_chunks * (450 + thinking_tokens_estimate(config.settings.DEFAULT_MODEL))
 
-        prices = get_pricing(config.DEFAULT_MODEL)
+        prices = get_pricing(config.settings.DEFAULT_MODEL)
         cost_cache_write = (cached_prompt_tokens / 1_000_000) * prices.get(
             "cache_write", prices["input"]
         )
@@ -325,7 +326,7 @@ class CostEstimator:
         self._record_cost(
             step_name="0. Init Val",
             category="validation",
-            model=config.DEFAULT_MODEL,
+            model=config.settings.DEFAULT_MODEL,
             input_tokens=cached_prompt_tokens + total_content_tokens,
             output_tokens=total_output_tokens,
             breakdown={
@@ -351,7 +352,7 @@ class CostEstimator:
 
         self._calculate_cost(
             "6. Abstract Coverage Validation",
-            config.AUX_MODEL,
+            config.settings.DEFAULT_MODEL,  # ts_gui _run_stage_val_abstract: main model
             input_tokens,
             output_tokens,
             category="validation",

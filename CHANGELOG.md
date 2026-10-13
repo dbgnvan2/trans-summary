@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (real-run fixes: themes format, run log, cost estimate — T1–T4)
+
+A full GUI run with Opus 5.5 as the main model, on Kerr "Why Families Repeat the Same
+Patterns" (2026-09-13), was blocked at the release gate: the structural themes parsed to
+zero items.
+- **T1** The themes parser reads a third real format, `N. **Title**` list items with
+  indented fields. Opus 5.5 wrote it, copying the prompt's own example. The other two
+  formats are tried first. A list-format item counts only with a **Description:** field,
+  so a numbered bold list in a Rationale section is not read as themes. Field lines
+  are read whatever their indentation. On 51 real theme files on disk, only the new
+  file changed (0 → 3 themes); parsing and the published section are otherwise identical.
+- **T2** Both theme prompts (structural and interpretive) give the exact layout the
+  pipeline parses (`**N. Title**`, fields on their own lines). Their examples used an
+  inline list layout; the interpretive one parsed to nothing.
+- **T3** A saved artifact that fails its format check is now reported in the run log.
+  Before, it went only to a separate `artifact_contracts` log file, so the problem
+  surfaced 13 minutes later at the gate.
+- **T4** The cost estimate prices the models selected in the GUI, not the values fixed
+  at start-up (it priced Opus steps as Sonnet 4.6). Structured summary and abstract
+  coverage are priced on the main model, which the GUI runs them with.
+- **T5** A model chosen in the GUI now also reaches the module-level `config.*_MODEL`
+  values, and the run manifest records the models the run used, including the
+  formatting model. The Opus run's manifest had said `claude-sonnet-4-6`.
+
 ## [Unreleased] - 2026-10-12 (judge prompt "entailed" examples — FX)
 
 - The faithfulness judge prompt's examples of what "entailed" means (the DOS-equation

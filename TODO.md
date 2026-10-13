@@ -361,6 +361,21 @@ Remaining boundaries stage one at a time behind the migration shim.
   `abstract_validation.py` and `generate_structured_abstract` take `model=config.AUX_MODEL`
   as a default bound at import, so a CLI call without a model ignores the model chosen in
   the GUI. `validate_summary_coverage` was fixed (its gate key depends on the model).
+- **Adjacent (T1–T5 review, not fixed):**
+  - `extraction_pipeline._is_valid_section_content` (~line 183) accepts `1. **Title**`
+    themes when the shared parser finds none, so Core can report valid themes while the
+    format check reports drift. It should use the shared parser only.
+  - The cost estimate has no rows for the faithfulness/theme judges (majority of 3),
+    the overview, summary-coverage validation, abstract-initial, or regeneration loops,
+    so it is low by an amount it does not state.
+  - Function defaults `model=config.DEFAULT_MODEL` / `config.AUX_MODEL` are bound when
+    the program starts. They matter only for a caller that passes no model; the GUI
+    passes one.
+- **Theme judge meta label (decision):** `config.THEME_JUDGE_META_LABELS` has "nested under
+  structural themes" but not "nested under structural theme(s)", the label 126 of 161 real
+  interpretive files use and the prompt now names. That field is sent to the theme judge
+  as evidence, not skipped. This was already the case; adding the label changes what the
+  judge sees and needs a theme calibration run.
 - **Adjacent (Q4, not fixed):** `parse_topics_from_extraction` strategy 2 treats text
   before the first `###` header as a topic (kept as before).
   `extract_scored_emphasis` (`extraction_pipeline.py:727`) does

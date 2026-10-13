@@ -786,6 +786,7 @@ def _judge_input_functions() -> list:
         av.scaffolding_name_spans, av.find_ungrounded_names,
         tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
         tu._extract_theme_description, tu._extract_theme_evidence,
+        tu._theme_body, tu._is_theme_block,
     ]
 
 
@@ -797,7 +798,7 @@ def _judge_input_patterns() -> list:
 
     patterns = [av._NAME_SPAN, av._INLINE_BOLD_LABEL, av._YAML_LINE,
                 fjudge._SENTENCE_SPLIT, fjudge._NAME_SHAPE, fjudge._SCAFFOLDING_LABEL_RE,
-                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._THEME_FIELD_RE]
+                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._LIST_THEME_RE, tu._THEME_FIELD_RE]
     return [repr(getattr(p, "pattern", p)) for p in patterns]
 
 
@@ -1300,6 +1301,14 @@ def _sha256(data: bytes) -> str:
 _CODE_REVISION_CACHE: Optional[str] = None
 
 
+def _models_stamp() -> dict:
+    """The models the run used, from the GUI selection (config.settings), for the run
+    manifest (T5: it recorded the start-up model, not the one chosen in the GUI)."""
+    s = config.settings
+    return {"default": s.DEFAULT_MODEL, "aux": s.AUX_MODEL,
+            "formatting": s.FORMATTING_MODEL, "validation": s.VALIDATION_MODEL}
+
+
 def _code_revision() -> str:
     """Short git revision of the running code, best-effort ('unknown' if git is
     unavailable). Only a successful lookup is cached, so a transient failure retries
@@ -1350,11 +1359,7 @@ def build_manifest(base_name: str, decision: GateDecision, generated_at: str) ->
                 "blocking_checks": sorted(config.GATE_BLOCKING_CHECKS),
                 "error_blocks": config.GATE_ERROR_BLOCKS,
             },
-            "models": {
-                "default": config.DEFAULT_MODEL,
-                "aux": getattr(config, "AUX_MODEL", None),
-                "validation": getattr(config, "VALIDATION_MODEL", None),
-            },
+            "models": _models_stamp(),
         },
     }
 
