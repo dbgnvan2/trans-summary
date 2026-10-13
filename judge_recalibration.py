@@ -46,9 +46,27 @@ REAL_ABSTRACTS = [
 ]
 
 
+def gold_sources(gold: dict) -> dict:
+    """Each gold source as the gate builds it: the recording metadata, and the note
+    for a transcript without speaker labels (release_gate.with_recording_metadata).
+    A source with no ``source_bases`` entry is an error, so a new source cannot be
+    judged differently from the gate by accident.
+
+    Spec:  docs/plan_speaker_attribution_2026-10-12.md#SA5
+    Tests: tests/test_speaker_attribution_sa.py::test_sa5_gold_sources_built_as_the_gate_builds_them
+    """
+    import release_gate
+    bases = gold.get("source_bases", {})
+    missing = sorted(set(gold["sources"]) - set(bases))
+    if missing:
+        raise ValueError(f"gold sources without a source_bases entry: {missing}")
+    return {k: release_gate.with_recording_metadata(bases[k], (FIX / v).read_text(encoding="utf-8"))
+            for k, v in gold["sources"].items()}
+
+
 def faithfulness_gold(client, model: str) -> dict:
     gold = json.loads(FAITH_GOLD.read_text(encoding="utf-8"))
-    sources = {k: (FIX / v).read_text(encoding="utf-8") for k, v in gold["sources"].items()}
+    sources = gold_sources(gold)
     by_source = defaultdict(list)
     for case in gold["cases"]:
         by_source[case["source"]].append(case)
@@ -148,6 +166,8 @@ def run_metadata() -> dict:
     import release_gate
     return {
         "faithfulness_prompt_sha": hashlib.sha256(fj._JUDGE_INSTRUCTIONS.encode()).hexdigest()[:12],
+        # SA: the rule added for unlabeled transcripts is not part of the base prompt.
+        "speaker_rule_sha": hashlib.sha256(fj._SPEAKER_RULE.encode()).hexdigest()[:12],
         "theme_prompt_sha": hashlib.sha256(fj._THEME_JUDGE_INSTRUCTIONS.encode()).hexdigest()[:12],
         "judge_logic_version": config.JUDGE_LOGIC_VERSION,
         "faithfulness_cache_version": release_gate._judge_logic_version(fj._JUDGE_INSTRUCTIONS),

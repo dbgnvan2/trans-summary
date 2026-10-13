@@ -691,7 +691,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-12d"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples
+JUDGE_LOGIC_VERSION = "2026-10-12e"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
@@ -1162,6 +1162,17 @@ QA_AUDIENCE_SPEAKER_LABELS = frozenset({
 # Titles dropped from a speaker label before comparing it with the presenter's
 # name ("**Dr. Kerr:**" is the presenter "Michael Kerr").
 QA_SPEAKER_TITLES = frozenset({"dr", "mr", "mrs", "ms", "prof", "professor", "rev"})
+
+# SA (docs/plan_speaker_attribution_2026-10-12.md). A transcript counts as speaker-
+# labelled when at least this many lines start with a "**Name:**" label (one stray
+# "**Note:**" line is not a labelled conversation).
+SPEAKER_LABEL_MIN_TURNS = 2
+# Added to the judge's source when the transcript has no speaker labels; the judge
+# prompt's SPEAKER ATTRIBUTION rule refers to it ("no speaker labels").
+UNLABELED_SPEAKERS_NOTE = (
+    "Transcript note: this transcript has no speaker labels, so it does not show "
+    "which participant said each passage."
+)
 # Section headings (after "Section N –") that mark audience Q&A. Case-insensitive
 # regexes, anchored so a lecture heading such as "The Question of Differentiation"
 # does not match.

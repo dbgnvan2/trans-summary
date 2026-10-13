@@ -1,0 +1,206 @@
+{
+ "old_unlabeled": {
+  "U1": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U2": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U3": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U4": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U5": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "A1": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ],
+  "A2": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ]
+ },
+ "new_unlabeled": {
+  "U1": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U2": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U3": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U4": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U5": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "A1": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ],
+  "A2": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ]
+ },
+ "old_labelled": {
+  "U1": [
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "U2": [
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "U3": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U4": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U5": [
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "A1": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ],
+  "A2": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ]
+ },
+ "new_labelled": {
+  "U1": [
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "U2": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "contradicted",
+   "entailed"
+  ],
+  "U3": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U4": [
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed",
+   "entailed"
+  ],
+  "U5": [
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "A1": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ],
+  "A2": [
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported",
+   "unsupported"
+  ]
+ }
+}

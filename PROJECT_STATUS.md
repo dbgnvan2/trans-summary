@@ -26,7 +26,12 @@ longer silently publishes wrong/fabricated/unverifiable content.
   blog has its own advisory check) catches fluent hallucinations the lexical checks miss
   (it FAILs the real `Luciano Malorni` fabrication). Policy: Hard BLOCK on a flag that a
   fresh judgement confirms (majority of 3, 2026-10-11); model pinned to the calibrated
-  `claude-sonnet-5-5`; key resolves from env or the shared `~/.config/llm/keys.json`.
+  `claude-sonnet-5-5`; key resolves from env or the shared `~/.config/llm/keys.json`. For a transcript
+  without speaker labels the judge is told so, and accepts grounded content attributed
+  to a participant in the conversation (the interviewer, the presenter) when the source
+  doesn't show who spoke. A labelled transcript is judged as before. The first sentence
+  under a question heading is judged with its question (SA/FQ, 2026-10-12,
+  `docs/calibration_speaker_attribution_2026-10-12.md`).
 - **Test-validity gate** (`quality_gates.py` + CI, M6) and **fault-injection matrix**
   (`tests/test_m5_fault_injection.py`, M5) prove the fail-closed behaviour.
 

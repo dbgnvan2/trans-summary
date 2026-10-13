@@ -115,6 +115,60 @@ def _split_sentences(line: str) -> list:
     return out
 
 
+def _clean_claim_line(raw_line: str) -> str:
+    """One artifact line with list / blockquote markers and bold or underline
+    wrappers removed, as extract_claims reads it."""
+    line = raw_line.strip()
+    if not line:
+        return ""
+    line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)
+    return line.replace("**", "").replace("__", "").strip()
+
+
+_QA_MARK = re.compile("\ue000Q(\\d+)\ue001")
+_QA_INSERT_AT = re.compile(r"^(\s*(?:[-*>]+\s+)*(?:\*\*[^*\n]+\*\*:?\s*)?)")
+
+
+def _mark_question_answers(text: str) -> tuple:
+    """(text with a private marker at the start of the first line under each question
+    heading, [question per marker]). A question heading is any heading ending in "?":
+    FAQ entries, and section titles written as questions. extract_claims turns the
+    marker into "[in answer to: <question>]" on that line's first sentence. The
+    heading itself is stripped as scaffolding, so without this an FAQ answer such as
+    "According to Kerr, it does not." reaches the judge with nothing for "it" to refer
+    to (2026-10-12 Kerr overview: first-pass flag in 17 of 20 runs, blocked 2).
+    Leading front matter / a fenced yaml block are left alone (metadata, not claims).
+    The marker sits in the text itself, so no line is matched by content later.
+
+    Purpose: Judge an answer's opening sentence together with its question.
+    Spec:    docs/plan_speaker_attribution_2026-10-12.md#FQ
+    Tests:   tests/test_speaker_attribution_sa.py::test_fq_answer_opener_carries_question
+    """
+    from abstract_validation import _strip_fenced_block, _strip_front_matter
+    whole = (text or "").strip()
+    body = _strip_fenced_block(_strip_front_matter(whole))
+    head = whole[: len(whole) - len(body)]
+    questions, out, question = [], [], None
+    for raw_line in body.split("\n"):
+        stripped = raw_line.strip()
+        if stripped.startswith("#"):
+            heading = stripped.lstrip("#").replace("**", "").replace("__", "").strip()
+            question = heading if heading.endswith("?") else None
+        elif stripped and question:
+            raw_line = _QA_INSERT_AT.sub(
+                lambda m: f"{m.group(1)}\ue000Q{len(questions)}\ue001", raw_line, count=1)
+            questions.append(question)
+            question = None
+        out.append(raw_line)
+    return head + "\n".join(out), questions
+
+
+def _claim_body(claim: str) -> str:
+    """A claim without its FQ context tag, for "is this already covered" checks: a name
+    in the attached question must not count as judged (SA/FQ review, P7)."""
+    return claim.split(" [in answer to: ", 1)[0]
+
+
 def extract_claims(text: str, source: str = None) -> list:
     """Split a narrative artifact into atomic, judgeable claims (sentence-level).
 
@@ -164,13 +218,16 @@ def extract_claims(text: str, source: str = None) -> list:
                 and (re.search(r"\d", heading)
                      or words & config.FAITHFULNESS_HEADING_MONTH_WORDS)):
             claims.append(heading)
-    for raw_line in _strip_scaffolding(text).splitlines():
-        line = raw_line.strip()
+    marked, questions = _mark_question_answers(text)
+    for raw_line in _strip_scaffolding(marked).splitlines():
+        question = None
+        m_qa = _QA_MARK.search(raw_line)
+        if m_qa:
+            question = questions[int(m_qa.group(1))]
+            raw_line = _QA_MARK.sub("", raw_line)
+        line = _clean_claim_line(raw_line)
         if not line:
             continue
-        # drop list markers, blockquote markers, and any residual bold field label
-        line = re.sub(r"^\s*(?:[-*>]+\s*)+", "", line)
-        line = line.replace("**", "").replace("__", "").strip()
         # skip a structured-artifact scaffolding / meta line ("Coverage / role:",
         # "Document:", "Key evidence:") — meta-commentary, not a source claim.
         label = line.split(":", 1)[0].strip().lower() if ":" in line else ""
@@ -192,6 +249,10 @@ def extract_claims(text: str, source: str = None) -> list:
             continue
         for sentence in _split_sentences(line):
             s = sentence.strip()
+            if question and s:
+                # FQ: an answer's opening ("According to Kerr, it does not.") only
+                # makes sense with its question, which the heading strip removed.
+                s, question = f"{s} [in answer to: {question}]", None
             if _is_claim(s):
                 claims.append(s)
             elif s:
@@ -215,7 +276,7 @@ def extract_claims(text: str, source: str = None) -> list:
         # headings / labels (stripped above); judge them as claims.
         from abstract_validation import find_ungrounded_names
         for name in find_ungrounded_names(text, source):
-            if not any(name in c for c in claims):
+            if not any(name in _claim_body(c) for c in claims):
                 claims.append(name)
     return claims
 
@@ -408,8 +469,10 @@ def judge_claims_chunked(claims: list, source: str, client, *,
         claims, chunks, config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP)
     verdicts: list = [None] * len(claims)
     for k, idxs in routed.items():
+        # SA: windows get the base prompt; a claim a window does not entail is
+        # re-judged below on the full source, with the rule when the note applies.
         sub = judge_claims([claims[i] for i in idxs], chunks[k], client,
-                           model=model, logger=logger)
+                           model=model, logger=logger, speaker_rule=False)
         for local, ci in enumerate(idxs):
             verdicts[ci] = sub[local]
     # No claim FAILs on one window alone (plan J3): a routed claim the window does
@@ -506,6 +569,43 @@ Return ONLY a JSON array, one object per claim, in order:
 [{"index": 1, "label": "entailed|contradicted|unsupported", "rationale": "<= 20 words"}]
 No prose before or after the JSON."""
 
+# SA (docs/plan_speaker_attribution_2026-10-12.md): added to the judge instructions only
+# when the source carries config.UNLABELED_SPEAKERS_NOTE, so a labelled transcript is
+# judged with exactly the prompt above (a version that always carried the rule judged
+# a labelled blog more strictly: 12/21/14 vs 22/21/19 flags over 3 runs).
+_SPEAKER_RULE = """\
+SPEAKER ATTRIBUTION. When the source includes a transcript note saying it has no \
+speaker labels, it often cannot show which participant said a passage. In that case, a \
+claim that a participant in the conversation (the presenter, an interviewer, a host, \
+an interviewee, or a questioner) said something is entailed when that content is in \
+the source and the source does not show who said it, even if another participant may \
+have said it. This applies only when all of the following hold: the participant named \
+must be one the recording actually has (no interviewer in a talk given by one \
+speaker); the content itself must be in the source, and a claim whose content is \
+absent is unsupported, whoever it is attributed to; and the claim must keep the stance \
+of the passage, so a view that the source shows being questioned, rejected, or \
+disputed is not entailed when the claim presents it as that participant's own \
+position. When the context does show who said a passage, judge attribution against \
+it. Attribution to someone outside the conversation (an author, a study, or a named \
+person who is not taking part) is judged as before. When the source has speaker \
+labels, judge attribution as usual.
+"""
+
+
+def instructions_for(source: str) -> str:
+    """The faithfulness judge instructions for ``source``: the base prompt, plus the
+    SPEAKER ATTRIBUTION rule when the source has the unlabeled-speakers note.
+
+    Purpose: Relax attribution only for transcripts that cannot show who spoke.
+    Spec:    docs/plan_speaker_attribution_2026-10-12.md#SA3
+    Tests:   tests/test_speaker_attribution_sa.py::test_sa3_rule_only_with_note
+    """
+    if source and config.UNLABELED_SPEAKERS_NOTE in source:
+        head, sep, tail = _JUDGE_INSTRUCTIONS.partition("Return ONLY a JSON array")
+        return f"{head}{_SPEAKER_RULE}\n{sep}{tail}"
+    return _JUDGE_INSTRUCTIONS
+
+
 
 def _cached_judge_content(instructions: str, source: str, tail: str) -> list:
     """Two-block user content: an [instructions + SOURCE] prefix marked as a cache
@@ -522,10 +622,14 @@ def _cached_judge_content(instructions: str, source: str, tail: str) -> list:
     ]
 
 
-def build_judge_prompt(claims: list, source: str) -> list:
+def build_judge_prompt(claims: list, source: str, speaker_rule: bool = True) -> list:
+    """Judge prompt content. ``speaker_rule=False`` (chunk windows) keeps the base
+    instructions even when the window holds the SA note: the rule's role and stance
+    tests need the whole source, and a window's "entailed" is final (SA review)."""
     numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(claims))
     tail = f"=== CLAIMS ({len(claims)}) ===\n{numbered}\n"
-    return _cached_judge_content(_JUDGE_INSTRUCTIONS, source, tail)
+    instructions = instructions_for(source) if speaker_rule else _JUDGE_INSTRUCTIONS
+    return _cached_judge_content(instructions, source, tail)
 
 
 def _extract_json_array(text: str) -> list:
@@ -658,13 +762,14 @@ def call_and_parse(call, parse, logger, what: str):
 
 
 def judge_claims(claims: list, source: str, client, *,
-                 model: Optional[str] = None, logger=None) -> list:
+                 model: Optional[str] = None, logger=None,
+                 speaker_rule: bool = True) -> list:
     """Judge every claim against the source in ONE batched call. Returns a list of
     ``ClaimVerdict``. Raises on API/parse failure so the caller fails closed."""
     from transcript_utils import call_claude_with_retry
 
     model = model or config.FAITHFULNESS_JUDGE_MODEL
-    prompt = build_judge_prompt(claims, source)
+    prompt = build_judge_prompt(claims, source, speaker_rule=speaker_rule)
     log = logger or logging.getLogger("faithfulness_judge")
 
     def _call():

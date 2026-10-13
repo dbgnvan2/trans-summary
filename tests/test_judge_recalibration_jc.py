@@ -45,7 +45,7 @@ def test_jc1_gold_has_kerr_cases():
                     "k4": "unsupported", "k5": "unsupported", "k6": "unsupported",
                     "k7": "entailed", "k8": "contradicted", "k9": "unsupported",
                     "k10": "entailed"}
-    assert len(gold["cases"]) == 43
+    assert len(gold["cases"]) == 48  # + 5 SA cases (docs/plan_speaker_attribution_2026-10-12.md)
 
 
 def test_jc3_parse_retry(monkeypatch):

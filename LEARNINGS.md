@@ -81,6 +81,20 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Context added to a claim hid a name from the "already judged" check (2026-10-12, caught in review, FQ).**
+- Issue: FQ attaches "[in answer to: <question>]" to an answer's first sentence. `extract_claims` judges an ungrounded heading name on its own only `if not any(name in c for c in claims)`. A fabricated name in a question heading then counted as already covered, inside a bracket the judge is not told to check.
+- Root cause (P2/P7): a coverage check written for claim text, applied to claim text plus context.
+- What would have caught it: an adversarial test with a fabricated name in a question heading.
+- Fix: the check compares against the claim body (`faithfulness_judge._claim_body`). Test: `tests/test_speaker_attribution_sa.py::test_fq_name_in_question_heading_is_still_judged`. The same review moved the SA rule off the chunk windows: a window sees a third of the recording, its "entailed" is final, and the rule's role and stance tests need the whole source (`test_sa_chunk_windows_use_base_prompt`).
+- Rule: when you add context to a unit of judgement, check every later test that asks whether something is already covered by that unit. (P2, P7)
+
+**Changing what the judge reads silently cleared old flags (2026-10-12, caught in review, SA).**
+- Issue: SA adds a note to the judge's source when a transcript has no speaker labels. The D2 "flagged" marker was keyed on `artifact-sha:source-sha:model`, so the new source text re-keyed every unlabeled project's entries. An artifact flagged before the change needed one PASS instead of two, and that PASS was stored.
+- Root cause (P6/P8): a safety marker keyed on more than the thing it protects. The flag protects an artifact's text; the source text was in its key by accident.
+- What would have caught it: a dirty-state test that flags an artifact, changes only the source text, and asserts it still needs two PASSes.
+- Fix: flags match on artifact sha + model (+ kind), ignoring the source sha and logic version (`release_gate._flag_identity`). Test: `tests/test_speaker_attribution_sa.py::test_sa6_flag_survives_source_note`.
+- Rule: key a safety marker on exactly what it protects. Every other field in its key is a way to lose it. (P6, P8)
+
 **PASS-only judge cache would have turned a re-run into an override (2026-10-11, caught in review).**
 - Issue: to stop a false FAIL being replayed from the judge disk cache ("sticky FAIL"), D2 first stored only PASS verdicts. learning-qa found the reverse problem: the judges (Sonnet 5.5) take no temperature and vary per run, so a real fabrication judged FAIL could be re-run until one PASS came up, and that PASS was then stored and replayed for good. The first fix missed 35 FAIL entries already in the real cache, written by the old code.
 - Root cause (P1/P8 with a non-deterministic judge): a cache that keeps only one outcome of a varying check drifts toward that outcome; a format change to cached state ignored entries written before it.

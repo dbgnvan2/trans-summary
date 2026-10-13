@@ -1,10 +1,20 @@
 {
-  "_doc": "M2.B gold set — curated (claim, source, label) triples against REAL sources, to grade the faithfulness judge. entailed = supported/fair-inference; contradicted = conflicts with a specific source fact; unsupported = fabricated specific absent from source. Labels verified against the source text (P6). Recall on the {contradicted,unsupported} class is the load-bearing bar.",
+  "_doc": "M2.B gold set — curated (claim, source, label) triples against REAL sources, to grade the faithfulness judge. entailed = supported/fair-inference; contradicted = conflicts with a specific source fact; unsupported = fabricated specific absent from source. Labels verified against the source text (P6). Recall on the {contradicted,unsupported} class is the load-bearing bar. source_bases: the recording base name per source; the harness builds each source with release_gate.with_recording_metadata, as the gate does (SA, 2026-10-12).",
   "sources": {
     "dave_g": "dave_g_test2/formatted.md",
     "where_roots": "where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
     "roots_bowen": "roots_bowen_test/formatted.md",
-    "kerr_families": "prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md"
+    "kerr_families": "prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+    "kerr_unlabeled": "speaker_unlabeled/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+    "systems_biology": "prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md"
+  },
+  "source_bases": {
+    "dave_g": "TEST FILE 2 - DAVE G - 2026-07-14",
+    "where_roots": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+    "roots_bowen": "Roots of Bowen TEST - Mike Kerr - 2026-07015",
+    "kerr_families": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13",
+    "kerr_unlabeled": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13",
+    "systems_biology": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038"
   },
   "cases": [
     {"id": "e1", "source": "dave_g", "label": "entailed",
@@ -141,6 +151,21 @@
      "note": "No date for Kerr meeting Bowen; the 1950s line is about the schizophrenogenic-mother idea."},
     {"id": "k10", "source": "kerr_families", "label": "entailed",
      "claim": "Kerr notes that it is now 35 years later.",
-     "note": "'And now we are 35 years later.' (2026-10-08 routing false flag)"}
+     "note": "'And now we are 35 years later.' (2026-10-08 routing false flag)"},
+    {"id": "sa1", "source": "kerr_unlabeled", "label": "entailed",
+     "claim": "The interviewer asks whether the warnings against leaving the beaten track were anxiety playing out in the academic field.",
+     "note": "SA: unlabeled; the passage is a question put to Kerr ('But isn't that the anxiety playing out in the academic field?'); the labelled copy marks it Interviewer"},
+    {"id": "sa2", "source": "kerr_unlabeled", "label": "entailed",
+     "claim": "The interviewer remarks that you know exactly when your own family members poke you.",
+     "note": "SA: unlabeled; follows the question 'wasn't it?' / 'Absolutely.'; the labelled copy marks it Interviewer"},
+    {"id": "sa3", "source": "kerr_unlabeled", "label": "contradicted",
+     "claim": "Kerr says Bowen blamed schizophrenia largely on the mother.",
+     "note": "SA adversarial (stance): the source says an influential 1950s idea blamed the mother and Bowen took a different approach"},
+    {"id": "sa4", "source": "systems_biology", "label": "unsupported",
+     "claim": "The interviewer asks Kerr whether stress affects cancer progression.",
+     "note": "SA adversarial (role): a talk by one speaker; there is no interviewer"},
+    {"id": "sa5", "source": "systems_biology", "label": "contradicted",
+     "claim": "The presenter states that stress is the reason cancers occur.",
+     "note": "SA adversarial (stance): the source says stress may affect progression but that does not mean that is why the cancer occurred"}
   ]
 }

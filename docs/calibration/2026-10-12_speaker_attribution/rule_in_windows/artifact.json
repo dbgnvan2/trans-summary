@@ -1,0 +1,370 @@
+[
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "Kerr advises neutrality, a multigenerational view, and observing your own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Neutrality was Bowen's stance as a therapist, not advice Kerr gives to others.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Neutrality was Bowen's stance as a therapist, not advice Kerr gives to others."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutral stance, multigenerational perspective, and 'study your part in it' all appear in Kerr's remarks."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Source includes neutral stance, multigenerational perspective, and 'study your part in it' as Kerr's points."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it.",
+    "first_label": "contradicted",
+    "first_rationale": "Source says Kerr was frustrated, she told him to take it in, and she was at the helm; the claim has 'She handed the helm to him', which is consistent, but 'he says he deserved it' misattributes: Kerr said getting mad was what he deserved.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "Source says Kerr was frustrated, she told him to take it in, and she was at the helm; the claim has 'She handed the helm to him', which is consistent, but 'he says he deserved it' misattributes: Kerr said getting mad was what he deserved."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said the quote, didn't react; he said he deserved her getting mad."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in,' later said the quote, and didn't react; he says he deserved her getting mad."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "Kerr advises neutrality, a multigenerational view, and observing your own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Kerr didn't advise neutrality for readers; neutrality was Bowen's stance as therapist, not advice.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Kerr didn't advise neutrality for readers; neutrality was Bowen's stance as therapist, not advice."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutral stance, multigenerational perspective, and 'study your part in it' all appear in Kerr's comments."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutral stance (sec 17), multigenerational perspective (sec 19), and 'study your part in it' (sec 18) are all in the source."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it.",
+    "first_label": "contradicted",
+    "first_rationale": "Source says she was at the helm and said 'you take it in'; it says she did not react, but 'handed helm' roughly matches. The deserved-anger detail checks out, so this is roughly fine; marking it entailed would be more accurate.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "Source says she was at the helm and said 'you take it in'; it says she did not react, but 'handed helm' roughly matches. The deserved-anger detail checks out, so this is roughly fine; marking it entailed would be more accurate."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in,' later said 'I know you're trying...'; she didn't react rather than get mad, which he deserved."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said the quoted line, didn't react; he said she didn't get mad, 'which I deserved'."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "His marriage has lasted 59 years.",
+    "first_label": "contradicted",
+    "first_rationale": "Source says 'my marriage of 59 years' without specifying 'has lasted'; however claim is consistent, though he mentions 'Over the course of my marriage of 59 years'.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "Source says 'my marriage of 59 years' without specifying 'has lasted'; however claim is consistent, though he mentions 'Over the course of my marriage of 59 years'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Section 16: 'Over the course of my marriage of 59 years with my wife.'"
+     },
+     {
+      "label": "entailed",
+      "rationale": "Section 16: 'Over the course of my marriage of 59 years with my wife.'"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "FAIL",
+  "flags": [
+   "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it."
+  ],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "Kerr advises neutrality, a multigenerational view, and observing your own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Kerr never advises neutrality for listeners; neutrality was Bowen's therapist stance. The advice framing is unsupported.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Kerr never advises neutrality for listeners; neutrality was Bowen's therapist stance. The advice framing is unsupported."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutral therapist stance (Sec 17), multigenerational perspective (Sec 19), and 'study your part in it' (Sec 18) are all grounded in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr stresses a multigenerational perspective and studying your part in it. Neutrality is praised in Bowen's therapy stance and in staying outside the system."
+     }
+    ]
+   }
+  ]
+ }
+]

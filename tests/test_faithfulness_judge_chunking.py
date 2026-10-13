@@ -113,7 +113,7 @@ def test_judge_claims_chunked_reassembles_in_original_order(monkeypatch):
     ]
     calls = []
 
-    def fake_judge(claims_, source_, client, model=None, logger=None):
+    def fake_judge(claims_, source_, client, model=None, logger=None, speaker_rule=True):
         calls.append(source_)
         return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
 
@@ -137,7 +137,7 @@ def test_judge_claims_chunked_falls_back_to_full_source_for_unrouted(monkeypatch
     claims = ["The presenter connects this history to Bowen theory by introducing the equation."]
     calls = []
 
-    def fake_judge(claims_, source_, client, model=None, logger=None):
+    def fake_judge(claims_, source_, client, model=None, logger=None, speaker_rule=True):
         calls.append(source_)
         return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
 
@@ -163,7 +163,7 @@ def test_judge_artifact_uses_chunked_path_for_long_source(monkeypatch):
                 "Kerr presents the cancer biology research.")
     calls = []
 
-    def fake_judge(claims_, source_, client, model=None, logger=None):
+    def fake_judge(claims_, source_, client, model=None, logger=None, speaker_rule=True):
         calls.append(source_)
         return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
 
@@ -182,7 +182,7 @@ def test_judge_artifact_uses_single_call_for_short_source(monkeypatch):
     artifact = "Kerr discusses the family anxiety triangle."
     calls = []
 
-    def fake_judge(claims_, source_, client, model=None, logger=None):
+    def fake_judge(claims_, source_, client, model=None, logger=None, speaker_rule=True):
         calls.append(source_)
         return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
 
@@ -209,7 +209,7 @@ def test_judge_claims_chunked_raises_on_reassembly_violation(monkeypatch):
     source = "family anxiety triangle fusion here cancer biology cells research there"
     claims = ["First claim.", "Second claim."]
 
-    def fake_judge(claims_, source_, client, model=None, logger=None):
+    def fake_judge(claims_, source_, client, model=None, logger=None, speaker_rule=True):
         return [ClaimVerdict(claim=c, label="entailed") for c in claims_]
 
     monkeypatch.setattr(fj, "judge_claims", fake_judge)

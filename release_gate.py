@@ -155,25 +155,44 @@ def _source_with_metadata(base_name: str) -> Optional[str]:
 
 def with_recording_metadata(base_name: str, transcript: Optional[str]) -> Optional[str]:
     """``transcript`` with the labeled catalogue-metadata block for ``base_name``
-    prepended (unchanged when empty or when no metadata parses). Shared by the gate
-    and judge_recalibration --prose-real, so calibration judges what the gate judges.
+    prepended (unchanged when empty). When the transcript has no speaker labels,
+    config.UNLABELED_SPEAKERS_NOTE is added too, so the judge knows it cannot tell
+    which participant said a passage (SA). Shared by the gate and
+    judge_recalibration --prose-real, so calibration judges what the gate judges.
 
-    Spec:  docs/plan_todo_triage_2026-10-11.md#Q5
-    Tests: tests/test_judge_recalibration_jc.py::test_q5_prose_real_source_has_metadata
+    Spec:  docs/plan_todo_triage_2026-10-11.md#Q5,
+           docs/plan_speaker_attribution_2026-10-12.md#SA2
+    Tests: tests/test_judge_recalibration_jc.py::test_q5_prose_real_source_has_metadata,
+           tests/test_speaker_attribution_sa.py::test_sa2_note_added_only_without_labels
     """
     if not transcript or not transcript.strip():
         return transcript
+    from transcript_utils import has_speaker_labels, parse_filename_metadata
+    header = []
     try:
-        from transcript_utils import parse_filename_metadata
         meta = parse_filename_metadata(base_name)
         meta_lines = [f"{k.capitalize()}: {meta[k]}"
                       for k in ("title", "presenter", "date", "year") if meta.get(k)]
         if meta_lines:
-            return ("Recording metadata (from the catalogue entry): "
-                    + "; ".join(meta_lines) + "\n\n" + transcript)
+            header.append("Recording metadata (from the catalogue entry): "
+                          + "; ".join(meta_lines))
     except Exception:  # metadata is best-effort; the transcript alone still verifies
         pass
-    return transcript
+    if not has_speaker_labels(transcript):
+        header.append(config.UNLABELED_SPEAKERS_NOTE)
+    return "\n".join(header) + "\n\n" + transcript if header else transcript
+
+
+def _speaker_note_suffix(source: Optional[str]) -> str:
+    """Verdict-detail text recording that the judge was told the transcript has no
+    speaker labels, so a PASS that relied on the SA rule is visible (SA review, P2).
+
+    Spec:  docs/plan_speaker_attribution_2026-10-12.md#SA2
+    Tests: tests/test_speaker_attribution_sa.py::test_sa2_pass_detail_records_note
+    """
+    if source and config.UNLABELED_SPEAKERS_NOTE in source:
+        return "; source has no speaker labels (judge told)"
+    return ""
 
 
 def check_entity_grounding(base_name: str, logger=None, suffixes=None) -> Verdict:
@@ -717,16 +736,31 @@ def _key_without_version(disk_key: str) -> str:
     return disk_key.rsplit(":", 1)[0]
 
 
-def _flagged_any_version(disk_key: str) -> bool:
-    """True when this content was judged FAIL under ANY logic version (a prompt edit
-    or JUDGE_LOGIC_VERSION bump re-keys the cache; the flag must survive it — Q6
-    review). Scans the bounded cache (<= _JUDGE_DISK_CACHE_MAX entries).
+def _flag_identity(disk_key: str) -> str:
+    """What a D2 flag is tied to: the key without its logic version AND without its
+    source sha. Every judge key ends ``…:<artifact-sha>:<source-sha>:<model>:<version>``.
+    A change to the judge's source text (the SA unlabeled-speakers note, a metadata
+    edit) must not clear a flag on an unchanged artifact (SA review, P6). Ignoring the
+    source can only keep a flag, never drop one."""
+    parts = disk_key.split(":")
+    if len(parts) < 4:
+        return _key_without_version(disk_key)
+    return ":".join(parts[:-3] + [parts[-2]])
 
-    Spec:  docs/plan_todo_triage_2026-10-11.md#D2
-    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_flag_survives_a_logic_version_bump
+
+def _flagged_any_version(disk_key: str) -> bool:
+    """True when this artifact was judged FAIL under ANY logic version or source text
+    (a prompt edit, JUDGE_LOGIC_VERSION bump or source-text change re-keys the cache;
+    the flag must survive it — Q6 and SA reviews). Scans the bounded cache
+    (<= _JUDGE_DISK_CACHE_MAX entries).
+
+    Spec:  docs/plan_todo_triage_2026-10-11.md#D2,
+           docs/plan_speaker_attribution_2026-10-12.md#SA6
+    Tests: tests/test_judge_cache_pass_only_d2.py::test_d2_flag_survives_a_logic_version_bump,
+           tests/test_speaker_attribution_sa.py::test_sa6_flag_survives_source_note
     """
-    prefix = _key_without_version(disk_key)
-    return any(_key_without_version(k) == prefix and _is_flagged(v)
+    ident = _flag_identity(disk_key)
+    return any(_flag_identity(k) == ident and _is_flagged(v)
                for k, v in _load_judge_disk_cache().items())
 
 
@@ -782,11 +816,15 @@ def _judge_input_functions() -> list:
         fjudge.judge_claims_confirmed,
         fjudge._should_chunk, fjudge.judge_claims, fjudge.build_judge_prompt,
         fjudge._cached_judge_content,
+        fjudge._clean_claim_line, fjudge._mark_question_answers, fjudge._claim_body,
+        fjudge.instructions_for,
         av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
         av.scaffolding_name_spans, av.find_ungrounded_names,
         tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
         tu._extract_theme_description, tu._extract_theme_evidence,
         tu._theme_body, tu._is_theme_block,
+        # SA: what the judge is told about speaker labels.
+        tu.has_speaker_labels, with_recording_metadata,
     ]
 
 
@@ -798,7 +836,10 @@ def _judge_input_patterns() -> list:
 
     patterns = [av._NAME_SPAN, av._INLINE_BOLD_LABEL, av._YAML_LINE,
                 fjudge._SENTENCE_SPLIT, fjudge._NAME_SHAPE, fjudge._SCAFFOLDING_LABEL_RE,
-                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._LIST_THEME_RE, tu._THEME_FIELD_RE]
+                tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._LIST_THEME_RE, tu._THEME_FIELD_RE,
+                tu._LINE_START_LABEL_RE, fjudge._QA_MARK, fjudge._QA_INSERT_AT]
+    # SA: the label threshold and the note text change what the judge is told.
+    patterns += [str(config.SPEAKER_LABEL_MIN_TURNS), config.UNLABELED_SPEAKERS_NOTE]
     return [repr(getattr(p, "pattern", p)) for p in patterns]
 
 
@@ -812,6 +853,7 @@ def _judge_logic_version(instructions: str) -> str:
     import faithfulness_judge as fjudge
     material = "|".join([
         config.JUDGE_LOGIC_VERSION,
+        fjudge._SPEAKER_RULE,  # SA: added for unlabeled transcripts only
         # The effort judges run at changes their verdicts (MV.6 sweep, P20/P6).
         str(config.JUDGE_EFFORT),
         instructions,
@@ -987,7 +1029,8 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
     n_over = sum(len(o["overturned"]) for o in overturned)
     return Verdict("faithfulness", Status.PASS,
                    f"all narrative claims entailed by source ({judged} artifact(s) judged)"
-                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else ""),
+                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
+                   + _speaker_note_suffix(transcript),
                    items=overturned)
 
 
@@ -1084,7 +1127,8 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
     n_over = sum(len(o["overturned"]) for o in overturned)
     return Verdict("topic_term_faithfulness", Status.PASS,
                    f"all topic/key-term claims entailed by source ({judged} artifact(s) judged)"
-                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else ""),
+                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
+                   + _speaker_note_suffix(transcript),
                    items=overturned)
 
 

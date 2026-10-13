@@ -62,7 +62,7 @@ def test_q6_unsupported_examples_share_no_rare_word_with_their_gold_twins():
 
 
 def test_q6_logic_version_bumped():
-    assert config.JUDGE_LOGIC_VERSION == "2026-10-12d"
+    assert config.JUDGE_LOGIC_VERSION >= "2026-10-12d"  # later bumps (SA) keep Q6
 
 
 # Words of the gold set's and fixtures' subject matter (ported from the archived

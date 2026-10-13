@@ -1849,6 +1849,32 @@ def _label_is_presenter(words: list, presenters: list) -> bool:
                for name in presenters)
 
 
+# A speaker label at the start of a line, after optional indentation or a "> " / "- "
+# prefix: **Name:**, **Name**:, __Name:__, *Name:*, _Name:_, or a plain "Name:" of up
+# to four capitalised words ("Speaker 1:", "Q:"). Names may hold . ' ( ) & , - (SA review).
+_LABEL_NAME = r"[^\W\d_][\w.'(),&\- ]{0,59}?"
+_LINE_START_LABEL_RE = re.compile(
+    r"^[ \t]*(?:[>\-][ \t]+)*(?:"
+    rf"\*\*{_LABEL_NAME}\s*:\*\*|\*\*{_LABEL_NAME}\*\*[ \t]*:"
+    rf"|__{_LABEL_NAME}\s*:__|\*{_LABEL_NAME}\s*:\*|_{_LABEL_NAME}\s*:_"
+    r"|[A-Z][\w.'\-]*(?:[ ](?:[A-Z][\w.'\-]*|\d+)){0,3}:(?=[ \t]))",
+    re.MULTILINE)
+
+
+def has_speaker_labels(text: str) -> bool:
+    """True when the transcript marks who is speaking: at least
+    config.SPEAKER_LABEL_MIN_TURNS lines start with a speaker label
+    (_LINE_START_LABEL_RE: "**Name:**" as the formatting prompt writes it, or
+    "**Name**:", "__Name:__", "*Name:*", "_Name:_", or a plain "Name:" of up to four
+    capitalised words). Bold labels inside a line do not count.
+
+    Purpose: Tell the faithfulness judge when a transcript cannot show who said what.
+    Spec:    docs/plan_speaker_attribution_2026-10-12.md#SA1
+    Tests:   tests/test_speaker_attribution_sa.py::test_sa1_detects_labels_in_fixtures
+    """
+    return len(_LINE_START_LABEL_RE.findall(text or "")) >= config.SPEAKER_LABEL_MIN_TURNS
+
+
 def find_qa_sections(transcript: str, presenter: Optional[str] = None) -> tuple:
     """Return ``(qa_sections, total_sections)``; ``qa_sections`` is a list of
     ``(header, content)`` for the ``## Section`` blocks that are audience Q&A.

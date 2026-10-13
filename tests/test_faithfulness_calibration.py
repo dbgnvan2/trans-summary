@@ -44,9 +44,10 @@ def _calibration_effort(monkeypatch):
 
 
 def _load_gold():
+    import judge_recalibration
     gold = json.loads(GOLD.read_text(encoding="utf-8"))
-    sources = {k: (FIX / v).read_text(encoding="utf-8") for k, v in gold["sources"].items()}
-    return gold["cases"], sources
+    # Built as the gate builds them: metadata + the SA unlabeled-speakers note.
+    return gold["cases"], judge_recalibration.gold_sources(gold)
 
 
 def evaluate_gold(client, model=None):

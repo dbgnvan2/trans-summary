@@ -1,0 +1,987 @@
+[
+ {
+  "run": 1,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Ambiguous fragment; the source offers nothing specific it could correspond to.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Ambiguous fragment; the source offers nothing specific it could correspond to."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear, but Kerr says the trauma-heavy news 'doesn't get anybody anywhere'. Several plausible readings are supported."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The claim is ambiguous, but Kerr says several things 'do not' work, such as running from the family or reacting to the news. These fit the source."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Claim 'it does not' lacks any identifiable referent or corresponding statement in source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Claim 'it does not' lacks any identifiable referent or corresponding statement in source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but Kerr agrees that leaving the family doesn't solve the problem and that the news's trauma 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but Kerr says the trauma-filled news 'doesn't get anybody anywhere'; the claim is plausibly grounded."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 2,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague 'it does not' has no identifiable referent or basis in the source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague 'it does not' has no identifiable referent or basis in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Claim is vague, but Kerr makes several matching negatives, e.g. the news 'doesn't get anybody anywhere' and running away doesn't solve the problem."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear. Plausible readings are supported: Kerr says the news doesn't get anybody anywhere, and that running away doesn't solve the problem."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "A reader who knows this can stay in contact and focus on changing their own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Staying in contact is not advised; source says differentiation differs from contact when unsafe; claim goes beyond.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Staying in contact is not advised; source says differentiation differs from contact when unsafe; claim goes beyond."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The source says to study your part in the system and not just run from it; differentiation means staying grounded in contact."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Source stresses differentiating within the system, studying your own part, and staying grounded without being pulled into reactivity; staying in contact is a fair inference."
+     }
+    ]
+   },
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Claim is a bare fragment; 'it does not' has no determinable grounded content.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Claim is a bare fragment; 'it does not' has no determinable grounded content."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr agrees that leaving or running from the family does not solve the problem, so a reasonable reading fits."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr agrees that leaving the family and running away does not solve the problem ('Bingo'); no speaker labels, so attribution is fine."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 3,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it.",
+    "first_label": "contradicted",
+    "first_rationale": "Source says the wife was at the helm and handed it to him; claim says 'she handed the helm to him', which fits, but 'he deserved it' fits too. Actually consistent.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "Source says the wife was at the helm and handed it to him; claim says 'she handed the helm to him', which fits, but 'he deserved it' fits too. Actually consistent."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in,' later said the quote, didn't react; he said he deserved her getting mad."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said the quoted line; didn't react; he said 'which I deserved' (getting mad)."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "A reader who knows this can stay in contact and focus on changing their own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Source says differentiation differs from contact when unsafe; 'stay in contact' advice is not stated.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Source says differentiation differs from contact when unsafe; 'stay in contact' advice is not stated."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Source stresses staying in the system, studying your own part, and changing self rather than others; consistent."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Source stresses differentiating within the system and studying 'your part in it' rather than running away."
+     }
+    ]
+   },
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim lacking any identifiable referent; nothing in the source supports it.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim lacking any identifiable referent; nothing in the source supports it."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Vague claim; Kerr says things like the news's trauma focus 'doesn't get anybody anywhere', so it is plausibly grounded."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr agrees that leaving the family or running away does not solve the problem; the speaker is unlabelled."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 4,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' with no identifiable referent or support in source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' with no identifiable referent or support in source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear, but several statements fit: Kerr says leaving the family doesn't solve the problem, and that watching the news 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Claim is vague, but fits Kerr's views: running away or distance doesn't solve family problems, and news-driven trauma gets nowhere."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim with no identifiable referent or content in source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim with no identifiable referent or content in source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but Kerr says several things 'do not' work, e.g. running away doesn't solve the problem, and news trauma 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Claim is vague; Kerr does say the trauma-focused news 'doesn't get anybody anywhere' until people are forced to act."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 5,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "FAIL",
+  "flags": [
+   "According to Michael Kerr, it does not."
+  ],
+  "overturned": [
+   {
+    "claim": "Kerr advises neutrality, a multigenerational view, and observing your own part.",
+    "first_label": "unsupported",
+    "first_rationale": "Kerr didn't advise neutrality for readers; neutrality was Bowen's stance as therapist. Overstated advice attribution.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Kerr didn't advise neutrality for readers; neutrality was Bowen's stance as therapist. Overstated advice attribution."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutrality (Sec 17), multigenerational perspective (Sec 19), and studying your part (Sec 18) are all present."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Neutrality (Section 17), multigenerational perspective (Section 19), and studying your part (Section 18) all appear. Neutrality is framed as the therapist's stance, but this is a fair summary."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim; no referent in the source for 'it does not'.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim; no referent in the source for 'it does not'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but Kerr says the news-driven trauma 'doesn't get anybody anywhere'. Other passages he agrees with also fit a negative, e.g. running away does not solve the problem."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but plausible ones are supported: Kerr agrees leaving the family doesn't solve the problem, and says news-driven chronic anxiety gets nobody anywhere."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 6,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague fragment; no corresponding source assertion identifiable.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague fragment; no corresponding source assertion identifiable."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but plausible readings (running away or distance solving the problem, chronic anxiety being real) match Kerr's statements."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is ambiguous, but Kerr affirms that leaving or running from the family does not solve the problem, so the claim is plausibly supported."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' lacks any identifiable referent or basis in the source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' lacks any identifiable referent or basis in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but several things Kerr says fit it, such as running away not solving the problem or the news not getting anyone anywhere."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but Kerr says several things 'do not' work, such as the news getting anyone anywhere. Plausibly grounded."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 7,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' has no identifiable basis in source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' has no identifiable basis in source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Vague claim. Kerr says the news and running from the family do not solve problems, so a negative answer fits."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Vague, but fits Kerr's statements that running away or the trauma-filled news doesn't solve anything; no clear conflict."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "It is the middle level of the scale, where Bowen said most people operate, wearing masks and fitting into the system.",
+    "first_label": "unsupported",
+    "first_rationale": "Pseudo-self is the middle of the scale, but 'middle level' is a minor inference; mostly supported, though the source never says 'middle'.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Pseudo-self is the middle of the scale, but 'middle level' is a minor inference; mostly supported, though the source never says 'middle'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Section 13 gives the scale as no self, pseudo-self, solid self, and says most people operate on pseudo-self, wearing masks and fitting into the system."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Section 13 lists no self, pseudo-self, solid self, and says most people operate on pseudo-self, wearing masks and fitting into the system."
+     }
+    ]
+   },
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' with no identifiable referent or basis in the source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' with no identifiable referent or basis in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but Kerr says the trauma-filled news 'doesn't get anybody anywhere', and agrees that running away doesn't solve the problem."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague. Plausible readings, such as leaving the family not solving the problem or news getting nobody anywhere, are supported by Kerr."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 8,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Claim 'it does not' lacks a referent and no matching source statement.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Claim 'it does not' lacks a referent and no matching source statement."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous fragment, but Kerr endorses that running away doesn't solve the problem, and says the news 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear, but Kerr says elsewhere that running from the family doesn't solve the problem and that the news's trauma doesn't get anyone anywhere."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "FAIL",
+  "flags": [
+   "According to Michael Kerr, it does not."
+  ],
+  "overturned": [
+   {
+    "claim": "Kerr offers no simple solution, but suggests observing life like a laboratory.",
+    "first_label": "unsupported",
+    "first_rationale": "Kerr said he has no pithy answer; the laboratory idea was the interviewer's suggestion, and he only said 'it helps'.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Kerr said he has no pithy answer; the laboratory idea was the interviewer's suggestion, and he only said 'it helps'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr says he has nothing pithy, and when the laboratory idea is proposed he says 'it helps'. Section 30 adds that you can watch it."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Kerr says he lacks a pithy answer; the laboratory idea was the interviewer's suggestion, which Kerr agreed 'helps'."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 9,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' lacks a referent; no matching source assertion.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' lacks a referent; no matching source assertion."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear, but plausible ones are supported: running away doesn't solve the problem (Kerr agrees), and news trauma 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but Kerr says the news's trauma focus 'doesn't get anybody anywhere', and agrees running away doesn't solve the problem."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim 'it does not' lacks any identifiable referent or support in source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim 'it does not' lacks any identifiable referent or support in source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is unclear, but Kerr denies several things, such as the news getting anyone anywhere and leaving the family solving the problem."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but Kerr makes several negative statements, e.g. the news 'doesn't get anybody anywhere'; no direct conflict, so entailed."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 10,
+  "cond": "old",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "old",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "old",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Claim is a vague 'it does not'; no specific basis in the source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Claim is a vague 'it does not'; no specific basis in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Ambiguous referent, but plausible ones are supported: Kerr agrees running away doesn't solve the problem, and says the news gets no one anywhere."
+     },
+     {
+      "label": "entailed",
+      "rationale": "The referent is vague, but Kerr makes several matching negative statements, e.g. the news 'doesn't get anybody anywhere' and running away isn't solving the problem."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it.",
+    "first_label": "contradicted",
+    "first_rationale": "The wife was at the helm and then told him to take it in, so she handed the helm to him; the 'deserved' remark is about her getting mad. The claim is largely accurate but 'he says he deserved it' is fine, so this should be entailed.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "The wife was at the helm and then told him to take it in, so she handed the helm to him; the 'deserved' remark is about her getting mad. The claim is largely accurate but 'he says he deserved it' is fine, so this should be entailed."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in,' later said the quote, didn't react; he said 'rather than just get mad, which I deserved.'"
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said 'I know you're trying to do the best you can', did not react; he said he deserved getting mad."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": [
+   {
+    "claim": "According to Michael Kerr, it does not.",
+    "first_label": "unsupported",
+    "first_rationale": "Vague claim with no antecedent; no matching content in the source.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "unsupported",
+      "rationale": "Vague claim with no antecedent; no matching content in the source."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Vague claim, but plausible referents are supported: Kerr says running from the family doesn't solve the problem, and that the news's trauma 'doesn't get anybody anywhere'."
+     },
+     {
+      "label": "entailed",
+      "rationale": "Vague claim; several readings fit Kerr's statements, such as the news getting nobody anywhere or running away not solving the problem."
+     }
+    ]
+   }
+  ]
+ }
+]

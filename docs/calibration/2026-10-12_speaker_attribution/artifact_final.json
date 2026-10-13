@@ -1,0 +1,269 @@
+[
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 1,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 2,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 3,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "FAIL",
+  "flags": [
+   "Years earlier, when his mother told him, \"I love you, but I love Billy the most,\" he answered, \"Thank you.\""
+  ],
+  "overturned": [
+   {
+    "claim": "She handed the helm to him, and afterward told him, \"I know you're trying to do the best you can.\" She did not react, though he says he deserved it.",
+    "first_label": "contradicted",
+    "first_rationale": "Wife was at the helm and said 'you take it in'; he took over. She did not hand the helm to him \u2014 actually she did offer it. Wording fits.",
+    "votes": "1 of 3 reject",
+    "passes": [
+     {
+      "label": "contradicted",
+      "rationale": "Wife was at the helm and said 'you take it in'; he took over. She did not hand the helm to him \u2014 actually she did offer it. Wording fits."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said the quote; 'which I deserved' refers to getting mad; she didn't react."
+     },
+     {
+      "label": "entailed",
+      "rationale": "She said 'you take it in', later said 'I know you're trying to do the best you can'; he says she didn't react, rather than get mad, which he deserved."
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "run": 4,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 5,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 6,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "FAIL",
+  "flags": [
+   "Years earlier, when his mother told him, \"I love you, but I love Billy the most,\" he answered, \"Thank you.\""
+  ],
+  "overturned": []
+ },
+ {
+  "run": 7,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 8,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "FAIL",
+  "flags": [
+   "Years earlier, when his mother told him, \"I love you, but I love Billy the most,\" he answered, \"Thank you.\""
+  ],
+  "overturned": []
+ },
+ {
+  "run": 9,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "abstract-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "summary-generated.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ },
+ {
+  "run": 10,
+  "cond": "new",
+  "artifact": "overview.md",
+  "status": "PASS",
+  "flags": [],
+  "overturned": []
+ }
+]

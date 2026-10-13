@@ -51,7 +51,10 @@ def _load(gold_dir: str, filename: str = "gold.json"):
 # ---------------------------------------------------------------------------
 
 def _run_faithfulness(client, model):
-    gold, sources = _load("faithfulness_gold")
+    gold, _raw = _load("faithfulness_gold")
+    # Built as the gate builds them: metadata + the SA unlabeled-speakers note.
+    import judge_recalibration
+    sources = judge_recalibration.gold_sources(gold)
     by_source = defaultdict(list)
     for c in gold["cases"]:
         by_source[c["source"]].append(c)

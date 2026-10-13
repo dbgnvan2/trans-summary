@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (speaker attribution without labels — SA; FAQ answers — FQ)
+
+The Kerr 2026-09-13 run was blocked at publish by one summary sentence: "The
+interviewer observes that most people drift into blaming…". The transcript has no
+speaker labels, so it can't show who said what. The same file had passed at
+generation. It was judged again at publish because commit 1c0e98f changed the judge
+cache key.
+- **SA.** The user's decision: "the interviewer" is a neutral term, and without labels
+  such attribution should not fail.
+  - `transcript_utils.has_speaker_labels` detects labelled transcripts.
+  - For an unlabeled one, `release_gate.with_recording_metadata` adds
+    `config.UNLABELED_SPEAKERS_NOTE` to the judge's source, and the judge prompt gains
+    a SPEAKER ATTRIBUTION rule (`faithfulness_judge.instructions_for`).
+  - The rule accepts a claim that a participant in the conversation said grounded
+    content when the source doesn't show who said it. It does not accept a role the
+    recording doesn't have, content that isn't in the source, or a reversed stance.
+  - Labelled transcripts keep exactly the old prompt.
+  - A PASS that relied on the note says so in its detail.
+- **FQ.** The first sentence under a question heading (FAQ entries, question-style section
+  titles) is judged with its question attached. The
+  overview's "According to Michael Kerr, it does not." had no referent once the
+  question heading was stripped. It was flagged on first pass in 17 of 20 checks and
+  blocked 2; with FQ, 0 of 10.
+- **Review fixes:**
+  - D2 flags now match on the artifact, not the source text, so the new note can't
+    clear them (`release_gate._flag_identity`).
+  - The gold harness, drift monitor and live calibration test build sources as the gate
+    does (`judge_recalibration.gold_sources`).
+  - Five SA gold cases were added (48 cases).
+- **Second review:** the rule is not used in chunk windows (they see part of the
+  recording, and their "entailed" is final). A name in a question heading is still
+  judged on its own.
+- **Calibration** (`docs/calibration_speaker_attribution_2026-10-12.md`):
+  - gold recall 0.96 ×3 (old 0.88–0.96), precision 1.00 ×3;
+  - themes and real abstracts unchanged;
+  - real prose 47.7 vs 45 sentences flagged (mean of 3, within run-to-run variance);
+  - Kerr overview 10/10 PASS.
+  - The Kerr summary now fails 3 of 10 checks on a real error ("Years earlier" where
+    the source says "Years later").
+- `JUDGE_LOGIC_VERSION` is 2026-10-12e, so saved artifacts are judged again on the next
+  gate run.
+
 ## [Unreleased] - 2026-10-12 (real-run fixes: themes format, run log, cost estimate — T1–T4)
 
 A full GUI run with Opus 5.5 as the main model, on Kerr "Why Families Repeat the Same

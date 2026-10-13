@@ -15,6 +15,14 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   already on main), with 5 fully merged branches.
 
 ### ⏸ Open — faithfulness judge (2026-10-11)
+- **Watch (SA, 2026-10-12):** the Kerr summary sentence "She handed the helm to him… She
+  did not react, though he says he deserved it." is faithful but was a first-pass flag
+  in 5 of 30 checks with the SA rule (1 confirmed), against 0 of 10 before. Possibly noise;
+  re-check if it blocks a real run (`docs/calibration_speaker_attribution_2026-10-12.md`).
+- **Open (adjacent, SA):** any change to the judge's inputs or version re-judges every
+  saved artifact. A borderline claim that passed at generation can then block at
+  publish (how the 2026-10-12 Kerr run was blocked). By design (a logic change must
+  re-verify). Flags now survive it (D2 + SA6); PASSes do not carry over.
 - ~~Random false flags~~ — fixed 2026-10-11 (CF): a flag fails a run only when a fresh
   judgement agrees; Kerr false fails 5/10 → 0/10 (`docs/calibration_confirm_2026-10-11.md`).
   Still open: first-pass misses on the borderline policy cases k4/k5/k6 (gold recall
