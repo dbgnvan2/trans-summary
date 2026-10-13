@@ -81,6 +81,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**A valid empty answer stopped Init Val (2026-10-13, real run, IV).**
+- Issue: for a transcript chunk with nothing to fix, the model replied with a fenced empty list, "```json\n[]\n```" (14 characters). `call_claude_with_retry` rejects any reply under 50 characters by default, retried three times, and the run stopped at Init Val. The same transcript and model passed the day before because that chunk had findings.
+- Root cause (P7/P1): a generic sanity check (minimum reply length) applied to a prompt whose correct answer can be very short. F13 fixed the same thing for a "YES/NO" reply, but the other callers on the default were not checked. The v1 validator also returned zero findings for a reply with no JSON list; the 50-character minimum hid that for short replies only.
+- What would have caught it: a test that runs the real `call_claude_with_retry` with the shortest valid reply. The existing tests replaced the whole function, so the length check never ran.
+- Fix: `config.MIN_REPLY_CHARS_JSON_LIST` (2) on both Init Val calls; v1 now stops on a reply with no list. A test lists every direct call left on the 50-character default and why its valid reply is always long; it does not see wrappers that pass `min_length` through, or explicit minimums still too high for an empty answer (the Bowen filter and extraction calls, open in TODO). Tests: `tests/test_init_val_empty_reply_iv.py`.
+- Rule: a response check must allow the shortest valid answer for that prompt ("[]", "NO", an empty section). When one caller is fixed for this, check every caller of the same function, including through wrappers. A test of a validator must run the check it relies on, not replace it. (P7, P5)
+
 **A rule for trailing notes cut real content, and its warning was mostly noise (2026-10-13, caught in review, TD).**
 - Issue: to stop the model's unlabeled closing note being published with the last theme, the first rule dropped every paragraph after the last field's first one. That would also cut Key evidence bullets separated by blank lines, or a two-paragraph Description. Its warning fired 51 times on 65 real files, 45 of them on a bare `---` line, and repeated on every parse (7+ call sites).
 - Root cause (P2/P19): the rule was written from the one example ("prose after a field"), not from the field's shape. The warning was placed in a parser that many callers run.

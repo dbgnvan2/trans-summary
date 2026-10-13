@@ -6,6 +6,31 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-13 — Init Val (IV)
+
+### ✅ Fixed 2026-10-13
+- ~~Init Val stopped when a chunk had nothing to fix~~ — the fenced empty list was under
+  the 50-character minimum reply length. See CHANGELOG (IV).
+
+### ⏸ Open (adjacent, IV, not fixed)
+- `transcript_initial_validation.py` (v1) `validate`: when the reply has no fenced list,
+  the `raw_decode` fallback returns its findings directly, without
+  `filter_validation_findings`. The fenced path filters. The GUI's default is v2, so this
+  affects only the v1 mode.
+- **Bowen semantic filter (same kind as IV, fails open):** `prompts/bowen_reference_filter_v1.md`
+  says "If none qualify, return an empty response", but `validate_api_response` always
+  rejects empty text. The call (`extraction_pipeline.py` ~line 475, `min_length=20`) is
+  retried 3 times and then the `except` keeps **all** the original references. Fix: a
+  fixed empty answer (e.g. `NONE`) in the prompt, accepted by the code; a filter failure
+  should not keep everything.
+- **Bowen extraction (same kind as IV):** `prompts/bowen_reference_extraction_v1.md` gives
+  no answer for a talk with no Bowen references; a short reply ("None found.") is under
+  the `min_length=50` at `extraction_pipeline.py` ~line 878 and the stage fails.
+- The IV caller test sees only direct `call_claude_with_retry` calls on the default, not
+  wrappers (`_generate_summary_with_claude`) or explicit minimums.
+
+---
+
 ## 2026-10-11 — Web page checks (RF.O / RF.P)
 
 ### ✅ Fixed 2026-10-11 (`docs/plan_todo_triage_2026-10-11.md`)

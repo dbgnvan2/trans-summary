@@ -85,7 +85,8 @@ class TranscriptValidator:
                 system=system_message,
                 logger=self.logger,
                 stream=True,
-                timeout=config.TIMEOUT_FORMATTING
+                timeout=config.TIMEOUT_FORMATTING,
+                min_length=config.MIN_REPLY_CHARS_JSON_LIST,  # no errors found is "[]" (IV)
             )
 
             response_text = transcript_utils.response_text(response_msg)
@@ -129,24 +130,23 @@ class TranscriptValidator:
                              if last_index != -1 and last_index > start_index:
                                  json_str = response_text[start_index:last_index+1]
                              else:
-                                 # No closing bracket found after start
-                                 self.logger.warning("No closing bracket ']' found for JSON array.")
-                                 json_str = ""
+                                 # IV: no list means no answer, not "no errors" (fail closed)
+                                 raise json.JSONDecodeError(
+                                     "No closing bracket ']' found for JSON array", response_text, start_index)
                     else:
-                        self.logger.warning("No JSON start bracket '[' found in the response.")
-                        json_str = ""
+                        # IV: before, this returned zero findings, which only the 50-char
+                        # minimum reply length hid for short replies (fail closed).
+                        raise json.JSONDecodeError(
+                            "No JSON array found in the response", response_text, 0)
 
-                # 3. Parse if we found a candidate string (from fences or index heuristic)
-                if json_str:
-                    try:
-                        findings = json.loads(json_str)
-                    except json.JSONDecodeError:
-                        # Attempt to fix common issues if simple load fails
-                        # e.g. "Extra data" if the regex matched too much?
-                        # Using raw_decode on the candidate string
-                        findings, _ = json.JSONDecoder().raw_decode(json_str)
-                else:
-                    findings = []
+                # 3. Parse the candidate string (from fences or index heuristic)
+                try:
+                    findings = json.loads(json_str)
+                except json.JSONDecodeError:
+                    # Attempt to fix common issues if simple load fails
+                    # e.g. "Extra data" if the regex matched too much?
+                    # Using raw_decode on the candidate string
+                    findings, _ = json.JSONDecoder().raw_decode(json_str)
 
                 filtered = filter_validation_findings(
                     findings,

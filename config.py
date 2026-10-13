@@ -957,6 +957,11 @@ MAX_TOKENS_AUDIT = 4096
 # charge. Largest batch measured 2026-10-12: 2,410 tokens (Haiku 4.5), 6,525 incl.
 # thinking (Haiku 5.5, which also gets THINKING_TOKEN_HEADROOM). 4096 fit; 8192 is margin.
 MAX_TOKENS_HEADER_VALIDATION = 8192
+# Shortest valid reply for a prompt that answers with a JSON list of findings: "[]"
+# (a clean chunk). The 50-char default in call_claude_with_retry rejected a fenced
+# empty list (14 chars) and stopped Init Val (IV, 2026-10-13). The callers' parsers
+# reject any reply that is not a list, so this does not let a bad reply through.
+MIN_REPLY_CHARS_JSON_LIST = 2
 MAX_TOKENS_VALIDATION_VERIFY = 4096
 MAX_TOKENS_REVIEW_SEMANTIC = 8192
 MAX_TOKENS_MODEL_PROBE = 32

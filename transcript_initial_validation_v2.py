@@ -278,6 +278,7 @@ class TranscriptValidatorV2:
                 logger=self.logger,
                 stream=True,
                 timeout=config.TIMEOUT_FORMATTING,
+                min_length=config.MIN_REPLY_CHARS_JSON_LIST,  # a clean chunk is "[]" (IV)
                 suppress_caching_warnings=True
             )
             
@@ -297,7 +298,8 @@ class TranscriptValidatorV2:
             # partially-validated transcript ships looking clean with no failed-chunk
             # signal — the exact fail-open the v1 validator deliberately raises on
             # (transcript_initial_validation.py:160-169; review H8 / P1 / P2).
-            self.logger.error(f"Error processing chunk {chunk['id']}: {e}")
+            # chunk['id'] counts from 0; the progress line counts from 1 (IV).
+            self.logger.error(f"Error processing chunk {chunk['id'] + 1}: {e}")
             raise
 
     def _parse_json_response(self, response_text: str) -> List[Dict]:

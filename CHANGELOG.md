@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (Init Val stopped on a clean chunk — IV)
+
+- Init Val no longer stops when the model finds nothing to fix in a chunk. Its reply,
+  a fenced empty list (14 characters), was rejected by the 50-character minimum reply
+  length. Both Init Val calls now accept a reply of 2 characters or more
+  (`config.MIN_REPLY_CHARS_JSON_LIST`); the parsers still reject anything that is not
+  a JSON list.
+- The v1 validator now stops on a reply with no JSON list. Before, it returned zero
+  findings.
+- The chunk number in Init Val's error now matches the progress line (counts from 1).
+- A test lists every call left on the 50-character default
+  (`tests/test_init_val_empty_reply_iv.py`).
+
 ## [Unreleased] - 2026-10-13 (published Themes section — TD)
 
 - The published Themes section no longer shows the model's closing notes as part of
