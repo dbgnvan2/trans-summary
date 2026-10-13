@@ -898,6 +898,7 @@ def _judge_logic_version(instructions: str) -> str:
         repr(sorted(config.BOWEN_CONCEPT_LABELS)),
         repr(sorted(config.SCAFFOLDING_HEADING_PHRASES)),
         repr(sorted(config.THEME_JUDGE_META_LABELS)),
+        repr(sorted(config.THEME_EVIDENCE_LABELS)),
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
@@ -1180,6 +1181,7 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
         return Verdict("theme_grounding", Status.PASS,
                        "theme grounding judge disabled (awaiting calibration)")
     import faithfulness_judge as fjudge
+    import transcript_utils as tu
     from transcript_utils import resolve_anthropic_key
 
     transcript = _load_source_transcript(base_name)
@@ -1194,16 +1196,28 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors = [], []
+    fails, errors, unclassified = [], [], []
     judged = 0
     for suffix, kind in _THEME_KIND.items():
         path = proj / f"{base_name}{suffix}"
         if not path.exists():
             continue
         judged += 1
-        result = _judge_theme_cached(
-            fjudge, path.read_text(encoding="utf-8"), transcript, kind, client, logger)
+        text = path.read_text(encoding="utf-8")
+        result = _judge_theme_cached(fjudge, text, transcript, kind, client, logger)
         art = suffix.strip(" -")
+        # TE: fields that are neither evidence nor known meta are sent to the judge as
+        # evidence (fail closed); say so once per file, with the theme names (P2).
+        odd = tu.unclassified_theme_fields(text)
+        if odd:
+            unclassified.append({"artifact": art, "unclassified_fields":
+                                 [f"{name}: {label}" for name, label in odd]})
+            if logger:
+                logger.warning("%s: %d theme field(s) are neither evidence nor a known meta "
+                               "label and were sent to the theme judge as evidence: %s. "
+                               "Classify them in config (THEME_EVIDENCE_LABELS / "
+                               "THEME_JUDGE_META_LABELS).", art, len(odd),
+                               "; ".join(f"{label} ({name})" for name, label in odd))
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
                           "ungrounded": [c.claim for c in result.unfaithful]})
@@ -1214,13 +1228,16 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
     if fails:
         return Verdict("theme_grounding", Status.FAIL,
                        f"{len(fails)} of {judged} theme artifact(s) contain ungrounded "
-                       f"theme(s)", items=fails + errors)
+                       f"theme(s)", items=fails + errors + unclassified)
     if errors:
         return Verdict("theme_grounding", Status.ERROR,
                        f"{len(errors)} of {judged} theme artifact(s) could not be verified",
-                       items=errors)
+                       items=errors + unclassified)
     return Verdict("theme_grounding", Status.PASS,
-                   f"all themes grounded ({judged} artifact(s) judged)")
+                   f"all themes grounded ({judged} artifact(s) judged)"
+                   + (f"; {sum(len(u['unclassified_fields']) for u in unclassified)} "
+                      "unclassified theme field(s) sent as evidence" if unclassified else ""),
+                   items=unclassified)
 
 
 def check_required_artifacts(base_name: str, logger=None) -> Verdict:

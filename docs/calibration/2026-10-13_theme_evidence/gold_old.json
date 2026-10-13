@@ -1,0 +1,1867 @@
+{
+ "model": "claude-sonnet-5-5",
+ "effort": null,
+ "repeats": 3,
+ "faithfulness_prompt_sha": "316397ff3180",
+ "speaker_rule_sha": "c8e3b0e537b9",
+ "theme_prompt_sha": "0399e63e57d7",
+ "judge_logic_version": "2026-10-13b",
+ "faithfulness_cache_version": "a2405e127f7ddcb7",
+ "confirm_mode": "majority3",
+ "runs": [
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 23,
+     "fp": 0,
+     "fn": 2,
+     "tn": 23,
+     "recall": 0.92,
+     "precision": 1.0,
+     "accuracy": 0.9583333333333334
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter says she began seeing him May 2021, 17 sessions, prefers weekly.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted in 1975 and again a year later, after high school.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health field, retired in 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother worked for adoption agency with foster children, then Verizon in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Daughter mentioned thinking she had OCD symptoms within last couple years.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes himself as catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Tension, heavy drinking by parents, overwhelmed parents described.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter calls walking away and not paying rent 'nubbin of self'.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Client observed parents overwhelmed later; grandparents' deaths tied to stabilizing, worsening.",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Married in 1985, not 1975. [2 of 2 judgements reject; pass 2: contradicted: The source says he married in 1985; 1975 was his first hospitalization.]",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998. [2 of 2 judgements reject; pass 2: contradicted: Father died in 2005 ('05), not 1998; the mother died in 1988.]",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Only two hospitalizations described. [2 of 2 judgements reject; pass 2: contradicted: Source mentions two hospitalizations: first in 1975, and a second a year later.]",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter's main living is fashion, not medical. [2 of 2 judgements reject; pass 2: contradicted: Daughter's main living comes from fashion, not the medical field.]",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Retired in 2015, not 2005. [2 of 2 judgements reject; pass 2: contradicted: The client retired in 2015, not 2005.]",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No location or Bowen Center mentioned. [2 of 2 judgements reject; pass 2: unsupported: No recording location such as the Bowen Center or Washington, D.C. is mentioned.]",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Client has younger sisters, no physician brother in Boston. [2 of 2 judgements reject; pass 2: unsupported: No younger brother or physician in Boston; his younger siblings are sisters.]",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No master's in graphic design mentioned. [2 of 2 judgements reject; pass 2: unsupported: No master's degree in graphic design is mentioned for the daughter.]",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No attribution of recovery to medication; he pushed off at community college. [2 of 2 judgements reject; pass 2: unsupported: The presenter never attributes recovery to medication; he describes getting his feet on the bottom of the pool.]",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr describes Aristarchus's heliocentric model going underground for 2,000 years, until Copernicus restored its credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr uses Wilczek's book on physical ingredients and cells as elementary particles to link the physical and biological worlds.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr stresses how long a paradigm shift can take and describes church opposition to heliocentrism.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says Aristarchus authored a heliocentric model, not a geocentric one. [2 of 2 judgements reject; pass 2: contradicted: Source says Aristarchus authored a heliocentric model, not geocentric.]",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "The speaker is unnamed in the source and is never called Malorni; Mladenov appears only as the author of a book on emotions. [2 of 2 judgements reject; pass 2: unsupported: The speaker is unnamed in the source; 'Luciano Malorni' is a fabricated name, though the blocked ontogeny view is present.]",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No 2019 WHO study on global cancer incidence is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No WHO study or 2019 cancer incidence data is mentioned anywhere in the source.]",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the presentation does not bring us closer to the roots and that the answers aren't there yet. [2 of 2 judgements reject; pass 2: contradicted: Kerr says the presentation doesn't bring us closer to the roots and that 'we certainly aren't there yet'.]",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source says religion was tied up in opposition; the Catholic church and Jesuits insisted God would put us at the center; Galileo was tried by the Inquisition.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr contrasts heliocentrism's 2000-year timeline with Bowen theory, saying it likely won't take as long to dominate.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr walks through Aristotle's geocentric model, Aristarchus, Ptolemy, and Copernicus restoring heliocentric credibility.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He states DOS equals EO plus A, meaning differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy is described as a supporter of the geocentric universe; Copernicus restored heliocentric credibility. [2 of 2 judgements reject; pass 2: contradicted: Ptolemy supported the geocentric model; Copernicus restored credibility to heliocentrism, crediting Aristarchus.]",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No 2018 Stanford replication study is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No 2018 Stanford replication study is mentioned anywhere in the source.]",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says, 'That was not his idea, leaving the system. You have to heal in the system.'",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says \"You have to heal in the system\"; the interviewer only echoes and paraphrases it afterwards. [2 of 2 judgements reject; pass 2: contradicted: Kerr says it; the interviewer instead paraphrases 'healing in the system' but does not say that exact sentence.]",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "The letter said \"if this is how you deal with your family, no wonder you had so much trouble\"; \"heal in the system\" was Kerr's later remark. [2 of 2 judgements reject; pass 2: contradicted: Bowen's letter said 'if this is how you deal with your family, no wonder you had so much trouble'; the 'heal in the system' line was Kerr's own words.]",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "Wife was at the helm coming into the mooring; Kerr thought she was going too fast and took over.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Vague editorial claim about practical stakes; the source makes no such statement, and it adds no grounded content. [2 of 2 judgements reject; pass 2: unsupported: Vague claim of 'practical stakes' with no basis in the source.]",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "first-pass unsupported not confirmed (1 of 3 judgements reject): The distinction between distance/cutoff and differentiation is central in the source, with healing required within the system; this is reasonable framing.",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'me and my four brothers. I'm the youngest there on the floor' — youngest of five brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he himself is the youngest of the brothers, not Billy. [2 of 2 judgements reject; pass 2: contradicted: Kerr says he himself is the youngest; Billy is another brother.]",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source says Kerr met Bowen in medical school and has 60 years with the theory; no 1950s student claim. [2 of 2 judgements reject; pass 2: contradicted: Kerr heard Bowen as a medical student and worked with him later; the 1950s date is only for Bowen's NIMH work.]",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says \"now we are 35 years later\" in the societal regression section.",
+      "claim": "Kerr notes that it is now 35 years later."
+     },
+     {
+      "id": "sa1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Section 5: interviewer asks 'isn't that the anxiety playing out in the academic field? don't leave the beaten track'.",
+      "claim": "The interviewer asks whether the warnings against leaving the beaten track were anxiety playing out in the academic field."
+     },
+     {
+      "id": "sa2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Section 17 has this remark, and with no speaker labels it may be attributed to the interviewer; the content is present.",
+      "claim": "The interviewer remarks that you know exactly when your own family members poke you."
+     },
+     {
+      "id": "sa3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says the influential idea blamed the mother; Bowen took a different approach and blamed the whole family, not the mother. [2 of 2 judgements reject; pass 2: contradicted: The source says the schizophrenogenic-mother idea was the one Bowen rejected; Kerr says Bowen blamed the whole family, not the mother.]",
+      "claim": "Kerr says Bowen blamed schizophrenia largely on the mother."
+     },
+     {
+      "id": "sa4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No interviewer asks Kerr whether stress affects cancer progression; Kerr presents it himself, and Q&A questions concern other topics. [2 of 2 judgements reject; pass 2: unsupported: No interviewer asks Kerr this; the presentation is a lecture, and the Q&A comments contain no such question.]",
+      "claim": "The interviewer asks Kerr whether stress affects cancer progression."
+     },
+     {
+      "id": "sa5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "The presenter says stress may affect progression but not necessarily why cancer occurs; 'nothing causes cancer, it's a combination.' [2 of 2 judgements reject; pass 2: contradicted: The presenter says stress may affect progression but doesn't necessarily explain why cancer occurs, and that nothing causes cancer on its own.]",
+      "claim": "The presenter states that stress is the reason cancers occur."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+      "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Kathleen Kerr presents a clinical case study of a male client seen in weekly psychotherapy since May 2021, using a detailed family diagram to illustrate intergenerational patterns of anxiety, differentiation, and functioning.",
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 1.0
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  },
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 24,
+     "fp": 0,
+     "fn": 1,
+     "tn": 23,
+     "recall": 0.96,
+     "precision": 1.0,
+     "accuracy": 0.9791666666666666
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter says she began seeing him in May 2021, 17 sessions, weekly; the case is presented.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted 1975, then again a year later; both after high school.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health/psychiatric field, retired 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother did work for adoption agency caring for foster children, then Verizon operator in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Within last couple years daughter mentioned possible OCD symptoms.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes himself as catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Tension between parents, heavy drinking, parents overwhelmed over time.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Therapist calls not paying daughter's rent a nubbin of self.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He observed parents more besieged later; grandparents' deaths suggest stabilizing role.",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says he married in 85, not 1975. [2 of 2 judgements reject; pass 2: contradicted: Source says he married in 1985; 1975 was his first hospitalization.]",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998. [2 of 2 judgements reject; pass 2: contradicted: Father died in 2005 ('05), not 1998; the mother died in 88.]",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source describes two hospitalizations, not three. [2 of 2 judgements reject; pass 2: contradicted: Source describes two hospitalizations (1975 and a year later), not three.]",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter's main living comes from fashion, not medical field. [2 of 2 judgements reject; pass 2: contradicted: Daughter's main living comes from fashion, not the medical field.]",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "He retired in 2015, not 2005. [2 of 2 judgements reject; pass 2: contradicted: Source says he retired in 2015, not 2005.]",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of Bowen Center or Washington, D.C. [2 of 2 judgements reject; pass 2: unsupported: No recording location such as Bowen Center in Washington, D.C. is mentioned.]",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Client has younger sisters, no physician brother in Boston. [2 of 2 judgements reject; pass 2: unsupported: He has a younger sister and youngest sister; no younger brother physician in Boston is mentioned.]",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No master's degree in graphic design mentioned. [2 of 2 judgements reject; pass 2: unsupported: No master's degree in graphic design for the daughter is mentioned.]",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No attribution of recovery to medication in source. [2 of 2 judgements reject; pass 2: unsupported: Medication is never mentioned; his recovery is described as pushing off at community college.]",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says Aristarchus's heliocentric model went underground for 2,000 years and Copernicus restored its credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr uses Wilczek's book on particles (electron, quarks, etc.) and asks how they are expressed in the body, connecting the physical and biological.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr stresses how long a paradigm shift can take and describes church opposition to heliocentrism.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says Aristarchus authored a heliocentric model, not a geocentric one. [2 of 2 judgements reject; pass 2: contradicted: Source says Aristarchus authored a heliocentric model, not a geocentric one.]",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source never names Malorni; the featured speaker is unnamed, and 'Malodenau' is the emotions-book author. [2 of 2 judgements reject; pass 2: unsupported: The speaker is an unnamed assistant professor in Rome, and 'Luciano Malorni' is a fabricated name; the source never names her.]",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No WHO study on cancer incidence is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No WHO study or 2019 cancer incidence data is mentioned anywhere in the source.]",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says the presentation does not bring us closer to Bowen theory's roots and 'we certainly aren't there yet'. [2 of 2 judgements reject; pass 2: contradicted: Kerr says the presentation does not bring us closer to Bowen theory's roots ('Affirm no') and that the answers aren't there yet.]",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source says religion was tied up in opposition; Catholic church and Jesuits insisted God put us at center; Galileo was tried by Inquisition.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says he suspects Bowen theory won't take 2000 years to dominate public consciousness, as heliocentrism did.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source covers Aristotle's geocentric model, Aristarchus, Ptolemy, then Copernicus restoring heliocentrism; the summary fairly captures this progression.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source states 'DOS equals EO plus A' meaning differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy was a supporter of geocentrism; Copernicus restored heliocentric credibility. [2 of 2 judgements reject; pass 2: contradicted: Source credits Copernicus with restoring heliocentric credibility; Ptolemy was a supporter of the geocentric model.]",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No 2018 Stanford replication study is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No mention of any 2018 Stanford replication study anywhere in the source.]",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'That was not his idea, leaving the system. You have to heal in the system.'",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says \"You have to heal in the system\"; the interviewer only echoes it afterward. [2 of 2 judgements reject; pass 2: contradicted: Kerr said the line; the interviewer instead paraphrased it as 'healing in the system'.]",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "The letter said \"if this is how you deal with your family, no wonder you had so much trouble\"; the quoted line was Kerr's later comment. [2 of 2 judgements reject; pass 2: contradicted: The letter said 'if this is how you deal with your family, no wonder you had so much trouble'; the quote was Kerr's spoken line, not in the letter.]",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "Wife was at helm, Kerr thought she was going too fast, then took over coming into the mooring.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Vague claim about practical stakes; the source states no such thing. [2 of 2 judgements reject; pass 2: unsupported: Vague claim about practical stakes; no such statement or basis in source.]",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source does not say the distinction explains how family dysfunction persists. [2 of 2 judgements reject; pass 2: unsupported: Source says distance is not differentiation, but never claims it is central to explaining how family dysfunction persists.]",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'me and my four brothers. I'm the youngest there on the floor' — youngest of five brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he himself is the youngest of the brothers, not Billy. [2 of 2 judgements reject; pass 2: contradicted: Kerr says he himself is the youngest; Billy was not.]",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Source says 60+ years with Bowen theory and met him in medical school; no 1950s student claim. [2 of 2 judgements reject; pass 2: unsupported: Source says he heard Bowen in medical school and was student for over 60 years until 2026; the 1950s is not stated.]",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says \"now we are 35 years later\" regarding societal regression.",
+      "claim": "Kerr notes that it is now 35 years later."
+     },
+     {
+      "id": "sa1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Section 5 has the question: 'isn't that the anxiety playing out in the academic field? ... don't leave the beaten track'.",
+      "claim": "The interviewer asks whether the warnings against leaving the beaten track were anxiety playing out in the academic field."
+     },
+     {
+      "id": "sa2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "The 'you know exactly when they poke you' remark is in the source; with no speaker labels, attributing it to the interviewer is allowed.",
+      "claim": "The interviewer remarks that you know exactly when your own family members poke you."
+     },
+     {
+      "id": "sa3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says the schizophrenogenic-mother idea blamed the mother, while Bowen blamed the whole family, not the mother. [2 of 2 judgements reject; pass 2: contradicted: The source says the mother-blaming idea was another view; Bowen took a different approach, blaming the whole family instead.]",
+      "claim": "Kerr says Bowen blamed schizophrenia largely on the mother."
+     },
+     {
+      "id": "sa4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No interviewer asks Kerr this; Q&A comments concern adaptation, societal regression, and patient agency, and the stress/cancer discussion is Kerr's own presentation. [2 of 2 judgements reject; pass 2: unsupported: No interviewer asks Kerr this; the talk is a lecture, and the Q&A comments contain no such question.]",
+      "claim": "The interviewer asks Kerr whether stress affects cancer progression."
+     },
+     {
+      "id": "sa5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Presenter says stress may affect progression but doesn't necessarily explain why cancer occurred; 'nothing causes cancer, it's a combination.' [2 of 2 judgements reject; pass 2: contradicted: Presenter says stress may affect progression but doesn't necessarily mean it's why cancer occurred; 'nothing causes cancer, it's a combination.']",
+      "claim": "The presenter states that stress is the reason cancers occur."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+      "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+      "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Kathleen Kerr presents a clinical case study of a male client seen in weekly psychotherapy since May 2021, using a detailed family diagram to illustrate intergenerational patterns of anxiety, differentiation, and functioning.",
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 1,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 0.9285714285714286
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "ungrounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  },
+  {
+   "faithfulness": {
+    "metrics": {
+     "tp": 23,
+     "fp": 0,
+     "fn": 2,
+     "tn": 23,
+     "recall": 0.92,
+     "precision": 1.0,
+     "accuracy": 0.9583333333333334
+    },
+    "rows": [
+     {
+      "id": "e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter introduces herself as Kathleen Kerr, began seeing him May 2021, weekly sessions.",
+      "claim": "Kathleen Kerr presents a clinical case of a male client she has seen in weekly psychotherapy since May 2021."
+     },
+     {
+      "id": "e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Admitted 1975, then again a year later; both after high school.",
+      "claim": "The client had two inpatient psychiatric admissions in the mid-1970s following high school."
+     },
+     {
+      "id": "e3",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Married in 85; daughter born in 90.",
+      "claim": "The client married in 1985 and his daughter was born in 1990."
+     },
+     {
+      "id": "e4",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Boyfriend lives in Baltimore, interested in fashion field.",
+      "claim": "The daughter's boyfriend lives in Baltimore and is interested in the fashion field."
+     },
+     {
+      "id": "e5",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Worked in mental health/psychiatric field, retired 2015.",
+      "claim": "The client retired in 2015 after a career in the mental health and psychiatric field."
+     },
+     {
+      "id": "e6",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Mother worked for adoption agency caring for foster children, then Verizon in 1970.",
+      "claim": "The client's mother worked for an adoption agency caring for foster children before going to work for Verizon."
+     },
+     {
+      "id": "e7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Within last couple years she mentioned possible OCD symptoms.",
+      "claim": "The client's daughter raised a concern about possible OCD symptoms within the last couple of years."
+     },
+     {
+      "id": "e8",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He describes himself as catatonic, aware but unable to reach out.",
+      "claim": "During his first hospitalization the client described himself as catatonic, aware of his surroundings but unable to relate to others."
+     },
+     {
+      "id": "e11",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Tension, heavy drinking by parents, parents besieged and overwhelmed all described.",
+      "claim": "The client's family of origin was marked by chronic tension, heavy alcohol use, and instability across the parental relationship."
+     },
+     {
+      "id": "e12",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Presenter calls walking home and not paying rent 'a nubbin of self'.",
+      "claim": "The therapist interprets small acts of boundary-setting, such as refusing to pay the daughter's rent, as evidence of an emerging sense of self."
+     },
+     {
+      "id": "e13",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "He observed parents more overwhelmed later; grandparents' deaths as stabilizing case made, loosely attributed.",
+      "claim": "The client connects his parents' declining functioning over time to the loss of stabilizing grandparents."
+     },
+     {
+      "id": "c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "He married in 1985, not 1975. [2 of 2 judgements reject; pass 2: contradicted: The client married in 1985; 1975 was his first hospitalization.]",
+      "claim": "The client married in 1975."
+     },
+     {
+      "id": "c2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Father died in 05, not 1998. [2 of 2 judgements reject; pass 2: contradicted: The father died in 05 (2005), not 1998; 88 was the mother's death.]",
+      "claim": "The client's father died in 1998."
+     },
+     {
+      "id": "c3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source describes two hospitalizations, not three. [2 of 2 judgements reject; pass 2: contradicted: The source describes two hospitalizations, not three.]",
+      "claim": "The client was hospitalized psychiatrically three times."
+     },
+     {
+      "id": "c4",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Daughter's main living is from fashion, not medical field. [2 of 2 judgements reject; pass 2: contradicted: The daughter's main living comes from fashion, not the medical field.]",
+      "claim": "The client's daughter earns her main living in the medical field."
+     },
+     {
+      "id": "c5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Retired in 2015, not 2005. [2 of 2 judgements reject; pass 2: contradicted: The client retired in 2015, not 2005.]",
+      "claim": "The client retired in 2005."
+     },
+     {
+      "id": "u2",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No recording location mentioned. [2 of 2 judgements reject; pass 2: unsupported: No recording location is given; Bowen Center and Washington, D.C. are absent.]",
+      "claim": "The presentation was recorded at the Bowen Center in Washington, D.C."
+     },
+     {
+      "id": "u3",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "Client has younger sisters; no physician brother in Boston. [2 of 2 judgements reject; pass 2: unsupported: He has younger sisters, not a younger brother, and no physician in Boston is mentioned.]",
+      "claim": "The client has a younger brother who works as a physician in Boston."
+     },
+     {
+      "id": "u4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of master's degree in graphic design. [2 of 2 judgements reject; pass 2: unsupported: No master's degree in graphic design for the daughter is mentioned.]",
+      "claim": "The client's daughter recently completed a master's degree in graphic design."
+     },
+     {
+      "id": "us6",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No mention of medication as cause of recovery. [2 of 2 judgements reject; pass 2: unsupported: The presenter never attributes his recovery to medication; she cites his own push after community college.]",
+      "claim": "The presenter attributes the client's recovery primarily to psychiatric medication."
+     },
+     {
+      "id": "e9",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr describes Aristarchus's heliocentric model going underground for 2,000 years until Copernicus restored its credibility.",
+      "claim": "Kerr traces the long suppression of heliocentrism from Aristarchus through Copernicus."
+     },
+     {
+      "id": "e10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr uses Wilczek's book on particles and physical ingredients to ask how they are expressed in biological bodies.",
+      "claim": "Kerr draws on Frank Wilczek's account of elementary particles to connect the physical and biological worlds."
+     },
+     {
+      "id": "e14",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr notes the 2000 years for the paradigm shift and the religious opposition to heliocentrism.",
+      "claim": "Major scientific paradigm shifts tend to meet institutional resistance and can take a very long time to be accepted."
+     },
+     {
+      "id": "c6",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Aristarchus authored a heliocentric model, not a geocentric one. [2 of 2 judgements reject; pass 2: contradicted: Source says Aristarchus authored a heliocentric model, not a geocentric one.]",
+      "claim": "Aristarchus authored a geocentric model of the solar system."
+     },
+     {
+      "id": "u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "The speaker's name is never given; 'Luciano Malorni' is a fabricated name. Source only says an unnamed Rome philosophy professor. [2 of 2 judgements reject; pass 2: unsupported: The speaker is never named; 'Luciano Malorni' is fabricated. The source only says an assistant professor in Rome.]",
+      "claim": "Kerr presents Luciano Malorni's dynamic relational view of cancer as blocked ontogeny."
+     },
+     {
+      "id": "u5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No 2019 WHO study on global cancer incidence is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No WHO study or 2019 cancer incidence data is mentioned in the source.]",
+      "claim": "Kerr cites a 2019 World Health Organization study on global cancer incidence."
+     },
+     {
+      "id": "us7",
+      "truth": "unsupported",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says 'Affirm no' to getting closer to the roots and 'certainly aren't there yet'; no claim of proof. [2 of 2 judgements reject; pass 2: contradicted: Kerr says the talk doesn't bring us closer to Bowen theory's roots and answers aren't there yet.]",
+      "claim": "Kerr concludes that Bowen theory has now been definitively proven by modern neuroscience."
+     },
+     {
+      "id": "ef1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source says religion was tied up in opposition; the Catholic church and Jesuits insisted God would place us at the center, and Galileo faced an Inquisition trial.",
+      "claim": "The resistance to heliocentrism was not merely scientific but deeply institutional and religious."
+     },
+     {
+      "id": "ef2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr compares how long heliocentrism took to dominate with the course Bowen theory may take.",
+      "claim": "Kerr holds up the slow acceptance of heliocentrism as a mirror for the trajectory Bowen theory may itself follow."
+     },
+     {
+      "id": "rb_e1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source covers Aristotle's geocentric model through Copernicus restoring heliocentric credibility, among other figures; a fair summary.",
+      "claim": "Kerr traces the evolution of astronomy from Aristotle's geocentric model through Copernicus's restoration of heliocentrism."
+     },
+     {
+      "id": "rb_e2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Source states DOS equals EO plus A, meaning differentiation of self equals emotional objectivity plus action.",
+      "claim": "Kerr introduces the equation that differentiation of self equals emotional objectivity plus action."
+     },
+     {
+      "id": "rb_c1",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Ptolemy is described as a supporter of geocentrism; Copernicus restored heliocentric credibility. [2 of 2 judgements reject; pass 2: contradicted: Source says Ptolemy supported geocentrism; Copernicus restored heliocentric credibility, crediting Aristarchus.]",
+      "claim": "Kerr credits Ptolemy with restoring the heliocentric model."
+     },
+     {
+      "id": "rb_u1",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No 2018 Stanford replication study is mentioned anywhere in the source. [2 of 2 judgements reject; pass 2: unsupported: No mention of any 2018 Stanford replication study or confirmation of the equation anywhere in the source.]",
+      "claim": "Kerr references a 2018 Stanford replication study confirming the differentiation-of-self equation."
+     },
+     {
+      "id": "k1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says, \"That was not his idea, leaving the system. You have to heal in the system.\"",
+      "claim": "Kerr states explicitly, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k2",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says \"You have to heal in the system\"; the interviewer only later echoes it as a paraphrase. [2 of 2 judgements reject; pass 2: contradicted: Kerr says this line; the interviewer paraphrases it later but does not say it verbatim.]",
+      "claim": "The interviewer says, \"You have to heal in the system.\""
+     },
+     {
+      "id": "k3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Bowen's letter said \"Mike, if this is how you deal with your family, no wonder you had so much trouble\"; \"heal in the system\" was Kerr's own gloss. [2 of 2 judgements reject; pass 2: contradicted: Bowen's letter said 'if this is how you deal with your family, no wonder you had so much trouble'; the 'heal in the system' line was Kerr's gloss.]",
+      "claim": "Bowen told Kerr directly, in a letter, that leaving the system was not the answer: \"You have to heal in the system.\""
+     },
+     {
+      "id": "k4",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "The wife was at the helm, Kerr thought she was going too fast, and then he took over; this matches the source.",
+      "claim": "His wife was bringing the boat into moorage, and Kerr, anxious about her speed, took over."
+     },
+     {
+      "id": "k5",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "The source never states or evaluates \"practical stakes\"; this is a vague claim with no grounding. [2 of 2 judgements reject; pass 2: unsupported: Vague claim; the source makes no statement about 'practical stakes' being significant.]",
+      "claim": "The practical stakes are significant."
+     },
+     {
+      "id": "k6",
+      "truth": "unsupported",
+      "pred": "entailed",
+      "miss": true,
+      "rationale": "The source treats the distinction between distance and differentiation as central to Bowen's theory and to family process.",
+      "claim": "This distinction is central to Bowen theory's explanation of how family dysfunction persists."
+     },
+     {
+      "id": "k7",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says 'me and my four brothers. I'm the youngest there on the floor' — youngest of five brothers.",
+      "claim": "Kerr is the youngest of five brothers."
+     },
+     {
+      "id": "k8",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Kerr says he himself is the youngest of the five brothers, not Billy. [2 of 2 judgements reject; pass 2: contradicted: Kerr is the youngest; Billy is a different brother.]",
+      "claim": "Billy was the youngest of the Kerr brothers."
+     },
+     {
+      "id": "k9",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No date is given for when Kerr was Bowen's student; he heard Bowen in medical school, and the 1950s is mentioned only for psychiatry's ideas. [2 of 2 judgements reject; pass 2: unsupported: Source gives no date for Kerr's studentship; he heard Bowen in medical school, with 60 years of involvement, so 1950s is unsupported.]",
+      "claim": "Kerr was Bowen's student in the 1950s."
+     },
+     {
+      "id": "k10",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Kerr says \"now we are 35 years later\" in the societal regression discussion.",
+      "claim": "Kerr notes that it is now 35 years later."
+     },
+     {
+      "id": "sa1",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "Interviewer asks 'isn't that the anxiety playing out in the academic field? ... don't leave the beaten track', matching the claim.",
+      "claim": "The interviewer asks whether the warnings against leaving the beaten track were anxiety playing out in the academic field."
+     },
+     {
+      "id": "sa2",
+      "truth": "entailed",
+      "pred": "entailed",
+      "miss": false,
+      "rationale": "The 'you know exactly when they poke you' passage is unlabeled; content is present and can be attributed to the interviewer.",
+      "claim": "The interviewer remarks that you know exactly when your own family members poke you."
+     },
+     {
+      "id": "sa3",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Source says the schizophrenogenic mother idea was the prevailing view; Bowen took a different approach, blaming the whole family, not the mother. [2 of 2 judgements reject; pass 2: contradicted: The source says the mother-blaming idea was a different influential idea; Bowen took a different approach and blamed the whole family.]",
+      "claim": "Kerr says Bowen blamed schizophrenia largely on the mother."
+     },
+     {
+      "id": "sa4",
+      "truth": "unsupported",
+      "pred": "unsupported",
+      "miss": false,
+      "rationale": "No interviewer asks Kerr this; the talk is a lecture, and Q&A comments don't pose that question. [2 of 2 judgements reject; pass 2: unsupported: No interviewer asks Kerr this; the source has a lecture and audience comments, and no such question about stress and cancer progression appears.]",
+      "claim": "The interviewer asks Kerr whether stress affects cancer progression."
+     },
+     {
+      "id": "sa5",
+      "truth": "contradicted",
+      "pred": "contradicted",
+      "miss": false,
+      "rationale": "Presenter says stress may affect progression but not necessarily why cancer occurs; 'nothing causes cancer, it's a combination.' [2 of 2 judgements reject; pass 2: contradicted: The presenter says stress may affect progression but doesn't necessarily explain why cancer occurs; 'nothing causes cancer, it's a combination.']",
+      "claim": "The presenter states that stress is the reason cancers occur."
+     }
+    ]
+   },
+   "real_abstracts": [
+    {
+     "artifact": "roots_bowen",
+     "status": "PASS",
+     "expect": "PASS",
+     "ok": true,
+     "flagged": []
+    },
+    {
+     "artifact": "where_roots",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Abstract - Where Roots of Bowen Theory Reside in the Brain (June video)",
+      "Kerr contends that Bowen theory represents a paradigm shift comparable to the transition from geocentric to heliocentric models of the solar system, and that recognizing the sources of its core concepts in fundamental physical and biological processes strengthens its theoretical foundation.",
+      "Kerr begins by tracing the 2,000-year suppression of heliocentrism from Aristarchus through Copernicus, Kepler, Galileo, and Newton to Einstein, demonstrating how paradigm shifts face organized institutional resistance and require convergent evidence from multiple independent domains before displacing entrenched models.",
+      "Kerr applies this carryover principle to cancer research, presenting Luciano Malorni's dynamic relational view of cancer as blocked ontogeny and cell differentiation.",
+      "He proposes that Bowen's individuality and togetherness life forces may have evolutionary roots in self-regulatory and other-regulatory processes predating multicellular life."
+     ]
+    },
+    {
+     "artifact": "dave_g",
+     "status": "FAIL",
+     "expect": "FAIL",
+     "ok": true,
+     "flagged": [
+      "Throughout, Kerr identifies a recurring pattern she terms the \"nubbin of self\"—small, deliberate acts of boundary-setting such as refusing to pay rent or insisting on repayable loans—as the mechanism through which differentiation emerges and functional identity accumulates across generations."
+     ]
+    }
+   ],
+   "injected": {
+    "status": "FAIL",
+    "caught": true
+   },
+   "themes": {
+    "metrics": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 0,
+     "recall": 1.0,
+     "precision": 1.0
+    },
+    "rows": [
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Family Emotional System as the Unit of Analysis: Reading Symptoms Through Relationship Patterns, Not Individual Pathology"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Vulnerability, Dependency, and the Question of Functional Self: Clinical and Parental Dilemmas Around Support vs. Enabling"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The \"Nubbin of Self\" as Emergent Differentiation: How Small Acts of Self-Definition Accumulate Into a Functional Identity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Generational Stabilization and Destabilization: How the Loss of Anchoring Figures Shifts the Anxiety Load Downward"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Diagnosis as Relational Event: Psychiatric Symptoms Embedded in and Shaped by Family System Dynamics"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Feedback Loop Between Functional Collapse and Parental/Systemic Non-Response"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Recovery as Trajectory, Not Event: The Long Arc From Hospitalization to Professional Competence"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Daughter as Mirror and Projection Screen: How the Client's Own History Shapes His Reading of Her Vulnerability"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Physical Illness as System Disruptor: How Late-Life Health Complications Reactivate Differentiation Challenges"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Differentiation of Self as Emotional Objectivity Enabling Non-Reactive Action"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Broadening Perspective — From Family to Cosmos — as the Path to Emotional Objectivity"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Suppression-Resurgence Cycle: How Correct Ideas Go Underground and Return"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Perception vs. Reality: The Seductive Power of the Obvious Wrong Answer"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Incremental Instrumentation: Each Breakthrough Requires a New Tool for Seeing"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Forces as the Missing Explanatory Link Between Description and Mechanism"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Broadening Gaze as a Differentiation Practice, Not Just an Intellectual Exercise"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "Institutional Authority as the Primary Mechanism of Paradigm Suppression"
+     },
+     {
+      "truth": "grounded",
+      "pred": "grounded",
+      "name": "The Physical-to-Biological Carryover: Evolution as Conceptual Continuity"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Client's Military Service in Vietnam"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Financial Fraud and the Collapse of Professional Trust"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Immigration and the Refugee Experience"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Artificial Intelligence as the Next Frontier of Family Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Climate Change as a Driver of Societal Emotional Regression"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Firsthand Account of Surviving a Natural Disaster"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Kerr's Rejection of Bowen Theory as Scientifically Untenable"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Successful Termination of a Completed Therapy"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Educational Recovery and the Turn to Community College"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Long Arc of Heliocentrism from Aristarchus to Modern Physics"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self as Emotional Objectivity Plus Action"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "The Extraordinary Duration of Paradigm Shifts in Science"
+     },
+     {
+      "truth": "ungrounded",
+      "pred": "ungrounded",
+      "name": "Differentiation of Self Across Three Generations: From Parental Chaos to Clinical Recovery to Daughter's Emerging Autonomy"
+     }
+    ]
+   },
+   "passes_bars": true
+  }
+ ],
+ "flips": [
+  {
+   "set": "faithfulness",
+   "case": "k6",
+   "labels": [
+    "entailed",
+    "unfaithful"
+   ]
+  },
+  {
+   "set": "themes",
+   "case": "1:The Family Emotional System as the Unit ",
+   "labels": [
+    "grounded",
+    "ungrounded"
+   ]
+  }
+ ],
+ "cost_usd": 1.4986,
+ "parse_retries": 1
+}

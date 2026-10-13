@@ -1,0 +1,338 @@
+[
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "old",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 1,
+  "arm": "new",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "old",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 2,
+  "arm": "new",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "old",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Why Families Repeat the Same Patterns - ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Societal Emotional Process - Michael Ker",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Systems Biology Meets Bowen Theory Rethi",
+  "status": "Status.FAIL",
+  "detail": "1 of 2 theme artifact(s) contain ungrounded theme(s)",
+  "items": [
+   {
+    "artifact": "structural-themes.md",
+    "detail": "1 of 3 theme(s) ungrounded; first: 'Convergence Between Systems Biology and Bowen Family Systems Theory'",
+    "ungrounded": [
+     "Convergence Between Systems Biology and Bowen Family Systems Theory"
+    ]
+   }
+  ]
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Where Roots Bowen Theory Reside in the B",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Monika Baege and Michael Kerr interview ",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ },
+ {
+  "run": 3,
+  "arm": "new",
+  "base": "Beautiful Boy Review - Kathleen Kerr - 2",
+  "status": "Status.PASS",
+  "detail": "all themes grounded (2 artifact(s) judged)",
+  "items": []
+ }
+]

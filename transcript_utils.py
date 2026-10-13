@@ -1541,16 +1541,28 @@ _THEME_FIELD_RE = re.compile(r"(?:^|\n)\*\*([A-Z][^:\n*]+):\*\*[ \t]*")
 
 
 def _extract_theme_evidence(block: str) -> str:
-    """Every ``**Label:**`` field of a theme block except Description and the meta
-    labels in ``config.THEME_JUDGE_META_LABELS``, as ``"Label: text"`` joined by
-    "; ". These fields (e.g. "Key evidence") are published with the theme, so the
-    theme judge must see them (review F3)."""
+    """The evidence fields of a theme block (``config.THEME_EVIDENCE_LABELS``, e.g.
+    "Key evidence"), as ``"Label: text"`` joined by "; ". These are published with
+    the theme, so the theme judge must see them (review F3).
+
+    Description and the fields in ``config.THEME_JUDGE_META_LABELS`` are not
+    evidence. That includes document-level paragraphs after the last theme ("Summary
+    paragraph"), which the block parser reads into that theme (TE). A field in
+    neither set is still sent (fail closed); ``unclassified_theme_fields`` lets the
+    gate report it.
+
+    Spec:  docs/calibration_theme_evidence_2026-10-13.md
+    Tests: tests/test_theme_evidence_te.py
+    """
     matches = list(_THEME_FIELD_RE.finditer(block))
     parts = []
     for i, m in enumerate(matches):
         label = m.group(1).strip()
-        if label.lower() == "description" or label.lower() in config.THEME_JUDGE_META_LABELS:
+        key = label.lower()
+        if key == "description" or key in config.THEME_JUDGE_META_LABELS:
             continue
+        # A label in neither set falls through and is sent (fail closed); the gate
+        # reports it once per file (theme_field_labels / release_gate, TE review).
         end = matches[i + 1].start() if i + 1 < len(matches) else len(block)
         body = " ".join(
             ln.strip() for ln in block[m.end():end].split("\n")
@@ -1645,6 +1657,39 @@ def _theme_blocks(text: str, pattern: str) -> list:
         if description:
             themes.append((name, description, _extract_theme_evidence(block)))
     return themes
+
+
+def theme_field_labels(text: str) -> list:
+    """``(theme name, field label)`` for every ``**Label:**`` field inside the theme
+    blocks the judge reads (same patterns and block bodies as
+    ``parse_theme_blocks_with_evidence``, so indented list-format fields count).
+
+    Spec:  docs/calibration_theme_evidence_2026-10-13.md
+    Tests: tests/test_theme_evidence_te.py::test_te_every_real_fixture_label_is_classified
+    """
+    for pattern in _THEME_PATTERNS:
+        out, found = [], False
+        for match in re.finditer(pattern, text, re.DOTALL):
+            name = match.group(2).strip()
+            block = _theme_body(match.group(3))
+            if is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block):
+                continue
+            if not _extract_theme_description(block):
+                continue
+            found = True
+            out += [(name, m.group(1).strip()) for m in _THEME_FIELD_RE.finditer(block)]
+        if found:
+            return out
+    return []
+
+
+def unclassified_theme_fields(text: str) -> list:
+    """Theme fields that are neither evidence (``config.THEME_EVIDENCE_LABELS``) nor
+    known non-evidence (``config.THEME_JUDGE_META_LABELS``, Description). They are sent
+    to the theme judge as evidence; the release gate reports them (TE)."""
+    known = config.THEME_EVIDENCE_LABELS | config.THEME_JUDGE_META_LABELS | {"description"}
+    return [(name, label) for name, label in theme_field_labels(text)
+            if label.lower() not in known]
 
 
 def count_header_verdicts(report_text: str) -> dict:

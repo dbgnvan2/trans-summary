@@ -132,7 +132,8 @@ def test_r9a_component_change_changes_key(monkeypatch, fn_name):
 
 
 @pytest.mark.parametrize("attr", [
-    "BOWEN_CONCEPT_LABELS", "SCAFFOLDING_HEADING_PHRASES", "THEME_JUDGE_META_LABELS"])
+    "BOWEN_CONCEPT_LABELS", "SCAFFOLDING_HEADING_PHRASES", "THEME_JUDGE_META_LABELS",
+    "THEME_EVIDENCE_LABELS"])
 def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
     before = rg._judge_logic_version("instructions")
     monkeypatch.setattr(config, attr, frozenset(getattr(config, attr)) | {"zz new label"})

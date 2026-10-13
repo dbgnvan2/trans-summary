@@ -691,7 +691,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-13"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label
+JUDGE_LOGIC_VERSION = "2026-10-13b"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label; TE evidence allowlist
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
@@ -737,17 +737,24 @@ FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
 # produces false "unsupported" verdicts (e.g. a "Coverage / role: ~55-60%"
 # estimate). Editorial list -> config, not code (rule 9). Matched case-insensitively
 # against the text before the first colon on a line.
-# Theme-block fields that are meta-commentary about the theme, not content claims.
-# The theme judge sees every other field (e.g. "Key evidence"), since those are
-# published with the theme (review F3, plan R7). Matched case-insensitively.
+# Theme-block fields that are meta-commentary about the theme, not content claims
+# (review F3, plan R7). Matched case-insensitively.
+# TE (docs/calibration_theme_evidence_2026-10-13.md): the theme fields sent to the theme
+# judge as evidence. Every other field is either listed below as not evidence, or is
+# unknown: an unknown field is still sent (fail closed) and logged as a warning.
+# tests/test_theme_evidence_te.py requires every label in the real fixtures to be in
+# one of the two sets.
+THEME_EVIDENCE_LABELS = frozenset({"key evidence"})
 THEME_JUDGE_META_LABELS = frozenset({
     "coverage", "coverage / role", "lens fuel", "lens fuel value",
     # TM (2026-10-13): "(s)" is the label the interpretive prompt names and 21 of 25
-    # interpretive files on disk use (scope: docs/calibration_theme_meta_label_2026-10-13.md);
-    # without it that field reached the theme judge as evidence.
+    # interpretive files on disk use (scope: docs/calibration_theme_meta_label_2026-10-13.md).
     "nested under", "nested under structural themes", "nested under structural theme(s)",
     "status",
     "document", "prompt version used", "date processed", "source document",
+    # TE: document-level fields after the last theme, read into that theme's block.
+    "rationale and coverage summary", "summary paragraph", "input note", "presenter",
+    "why these themes were chosen and how well they cover the presentation",
 })
 
 FAITHFULNESS_SKIP_LINE_LABELS = [

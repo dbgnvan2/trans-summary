@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (theme judge evidence allowlist — TE)
+
+- **What the judge receives:** the theme judge gets only evidence fields
+  (`config.THEME_EVIDENCE_LABELS`, "Key evidence").
+- **Trailing paragraphs:** document-level paragraphs after the last theme ("Summary
+  paragraph", "Rationale and coverage summary") were read into that theme and sent as
+  evidence. They are now listed as not evidence.
+- **Unknown fields:** a field in neither list is still sent, with a warning.
+- **Reporting:** the release gate reports an unknown field once per theme file, in the
+  run log and in the verdict.
+- **Contract test:** every field the judge reads in the real fixtures must be
+  classified. Three real files with trailing fields are now fixtures.
+- `JUDGE_LOGIC_VERSION` 2026-10-13b.
+- **Same-day calibration:** theme gold 1.00/1.00 ×3 (old: one precision miss from
+  run-to-run variation); 36 real theme checks gave identical verdicts.
+- `docs/calibration_theme_evidence_2026-10-13.md`.
+
 ## [Unreleased] - 2026-10-13 (theme judge meta label — TM)
 
 - "Nested under structural theme(s)" is now a meta label for the theme judge, like

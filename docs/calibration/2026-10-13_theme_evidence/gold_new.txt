@@ -1,0 +1,8 @@
+run 1/3: faithfulness recall=0.96 precision=0.96 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+   MISS e13   truth=entailed     pred=contradicted The client connects his parents' declining functioning over time to th
+   MISS k4    truth=unsupported  pred=entailed     His wife was bringing the boat into moorage, and Kerr, anxious about h
+run 2/3: faithfulness recall=0.96 precision=1.00 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+   MISS k4    truth=unsupported  pred=entailed     His wife was bringing the boat into moorage, and Kerr, anxious about h
+run 3/3: faithfulness recall=1.00 precision=1.00 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+flips across runs: 2; malformed replies retried: 0; cost $1.5035; saved /private/tmp/claude-501/-Users-davemini2-ProjectsLocal-Projects-trans-summary/b69c1d51-d1a9-465d-85d7-178362c19765/scratchpad/te/gold_new.json
+exit 1

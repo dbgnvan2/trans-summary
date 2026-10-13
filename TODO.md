@@ -386,7 +386,10 @@ Remaining boundaries stage one at a time behind the migration shim.
   - ~~fixed 2026-10-12 (N3)~~ Function defaults `model=config.DEFAULT_MODEL` / `config.AUX_MODEL` are bound when
     the program starts. They matter only for a caller that passes no model; the GUI
     passes one.
-- **Theme evidence picks up document-level fields (found 2026-10-13, TM review):** the
+- ~~**Theme evidence picks up document-level fields (found 2026-10-13, TM review):**~~
+  judge side fixed 2026-10-13 (TE, `docs/calibration_theme_evidence_2026-10-13.md`).
+  **Still open (display):** the published page shows the trailing paragraph inside the
+  last theme (`theme_display_blocks`). Was: the
   last theme in a file runs to the end of the text, so a trailing bold paragraph ("Summary
   paragraph", "Rationale and coverage summary") becomes that theme's evidence for the
   judge and is published with it (`transcript_utils._extract_theme_evidence`,

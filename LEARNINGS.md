@@ -69,13 +69,6 @@ Pull from the global catalogue; the ones that bite this repo most:
   `::test_archive_reports_originals_it_could_not_remove`). Still open: a line another live handler
   writes between the zip and the unlink is lost (a few lines at most).
 
-- **Theme evidence is an exclusion list (P19, TM review 2026-10-13).** Every bold field
-  of a theme block except Description and the meta labels reaches the theme judge. A new or
-  renamed meta label (TM: "theme(s)") or a document-level paragraph after the last theme
-  ("Summary paragraph") is sent as evidence. An allowlist of evidence labels with a contract
-  test over every real fixture would catch both. Open: TODO "Theme evidence picks up
-  document-level fields".
-
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**
@@ -87,6 +80,13 @@ the six below are instances. In-repo guard: `warn_if_empty_parse` (`transcript_u
 into the key-terms, topics, and emphasis validators.
 
 ---
+
+**An exclusion list let non-evidence fields reach the theme judge (2026-10-13, TM/TE).**
+- Issue: theme evidence was "every field except Description and the meta labels". A renamed meta label ("Nested under structural theme(s)", 21 of 25 files) and document-level paragraphs read into the last theme ("Summary paragraph") were sent to the judge as evidence.
+- Root cause (P19): the set of fields was defined by what to leave out, so every new or renamed field was sent by default, with no signal.
+- What would have caught it: a contract test that every field the judge reads in the real fixtures is classified. It must scan the parsed blocks (not raw text, which missed indented fields), and the fixtures must include a file with each field shape; the TE files were not fixtures until this fix.
+- Fix: an allowlist of evidence labels (`config.THEME_EVIDENCE_LABELS`), the known non-evidence labels, and an unknown field still sent but reported once per file by the gate (`transcript_utils.unclassified_theme_fields`). Test: `tests/test_theme_evidence_te.py::test_te_every_real_fixture_label_is_classified`.
+- Rule: when a model's output fields feed a judge, classify every field explicitly and test the classification against real files. A field nobody classified should be loud, not silently included or excluded. (P19)
 
 **Tests for a new rule passed with the rule switched off (2026-10-12, caught in review, SW).**
 - Issue: the first SW tests (changed first or last word in a quote) passed with `_stray_edge_words` replaced by `lambda *a: 0`. In one, the substitute word lay outside the alignment window; in the other, order-keeping alignment already failed it. The first version of the rule also missed a changed lead that aligned as two short blocks or three words, and rejected omissions marked with "...".
