@@ -321,6 +321,20 @@ def parse_section_range(sections_str: str) -> list[int]:
     return [n for n in sections if not (n in seen or seen.add(n))]
 
 
+def _warn_legacy_themes(where: str, strategy: str, count: int) -> None:
+    """N2 review (P19): a theme parser's legacy fallback produced themes that the
+    format check (transcript_utils.parse_bold_numbered_theme_blocks) does not read.
+    Say so, instead of building the summary or abstract from them silently.
+
+    Spec:  docs/plan_small_fixes_2026-10-12.md#N2
+    Tests: tests/test_small_fixes_n.py::test_n2_legacy_theme_fallback_warns
+    """
+    logging.getLogger(__name__).warning(
+        "%s read %d theme(s) with the legacy %s fallback; the themes format check "
+        "reads none, so the release gate will block publish. Re-run the themes step.",
+        where, count, strategy)
+
+
 def parse_themes(themes_markdown: str) -> list[dict]:
     """
     Parse structural/interpretive themes using a robust, multi-format approach.
@@ -385,6 +399,7 @@ def parse_themes(themes_markdown: str) -> list[dict]:
                 )
 
         if themes:
+            _warn_legacy_themes("summary_pipeline.parse_themes", "### header", len(themes))
             return themes
 
     # Strategy 3: Fallback to numbered list parsing (Legacy)
@@ -448,6 +463,8 @@ def parse_themes(themes_markdown: str) -> list[dict]:
             "themes — producer/consumer format drift (P19).",
             len(themes_markdown.strip()),
         )
+    elif themes:
+        _warn_legacy_themes("summary_pipeline.parse_themes", "numbered list", len(themes))
 
     return themes
 
@@ -736,7 +753,7 @@ def correction_feedback(artifact: str, claims: list) -> str:
 def generate_summary(
     summary_input: SummaryInput,
     api_client,
-    model: str = config.AUX_MODEL,  # Haiku: cost-effective for summary generation
+    model: str | None = None,  # Haiku: cost-effective for summary generation
     system: Optional[list] = None,
     feedback_claims: Optional[list] = None,
 ) -> str:
@@ -746,6 +763,7 @@ def generate_summary(
     ``feedback_claims``: on a regeneration attempt, the statements a previous
     draft made that the faithfulness judge rejected (RF.J).
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     import logging
     logger = logging.getLogger(__name__)
     logger.info("generate_summary called with model: %s", model)

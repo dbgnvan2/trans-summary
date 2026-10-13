@@ -157,8 +157,8 @@ def _blog_project(tmp_path, monkeypatch, validations):
     proj = tmp_path / "projects" / stem
     proj.mkdir(parents=True)
     for suffix, text in (
-        (config.SUFFIX_STRUCTURAL_THEMES, "## Structural Themes\n\n1. **Structure A**: x.\n"),
-        (config.SUFFIX_INTERPRETIVE_THEMES, "## Interpretive Themes\n\n1. **Interp A**: y.\n"),
+        (config.SUFFIX_STRUCTURAL_THEMES, "## Structural Themes\n\n**1. Structure A**\n**Description:** x.\n"),
+        (config.SUFFIX_INTERPRETIVE_THEMES, "## Interpretive Themes\n\n**1. Interp A**\n**Description:** y.\n"),
         (config.SUFFIX_TOPICS, "## Topics\n\n### Topic A\nD.\n*_(~20% of transcript; Sections 1)_*\n"),
         (config.SUFFIX_KEY_TERMS, "## Key Terms\n\n### Term A\nDef.\n"),
         (config.SUFFIX_LENSES, "## Lenses (Ranked)\n\n1. **Lens A**\nRationale.\n"),

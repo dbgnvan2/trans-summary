@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-12 (small open items — N1–N5)
+
+- **N1** An emphasis reply with no scored items is no longer saved raw and reported as
+  success. Before, only replies over 500 characters were caught. Nothing is saved and an
+  earlier run's file is set aside.
+- **N2** The extraction stage checks theme and topics files with the format checks'
+  own parsers, so they can't disagree. No result changed on 23 real theme files or 19
+  topics files. A section that fails the check is now logged as an error; before, it
+  was reused with no message. Both legacy theme-parser fallbacks warn when they
+  produce themes.
+- **N3** 24 functions defaulted to a model bound at import. They now resolve
+  `config.settings` when called, so a model chosen in the GUI is used even by a
+  caller that passes none.
+- **N4** The topics header fallback no longer reads the text before the first `###`
+  as a topic. The skip is logged.
+- **N5** The cost report lists the steps it does not price (judges, overview,
+  coverage validation, regeneration loops), so a low estimate is not read as complete.
+
+Plan and status: `docs/plan_small_fixes_2026-10-12.md`.
+
 ## [Unreleased] - 2026-10-12 (speaker attribution without labels — SA; FAQ answers — FQ)
 
 The Kerr 2026-09-13 run was blocked at publish by one summary sentence: "The

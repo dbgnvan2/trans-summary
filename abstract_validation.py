@@ -461,7 +461,7 @@ def check_keyword_coverage(
 
 
 def validate_abstract_coverage(
-    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL, logger=None
+    abstract: str, abstract_input, use_llm_verification: bool = False, api_client=None, model: str | None = None, logger=None
 ) -> dict:
     """
     Validate abstract covers required content from source.
@@ -477,6 +477,7 @@ def validate_abstract_coverage(
     Returns:
         Validation results dict
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     items = generate_coverage_items(abstract_input)
 
     # A12: match keywords against the abstract BODY, not a leading `# Abstract`
@@ -577,7 +578,7 @@ UNVERIFIED_CONFIDENCES = ("llm_unavailable", "extraction_failed")
 
 
 def verify_items_with_llm(content: str, items: list, api_client, content_type: str,
-                          model: str = config.AUX_MODEL, logger=None,
+                          model: str | None = None, logger=None,
                           source_text_limit: Optional[int] = None) -> list:
     """Ask the LLM whether ``content`` covers each item. Returns one entry per item:
     True / False, or None for every item when the call fails (API error, timeout,
@@ -588,6 +589,7 @@ def verify_items_with_llm(content: str, items: list, api_client, content_type: s
     Spec:    docs/plan_review_fixes_2026-10-04.md#R13 / #R14
     Tests:   tests/test_validator_gating_r15.py::test_r13a_short_yes_no_reply_accepted
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     items_text = "\n".join(
         f'{i + 1}. {item.label}: "{item.source_text[:source_text_limit]}"'
         for i, item in enumerate(items)
@@ -644,8 +646,9 @@ def verify_items_with_llm(content: str, items: list, api_client, content_type: s
     return results
 
 
-def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list:
+def verify_with_llm(abstract: str, items: list[CoverageItem], api_client, model: str | None = None, logger=None) -> list:
     """Abstract LLM coverage rescue (see ``verify_items_with_llm``)."""
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     return verify_items_with_llm(abstract, items, api_client, "abstract",
                                  model=model, logger=logger)
 
@@ -784,7 +787,7 @@ def generate_review_checklist(abstract_input) -> str:
 
 
 def validate_and_report(
-    abstract: str, abstract_input, api_client=None, model: str = config.AUX_MODEL, logger=None
+    abstract: str, abstract_input, api_client=None, model: str | None = None, logger=None
 ) -> tuple[bool, str]:
     """
     Convenience function: validate and return pass/fail with report.
@@ -799,6 +802,7 @@ def validate_and_report(
         (passed: bool, report: str)
     """
     # Structural validation first
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     target_word_count = getattr(abstract_input, "target_word_count", 250)
     structural = validate_structural(abstract, target_word_count)
     

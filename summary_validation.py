@@ -425,7 +425,7 @@ def check_proportionality(summary: str, summary_input, tolerance: float = 0.3) -
 
 
 def validate_summary_coverage(
-    summary: str, summary_input, use_llm_verification: bool = False, api_client=None, model: str = config.AUX_MODEL, logger=None
+    summary: str, summary_input, use_llm_verification: bool = False, api_client=None, model: str | None = None, logger=None
 ) -> dict:
     """
     Validate summary covers required content with appropriate proportions.
@@ -441,6 +441,7 @@ def validate_summary_coverage(
     Returns:
         Validation results dict
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     items = generate_coverage_items(summary_input)
 
     # Keyword coverage check
@@ -557,11 +558,12 @@ def validate_summary_coverage(
     }
 
 
-def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str = config.AUX_MODEL, logger=None) -> list:
+def verify_with_llm(summary: str, items: list[CoverageItem], api_client, model: str | None = None, logger=None) -> list:
     """Summary LLM coverage rescue. Shares the abstract implementation, which
     accepts a short YES/NO reply and reports a failed call as unverified (review
     F13: this copy lacked min_length=2 and the error fallback, so every call
     failed after 3 paid attempts and no report was written)."""
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     return abstract_validation.verify_items_with_llm(
         summary, items, api_client, "summary", model=model, logger=logger,
         source_text_limit=100)
@@ -753,18 +755,19 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
 
 
 def validate_and_report(
-    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL, logger=None
+    summary: str, summary_input, api_client=None, model: str | None = None, logger=None
 ) -> tuple[bool, str]:
     """
     Validate summary and return pass/fail with report.
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     _status, passed, report = validate_and_report_status(
         summary, summary_input, api_client=api_client, model=model, logger=logger)
     return passed, report
 
 
 def validate_and_report_status(
-    summary: str, summary_input, api_client=None, model: str = config.AUX_MODEL, logger=None
+    summary: str, summary_input, api_client=None, model: str | None = None, logger=None
 ) -> tuple[str, bool, str]:
     """``validate_and_report`` plus the gate status (PASS / FAIL / ERROR) over the
     gating categories (config.SUMMARY_COVERAGE_GATING_CATEGORIES).
@@ -774,6 +777,7 @@ def validate_and_report_status(
     Tests:   tests/test_validator_gating_r15.py::test_r15_summary_status_ignores_speaker_and_purpose
     """
     # Structural validation
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     structural = validate_structural(summary, summary_input.target_word_count)
 
     # Fail only on fatal issues

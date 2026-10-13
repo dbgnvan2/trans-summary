@@ -27,7 +27,7 @@ class TranscriptValidator:
     def _setup_client(self):
         self.client = transcript_utils.get_anthropic_client(self.api_key)
 
-    def validate(self, transcript_path: Path, model: str = config.DEFAULT_MODEL) -> List[Dict[str, Any]]:
+    def validate(self, transcript_path: Path, model: str | None = None) -> List[Dict[str, Any]]:
         """
         Run the validation prompt against the transcript.
 
@@ -38,6 +38,7 @@ class TranscriptValidator:
         Returns:
             A list of error findings (dicts).
         """
+        model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
         self.logger.info("Validating transcript: %s", transcript_path)
         self.logger.info("Using model: %s", model)
 

@@ -405,6 +405,10 @@ class CostEstimator:
         self._log("  - Output:           $%.4f", total_output)
         self._log("  - Cache Write:      $%.4f", total_write)
         self._log("  - Cache Read:       $%.4f", total_read)
+        # N5: say what the total leaves out, so a low estimate is not read as complete.
+        self._log("Not estimated (the actual cost is higher by these):")
+        for item in config.COST_ESTIMATE_NOT_COVERED:
+            self._log("  - %s", item)
         self._log("-" * 100)
         self._log("Cost by Category")
         self._log("-" * 100)

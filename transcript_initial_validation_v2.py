@@ -166,11 +166,12 @@ class TranscriptValidatorV2:
     def _setup_client(self):
         self.client = transcript_utils.get_anthropic_client(self.api_key)
 
-    def validate_chunked(self, transcript_path: Path, model: str = config.DEFAULT_MODEL) -> List[Dict[str, Any]]:
+    def validate_chunked(self, transcript_path: Path, model: str | None = None) -> List[Dict[str, Any]]:
         """
         Validate transcript using chunked processing.
         Splits by words, processes each chunk, aggregates and deduplicates findings.
         """
+        model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
         self.metrics.model_name = model
         self.logger.info(f"Starting V2 validation (Chunked) for: {transcript_path.name}")
         
@@ -529,10 +530,11 @@ class TranscriptValidatorV2:
             
         return output_path, applied_count, skipped_reasons
 
-    def run_iterative_validation_v2(self, transcript_path: Path, max_iterations: int = 5, model: str = config.DEFAULT_MODEL) -> Dict[str, Any]:
+    def run_iterative_validation_v2(self, transcript_path: Path, max_iterations: int = 5, model: str | None = None) -> Dict[str, Any]:
         """
         Full V2 iterative validation pipeline (Headless).
         """
+        model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
         current_file = transcript_path
         stalled_count = 0
         previous_error_count = float('inf')

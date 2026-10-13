@@ -801,7 +801,7 @@ def validate_emphasis_items(
 
 
 def validate_headers(
-    formatted_filename: str, model: str = config.AUX_MODEL, logger=None
+    formatted_filename: str, model: str | None = None, logger=None
 ) -> bool:
     """Validate that the section headers in the formatted transcript make sense,
     using the batched HeaderValidator (the GUI's "Val Headers" step) so there is one
@@ -813,6 +813,7 @@ def validate_headers(
     Spec:  docs/plan_todo_triage_2026-10-11.md#HV
     Tests: tests/test_header_validation_hv.py::test_hv1_validate_headers_uses_batched_validator
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("validate_headers")
 
@@ -846,8 +847,9 @@ def validate_headers(
 # ============================================================================
 
 
-def validate_abstract_coverage(base_name: str, logger=None, model: str = config.DEFAULT_MODEL) -> bool:
+def validate_abstract_coverage(base_name: str, logger=None, model: str | None = None) -> bool:
     """Validate the abstract using the coverage validation module."""
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("validate_abstract_coverage")
 

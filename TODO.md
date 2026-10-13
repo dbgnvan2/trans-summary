@@ -361,22 +361,23 @@ Remaining boundaries stage one at a time behind the migration shim.
 - ~~**Emphasis all-items-content-rejected raw fallback.**~~ ✅ FIXED 2026-10-11 (Q3):
   nothing is saved, the step fails, an earlier run's emphasis file is renamed `.stale`,
   and the main pipeline logs a warning.
-- **Adjacent (Q3 sweep, not fixed):** a response of 500 characters or less that parses
-  to 0 emphasis items is still saved raw and reported as success
+- ~~**Adjacent (Q3 sweep):** a response of 500 characters or less that parses
+  to 0 emphasis items is still saved raw and reported as success~~ — fixed 2026-10-12 (N1,
+  `docs/plan_small_fixes_2026-10-12.md`): nothing saved, step fails
   (`extraction_pipeline.extract_scored_emphasis`, the `else response` fallback). The
   release gate then returns ERROR on that file, so it is loud at publish time.
-- **Adjacent (U5 sweep, not fixed):** `validate_headers`, the abstract helpers in
+- ~~**Adjacent (U5 sweep):**~~ fixed 2026-10-12 (N3: defaults are `None`, resolved per call). Was: `validate_headers`, the abstract helpers in
   `abstract_validation.py` and `generate_structured_abstract` take `model=config.AUX_MODEL`
   as a default bound at import, so a CLI call without a model ignores the model chosen in
   the GUI. `validate_summary_coverage` was fixed (its gate key depends on the model).
 - **Adjacent (T1–T5 review, not fixed):**
-  - `extraction_pipeline._is_valid_section_content` (~line 183) accepts `1. **Title**`
+  - ~~fixed 2026-10-12 (N2)~~ `extraction_pipeline._is_valid_section_content` (~line 183) accepts `1. **Title**`
     themes when the shared parser finds none, so Core can report valid themes while the
     format check reports drift. It should use the shared parser only.
-  - The cost estimate has no rows for the faithfulness/theme judges (majority of 3),
+  - (N5, 2026-10-12: the report now lists what it leaves out; pricing them is still open.) The cost estimate has no rows for the faithfulness/theme judges (majority of 3),
     the overview, summary-coverage validation, abstract-initial, or regeneration loops,
     so it is low by an amount it does not state.
-  - Function defaults `model=config.DEFAULT_MODEL` / `config.AUX_MODEL` are bound when
+  - ~~fixed 2026-10-12 (N3)~~ Function defaults `model=config.DEFAULT_MODEL` / `config.AUX_MODEL` are bound when
     the program starts. They matter only for a caller that passes no model; the GUI
     passes one.
 - **Theme judge meta label (decision):** `config.THEME_JUDGE_META_LABELS` has "nested under
@@ -384,8 +385,8 @@ Remaining boundaries stage one at a time behind the migration shim.
   interpretive files use and the prompt now names. That field is sent to the theme judge
   as evidence, not skipped. This was already the case; adding the label changes what the
   judge sees and needs a theme calibration run.
-- **Adjacent (Q4, not fixed):** `parse_topics_from_extraction` strategy 2 treats text
-  before the first `###` header as a topic (kept as before).
+- ~~**Adjacent (Q4):** `parse_topics_from_extraction` strategy 2 treats text
+  before the first `###` header as a topic~~ — fixed 2026-10-12 (N4): skipped and logged.
   `extract_scored_emphasis` (`extraction_pipeline.py:727`) does
   `final_content = "\n\n".join(lines) if validated_items else response` — when
   items parse but ALL fail `validate_emphasis_item` (content grounding), it saves

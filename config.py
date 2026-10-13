@@ -1163,6 +1163,19 @@ QA_AUDIENCE_SPEAKER_LABELS = frozenset({
 # name ("**Dr. Kerr:**" is the presenter "Michael Kerr").
 QA_SPEAKER_TITLES = frozenset({"dr", "mr", "mrs", "ms", "prof", "professor", "rev"})
 
+# N5: work the cost estimate does not price, listed under its total so the report says
+# it is low and why (TODO "cost estimate has no rows for…").
+COST_ESTIMATE_NOT_COVERED = (
+    "faithfulness and theme judges at generation and publish (with majority-of-3 "
+    "confirmation of flags)",
+    "topic/key-term faithfulness check",
+    "overview post",
+    "summary coverage validation",
+    "regeneration attempts after a failed faithfulness check (summary, abstract, blog, "
+    "overview: up to GENERATION_FAITHFULNESS_ATTEMPTS each)",
+    "theme/lens validation retries",
+)
+
 # SA (docs/plan_speaker_attribution_2026-10-12.md). A transcript counts as speaker-
 # labelled when at least this many lines start with a "**Name:**" label (one stray
 # "**Note:**" line is not a labelled conversation).

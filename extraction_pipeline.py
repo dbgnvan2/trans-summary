@@ -168,29 +168,47 @@ def _is_valid_section_content(section_name: str, text: str) -> bool:
 
     normalized = section_name.lower()
     if normalized in ("topics", "key topics"):
-        return bool(abstract_pipeline.parse_topics_from_extraction(text))
+        # N2 review: the format check's parser (artifact_contracts.topics_from_markdown
+        # uses summary_pipeline.parse_topics_structure), not the abstract's three-
+        # strategy parser. Same result on 19 real topics files.
+        import summary_pipeline
+        return bool(summary_pipeline.parse_topics_structure(text))
     if normalized in (
         "interpretive themes",
         "themes",
         "key themes",
         "structural themes",
     ):
-        # Route through the format-aware parser so validity means "real themes
-        # parsed", not "some scaffolding present". A bare `###`/number-outside-bold
-        # check passed all-scaffolding structural files as valid (P19 sibling).
-        if abstract_pipeline.parse_themes_from_extraction(text):
-            return True
-        # Fallback matches BOTH bold forms: `**1. Title**` (real, number inside
-        # bold) and legacy `1. **Title**` (number outside bold).
-        return bool(
-            re.search(r"(?:^|\n)\s*(?:\*\*\d+\.\s+.+?\*\*|\d+\.\s+\*\*.+?\*\*)", text)
-        )
+        # N2: the same parser the format check uses (artifact_contracts.themes_from_
+        # markdown), so the stage can't report valid themes the format check rejects.
+        # A looser regex fallback accepted bold-numbered lines with no Description.
+        # On 23 real theme files it changed no result.
+        return bool(transcript_utils.parse_bold_numbered_theme_blocks(text))
     if normalized == "key terms":
         return bool(
             re.search(r"(?:^|\n)###\s+", text)
             or re.search(r"(?:^|\n)\*\*[^*\n]+\*\*\s*[:\-]", text)
         )
     return True
+
+
+def _report_invalid_sections(logger, sections: dict) -> list:
+    """Log an error for each loaded section whose content fails
+    _is_valid_section_content. Before, a failing section was reloaded from the same
+    file and used as is with no message (N2 review, P2). Later steps still run (the
+    release gate's format check blocks publish); this makes the cause visible in the
+    run log. Returns the names reported.
+
+    Spec:  docs/plan_small_fixes_2026-10-12.md#N2
+    Tests: tests/test_small_fixes_n.py::test_n2_invalid_section_is_reported
+    """
+    bad = [name for name, text in sections.items()
+           if text and not _is_valid_section_content(name, text)]
+    for name in bad:
+        logger.error("%s: the saved file has no items its format check can read; later "
+                     "steps use it as is and the release gate will block publish. "
+                     "Re-run that step.", name)
+    return bad
 
 
 def _extract_json_object(text: str) -> dict:
@@ -620,12 +638,13 @@ def _save_summary(content: str, original_filename: str, summary_type: str,
 
 def extract_scored_emphasis(
     formatted_filename: str,
-    model: str = config.DEFAULT_MODEL,
+    model: str | None = None,
     logger=None,
     transcript_system_message=None,
     transcript_text: str | None = None,
 ) -> bool:
     """Run the scored emphasis extraction pipeline."""
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("extract_scored_emphasis")
 
@@ -673,7 +692,15 @@ def extract_scored_emphasis(
                 output_path,
             )
             return False
-            
+        if not items:
+            # N1: a short response with no scored items (a refusal, "none found") was
+            # saved raw and reported as success; the gate then returned ERROR on it.
+            # Nothing is saved, and an earlier run's file is set aside (as Q3).
+            logger.error("The model returned no emphasis items (%d characters: %.120r); "
+                         "nothing saved. Re-run the extraction.", len(response), response)
+            _set_aside_stale_emphasis(formatted_filename, logger)
+            return False
+
         # Find timestamps for each item
         for item in items:
             item['timestamp'] = None
@@ -738,9 +765,8 @@ def extract_scored_emphasis(
                          "nothing saved. Re-run the extraction.", len(items))
             _set_aside_stale_emphasis(formatted_filename, logger)
             return False
-        final_content = (
-            "\n\n".join(final_content_lines) if validated_items else response
-        )
+        # Every branch with no validated items has returned above (Q3, N1).
+        final_content = "\n\n".join(final_content_lines)
         output_path = _save_summary(
             final_content, formatted_filename, "emphasis-scored", logger=logger)
         logger.info("✓ Scored emphasis saved to: %s", output_path)
@@ -810,12 +836,13 @@ def _ground_bowen_refs(refs, transcript_text: str, logger) -> list:
 
 def extract_bowen_references_from_transcript(
     formatted_filename: str,
-    model: str = config.DEFAULT_MODEL,
+    model: str | None = None,
     logger=None,
     transcript_system_message=None,
     transcript_text: str | None = None,
 ) -> bool:
     """Extracts Bowen references from the transcript."""
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("extract_bowen_references")
 
@@ -963,10 +990,11 @@ def extract_bowen_references_from_transcript(
 
 def extract_bowen_and_emphasis(
     formatted_filename: str,
-    model: str = config.DEFAULT_MODEL,
+    model: str | None = None,
     logger=None,
 ) -> bool:
     """Run Bowen and emphasis extraction together using one cached transcript context."""
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("extract_bowen_and_emphasis")
 
@@ -1004,7 +1032,7 @@ def extract_bowen_and_emphasis(
 
 def generate_topics(
     formatted_filename: str,
-    model: str = config.DEFAULT_MODEL,
+    model: str | None = None,
     logger=None,
     transcript_system_message=None,
 ) -> bool:
@@ -1018,6 +1046,7 @@ def generate_topics(
     Spec:    docs/spec_lean_abstract_2026-07-13.md#LA.1
     Tests:   tests/test_lean_abstract.py::test_la1_generate_topics_writes_topics_artifact
     """
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("generate_topics")
 
@@ -1276,12 +1305,13 @@ def _abstract_gate_precheck(base_name: str, logger=None):
 
 
 def generate_structured_abstract(
-    base_name: str, logger=None, transcript_system_message=None, model: str = config.AUX_MODEL
+    base_name: str, logger=None, transcript_system_message=None, model: str | None = None
 ) -> bool:
     """
     Generate an abstract using the structured pipeline.
     Note: Uses Sonnet for detailed content generation (was AUX_MODEL/Haiku).
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("generate_structured_abstract")
 
@@ -1844,6 +1874,12 @@ def summarize_transcript(
                 lenses_output = _load_section_from_project_file(
                     stem, config.SUFFIX_LENSES, ["Lenses (Ranked)", "Lenses"]
                 )
+            _report_invalid_sections(logger, {
+                "Structural Themes": structural_output,
+                "Interpretive Themes": interpretive_output,
+                "Topics": topics_output,
+                "Key Terms": key_terms_output,
+            })
 
             # If lenses are missing but key components exist, regenerate lenses and validate top lens.
             if not lenses_output and structural_output and interpretive_output:

@@ -155,10 +155,11 @@ class HeaderValidator:
                 found.append(term)
         return found
 
-    def validate_batch(self, batch: List[Dict], model: str = config.AUX_MODEL) -> str:
+    def validate_batch(self, batch: List[Dict], model: str | None = None) -> str:
         """Send a batch of sections to Claude for validation."""
 
         # Construct batch content string
+        model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
         batch_content = ""
         for section in batch:
             display_content = section["content"]
@@ -195,8 +196,9 @@ class HeaderValidator:
 
         return transcript_utils.response_text(response)
 
-    def run(self, input_path: Path, model: str = config.AUX_MODEL):
+    def run(self, input_path: Path, model: str | None = None):
         """Main execution flow."""
+        model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
         sections = self.parse_transcript(input_path)
         if not sections:
             self.logger.error(

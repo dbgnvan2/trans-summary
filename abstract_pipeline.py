@@ -118,17 +118,19 @@ def parse_topics_from_extraction(topics_markdown: str) -> list[Topic]:
     if not topics and "###" in topics_markdown:
         # Q4: the name is the header's own line ("###[ \t]", not "\s", so a blank
         # header does not take the next line as its name); a blank name is
-        # dropped below. Text before the first header keeps the old handling.
+        # dropped below. N4: text before the first header ("## Topics", an
+        # introduction) is not a topic; it is skipped and logged. No real topics file
+        # reaches this strategy (19 checked, 2026-10-12).
         parts = re.split(r"(?:^|\n)###(?=[ \t\n]|$)[ \t]*", topics_markdown)
-        blocks = [(i == 0, b) for i, b in enumerate(parts) if b.strip()]
-        for idx, (preamble, block) in enumerate(blocks):
-            if preamble:
-                lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
-                name, lines = lines[0], lines[1:]
-            else:
-                first, _, rest = block.partition("\n")
-                name = first.strip()
-                lines = [ln.strip() for ln in rest.split("\n") if ln.strip()]
+        if parts[0].strip():
+            logging.getLogger(__name__).warning(
+                "Topics: %d characters before the first ### header are not a topic; "
+                "skipped.", len(parts[0].strip()))
+        blocks = [b for b in parts[1:] if b.strip()]
+        for idx, block in enumerate(blocks):
+            first, _, rest = block.partition("\n")
+            name = first.strip()
+            lines = [ln.strip() for ln in rest.split("\n") if ln.strip()]
             body = " ".join(lines)
             pct_match = re.search(r"~?(\d+)%", body)
             percentage = int(pct_match.group(1)) if pct_match else max(5, 100 - idx * 10)
@@ -225,6 +227,11 @@ def parse_themes_from_extraction(themes_markdown: str) -> list[Theme]:
             ).strip()
             if name and description:
                 themes.append(Theme(name=name, description=description))
+
+    if themes and not parse_bold_numbered_theme_blocks(themes_markdown):
+        from summary_pipeline import _warn_legacy_themes
+        _warn_legacy_themes("abstract_pipeline.parse_themes_from_extraction",
+                            "### header or numbered list", len(themes))
 
     # P19 guard: non-empty input that parsed to nothing is contract drift, not a
     # benign empty — surface it loudly rather than silently returning [].
@@ -449,7 +456,7 @@ def load_prompt() -> str:
 def generate_abstract(
     abstract_input: AbstractInput,
     api_client,  # Anthropic client or compatible
-    model: str = config.AUX_MODEL,  # Haiku: cost-effective for abstract generation
+    model: str | None = None,  # Haiku: cost-effective for abstract generation
     system: Optional[list] = None,
     feedback_claims: Optional[list] = None,
 ) -> str:
@@ -467,6 +474,7 @@ def generate_abstract(
     Returns:
         Generated abstract text
     """
+    model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     prompt_template = load_prompt()
     prompt = prompt_template.format(
         input_json=abstract_input.to_json(),

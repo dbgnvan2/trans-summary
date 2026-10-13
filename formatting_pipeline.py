@@ -147,10 +147,11 @@ def formatting_output_needed(model: str, raw_transcript: str, ratio: float = Non
 def format_transcript_with_claude(
     raw_transcript: str,
     prompt_template: str,
-    model: str = config.DEFAULT_MODEL,
+    model: str | None = None,
     logger=None,
 ) -> str:
     """Send transcript to Claude for formatting."""
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     client = get_anthropic_client()
 
     full_prompt = f"{prompt_template}\n\n---\n\nRAW TRANSCRIPT:\n\n{raw_transcript}"
@@ -234,7 +235,7 @@ def save_formatted_transcript(content: str, original_filename: str) -> Path:
 
 
 def format_transcript(
-    raw_filename: str, model: str = config.DEFAULT_MODEL, logger=None,
+    raw_filename: str, model: str | None = None, logger=None,
     pattern_set: Optional[str] = None,
 ) -> bool:
     """
@@ -243,6 +244,7 @@ def format_transcript(
     ``pattern_set``: name of the pattern set to assign to this project before
     formatting ("" clears it; None keeps the project's current assignment).
     """
+    model = model or config.settings.DEFAULT_MODEL  # N3: resolved per call, not at import
     if logger is None:
         logger = setup_logging("format_transcript")
 
