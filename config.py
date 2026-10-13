@@ -691,7 +691,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-12e"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule
+JUDGE_LOGIC_VERSION = "2026-10-13"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",
@@ -742,7 +742,11 @@ FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP = 0.15
 # published with the theme (review F3, plan R7). Matched case-insensitively.
 THEME_JUDGE_META_LABELS = frozenset({
     "coverage", "coverage / role", "lens fuel", "lens fuel value",
-    "nested under", "nested under structural themes", "status",
+    # TM (2026-10-13): "(s)" is the label the interpretive prompt names and 21 of 25
+    # interpretive files on disk use (scope: docs/calibration_theme_meta_label_2026-10-13.md);
+    # without it that field reached the theme judge as evidence.
+    "nested under", "nested under structural themes", "nested under structural theme(s)",
+    "status",
     "document", "prompt version used", "date processed", "source document",
 })
 

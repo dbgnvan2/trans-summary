@@ -386,7 +386,22 @@ Remaining boundaries stage one at a time behind the migration shim.
   - ~~fixed 2026-10-12 (N3)~~ Function defaults `model=config.DEFAULT_MODEL` / `config.AUX_MODEL` are bound when
     the program starts. They matter only for a caller that passes no model; the GUI
     passes one.
-- **Theme judge meta label (decision):** `config.THEME_JUDGE_META_LABELS` has "nested under
+- **Theme evidence picks up document-level fields (found 2026-10-13, TM review):** the
+  last theme in a file runs to the end of the text, so a trailing bold paragraph ("Summary
+  paragraph", "Rationale and coverage summary") becomes that theme's evidence for the
+  judge and is published with it (`transcript_utils._extract_theme_evidence`,
+  `theme_display_blocks`). Seen in the Why Families and Beautiful Boy structural files.
+  Fix: an allowlist of evidence labels in config (e.g. "key evidence") plus a contract
+  test over every real fixture. It changes what the theme judge sees, so it needs a theme
+  calibration run.
+- **Systems Biology structural themes (found 2026-10-13, TM):** the theme "Convergence
+  Between Systems Biology and Bowen Family Systems Theory" is judged ungrounded in 6 of 6
+  checks (overreaching description, wrong section citation). Regenerate that project's
+  structural themes before publishing it (`docs/calibration_theme_meta_label_2026-10-13.md`).
+- ~~**Theme judge meta label (decision):**~~ fixed 2026-10-13 (TM, user approved; no
+  change on gold or 36 real checks, `docs/calibration_theme_meta_label_2026-10-13.md`;
+  21 of 25 interpretive files on disk use the label — the "126 of 161" below counted a
+  wider set, scope not recorded). Was: `config.THEME_JUDGE_META_LABELS` has "nested under
   structural themes" but not "nested under structural theme(s)", the label 126 of 161 real
   interpretive files use and the prompt now names. That field is sent to the theme judge
   as evidence, not skipped. This was already the case; adding the label changes what the

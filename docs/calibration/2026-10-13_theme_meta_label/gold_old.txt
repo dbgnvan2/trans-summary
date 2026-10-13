@@ -1,0 +1,9 @@
+run 1/3: faithfulness recall=0.92 precision=1.00 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+   MISS k4    truth=unsupported  pred=entailed     His wife was bringing the boat into moorage, and Kerr, anxious about h
+   MISS k6    truth=unsupported  pred=entailed     This distinction is central to Bowen theory's explanation of how famil
+run 2/3: faithfulness recall=0.96 precision=1.00 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+   MISS k4    truth=unsupported  pred=entailed     His wife was bringing the boat into moorage, and Kerr, anxious about h
+run 3/3: faithfulness recall=0.96 precision=1.00 | themes recall=1.00 precision=1.00 | real abstracts 3/3 | injected caught=True | bars=PASS
+   MISS k4    truth=unsupported  pred=entailed     His wife was bringing the boat into moorage, and Kerr, anxious about h
+flips across runs: 1; malformed replies retried: 3; cost $1.5644; saved /private/tmp/claude-501/-Users-davemini2-ProjectsLocal-Projects-trans-summary/b69c1d51-d1a9-465d-85d7-178362c19765/scratchpad/tm/gold_old.json
+exit 1

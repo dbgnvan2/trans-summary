@@ -105,7 +105,7 @@ def test_sa3_prompt_rule_present():
 
 
 def test_sa4_cache_key_covers_label_logic():
-    assert config.JUDGE_LOGIC_VERSION == "2026-10-12e"
+    assert config.JUDGE_LOGIC_VERSION >= "2026-10-12e"  # later bumps (TM) keep SA
     fns = release_gate._judge_input_functions()
     assert tu.has_speaker_labels in fns
     assert release_gate.with_recording_metadata in fns

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (theme judge meta label — TM)
+
+- "Nested under structural theme(s)" is now a meta label for the theme judge, like
+  "nested under structural themes". 21 of the 25 interpretive files on disk use it, so
+  it was reaching the judge as evidence.
+- `JUDGE_LOGIC_VERSION` 2026-10-13.
+- Same-day calibration: theme gold 1.00/1.00 ×3 both ways, and 36 real theme checks on
+  6 public talks gave identical verdicts.
+- Found while measuring (not changed): the Systems Biology project's structural theme
+  2 is judged ungrounded every time. Its structural themes need regenerating.
+- `docs/calibration_theme_meta_label_2026-10-13.md`.
+
 ## [Unreleased] - 2026-10-12 (changed first or last word in a quote — SW)
 
 - The verbatim-quote check (blocking) now catches a quote whose first or last words

@@ -69,6 +69,13 @@ Pull from the global catalogue; the ones that bite this repo most:
   `::test_archive_reports_originals_it_could_not_remove`). Still open: a line another live handler
   writes between the zip and the unlink is lost (a few lines at most).
 
+- **Theme evidence is an exclusion list (P19, TM review 2026-10-13).** Every bold field
+  of a theme block except Description and the meta labels reaches the theme judge. A new or
+  renamed meta label (TM: "theme(s)") or a document-level paragraph after the last theme
+  ("Summary paragraph") is sent as evidence. An allowlist of evidence labels with a contract
+  test over every real fixture would catch both. Open: TODO "Theme evidence picks up
+  document-level fields".
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**
