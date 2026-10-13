@@ -1606,25 +1606,95 @@ def parse_bold_numbered_theme_blocks(text: str) -> list:
             for name, description, _ in parse_theme_blocks_with_evidence(text)]
 
 
+def _theme_own_text_report(block: str, last: bool = False) -> tuple:
+    """``(text, notes)``: the part of a theme block that belongs to the theme, and a
+    list of what was left out (TD). Does not log; the release gate reports ``notes``
+    once per file (``trimmed_theme_notes``).
+
+    - A tail of document-level fields (``config.THEME_DOCUMENT_LEVEL_LABELS``, e.g. a
+      closing "Summary paragraph") is cut. The last theme block runs to the end of
+      the file, so the model's notes on its choice of themes were read into it.
+    - A document-level field inside a theme, with theme fields after it, is dropped
+      on its own; the fields after it are kept.
+    - In the last theme only: a heading after its final field ends the theme; and
+      when the final field is a theme-level meta field (Lens fuel value, Coverage /
+      role, Nested under…, always one paragraph in real files), later prose
+      paragraphs are an unlabeled closing note ("These seven themes break the three
+      structural anchors…") and are dropped. A Description or Key evidence field keeps
+      all its paragraphs (list items, quotes, a second paragraph).
+
+    Spec:  docs/plan_theme_display_2026-10-13.md#TD1
+    Tests: tests/test_theme_display_td.py::test_td1_unlabeled_closing_note_not_published
+    """
+    notes = []
+    fields = list(_THEME_FIELD_RE.finditer(block))
+
+    def is_doc(m):
+        return m.group(1).strip().lower() in config.THEME_DOCUMENT_LEVEL_LABELS
+
+    k = len(fields)
+    while k > 0 and is_doc(fields[k - 1]):
+        k -= 1
+    if k < len(fields):
+        notes += [f"document-level field {m.group(1).strip()!r}" for m in fields[k:]]
+        block, fields = block[:fields[k].start()].rstrip(), fields[:k]
+    for n in reversed([n for n, m in enumerate(fields) if is_doc(m)]):
+        notes.append(f"document-level field {fields[n].group(1).strip()!r} inside the theme")
+        block = block[:fields[n].start()] + block[fields[n + 1].start():]
+    if last:
+        fields = list(_THEME_FIELD_RE.finditer(block))
+        if fields:
+            head, rest = block[:fields[-1].end()], block[fields[-1].end():]
+            heading = re.search(r"(?m)^#{1,6}[ \t]", rest)
+            if heading:
+                notes.append("heading after the last field")
+                rest = rest[:heading.start()]
+            label = fields[-1].group(1).strip().lower()
+            theme_meta = label in (config.THEME_JUDGE_META_LABELS - config.THEME_DOCUMENT_LEVEL_LABELS)
+            paragraphs = [p for p in re.split(r"\n[ \t]*\n", rest)
+                          if p.strip() and p.strip() != "---"]
+            if theme_meta and len(paragraphs) > 1:
+                notes.append(f"{len(paragraphs) - 1} unlabeled paragraph(s) after the last field")
+                rest = rest[:rest.index(paragraphs[0]) + len(paragraphs[0])]
+            block = (head + rest).rstrip()
+    return block, notes
+
+
+def _theme_own_text(block: str, last: bool = False) -> str:
+    """The part of a theme block that belongs to the theme (see
+    ``_theme_own_text_report``)."""
+    return _theme_own_text_report(block, last)[0]
+
+
+def trimmed_theme_notes(text: str) -> list:
+    """``(theme name, what was left out)`` for every theme whose block lost text in
+    ``_theme_own_text_report``, so the release gate can report it once per file."""
+    for pattern in _THEME_PATTERNS:
+        candidates = _candidate_theme_blocks(text, pattern)
+        accepted = {name for _number, name, _own in _accepted_theme_blocks(text, pattern)}
+        if accepted:
+            out = []
+            for n, (_number, name, block) in enumerate(candidates):
+                if name in accepted:
+                    out += [(name, note) for note in
+                            _theme_own_text_report(block, last=n == len(candidates) - 1)[1]]
+            return out
+    return []
+
+
 def theme_display_blocks(text: str) -> list:
     """``(number, name, body)`` for each theme in document order, for publishing:
     the same themes ``parse_bold_numbered_theme_blocks`` returns (all three formats,
     scaffolding names skipped, a description required), with ``body`` the theme's
-    own markdown fields minus ``---`` rule lines.
+    own markdown fields minus ``---`` rule lines, cut before any document-level field
+    (TD, ``_theme_own_text``).
 
     Spec:  docs/plan_todo_triage_2026-10-11.md#D1
     Tests: tests/test_webpage_themes_d1.py::test_d1_bold_format_themes_only
     """
     for pattern in _THEME_PATTERNS:
-        out = []
-        for match in re.finditer(pattern, text, re.DOTALL):
-            name = match.group(2).strip()
-            block = _theme_body(match.group(3))
-            if (is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block)
-                    or not _extract_theme_description(block)):
-                continue
-            body = "\n".join(ln for ln in block.split("\n") if ln.strip() != "---").strip()
-            out.append((match.group(1), name, body))
+        out = [(number, name, "\n".join(ln for ln in own.split("\n") if ln.strip() != "---").strip())
+               for number, name, own in _accepted_theme_blocks(text, pattern)]
         if out:
             return out
     return []
@@ -1646,40 +1716,55 @@ def _is_theme_block(pattern: str, block: str) -> bool:
     return True
 
 
-def _theme_blocks(text: str, pattern: str) -> list:
-    themes = []
+def _candidate_theme_blocks(text: str, pattern: str) -> list:
+    """``(number, name, raw block)`` for each block of one format that can be a theme:
+    scaffolding names skipped, and a list item needs a Description field."""
+    out = []
     for match in re.finditer(pattern, text, re.DOTALL):
         name = match.group(2).strip()
         block = _theme_body(match.group(3))
         if is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block):
             continue
-        description = _extract_theme_description(block)
-        if description:
-            themes.append((name, description, _extract_theme_evidence(block)))
-    return themes
+        out.append((match.group(1), name, block))
+    return out
+
+
+def _accepted_theme_blocks(text: str, pattern: str) -> list:
+    """``(number, name, own text)`` for each real theme of one format, in document
+    order: the theme's own text (``_theme_own_text``; the last candidate is the last
+    theme) must have a description. Shared by the judge parser and the published page,
+    so both list the same themes with the same text (TD).
+
+    Spec:  docs/plan_theme_display_2026-10-13.md#TD3
+    Tests: tests/test_theme_display_td.py::test_td3_page_and_judge_list_the_same_themes
+    """
+    candidates = _candidate_theme_blocks(text, pattern)
+    out = []
+    for n, (number, name, block) in enumerate(candidates):
+        own = _theme_own_text(block, last=n == len(candidates) - 1)
+        if _extract_theme_description(own):
+            out.append((number, name, own))
+    return out
+
+
+def _theme_blocks(text: str, pattern: str) -> list:
+    return [(name, _extract_theme_description(own), _extract_theme_evidence(own))
+            for _number, name, own in _accepted_theme_blocks(text, pattern)]
 
 
 def theme_field_labels(text: str) -> list:
-    """``(theme name, field label)`` for every ``**Label:**`` field inside the theme
-    blocks the judge reads (same patterns and block bodies as
-    ``parse_theme_blocks_with_evidence``, so indented list-format fields count).
+    """``(theme name, field label)`` for every ``**Label:**`` field in the theme text
+    the judge reads (``_accepted_theme_blocks``: same blocks and trimming, so indented
+    list-format fields count).
 
     Spec:  docs/calibration_theme_evidence_2026-10-13.md
     Tests: tests/test_theme_evidence_te.py::test_te_every_real_fixture_label_is_classified
     """
     for pattern in _THEME_PATTERNS:
-        out, found = [], False
-        for match in re.finditer(pattern, text, re.DOTALL):
-            name = match.group(2).strip()
-            block = _theme_body(match.group(3))
-            if is_scaffolding_theme_name(name) or not block or not _is_theme_block(pattern, block):
-                continue
-            if not _extract_theme_description(block):
-                continue
-            found = True
-            out += [(name, m.group(1).strip()) for m in _THEME_FIELD_RE.finditer(block)]
-        if found:
-            return out
+        accepted = _accepted_theme_blocks(text, pattern)
+        if accepted:
+            return [(name, m.group(1).strip()) for _number, name, own in accepted
+                    for m in _THEME_FIELD_RE.finditer(own)]
     return []
 
 

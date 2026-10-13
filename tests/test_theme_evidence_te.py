@@ -82,9 +82,9 @@ def test_te_real_trailing_fields_are_covered_by_fixtures():
                 "why these themes were chosen and how well they cover the presentation"}
     seen = set()
     for f in FIXTURES.rglob("*.md"):
-        if "themes" in f.name:
-            seen |= {label.lower() for _n, label in
-                     tu.theme_field_labels(f.read_text(encoding="utf-8"))}
+        if "themes" in f.name:  # raw blocks: TD trims these fields out of the theme text
+            seen |= {m.group(1).strip().lower() for m in tu._THEME_FIELD_RE.finditer(
+                tu._theme_body(f.read_text(encoding="utf-8")))}
     assert trailing <= seen, trailing - seen
     assert trailing <= config.THEME_JUDGE_META_LABELS
 

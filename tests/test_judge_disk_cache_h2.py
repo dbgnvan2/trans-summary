@@ -118,7 +118,7 @@ def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     "extract_claims", "_is_claim", "_name_shaped_bold_labels", "_strip_scaffolding",
     "scaffolding_name_spans", "parse_theme_blocks_with_evidence", "_extract_theme_evidence",
     "with_theme_evidence",
-    "_theme_body",
+    "_theme_body", "_theme_own_text_report", "_accepted_theme_blocks", "_candidate_theme_blocks",
 ])
 def test_r9a_component_change_changes_key(monkeypatch, fn_name):
     import inspect as inspect_mod
@@ -133,7 +133,7 @@ def test_r9a_component_change_changes_key(monkeypatch, fn_name):
 
 @pytest.mark.parametrize("attr", [
     "BOWEN_CONCEPT_LABELS", "SCAFFOLDING_HEADING_PHRASES", "THEME_JUDGE_META_LABELS",
-    "THEME_EVIDENCE_LABELS"])
+    "THEME_EVIDENCE_LABELS", "THEME_DOCUMENT_LEVEL_LABELS"])
 def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
     before = rg._judge_logic_version("instructions")
     monkeypatch.setattr(config, attr, frozenset(getattr(config, attr)) | {"zz new label"})

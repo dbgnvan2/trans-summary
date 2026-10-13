@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (published Themes section — TD)
+
+- The published Themes section no longer shows the model's closing notes as part of
+  the last theme. Those are the labelled notes ("Summary paragraph", "Rationale and
+  coverage summary", "Why these themes were chosen…") and an unlabeled closing
+  paragraph.
+- One helper (`transcript_utils._theme_own_text`) decides what belongs to a theme,
+  for both the page and the theme judge.
+- A document-level field inside a theme drops only that field.
+- Every theme's own fields are unchanged.
+- **Measured on all 262 real themes:**
+  - 8 changed, each the last theme of its file, by removal at the end only;
+  - the judge's input is identical on all 65 files.
+- Rebuild the Why Families, Beautiful Boy and "This is a test" pages to pick it up.
+- `docs/plan_theme_display_2026-10-13.md`.
+
 ## [Unreleased] - 2026-10-13 (theme judge evidence allowlist — TE)
 
 - **What the judge receives:** the theme judge gets only evidence fields

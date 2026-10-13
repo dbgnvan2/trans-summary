@@ -823,6 +823,8 @@ def _judge_input_functions() -> list:
         tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
         tu._extract_theme_description, tu._extract_theme_evidence,
         tu._theme_body, tu._is_theme_block,
+        tu._theme_own_text_report, tu._theme_own_text, tu._accepted_theme_blocks,
+        tu._candidate_theme_blocks,  # TD: what part of a block is the theme
         # SA: what the judge is told about speaker labels.
         tu.has_speaker_labels, with_recording_metadata,
     ]
@@ -899,6 +901,7 @@ def _judge_logic_version(instructions: str) -> str:
         repr(sorted(config.SCAFFOLDING_HEADING_PHRASES)),
         repr(sorted(config.THEME_JUDGE_META_LABELS)),
         repr(sorted(config.THEME_EVIDENCE_LABELS)),
+        repr(sorted(config.THEME_DOCUMENT_LEVEL_LABELS)),  # TD: decides the theme's own text
     ])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
@@ -1208,6 +1211,11 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
         art = suffix.strip(" -")
         # TE: fields that are neither evidence nor known meta are sent to the judge as
         # evidence (fail closed); say so once per file, with the theme names (P2).
+        # TD: what was left out of a theme (the model's closing notes) — once per file.
+        trimmed = tu.trimmed_theme_notes(text)
+        if trimmed and logger:
+            logger.info("%s: left out of the published and judged themes: %s", art,
+                        "; ".join(f"{note} ({name})" for name, note in trimmed))
         odd = tu.unclassified_theme_fields(text)
         if odd:
             unclassified.append({"artifact": art, "unclassified_fields":

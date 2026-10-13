@@ -81,6 +81,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**A rule for trailing notes cut real content, and its warning was mostly noise (2026-10-13, caught in review, TD).**
+- Issue: to stop the model's unlabeled closing note being published with the last theme, the first rule dropped every paragraph after the last field's first one. That would also cut Key evidence bullets separated by blank lines, or a two-paragraph Description. Its warning fired 51 times on 65 real files, 45 of them on a bare `---` line, and repeated on every parse (7+ call sites).
+- Root cause (P2/P19): the rule was written from the one example ("prose after a field"), not from the field's shape. The warning was placed in a parser that many callers run.
+- What would have caught it: synthetic cases for each field shape (bullets with blank lines, multi-paragraph prose) before measuring on real files, and counting the warning on the real corpus.
+- Fix: drop later paragraphs only after a theme-level meta field (one paragraph in all real files); keep Description and Key evidence whole; ignore `---`; report once per file from the gate (`trimmed_theme_notes`). Tests: `tests/test_theme_display_td.py::test_td2_multi_paragraph_last_field_is_kept`, `::test_td4_gate_reports_left_out_notes_once`.
+- Rule: a rule that removes text must be tied to a structural cue, not to "anything after X". Report from the one place that acts on the result, not from a parser shared by many callers. (P2, P19)
+
 **An exclusion list let non-evidence fields reach the theme judge (2026-10-13, TM/TE).**
 - Issue: theme evidence was "every field except Description and the meta labels". A renamed meta label ("Nested under structural theme(s)", 21 of 25 files) and document-level paragraphs read into the last theme ("Summary paragraph") were sent to the judge as evidence.
 - Root cause (P19): the set of fields was defined by what to leave out, so every new or renamed field was sent by default, with no signal.
