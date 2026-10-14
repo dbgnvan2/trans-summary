@@ -1,0 +1,38 @@
+[
+  {
+    "seconds": 202.3,
+    "passed": true,
+    "review_items": 0,
+    "errors": 0,
+    "error_sample": [],
+    "unresolved_sample": [],
+    "mismatch_count": 0,
+    "max_contiguous_run": 0,
+    "headings": 71,
+    "output_tokens": 37321,
+    "cost": 0.4352,
+    "raw_words": 11274,
+    "formatted_words": 12156,
+    "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+    "effort": "medium",
+    "repeat": 1
+  },
+  {
+    "seconds": 186.2,
+    "passed": true,
+    "review_items": 0,
+    "errors": 0,
+    "error_sample": [],
+    "unresolved_sample": [],
+    "mismatch_count": 0,
+    "max_contiguous_run": 0,
+    "headings": 87,
+    "output_tokens": 35324,
+    "cost": 0.3582,
+    "raw_words": 11274,
+    "formatted_words": 12396,
+    "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+    "effort": "medium",
+    "repeat": 2
+  }
+]

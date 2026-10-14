@@ -1,0 +1,38 @@
+[
+  {
+    "seconds": 79.8,
+    "passed": true,
+    "review_items": 0,
+    "errors": 0,
+    "error_sample": [],
+    "unresolved_sample": [],
+    "mismatch_count": 29,
+    "max_contiguous_run": 6,
+    "headings": 32,
+    "output_tokens": 13700,
+    "cost": 0.1662,
+    "raw_words": 4055,
+    "formatted_words": 4159,
+    "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+    "effort": "medium",
+    "repeat": 1
+  },
+  {
+    "seconds": 59.6,
+    "passed": true,
+    "review_items": 0,
+    "errors": 0,
+    "error_sample": [],
+    "unresolved_sample": [],
+    "mismatch_count": 30,
+    "max_contiguous_run": 6,
+    "headings": 35,
+    "output_tokens": 10717,
+    "cost": 0.1095,
+    "raw_words": 4055,
+    "formatted_words": 4184,
+    "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+    "effort": "medium",
+    "repeat": 2
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "seconds": 141.5,
+    "passed": false,
+    "review_items": 1,
+    "errors": 1,
+    "error_sample": [
+      "1 difference(s) from the source need review"
+    ],
+    "unresolved_sample": [
+      "{'key': '7979:7980|', 'kind': 'deleted', 'auto': None, 'raw_text': 'look', 'formatted_text': '', 'section': 54, 'raw_context': \"more what you're asking. How does Bowen theory look or the concept of di"
+    ],
+    "mismatch_count": 1,
+    "max_contiguous_run": 1,
+    "headings": 63,
+    "output_tokens": 28686,
+    "cost": 0.3474,
+    "raw_words": 10732,
+    "formatted_words": 11390,
+    "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+    "effort": "medium",
+    "repeat": 1
+  },
+  {
+    "seconds": 165.7,
+    "passed": false,
+    "review_items": 1,
+    "errors": 2,
+    "error_sample": [
+      "Section 44: heading timestamp 01:06:07 does not match where the section starts in the raw transcript (expected one of: 01:07:17, 01:08:03)",
+      "1 difference(s) from the source need review"
+    ],
+    "unresolved_sample": [
+      "{'key': '7979:7980|', 'kind': 'deleted', 'auto': None, 'raw_text': 'look', 'formatted_text': '', 'section': 46, 'raw_context': \"more what you're asking. How does Bowen theory look or the concept of di"
+    ],
+    "mismatch_count": 1,
+    "max_contiguous_run": 1,
+    "headings": 57,
+    "output_tokens": 32233,
+    "cost": 0.3272,
+    "raw_words": 10732,
+    "formatted_words": 11497,
+    "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+    "effort": "medium",
+    "repeat": 2
+  }
+]

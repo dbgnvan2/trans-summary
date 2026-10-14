@@ -1,0 +1,18 @@
+{
+  "seconds": 537.1,
+  "finish_reason": "length",
+  "usage": {
+    "prompt_tokens": 16061,
+    "completion_tokens": 63999,
+    "total_tokens": 80060,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 52978
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 16061
+  },
+  "model": "deepseek-v4-pro"
+}
