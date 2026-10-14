@@ -344,3 +344,108 @@ def test_tp1_shared_generator_trims_theme_placeholders(monkeypatch):
     assert "Summary paragraph" not in prompt and "These seven themes" not in prompt
     assert tu.theme_display_blocks(structural)[0][1] in prompt
     assert "These three themes appear in a topic and stay." in prompt  # other keys untouched
+
+
+# --- SL: summary length band, 10% under to 20% over the target (2026-10-14) ----------
+
+def _words_client(n_words):
+    from types import SimpleNamespace
+    calls = []
+    text = " ".join(["word"] * n_words)
+    msg = SimpleNamespace(type="message", role="assistant", stop_reason="end_turn",
+                          stop_details=None, model="m",
+                          content=[SimpleNamespace(type="text", text=text)],
+                          usage=SimpleNamespace(input_tokens=1, output_tokens=1,
+                                                cache_creation_input_tokens=0,
+                                                cache_read_input_tokens=0))
+
+    class _Client:
+        class messages:
+            @staticmethod
+            def create(**kw):
+                calls.append(kw)
+                return msg
+    return _Client(), calls
+
+
+def test_sl1_bounds_follow_the_target():
+    assert config.summary_word_bounds(650) == (585, 780)
+    assert config.summary_word_bounds(750) == (675, 900)
+
+
+@pytest.mark.parametrize("n_words,accepted", [(585, True), (587, True), (780, True),
+                                              (584, False), (781, False)])
+def test_sl1_band_through_the_real_retry(monkeypatch, n_words, accepted):
+    """E2E run 5: 587 and 572 words were rejected against a fixed 600-word minimum. The
+    band for the 650 target is 585-780; outside it the reply is retried, then fails."""
+    monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
+    monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    client, calls = _words_client(n_words)
+    lo, hi = config.summary_word_bounds(650)
+    kw = dict(model="claude-sonnet-5-5", messages=[{"role": "user", "content": "x"}],
+              max_tokens=4096, min_words=lo, max_words=hi, max_retries=2)
+    if accepted:
+        tu.call_claude_with_retry(client, **kw)
+        assert len(calls) == 1
+    else:
+        with pytest.raises(Exception, match="too (short|long)"):
+            tu.call_claude_with_retry(client, **kw)
+        assert len(calls) == 2  # retried, then failed
+
+
+def test_sl1_prompt_states_the_band():
+    text = (config.PROMPTS_DIR / "Summary Generation Prompt v1.md").read_text(encoding="utf-8")
+    assert "600" not in text and "650-750" not in text and "800" not in text
+    for ph in ("{target_word_count}", "{min_words}", "{max_words}"):
+        assert ph in text
+
+
+def test_sl1_validation_uses_the_same_band():
+    from summary_validation import validate_structural
+    para = lambda n: " ".join(["word"] * n)  # noqa: E731
+    ok = "\n\n".join([para(195)] * 3)        # 585 words
+    short = "\n\n".join([para(194)] * 3)     # 582
+    long_ = "\n\n".join([para(261)] * 3)     # 783
+    warn = lambda s: [w for w in validate_structural(s, 650)["warnings"] if "Length" in w]  # noqa: E731
+    assert warn(ok) == []
+    assert "Too short" in warn(short)[0] and "Too long" in warn(long_)[0]
+
+
+def test_sl1_validation_edges_780_781():
+    from summary_validation import validate_structural
+    body = lambda n: "\n\n".join([" ".join(["word"] * (n // 3))] * 2 + [" ".join(["word"] * (n - 2 * (n // 3)))])  # noqa: E731
+    warn = lambda n: [w for w in validate_structural(body(n), 650)["warnings"] if "Length" in w]  # noqa: E731
+    assert warn(780) == [] and "Too long" in warn(781)[0]
+
+
+@pytest.mark.parametrize("advisory", [False, True])
+def test_sl2_failed_later_attempt_keeps_the_best_draft(monkeypatch, advisory):
+    """SL review: when a later faithfulness attempt fails outright (every retry outside
+    the length band), the best earlier draft is written, as on exhausted attempts."""
+    import extraction_pipeline as ep
+    monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 3)
+    drafts = iter(["draft one", "draft two"])
+
+    def generate(feedback):
+        try:
+            return next(drafts)
+        except StopIteration:
+            raise ValueError("Response text too long: 900 words (expected <= 780)")
+    written = []
+    issues = iter([["claim X", "claim Y"], ["claim X", "claim Y", "claim Z"]])  # draft one: fewer
+    ok = ep._generate_until_faithful("summary", "B", " - x.md", MagicMock(), generate,
+                                     written.append, precheck=lambda *a: ("fail", next(issues)),
+                                     advisory=advisory)
+    assert written[-1] == "draft one"
+    assert ok is advisory
+
+
+def test_sl2_first_attempt_failure_still_raises(monkeypatch):
+    import extraction_pipeline as ep
+
+    def generate(feedback):
+        raise ValueError("Response text too long")
+    with pytest.raises(ValueError):
+        ep._generate_until_faithful("summary", "B", " - x.md", MagicMock(), generate,
+                                    lambda t: None, precheck=lambda *a: ("pass", []))

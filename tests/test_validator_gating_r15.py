@@ -483,3 +483,24 @@ def test_e2e7_verdict_saved_before_the_fix_is_reworded(project):
     assert stored["not_gated"] == "missing: Q&A content (100%)"
     assert "not blocked" in vp.summary_coverage_message(base)
     assert rg.check_summary_coverage(base).status is Status.PASS
+
+
+def test_sl1_validation_checks_against_the_generation_target(project, monkeypatch):
+    """SL: the coverage validation used prepare_summary_input's default target (500)
+    while generation aims for config.DEFAULT_SUMMARY_WORD_COUNT (650)."""
+    base, _proj = project()
+    seen = {}
+
+    def fake(summary, summary_input, **k):
+        seen["target"] = summary_input.target_word_count
+        return "PASS", True, "Validation: PASSED\nGate status: PASS"
+    monkeypatch.setattr(sv, "validate_and_report_status", fake)
+    vp.validate_summary_coverage(base, logger=MagicMock())
+    assert seen["target"] == config.DEFAULT_SUMMARY_WORD_COUNT
+
+
+def test_sl1_target_change_invalidates_the_stored_verdict(project, monkeypatch):
+    base, _proj = project()
+    before = vp.summary_coverage_key(base)
+    monkeypatch.setattr(config, "DEFAULT_SUMMARY_WORD_COUNT", config.DEFAULT_SUMMARY_WORD_COUNT + 50)
+    assert vp.summary_coverage_key(base) != before

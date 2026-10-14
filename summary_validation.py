@@ -688,7 +688,9 @@ def generate_review_checklist(summary_input) -> str:
             "",
             "## Constraints",
             "",
-            f"- [ ] Word count: {summary_input.target_word_count} ± 15%",
+            "- [ ] Word count: {} ({}-{} accepted)".format(
+                summary_input.target_word_count,
+                *config.summary_word_bounds(summary_input.target_word_count)),
             "- [ ] Third person, present tense",
             "- [ ] No citations or section references",
             "- [ ] No evaluative language",
@@ -709,19 +711,15 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
     warnings = []
     word_count = len(summary.split())
 
-    # Word count check
-    # Minimum: 600 words (strict minimum)
-    # Target: Should be close to target_word_count
-    min_words = 600
-
+    # Word count: the same band generation accepts (config.summary_word_bounds:
+    # 10% under / 20% over the target). Advisory here.
+    min_words, max_words = config.summary_word_bounds(target_word_count)
     if word_count < min_words:
-        warnings.append(f"Length check: Too short ({word_count} words, minimum {min_words})")
-
-    # Check if significantly below target (less than 85% of target)
-    if word_count < target_word_count * 0.85:
-        warnings.append(f"Length check: Below target ({word_count} words, target {target_word_count}, {word_count/target_word_count*100:.0f}%)")
-
-    # No upper limit - longer summaries are acceptable
+        warnings.append(f"Length check: Too short ({word_count} words, target "
+                        f"{target_word_count}, accepted {min_words}-{max_words})")
+    elif word_count > max_words:
+        warnings.append(f"Length check: Too long ({word_count} words, target "
+                        f"{target_word_count}, accepted {min_words}-{max_words})")
 
     # Paragraph check
     paragraphs = [p for p in summary.split("\n\n") if p.strip()]

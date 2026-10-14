@@ -121,6 +121,7 @@ def test_iv_callers_on_the_default_minimum_are_listed():
     reviewed = {
         ("formatting_pipeline.py", "call_claude_with_retry"),  # checks min_words instead
         ("transcript_validate_headers.py", "call_claude_with_retry"),  # a block per section
+        ("summary_pipeline.py", "call_claude_with_retry"),  # min_words: >= 90% of the target (SL)
     }
     found = set()
     for p in ROOT.glob("*.py"):

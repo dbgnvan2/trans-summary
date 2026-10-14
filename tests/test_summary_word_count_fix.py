@@ -115,8 +115,9 @@ class TestAPICallParameters:
     """Test that generate_summary uses correct API parameters."""
 
     @patch('summary_pipeline.call_claude_with_retry')
-    def test_min_words_is_600(self, mock_call):
-        """generate_summary should enforce min_words=600."""
+    def test_min_and_max_words_follow_target(self, mock_call):
+        """generate_summary accepts 10% under to 20% over the target (SL, 2026-10-14;
+        was a fixed 600-word minimum)."""
         # Setup mock
         mock_message = Mock()
         mock_message.content = [Mock(text="Test summary content" * 50)]
@@ -152,10 +153,9 @@ class TestAPICallParameters:
         # Call function
         generate_summary(summary_input, mock_client)
 
-        # Verify call_claude_with_retry was called with min_words=600
         mock_call.assert_called_once()
         call_kwargs = mock_call.call_args.kwargs
-        assert call_kwargs['min_words'] == 600
+        assert (call_kwargs['min_words'], call_kwargs['max_words']) == (675, 900)  # 750 target
 
     @patch('summary_pipeline.call_claude_with_retry')
     def test_max_tokens_is_4000(self, mock_call):
@@ -201,8 +201,9 @@ class TestAPICallParameters:
         assert call_kwargs['max_tokens'] == config.MAX_TOKENS_SUMMARY
 
     @patch('summary_pipeline.call_claude_with_retry')
-    def test_min_length_is_2400(self, mock_call):
-        """generate_summary should use min_length=2400."""
+    def test_no_character_minimum(self, mock_call):
+        """The character minimum (2400) is gone: length is checked in words against the
+        target (SL, 2026-10-14)."""
         # Setup mock
         mock_message = Mock()
         mock_message.content = [Mock(text="Test summary content" * 50)]
@@ -241,7 +242,7 @@ class TestAPICallParameters:
         # Verify call_claude_with_retry was called with min_length=2400
         mock_call.assert_called_once()
         call_kwargs = mock_call.call_args.kwargs
-        assert call_kwargs['min_length'] == 2400
+        assert 'min_length' not in call_kwargs
 
 
 class TestValidationThresholds:
@@ -271,10 +272,11 @@ class TestValidationThresholds:
         # At exactly 600, should not warn about minimum
         assert not any("minimum 600" in w for w in length_warnings)
 
-    def test_validation_warns_below_85_percent_of_target(self):
-        """Structural validation should warn if < 85% of target."""
+    def test_validation_warns_below_90_percent_of_target(self):
+        """Structural validation warns below 90% of the target (SL, 2026-10-14; was 85%
+        plus a fixed 600-word minimum)."""
         target = 750
-        threshold = int(target * 0.85)  # 637.5 → 637
+        threshold = 675  # 90% of 750
 
         # Summary just below threshold
         short_summary = " ".join(["word"] * (threshold - 10))  # 627 words
@@ -289,11 +291,14 @@ class TestValidationThresholds:
 
         result = validate_structural(short_summary, target_word_count=target)
 
-        # Should warn about being below target
-        assert any("Below target" in w for w in result['warnings'])
+        assert any("Too short" in w for w in result['warnings'])
+        at_threshold = "\n\n".join([" ".join(["word"] * 225)] * 3)  # 675 words
+        assert not any("Length check" in w for w in
+                       validate_structural(at_threshold, target_word_count=target)['warnings'])
 
-    def test_validation_no_upper_limit(self):
-        """Structural validation should not warn about long summaries."""
+    def test_validation_upper_limit_is_20_percent_over(self):
+        """20% over the target is accepted; more than that warns (SL, 2026-10-14; there
+        was no upper limit)."""
         long_summary = "\n\n".join([
             " ".join(["word"] * 300),
             " ".join(["word"] * 300),
@@ -302,8 +307,10 @@ class TestValidationThresholds:
 
         result = validate_structural(long_summary, target_word_count=750)
 
-        # Should not warn about being too long
-        assert not any("Too long" in w or "maximum" in w.lower() for w in result['warnings'])
+        assert not any("Too long" in w for w in result['warnings'])
+        over = long_summary + " word"  # 901 words
+        assert any("Too long" in w for w in
+                   validate_structural(over, target_word_count=750)['warnings'])
 
 
 class TestEndToEndBehavior:

@@ -706,6 +706,7 @@ def call_claude_with_retry(
     min_words: int = 0,
     stream: bool = False,
     effort=USE_EFFORT_SETTING,
+    max_words: int = 0,
     **kwargs
 ):
     """
@@ -724,6 +725,7 @@ def call_claude_with_retry(
         logger: Optional logger
         min_length: Minimum expected length of response text
         min_words: Minimum expected length of response in words
+        max_words: Maximum length in words (0 = no limit); a longer reply is retried
         stream: Whether to stream the response (recommended for long outputs)
 
     Returns:
@@ -811,6 +813,9 @@ def call_claude_with_retry(
                     if len(text_content.split()) < min_words:
                         raise ValueError(
                             f"Response text too short: {len(text_content.split())} words (expected >= {min_words})")
+                if max_words > 0 and len(text_content.split()) > max_words:
+                    raise ValueError(
+                        f"Response text too long: {len(text_content.split())} words (expected <= {max_words})")
             except (ValueError, RuntimeError) as e:
                 # Validation failed
                 if logger:

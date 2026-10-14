@@ -652,11 +652,13 @@ def prepare_summary_input(
     topics_markdown: str,
     themes_markdown: str,
     transcript: str,
-    target_word_count: int = 500,
+    target_word_count: int | None = None,
 ) -> SummaryInput:
     """
     Prepare structured input for summary generation API call.
     """
+    if target_word_count is None:  # the generation target (SL review; was 500)
+        target_word_count = config.DEFAULT_SUMMARY_WORD_COUNT
     section_count = count_sections(transcript)
 
     # Parse extractions
@@ -784,12 +786,16 @@ def generate_summary(
                 summary_input.opening.word_allocation + summary_input.body.word_allocation +
                 summary_input.qa.word_allocation + summary_input.closing.word_allocation)
 
+    min_words, max_words = config.summary_word_bounds(summary_input.target_word_count)
     prompt = prompt_template.format(
         opening_words=summary_input.opening.word_allocation,
         body_words=summary_input.body.word_allocation,
         qa_words=summary_input.qa.word_allocation,
         qa_instruction=qa_instruction,
         closing_words=summary_input.closing.word_allocation,
+        target_word_count=summary_input.target_word_count,
+        min_words=min_words,
+        max_words=max_words,
         input_json=summary_input.to_json(),
     )
     if feedback_claims:
@@ -807,8 +813,10 @@ def generate_summary(
         max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
         stream=True,
-        min_length=2400,  # Ensure substantial summary (~600 words minimum)
-        min_words=600,    # Enforce strict minimum of 600 words
+        # Within 10% under / 20% over the target (config.summary_word_bounds); a reply
+        # outside it is retried.
+        min_words=min_words,
+        max_words=max_words,
         logger=logger,    # named logger -> real script name in token-usage log
         **kwargs,
     )

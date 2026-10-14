@@ -62,7 +62,9 @@ pass. Systems Biology: blocked.
   16,192 output tokens (8,192 + thinking headroom) and was rejected; the Bowen +
   Emphasis stage failed. Beautiful Boy (12k words) fit, so it depends on the run.
   `config.MAX_TOKENS_EXTRACTION` (8192) predates the thinking models.
-- **Structured summary minimum length:** a 569-word summary was rejected (minimum
+- **Structured summary minimum length:** band fixed 2026-10-14 (SL: 10% under to 20% over the
+  target, 585–780 for 650). Still open: the target is a fixed 650 whatever the talk length,
+  so a short talk's summary can still be rejected (the 569- and 572-word drafts would be). a 569-word summary was rejected (minimum
   600 words) and regenerated. The minimum is a fixed guess; a short talk can be
   summarised in fewer words.
 - **Meta-claims about the talk get flagged:** "The talk states no explicit

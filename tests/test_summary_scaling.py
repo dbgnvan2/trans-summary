@@ -54,7 +54,8 @@ class TestSummaryScaling(unittest.TestCase):
                                      f"Target should be {expected_target} (no inflation), got {passed_target}")
 
     def test_min_words_floor(self):
-        """Verify that generate_summary enforces a min_words floor of 600."""
+        """generate_summary accepts 10% under to 20% over the target (SL, 2026-10-14;
+        was a fixed 600-word floor)."""
 
         # Mock inputs
         summary_input = MagicMock()
@@ -76,11 +77,8 @@ class TestSummaryScaling(unittest.TestCase):
             # Run function
             summary_pipeline.generate_summary(summary_input, api_client)
 
-            # Verify min_words parameter is now 600 (not 450)
             _, kwargs = mock_call.call_args
-            min_words = kwargs.get('min_words')
-
-            self.assertEqual(min_words, 600, f"min_words should be 600, got {min_words}")
+            self.assertEqual((kwargs.get('min_words'), kwargs.get('max_words')), (675, 900))
 
     def test_generate_summary_enables_streaming(self):
         """Verify structured summary generation uses streaming for long requests."""

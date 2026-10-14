@@ -1032,6 +1032,9 @@ def _summary_coverage_logic_version() -> str:
     parts = [
         config.settings.AUX_MODEL,  # the model the GUI runs the check with (U5 sweep)
         repr(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES)),
+        # The target the summary is checked against and the length band (SL).
+        repr((config.DEFAULT_SUMMARY_WORD_COUNT, config.SUMMARY_LENGTH_MIN_RATIO,
+              config.SUMMARY_LENGTH_MAX_RATIO)),
         prompt.read_text(encoding="utf-8") if prompt.exists() else "<no prompt>",
         *(inspect.getsource(fn) for fn in (
             summary_validation.generate_coverage_items,
@@ -1039,6 +1042,7 @@ def _summary_coverage_logic_version() -> str:
             summary_validation.extract_keywords,
             summary_validation.validate_summary_coverage,
             summary_validation.validate_and_report_status,
+            summary_validation.validate_structural,
             abstract_validation.coverage_status,
             abstract_validation.apply_llm_results,
             abstract_validation.verify_items_with_llm,
@@ -1215,6 +1219,7 @@ def validate_summary_coverage(base_name: str, logger=None, model: Optional[str] 
             topics_markdown=topics_section,
             themes_markdown=themes_section,
             transcript=transcript,
+            target_word_count=config.DEFAULT_SUMMARY_WORD_COUNT,  # the generation target (was 500)
         )
 
         client = get_anthropic_client_or_none(logger)

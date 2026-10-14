@@ -4,8 +4,8 @@ You have been provided with the **FULL TRANSCRIPT** in the system message.
 You will receive a JSON object below with structural metadata (word targets, topic list).
 
 **LENGTH REQUIREMENT:**
-This summary should be approximately {opening_words} + {body_words} + {qa_words} + {closing_words} words total (aim for 650-750 words).
-Summaries under 600 words will be rejected. Aim to be thorough but stay reasonably close to the target.
+This summary should be approximately {opening_words} + {body_words} + {qa_words} + {closing_words} words total (target: {target_word_count} words).
+A summary is accepted between {min_words} and {max_words} words; outside that range it is rejected. Aim for the target.
 
 **TASK:** Generate a rich, detailed, and cohesive summary of the transcript.
 **SOURCE:** You MUST use the **FULL TRANSCRIPT** (system message) as the primary source for all content, details, and examples.
@@ -35,7 +35,7 @@ State the conclusion, open questions, and future directions.
 *   Chronological narrative flow.
 *   No citations (e.g. "Section 1 says...").
 *   No bullet points.
-*   **Length:** Aim for 650-750 words total. Include specific details, examples, and evidence from the transcript. Summaries under 600 words will be rejected, but avoid significantly exceeding 800 words.
+*   **Length:** Aim for about {target_word_count} words total ({min_words}-{max_words} accepted). Include specific details, examples, and evidence from the transcript.
 
 Input data:
 {input_json}

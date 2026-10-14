@@ -955,6 +955,13 @@ VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
 # Typically results in 700-900 word summaries
 DEFAULT_SUMMARY_WORD_COUNT = 650
+# Summary length band around its target (author decision 2026-10-14): up to 10% under
+# and 20% over is accepted. Generation regenerates a reply outside it; validation warns.
+# Was a fixed 600-word minimum against the 650 target (8% under), which rejected
+# on-target summaries (E2E run 5: 587 words rejected; 572 is still under the band),
+# and no upper limit.
+SUMMARY_LENGTH_MIN_RATIO = 0.9
+SUMMARY_LENGTH_MAX_RATIO = 1.2
 
 # Token Limits
 # Sized from observed peak output tokens on 10K+ word transcripts:
@@ -1115,6 +1122,14 @@ ABSTRACT_MAX_ATTEMPTS = 3
 # Summary and blog: judge each draft's faithfulness and regenerate with the
 # rejected claims as feedback, up to this many attempts (RF.J).
 GENERATION_FAITHFULNESS_ATTEMPTS = 3
+
+
+def summary_word_bounds(target_word_count: int) -> tuple[int, int]:
+    """(fewest, most) words a summary may have for ``target_word_count``:
+    SUMMARY_LENGTH_MIN_RATIO and SUMMARY_LENGTH_MAX_RATIO of the target. 650 -> (585, 780)."""
+    import math
+    return (math.ceil(target_word_count * SUMMARY_LENGTH_MIN_RATIO),
+            math.floor(target_word_count * SUMMARY_LENGTH_MAX_RATIO))
 
 
 def abstract_target_word_count(transcript_words: int) -> int:

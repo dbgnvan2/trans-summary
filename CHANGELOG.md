@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (summary length band — SL)
+
+- A structured summary is accepted from 10% under to 20% over its target (author
+  decision): 585–780 words for the usual 650 target (`config.SUMMARY_LENGTH_MIN_RATIO`
+  0.9, `SUMMARY_LENGTH_MAX_RATIO` 1.2, `config.summary_word_bounds`). Outside it the
+  reply is regenerated. Before: a fixed 600-word minimum (8% under the 650 target), so
+  a 587-word summary was rejected and paid for again (E2E run 5; its 572-word draft is
+  still under the band), and no upper limit.
+- If a later faithfulness attempt fails outright (e.g. every retry outside the band),
+  the best earlier draft is kept, as when all attempts are judged unfaithful.
+- `prepare_summary_input` defaults to the generation target (was 500), and the review
+  checklist shows the band (was "± 15%").
+- `call_claude_with_retry` takes `max_words` (a longer reply is retried, like a short one).
+- The prompt states the target and the accepted range instead of "650–750 words,
+  under 600 rejected".
+- Coverage validation measures length against the same target and band (it used a
+  500-word target, so its report said "604/500"). The target and band are in the
+  stored verdict's key, so saved verdicts re-run once (one Haiku call each).
+- Tests: `tests/test_e2e_fixes.py::test_sl1_*`, `tests/test_validator_gating_r15.py::test_sl1_*`;
+  the old 600-word / 2,400-character / 85% tests are updated to the new band.
+
 ## [Unreleased] - 2026-10-14 (theme notes left out of generation prompts — TP)
 
 - The prompts that take theme files now get the published themes (each

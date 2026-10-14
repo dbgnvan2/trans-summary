@@ -1245,7 +1245,14 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
     attempts = max(1, int(config.GENERATION_FAITHFULNESS_ATTEMPTS))
     feedback, best_text, best_count = None, None, None
     for attempt in range(1, attempts + 1):
-        text = generate(feedback)
+        try:
+            text = generate(feedback)
+        except Exception as e:  # e.g. every retry outside the length band (SL review)
+            if best_text is None:
+                raise
+            logger.error("%s attempt %d/%d failed (%s); keeping the best earlier draft.",
+                         what.capitalize(), attempt, attempts, e)
+            break
         write(text)
         # A draft that echoes the correction instructions or the rejected claims
         # is not accepted, whatever the judge says (sweep, P19).
