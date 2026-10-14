@@ -8,6 +8,26 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-13 — End-to-end run findings (E2E)
 
+**Rerun after E2E6 (commit 2efc602, $6.10):** scored emphasis passed on all three talks
+(largest emphasis call 4,874 output tokens on Why Families). Why Families and Systems
+Biology passed every stage and the gate allowed both. Beautiful Boy: Format dropped one
+word ("that," in section 63); the word check stopped it for a person's review (the GUI
+pauses there) and the gate blocked publication until it is reviewed — working as designed.
+
+New from this run:
+- **Summary coverage messages contradict the verdict.** The stored verdict is PASS (the
+  gate checks topic and closing items only) but its detail is the report's first line,
+  "Validation: FAILED - missing: Q&A content (100%)", and the GUI logs "publication will
+  be blocked until it does" when it is not (`validation_pipeline._write_summary_coverage_verdict`,
+  `ts_gui._run_stage_structured_summary`). Make the detail and the message follow the
+  gate status (P6).
+- **Q&A share of Beautiful Boy varies: 100%, 18%, 100%** across runs 2–4 of the same talk.
+  The detector depends on the formatter's headings and labels. Not gated, but it feeds
+  the summary and abstract inputs.
+- **A theme used a new field label, "Summary"** (Why Families interpretive themes). Sent
+  to the judge as evidence and reported (TE, as designed). Another case of the model's
+  free-form layout drifting.
+
 **Rerun after E2E1–E2E5 (commit cbbf54e, $5.78):** all three talks pass the release gate
 (ALLOW_WITH_WARNINGS). Systems Biology is no longer blocked (abstract: one flag on attempt
 1, passed on attempt 2; theme judged grounded). Scored emphasis failed on the two long talks
@@ -32,8 +52,8 @@ pass. Systems Biology: blocked.
   Niche and System, Not Rogue Cell"), on freshly generated themes. It fails on every
   run of this talk. Needs one look: is the theme wrong (names such as "Bertoloso",
   "Weinberg", "Popper") or is the judge wrong?
-- **Scored emphasis truncated** — E2E3 did not fix it; E2E6 sets its thinking level to "medium" (measured,
-  `docs/calibration_emphasis_effort_2026-10-13.md`); confirm with the next end-to-end run. Was: NOT fixed by E2E3. Rerun (cbbf54e): it failed on Beautiful Boy and
+- ~~**Scored emphasis truncated**~~ Fixed E2E6 (thinking level "medium"); confirmed by the run after it
+  (3 of 3 talks). Was: NOT fixed by E2E3. Rerun (cbbf54e): it failed on Beautiful Boy and
   Systems Biology at the new 24,000-token ceiling. The saved answer is ~3–4k tokens; successful calls
   used 11–14.5k output tokens, so the rest is thinking, and it varies run to run (Beautiful Boy: 14,540
   in one run, over 24,000 in the next). Raising the ceiling only moves the line. Next: set the thinking
