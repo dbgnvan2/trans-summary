@@ -522,26 +522,14 @@ def check_summary_coverage(base_name: str, logger=None) -> Verdict:
     Spec:    docs/plan_review_fixes_2026-10-04.md#R15
     Tests:   tests/test_release_gate.py::test_r15c_summary_stale_verdict_revalidated
     """
-    import json
-
     import validation_pipeline as vp
 
-    key = vp.summary_coverage_key(base_name)
-    if key is None:
+    if vp.summary_coverage_key(base_name) is None:
         return Verdict("summary_coverage", Status.PASS, "no structured summary")
-    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
-
-    def _stored():
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return None
-        return data if isinstance(data, dict) and data.get("key") == key else None
-
-    verdict = _stored()
+    verdict = vp.stored_summary_coverage_verdict(base_name)
     if verdict is None:
         vp.validate_summary_coverage(base_name, logger=logger)
-        verdict = _stored()
+        verdict = vp.stored_summary_coverage_verdict(base_name)
     if verdict is None:
         return Verdict("summary_coverage", Status.ERROR,
                        "summary coverage could not be verified — see the summary "

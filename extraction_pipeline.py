@@ -37,6 +37,7 @@ from validation_pipeline import (
     validate_key_terms_fidelity,
     validate_summary_coverage,
     validate_topics_lightweight,
+    summary_coverage_message,
 )
 
 # Helpers
@@ -2068,9 +2069,10 @@ def summarize_transcript(
             )
             if structured_success:
                 logger.info("Validating structured summary...")
-                if not validate_summary_coverage(base_name=stem, logger=logger):
-                    logger.warning("Structured summary did not pass coverage validation "
-                                   "— publication will be blocked until it does.")
+                validate_summary_coverage(base_name=stem, logger=logger)
+                message = summary_coverage_message(stem)  # as the release gate sees it
+                if message:
+                    logger.warning(message.removeprefix("⚠️ "))
             else:
                 logger.error("Structured summary generation failed.")
                 return False

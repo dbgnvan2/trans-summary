@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (summary coverage messages — E2E7)
+
+- The summary coverage messages now follow the verdict the release gate uses. Before,
+  a summary that passed the gate (it checks topic and closing items only) but missed a
+  Q&A item was stored as PASS with the detail "Validation: FAILED…", and the GUI and
+  the core run logged "publication will be blocked", which was not true.
+- The stored verdict's detail is built from the report's "Gate status" line and its
+  full checklist, not from the first line (which lists at most two missing items):
+  a pass with misses reads "Gated items (closing, topic) covered; not gated: missing:
+  A; B; C" (also kept in `not_gated`); a fail gives the gate's reason and every
+  missing required item; a structural failure keeps its first issue. Verdicts saved
+  by the old code (a PASS whose detail says "Validation: FAILED") are reworded when
+  read.
+- One wording for both run paths: `validation_pipeline.summary_coverage_message`
+  (blocked / not a publication check / could not be checked). The gate and the
+  message read the stored verdict through one function,
+  `stored_summary_coverage_verdict`.
+- The coverage check itself is unchanged, so no saved verdict is re-run.
+- Tests: `tests/test_validator_gating_r15.py::test_e2e7_*`.
+
 ## [Unreleased] - 2026-10-13 (scored emphasis thinking level — E2E6)
 
 - Scored emphasis runs at a fixed thinking level, `config.EMPHASIS_EFFORT = "medium"`;

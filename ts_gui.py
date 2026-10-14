@@ -2760,11 +2760,14 @@ class TranscriptProcessorGUI:
         ok = pipeline.generate_structured_summary(
             self.base_name, logger=self.logger, model=config.settings.DEFAULT_MODEL
         )
-        if ok and not pipeline.validate_summary_coverage(
-                self.base_name, logger=self.logger, model=config.settings.AUX_MODEL):
-            self.log(
-                "⚠️ Summary coverage did not pass — publication will be blocked until "
-                "it does. See '%s%s'.", self.base_name, config.SUFFIX_SUMMARY_VAL)
+        if ok:
+            pipeline.validate_summary_coverage(
+                self.base_name, logger=self.logger, model=config.settings.AUX_MODEL)
+            # Worded from the verdict the release gate uses (E2E run 4: the full
+            # validation's FAILED was reported as blocking publication).
+            message = pipeline.summary_coverage_message(self.base_name)
+            if message:
+                self.log(message)
         return ok
 
     def _run_stage_gen_abstract(self):

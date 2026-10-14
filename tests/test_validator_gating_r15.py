@@ -265,9 +265,125 @@ def test_r15b_structured_summary_stage_validates(monkeypatch):
     monkeypatch.setattr(ts_gui.pipeline, "generate_structured_summary", lambda *a, **k: True)
     monkeypatch.setattr(ts_gui.pipeline, "validate_summary_coverage",
                         lambda b, **k: calls.append(b) or False)
+    messages = iter(["MSG for Sample", None])
+    monkeypatch.setattr(ts_gui.pipeline, "summary_coverage_message", lambda b: next(messages))
     assert gui._run_stage_structured_summary() is True  # a miss blocks publish, not the run
     assert calls == ["Sample"]
-    assert any("publication will be blocked" in line for line in logs)
+    assert logs == ["MSG for Sample"]  # the shared message, as given
+    assert gui._run_stage_structured_summary() is True
+    assert logs == ["MSG for Sample"]  # nothing to report -> nothing logged
+
+
+# --- E2E7: the summary messages follow the gate verdict, not the full validation ---
+
+def _report(first, gate, missing=()):
+    """A report in the layout summary_validation.validate_and_report_status writes
+    (taken from the Beautiful Boy report of E2E run 4)."""
+    body = [first, "Required coverage: 8/9", "Optional coverage: 1/1",
+            "Word count: 604/500 (20.8% deviation)", "Proportionality: ISSUES", gate]
+    if missing:
+        body += ["", "## Human Review Checklist", "", "### Coverage Issues", ""]
+        for m in missing:
+            body += [f"- ❌ MISSING [REQUIRED] {m}", '  Source: "..."', "  Expected ~50 words"]
+    return "\n".join(body)
+
+
+QA_MISS = _report("Validation: FAILED - missing: Q&A content (100%)",
+                  "Gate status: PASS (gating on: closing, topic items)",
+                  ["Q&A content (100%)"])
+
+
+def _validate_with(monkeypatch, base, status, passed, report):
+    monkeypatch.setattr(sv, "validate_and_report_status",
+                        lambda *a, **k: (status, passed, report))
+    vp.validate_summary_coverage(base, logger=MagicMock())
+
+
+def test_e2e7_ungated_miss_is_not_reported_as_blocking(project, monkeypatch):
+    """E2E run 4 (Beautiful Boy): the gate passed (Q&A is not gated), the stored detail
+    said "Validation: FAILED", and the GUI said publication would be blocked."""
+    base, _proj = project()
+    _validate_with(monkeypatch, base, "PASS", False, QA_MISS)
+    stored = vp.stored_summary_coverage_verdict(base)
+    assert stored["status"] == "PASS"
+    assert "FAILED" not in stored["detail"]
+    assert stored["detail"].startswith("Gated items (closing, topic) covered; not gated: ")
+    assert stored["not_gated"] == "missing: Q&A content (100%)"
+    v = rg.check_summary_coverage(base)
+    assert v.status is Status.PASS and "FAILED" not in v.detail
+    msg = vp.summary_coverage_message(base)
+    assert "not blocked" in msg and "will be blocked" not in msg and "Q&A content" in msg
+
+
+def test_e2e7_gated_miss_says_blocked_and_names_every_missing_item(project, monkeypatch):
+    """E2E7 review: the first line lists only two missing items, in item order, so the
+    gated topic could be left out; the detail lists all of them from the checklist."""
+    base, _proj = project()
+    missing = ["Speaker identification", "Stated purpose", "Topic (17%): Societal Regression"]
+    _validate_with(monkeypatch, base, "FAIL", False, _report(
+        "Validation: FAILED - missing: Speaker identification, Stated purpose",
+        "Gate status: FAIL (gating on: closing, topic items)", missing))
+    v = rg.check_summary_coverage(base)
+    assert v.status is Status.FAIL and "Societal Regression" in v.detail
+    assert "will be blocked" in vp.summary_coverage_message(base)
+
+
+def test_e2e7_gate_fail_with_full_validation_passed(project, monkeypatch):
+    """E2E7 review: no topics parsed -> gate FAIL while every other item is covered;
+    the detail must give the gate's reason, never "Validation: PASSED"."""
+    base, _proj = project()
+    _validate_with(monkeypatch, base, "FAIL", True, _report(
+        "Validation: PASSED - all requirements met",
+        "Gate status: FAIL (gating on: closing, topic items) — no topics parsed — cannot "
+        "check coverage"))
+    detail = vp.stored_summary_coverage_verdict(base)["detail"]
+    assert "no topics parsed" in detail and "PASSED" not in detail
+
+
+def test_e2e7_not_gated_lists_every_miss(project, monkeypatch):
+    base, _proj = project()
+    _validate_with(monkeypatch, base, "PASS", False, _report(
+        "Validation: FAILED - missing: Speaker identification, Stated purpose",
+        "Gate status: PASS (gating on: closing, topic items)",
+        ["Speaker identification", "Stated purpose", "Q&A content (40%)"]))
+    stored = vp.stored_summary_coverage_verdict(base)
+    assert stored["not_gated"] == ("missing: Speaker identification; Stated purpose; "
+                                   "Q&A content (40%)")
+
+
+def test_e2e7_structural_failure_detail_keeps_the_issue():
+    detail, not_gated = vp._summary_verdict_detail(
+        "FAIL", False, "Structural validation failed:\n  - Word count 120 is below 300")
+    assert detail == "Structural validation failed: Word count 120 is below 300"
+    assert not_gated == ""
+
+
+def test_e2e7_clean_pass_has_no_message(project, monkeypatch):
+    base, _proj = project()
+    _validate_with(monkeypatch, base, "PASS", True, "Validation: PASSED\nGate status: PASS")
+    assert vp.summary_coverage_message(base) is None
+    assert "not_gated" not in vp.stored_summary_coverage_verdict(base)
+
+
+def test_e2e7_unverifiable_says_it_will_be_retried(project, monkeypatch):
+    base, _proj = project()
+    _validate_with(monkeypatch, base, "ERROR", False, "Validation: ERROR")
+    msg = vp.summary_coverage_message(base)
+    assert "could not be checked" in msg and "blocked" not in msg
+
+
+def test_e2e7_no_caller_words_the_message_itself():
+    """Both run paths take the message from summary_coverage_message (one wording) and
+    neither words a publication outcome itself. Source-level: the core path sits inside
+    summarize_transcript and has no unit seam."""
+    import inspect
+    import re
+    import extraction_pipeline as ep
+    import ts_gui
+    for src in (inspect.getsource(ts_gui.TranscriptProcessorGUI._run_stage_structured_summary),
+                inspect.getsource(ep)):
+        assert "summary_coverage_message(" in src
+        assert not re.search(r"publication (will|would) be blocked|will block publication", src)
 
 
 # --- learning-qa sweep findings (2026-10-05) -------------------------------------
@@ -355,3 +471,15 @@ def test_j8c_short_words_and_shapes():
 def test_j8d_adversarial_real_word_changes_fail(transcript, quote):
     """Sweep 2026-10-09: one-letter word swaps are misquotes, not typos."""
     assert vp._quote_word_coverage(quote, transcript) < 1.0
+
+
+def test_e2e7_verdict_saved_before_the_fix_is_reworded(project):
+    """A PASS saved by the old code (detail "Validation: FAILED - …") reads as a
+    not-gated miss; the stored status and key are unchanged, so nothing re-runs."""
+    base, _proj = project()
+    vp._write_summary_coverage_verdict(base, "PASS", "Validation: FAILED - missing: Q&A content (100%)")
+    stored = vp.stored_summary_coverage_verdict(base)
+    assert stored["status"] == "PASS" and "FAILED" not in stored["detail"]
+    assert stored["not_gated"] == "missing: Q&A content (100%)"
+    assert "not blocked" in vp.summary_coverage_message(base)
+    assert rg.check_summary_coverage(base).status is Status.PASS

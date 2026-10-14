@@ -15,7 +15,7 @@ word ("that," in section 63); the word check stopped it for a person's review (t
 pauses there) and the gate blocked publication until it is reviewed — working as designed.
 
 New from this run:
-- **Summary coverage messages contradict the verdict.** The stored verdict is PASS (the
+- ~~**Summary coverage messages contradict the verdict.**~~ Fixed E2E7 (2026-10-14). The stored verdict is PASS (the
   gate checks topic and closing items only) but its detail is the report's first line,
   "Validation: FAILED - missing: Q&A content (100%)", and the GUI logs "publication will
   be blocked until it does" when it is not (`validation_pipeline._write_summary_coverage_verdict`,

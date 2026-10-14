@@ -1071,7 +1071,10 @@ def summary_coverage_key(base_name: str) -> Optional[str]:
     return h.hexdigest()
 
 
-def _write_summary_coverage_verdict(base_name: str, status: str, detail: str) -> None:
+def _write_summary_coverage_verdict(base_name: str, status: str, detail: str,
+                                    not_gated: str = "") -> None:
+    """Store the gate verdict. ``not_gated``: what the full validation found missing
+    when the gate still passes (items outside SUMMARY_COVERAGE_GATING_CATEGORIES)."""
     import json
 
     path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
@@ -1079,8 +1082,91 @@ def _write_summary_coverage_verdict(base_name: str, status: str, detail: str) ->
         # Never store a could-not-verify result (P1): the next gate run retries.
         path.unlink(missing_ok=True)
         return
-    path.write_text(json.dumps({"status": status, "key": summary_coverage_key(base_name),
-                                "detail": detail}, indent=2), encoding="utf-8")
+    record = {"status": status, "key": summary_coverage_key(base_name), "detail": detail}
+    if not_gated:
+        record["not_gated"] = not_gated
+    path.write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+
+_MISSING_REQUIRED_RE = re.compile(r"^- ❌ MISSING \[REQUIRED\] (.+?)\s*$", re.MULTILINE)
+
+
+def _summary_verdict_detail(status: str, passed: bool, report: str) -> tuple[str, str]:
+    """(detail, not_gated) for the stored verdict, built from the report's
+    "Gate status:" line (status and reason) and its checklist (every missing required
+    item). The report's first line is the full validation and lists at most two
+    missing items, so it is used only for a clean pass and for a structural failure.
+    E2E run 4: a PASS verdict whose detail said "Validation: FAILED", and a GUI message
+    saying publication would be blocked."""
+    lines = [line.rstrip() for line in report.splitlines()]
+    first = lines[0].strip() if lines else ""
+    gate = next((line.strip() for line in lines if line.startswith("Gate status:")), "")
+    missing = _MISSING_REQUIRED_RE.findall(report)
+    if not gate:
+        # Structural failure ("Structural validation failed:" + issue lines).
+        issue = next((line.strip(" -") for line in lines[1:] if line.strip()), "")
+        return (f"{first} {issue}".strip() if first.endswith(":") else first), ""
+    if status == "PASS":
+        if passed:
+            return first, ""
+        # The gate passed, so every missing required item is outside the gate.
+        if missing:
+            not_gated = "missing: " + "; ".join(missing)
+        else:
+            rest = first.split(" - ", 1)[1] if " - " in first else ""
+            not_gated = rest if rest.strip(" :").lower() != "missing" and rest else \
+                "some required items not confirmed"
+        gated = ", ".join(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES))
+        return f"Gated items ({gated}) covered; not gated: {not_gated}", not_gated
+    detail = gate
+    if missing:
+        detail += "; missing required items: " + "; ".join(missing)
+    return detail, ""
+
+
+def stored_summary_coverage_verdict(base_name: str) -> Optional[dict]:
+    """The stored summary-coverage verdict when it matches the current inputs, else
+    None. The release gate and the run messages read it the same way."""
+    import json
+
+    key = summary_coverage_key(base_name)
+    if key is None:
+        return None
+    path = config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_SUMMARY_COVERAGE_VERDICT}"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not (isinstance(data, dict) and data.get("key") == key):
+        return None
+    detail = str(data.get("detail") or "")
+    if data.get("status") == "PASS" and not data.get("not_gated") and \
+            detail.startswith("Validation: FAILED"):
+        # Saved before E2E7: a gate PASS with the full validation's "FAILED" line as
+        # its detail. Reword it; the verdict and its key are unchanged.
+        rest = detail.split(" - ", 1)[1] if " - " in detail else "some required items not confirmed"
+        gated = ", ".join(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES))
+        data = {**data, "not_gated": rest,
+                "detail": f"Gated items ({gated}) covered; not gated: {rest}"}
+    return data
+
+
+def summary_coverage_message(base_name: str) -> Optional[str]:
+    """What the summary coverage result means for publication, from the verdict the
+    release gate uses — not from the full validation, which also checks items the
+    gate does not (Q&A, opening). None when there is nothing to report."""
+    verdict = stored_summary_coverage_verdict(base_name)
+    report = f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
+    if verdict is None:
+        return ("⚠️ Summary coverage could not be checked — the release gate will run it "
+                f"again. See the log and '{report}'.")
+    if verdict.get("status") == "FAIL":
+        return ("⚠️ Summary coverage did not pass — publication will be blocked until it "
+                f"does. See '{report}'.")
+    if verdict.get("not_gated"):
+        return (f"⚠️ Summary: {verdict['not_gated']} — not checked by the release gate, so "
+                f"publication is not blocked. See '{report}'.")
+    return None
 
 
 def validate_summary_coverage(base_name: str, logger=None, model: Optional[str] = None) -> bool:
@@ -1142,7 +1228,8 @@ def validate_summary_coverage(base_name: str, logger=None, model: Optional[str] 
             f"{base_name}{config.SUFFIX_SUMMARY_VAL}"
         )
         report_path.write_text(report, encoding="utf-8")
-        _write_summary_coverage_verdict(base_name, status, report.splitlines()[0])
+        detail, not_gated = _summary_verdict_detail(status, passed, report)
+        _write_summary_coverage_verdict(base_name, status, detail, not_gated)
 
         logger.info("Validation Report saved to %s", report_path)
         logger.info("Validation Passed: %s", passed)

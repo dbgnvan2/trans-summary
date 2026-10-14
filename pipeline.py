@@ -33,6 +33,7 @@ from validation_pipeline import (
     validate_key_terms_fidelity,
     validate_topics_lightweight,
     validate_summary_coverage,
+    summary_coverage_message,
 )
 
 # Explicitly export symbols to prevent linters from removing them
@@ -45,6 +46,7 @@ __all__ = [
     "validate_key_terms_fidelity",
     "validate_topics_lightweight",
     "validate_summary_coverage",
+    "summary_coverage_message",
     "_load_formatted_transcript",
     "extract_bowen_and_emphasis",
     "extract_bowen_references_from_transcript",
