@@ -8,6 +8,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-13 — End-to-end run findings (E2E)
 
+**Rerun after E2E1–E2E5 (commit cbbf54e, $5.78):** all three talks pass the release gate
+(ALLOW_WITH_WARNINGS). Systems Biology is no longer blocked (abstract: one flag on attempt
+1, passed on attempt 2; theme judged grounded). Scored emphasis failed on the two long talks
+(see below). Why Families passed every stage.
+
 Run with `scripts/e2e_run.py` (all 16 GUI stages, headless, separate folder) on three
 public talks at commit 6b712d9, main model claude-sonnet-5-5. Cost $6.18 in total.
 Why Families: all stages pass, gate ALLOW_WITH_WARNINGS. Beautiful Boy: all stages
@@ -27,7 +32,12 @@ pass. Systems Biology: blocked.
   Niche and System, Not Rogue Cell"), on freshly generated themes. It fails on every
   run of this talk. Needs one look: is the theme wrong (names such as "Bertoloso",
   "Weinberg", "Popper") or is the judge wrong?
-- ~~**Scored emphasis truncated on Systems Biology**~~ Fixed E2E3. (11k words): the reply used the full
+- **Scored emphasis truncated — NOT fixed by E2E3.** Rerun (cbbf54e): it failed on Beautiful Boy and
+  Systems Biology at the new 24,000-token ceiling. The saved answer is ~3–4k tokens; successful calls
+  used 11–14.5k output tokens, so the rest is thinking, and it varies run to run (Beautiful Boy: 14,540
+  in one run, over 24,000 in the next). Raising the ceiling only moves the line. Next: set the thinking
+  level (effort) for this call, measured against current item quality, or split long transcripts. In
+  the GUI the run stops here on long talks. Was: (11k words): the reply used the full
   16,192 output tokens (8,192 + thinking headroom) and was rejected; the Bowen +
   Emphasis stage failed. Beautiful Boy (12k words) fit, so it depends on the run.
   `config.MAX_TOKENS_EXTRACTION` (8192) predates the thinking models.

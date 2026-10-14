@@ -15,7 +15,9 @@ All notable changes to this project will be documented in this file.
   Measured: 3 old-prompt and 3 new-prompt generations all passed; the invented name
   is occasional, so the rule's effect is not shown yet.
 - **E2E3 Extraction token ceiling** 8,192 → 16,000 (24,000 with thinking headroom).
-  Scored emphasis used 11,228 / 14,540 tokens and failed above 16,192.
+  Scored emphasis used 11,228 / 14,540 tokens and failed above 16,192. The rerun showed
+  this is not enough: the call's thinking varies and went over 24,000 on both long
+  talks (open in TODO).
 - **E2E4 Approved-terms file.** When the base folder has no `approve_terms.txt`, the
   one in the chosen source folder is used (`config.settings.default_terms_path`). Init
   Val logs a warning when the terms file is missing, and the GUI label shows
