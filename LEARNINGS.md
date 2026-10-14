@@ -69,6 +69,14 @@ Pull from the global catalogue; the ones that bite this repo most:
   `::test_archive_reports_originals_it_could_not_remove`). Still open: a line another live handler
   writes between the zip and the unlink is lost (a few lines at most).
 
+- **Theme JSON has no reader yet (ST, pre-flight review 2026-10-14).** The version-2
+  `*-themes.json` holds `rationale` (not for publication), and no gate or test checks that
+  the `.json` agrees with the `.md` after save. An `OSError` writing the JSON leaves the
+  previous run's `.json` next to a new `.md`. Harmless while every reader uses the `.md`.
+  Before phase 2 switches readers to the JSON: exclude `rationale` from every reader by
+  allowlist, and have the gate check that the `.json` and `.md` agree (or regenerate the
+  `.md` from the `.json`).
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**
@@ -80,6 +88,13 @@ the six below are instances. In-repo guard: `warn_if_empty_parse` (`transcript_u
 into the key-terms, topics, and emphasis validators.
 
 ---
+
+**Theme layout drift needed a fix each run until the format was enforced (2026-10-14, ST).**
+- Issue: the theme stages returned free-form markdown and every reader parsed it with patterns. In five days the model produced seven layout variants (a list layout, new labels "Summary" and "Closing paragraph:", closing notes read as evidence or published); each needed its own parser fix (T1, TM, TE, TD, TP).
+- Root cause (P19): the format contract lived only in the prompt's wording, which the model follows loosely, and the prompts themselves asked for a closing paragraph after the list, so a note in some new form came back every run.
+- What would have caught it: treating repeated parser fixes for one stage as a sign the boundary needs an enforced format, not another pattern.
+- Fix: the stages return JSON checked against a schema (`output_config.format`) plus local checks the API does not enforce; the pipeline writes the markdown in one layout, and the closing note goes in a `rationale` field that is never rendered. A round-trip test over generated and real objects found one parser bug: a `^` anchor searched on a slice matched the slice's start, which is not a line start.
+- Rule: when a model output is parsed, enforce its format at generation (schema) rather than widening the parser after each drift. Search with `pattern.search(text, pos)`, not on `text[pos:]`, when `^` must mean a real line start. (P19)
 
 **Problems that only a full run shows (2026-10-13, end-to-end run, E2E).**
 - Issue: one headless run of all 16 stages on three public talks found five problems the unit tests and earlier fixes had not: the abstract was given figures (coverage percentages) the transcript does not state, then blocked for stating one; a theme named a person the speaker never named; the emphasis reply ran past its token ceiling on a long talk; the GUI's Init Val ran without the approved-terms file; and the test suite wrote the real settings file.

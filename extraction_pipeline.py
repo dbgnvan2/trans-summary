@@ -266,6 +266,20 @@ def _generate_with_cached_transcript(
     **replacements,
 ) -> str:
     """Generate an artifact using a prompt template and cached transcript context."""
+    return _generate_summary_with_claude(
+        _build_prompt(prompt_filename, replacements),
+        model,
+        config.TEMP_ANALYSIS,
+        logger,
+        min_length=min_length,
+        timeout=config.TIMEOUT_SUMMARY,
+        system=transcript_system_message,
+    )
+
+
+def _build_prompt(prompt_filename: str, replacements: dict) -> str:
+    """The prompt text: the template with its placeholders filled; a value with no
+    placeholder in the template is added under "## Provided Context"."""
     replacements = _for_prompt(replacements)
     template = _load_summary_prompt(prompt_filename)
     prompt = fill_prompt_template(template, {}, "", **replacements)
@@ -283,16 +297,58 @@ def _generate_with_cached_transcript(
             context_lines.append(str(value).strip())
             context_lines.append("")
         prompt = prompt.rstrip() + "\n" + "\n".join(context_lines).rstrip() + "\n"
+    return prompt
 
-    return _generate_summary_with_claude(
-        prompt,
-        model,
-        config.TEMP_ANALYSIS,
-        logger,
-        min_length=min_length,
+
+_THEME_PROMPTS = {"structural": "PROMPT_STRUCTURAL_THEMES_FILENAME",
+                  "interpretive": "PROMPT_INTERPRETIVE_THEMES_FILENAME"}
+
+
+def _generate_structured_themes(kind: str, model: str, logger, transcript_system_message,
+                                structural: dict | None = None) -> tuple:
+    """Generate one theme set as JSON that must match the schema, and render its
+    markdown. Returns ``(obj, markdown)``: ``obj`` the checked version-2 object (the
+    source of truth, saved as the ``.json`` file), ``markdown`` the file the page,
+    judge and later prompts read. ``structural``: the structural object, required for
+    the interpretive kind; it is sent as rendered markdown and its theme count bounds
+    ``nested_under``.
+
+    A reply that is not JSON or fails ``check_structured_themes`` is retried by
+    ``call_claude_with_retry``; after the last attempt the error is raised (fail
+    closed), and the stage records the failure.
+
+    Purpose: Theme files in one layout, whatever the model's formatting (ST).
+    Spec:    docs/plan_structured_themes_2026-10-14.md#ST.3
+    Tests:   tests/test_structured_themes_st.py::test_st3_invalid_reply_retried_then_fails
+    """
+    import artifact_contracts as ac
+
+    replacements = {}
+    structural_count = None
+    if kind == "interpretive":
+        if structural is None:
+            raise ValueError("interpretive themes need the structural themes object")
+        replacements["structural_themes"] = ac.themes_to_markdown(structural)
+        structural_count = len(structural["items"])
+    prompt = _build_prompt(getattr(config, _THEME_PROMPTS[kind]), replacements)
+    message = call_claude_with_retry(
+        client=get_anthropic_client(),
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=config.MAX_TOKENS_EXTRACTION,
+        temperature=config.TEMP_ANALYSIS,
+        stream=True,
+        min_length=config.THEME_MIN_REPLY_CHARS[kind],
         timeout=config.TIMEOUT_SUMMARY,
+        logger=logger,
         system=transcript_system_message,
+        output_format={"type": "json_schema", "schema": ac.themes_model_schema(kind)},
+        check_reply=lambda text: ac.structured_themes_from_reply(text, kind, structural_count),
     )
+    obj = ac.structured_themes_from_reply(
+        transcript_utils.response_text(message), kind, structural_count)
+    logger.info("%s themes: %d, returned as checked JSON.", kind.capitalize(), len(obj["items"]))
+    return obj, ac.themes_to_markdown(obj, structural)
 
 
 def _clean_bowen_output(text: str) -> str:
@@ -545,13 +601,18 @@ def _artifact_contracts_logger():
     return _ARTIFACT_CONTRACTS_LOGGER
 
 
-def _self_validate_saved_summary(output_path: Path, summary_type: str, run_logger=None) -> None:
+def _self_validate_saved_summary(output_path: Path, summary_type: str, run_logger=None,
+                                 structured: dict | None = None) -> None:
     """M3.B producer self-check for codec-backed artifacts: re-read the just-saved
     file through the schema codec and, on success, write the JSON sidecar. On
     drift, LEAVE the file on disk for the release gate to BLOCK on (deleting would
     invert a loud, publish-blocking gate ERROR into a silent drop — see LEARNINGS),
     invalidate any stale sidecar so the two can't disagree, and log loudly. Never
-    raises — the gate is the single blocker; this only surfaces + records."""
+    raises — the gate is the single blocker; this only surfaces + records.
+
+    ``structured``: the theme stage's checked version-2 object (ST), saved as the JSON
+    file instead of the object read back from the markdown. ``_save_themes`` checks
+    that the markdown reads back to its themes before anything is written."""
     entry = _CODEC_FOR_SUMMARY_TYPE.get(summary_type)
     if entry is None:
         return
@@ -563,7 +624,7 @@ def _self_validate_saved_summary(output_path: Path, summary_type: str, run_logge
         obj = ac.codec(key).parse_markdown(
             output_path.read_text(encoding="utf-8"), *args
         )
-        ac.write_json_sidecar(output_path, key, obj)
+        ac.write_json_sidecar(output_path, key, structured if structured is not None else obj)
     except ac.SchemaError as e:
         logger.error(
             "%s artifact failed schema self-check — leaving it on disk for the "
@@ -609,9 +670,10 @@ def _set_aside_stale_emphasis(formatted_filename: str, logger) -> None:
 
 
 def _save_summary(content: str, original_filename: str, summary_type: str,
-                  logger=None) -> Path:
+                  logger=None, structured: dict | None = None) -> Path:
     """Save summary output. ``logger``: the run's logger, which also reports a
-    failed format self-check (T3)."""
+    failed format self-check (T3). ``structured``: for a theme file, the version-2
+    object ``content`` was rendered from, saved as the JSON file (ST)."""
     stem = _summary_stem(original_filename)
 
     if summary_type == "emphasis-scored":
@@ -644,8 +706,30 @@ def _save_summary(content: str, original_filename: str, summary_type: str,
     project_dir.mkdir(parents=True, exist_ok=True)
     output_path = project_dir / output_filename
     output_path.write_text(content, encoding="utf-8")
-    _self_validate_saved_summary(output_path, summary_type, logger)
+    _self_validate_saved_summary(output_path, summary_type, logger, structured)
     return output_path
+
+
+def _save_themes(obj: dict, markdown: str, original_filename: str, logger) -> Path:
+    """Save a theme set: the markdown file and, as its JSON file, the version-2
+    object it was rendered from (ST.5). The markdown must read back to the object's
+    themes in order; if not, the renderer is wrong, so this raises and writes nothing
+    (the files from an earlier run stay as they were).
+
+    Spec:  docs/plan_structured_themes_2026-10-14.md#ST.5
+    Tests: tests/test_structured_themes_st.py::test_st5_all_producers_write_json_and_md
+           tests/test_structured_themes_st.py::test_st5_markdown_that_does_not_read_back_is_not_saved
+    """
+    import artifact_contracts as ac
+
+    ac.check_structured_themes(obj)
+    read_back = [it["name"] for it in
+                 ac.codec("themes").parse_markdown(markdown, obj["kind"])["items"]]
+    if read_back != [it["title"] for it in obj["items"]]:
+        raise ac.SchemaError(f"{obj['kind']} themes: the markdown reads back as {read_back}, "
+                             f"not the generated themes; nothing saved")
+    return _save_summary(markdown, original_filename, f"{obj['kind']}-themes",
+                         logger=logger, structured=obj)
 
 
 # Main Exported Functions
@@ -1640,26 +1724,20 @@ def summarize_transcript(
         lenses_output = ""
 
         if not skip_extracts_summary:
+            # ST: the theme stages return checked JSON; the markdown is rendered from it.
+            # Both sets are saved only when both were generated: interpretive themes
+            # name structural themes, so a new structural file must not sit next to
+            # an earlier run's interpretive file (ST review).
             logger.info("PART 1: Generating Structural Themes...")
-            structural_output = _generate_with_cached_transcript(
-                config.PROMPT_STRUCTURAL_THEMES_FILENAME,
-                model,
-                logger,
-                transcript_system_message,
-                min_length=180,
-            )
-            _save_summary(structural_output, formatted_filename, "structural-themes", logger=logger)
+            structural_obj, structural_output = _generate_structured_themes(
+                "structural", model, logger, transcript_system_message)
 
             logger.info("PART 2: Generating Interpretive Themes...")
-            interpretive_output = _generate_with_cached_transcript(
-                config.PROMPT_INTERPRETIVE_THEMES_FILENAME,
-                model,
-                logger,
-                transcript_system_message,
-                min_length=260,
-                structural_themes=structural_output,
-            )
-            _save_summary(interpretive_output, formatted_filename, "interpretive-themes", logger=logger)
+            interpretive_obj, interpretive_output = _generate_structured_themes(
+                "interpretive", model, logger, transcript_system_message,
+                structural=structural_obj)
+            _save_themes(structural_obj, structural_output, formatted_filename, logger)
+            _save_themes(interpretive_obj, interpretive_output, formatted_filename, logger)
 
             logger.info("PART 3: Generating Topics...")
             topics_output = _generate_with_cached_transcript(
@@ -1778,23 +1856,18 @@ def summarize_transcript(
 
                 if not structural_valid:
                     logger.warning("Structural themes denied by validator; regenerating...")
-                    structural_output = _generate_with_cached_transcript(
-                        config.PROMPT_STRUCTURAL_THEMES_FILENAME,
-                        model,
-                        logger,
-                        transcript_system_message,
-                        min_length=180,
-                    )
-                if not interpretive_valid:
-                    logger.warning("Interpretive themes denied by validator; regenerating...")
-                    interpretive_output = _generate_with_cached_transcript(
-                        config.PROMPT_INTERPRETIVE_THEMES_FILENAME,
-                        model,
-                        logger,
-                        transcript_system_message,
-                        min_length=260,
-                        structural_themes=structural_output,
-                    )
+                    structural_obj, structural_output = _generate_structured_themes(
+                        "structural", model, logger, transcript_system_message)
+                if not interpretive_valid or not structural_valid:
+                    # ST.5: interpretive themes name structural themes by number, so new
+                    # structural themes need new interpretive themes as well.
+                    logger.warning(
+                        "Interpretive themes denied by validator; regenerating..."
+                        if not interpretive_valid else
+                        "Regenerating interpretive themes for the new structural themes...")
+                    interpretive_obj, interpretive_output = _generate_structured_themes(
+                        "interpretive", model, logger, transcript_system_message,
+                        structural=structural_obj)
                 if structural_valid and interpretive_valid and top_lens and top_lens_grounded:
                     logger.info(
                         "✓ Top-ranked lens validated: %s",
@@ -1833,8 +1906,8 @@ def summarize_transcript(
                 )
                 return False
 
-            _save_summary(structural_output, formatted_filename, "structural-themes", logger=logger)
-            _save_summary(interpretive_output, formatted_filename, "interpretive-themes", logger=logger)
+            _save_themes(structural_obj, structural_output, formatted_filename, logger)
+            _save_themes(interpretive_obj, interpretive_output, formatted_filename, logger)
             _save_summary(lenses_output, formatted_filename, "lenses-ranked", logger=logger)
         else:
             stem = metadata["stem"]

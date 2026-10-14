@@ -73,34 +73,10 @@ def test_t1_display_blocks_for_list_format():
 import pytest  # noqa: E402
 
 
-@pytest.mark.parametrize("attr, split_at", [
-    ("PROMPT_STRUCTURAL_THEMES_FILENAME", "If you identify only"),
-    ("PROMPT_INTERPRETIVE_THEMES_FILENAME", "After the list"),
-])
-def test_t2_theme_prompts_name_the_parsed_layout(attr, split_at):
-    """T2 (+ review sibling): both theme prompts name the parsed layout and their own
-    examples parse; the old examples used an inline list layout no parser reads."""
-    import config
-    prompt = (config.PROMPTS_DIR / getattr(config, attr)).read_text(encoding="utf-8")
-    assert "`**N. Title**`" in prompt and "numbered list or table" not in prompt
-    marker = "Example output structure:" if "Example output structure:" in prompt else "Example structure:"
-    example = prompt.split(marker, 1)[1].split(split_at, 1)[0]
-    filled = example.replace("...", "Text.")
-    names = [n for n, _ in parse_bold_numbered_theme_blocks(filled)]
-    assert names[:2] == ["Title of Theme 1", "Title of Theme 2"], names
-
-
-def test_t2_structural_prompt_example_parses():
-    """T2: the structural-themes prompt names the parsed layout, and its own example
-    parses (the old example used the list layout Opus copied)."""
-    import config
-    from transcript_utils import extract_section
-    prompt = (config.PROMPTS_DIR / config.PROMPT_STRUCTURAL_THEMES_FILENAME).read_text(encoding="utf-8")
-    assert "`**N. Title**`" in prompt and "numbered list or table" not in prompt
-    example = prompt.split("Example output structure:", 1)[1].split("If you identify only", 1)[0]
-    filled = example.replace("2–4 sentences.", "A description of the theme.").replace("...", "Text.")
-    names = [n for n, _ in parse_bold_numbered_theme_blocks(filled)]
-    assert names[:2] == ["Title of Theme 1", "Title of Theme 2"]
+# T2 (the prompts name the parsed markdown layout, and their examples parse) is
+# replaced by ST: the theme stages return JSON and the pipeline writes the layout
+# (tests/test_structured_themes_st.py::test_st6_prompts_describe_fields and
+# ::test_st4_round_trip_generated).
 
 
 def test_t3_self_check_failure_is_reported_in_the_run_log(tmp_path, monkeypatch):

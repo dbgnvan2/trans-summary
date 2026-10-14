@@ -1,0 +1,191 @@
+{
+ "dave_g_test2/interpretive-themes.md": {
+  "codec_items": "713202d8984b18d1",
+  "judge_blocks": "0b257c7fa1a880dc",
+  "judge_input": "602df74d9269a97a",
+  "page_blocks": "f83b7caf29f4972b",
+  "prompt_text": "e34bdbc9c6216435",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "dave_g_test2/structural-themes.md": {
+  "codec_items": "fbd903bad23fe9e2",
+  "judge_blocks": "7310ad58882a2b30",
+  "judge_input": "d14241d01bd9b1c9",
+  "page_blocks": "42fcdda5b0717efb",
+  "prompt_text": "780fbae6781c1320",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "kcfc_interpretive-themes.md": {
+  "codec_items": "247231e9da3a9d08",
+  "judge_blocks": "90cfa616b84b8768",
+  "judge_input": "880d5874889ed8f9",
+  "page_blocks": "a21dd9fa1e4bd801",
+  "prompt_text": "d0d3a8e67fc7ee37",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "kcfc_structural-themes.md": {
+  "codec_items": "152a69a9975facd7",
+  "judge_blocks": "481182747afa1ee5",
+  "judge_input": "caa7422c5125a23d",
+  "page_blocks": "fc2f19ca8bd89703",
+  "prompt_text": "db77bf1de8f317e1",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "monika_h3_themes/interpretive-themes.md": {
+  "codec_items": "500effcd435c0173",
+  "judge_blocks": "ee0e6cdb225afe11",
+  "judge_input": "82b24c799e7ff8d4",
+  "page_blocks": "cf81bb9541901657",
+  "prompt_text": "860bf22ca68fe0cc",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "monika_h3_themes/structural-themes.md": {
+  "codec_items": "92fa451af0c03730",
+  "judge_blocks": "12fc12666f160f66",
+  "judge_input": "541b546689d1cb4a",
+  "page_blocks": "9d56f968b4a2db5a",
+  "prompt_text": "26356498979d8d5c",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "opus_list_themes/structural-themes.md": {
+  "codec_items": "8c59877a3a06c391",
+  "judge_blocks": "9c88e3450bee9349",
+  "judge_input": "b37c5b9f248f710e",
+  "page_blocks": "667453446841baa0",
+  "prompt_text": "2112bd03a0a6f3f6",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - interpretive-themes.md": {
+  "codec_items": "62eff3d15cef054a",
+  "judge_blocks": "4cd6556e8b4105e0",
+  "judge_input": "85c93f1566336456",
+  "page_blocks": "1bfaadaa606d6084",
+  "prompt_text": "8427ed6e77bbf4db",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - structural-themes.md": {
+  "codec_items": "69b9c76759dea0dc",
+  "judge_blocks": "f36eb3f07bfb03c8",
+  "judge_input": "06e51c2eef4181d7",
+  "page_blocks": "e9e05edf2404d136",
+  "prompt_text": "de4659d8ab7d387e",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - interpretive-themes.md": {
+  "codec_items": "b1f1beedc386a42f",
+  "judge_blocks": "ad858660b526abb8",
+  "judge_input": "6eef87e0c45762f8",
+  "page_blocks": "d319612e1e4aa06c",
+  "prompt_text": "dcec2f0770368e24",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - structural-themes.md": {
+  "codec_items": "444c093a58260752",
+  "judge_blocks": "08f59ff4cf3380fe",
+  "judge_input": "2d5fd4e5c0e2f9bc",
+  "page_blocks": "f111032e8138592e",
+  "prompt_text": "a1aa28c164960a13",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - interpretive-themes.md": {
+  "codec_items": "5b841b93959a4712",
+  "judge_blocks": "615ce8acb996ca5e",
+  "judge_input": "3d97ec606b3d5272",
+  "page_blocks": "7410ee9b94ee9bc9",
+  "prompt_text": "09bbaa1a4ce05b36",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "prose_real/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - structural-themes.md": {
+  "codec_items": "24bd9f08ae1c9e0b",
+  "judge_blocks": "ad4e01a34c615ca6",
+  "judge_input": "0d0e6557ca1d9740",
+  "page_blocks": "3c1d0fa81d314fab",
+  "prompt_text": "38f9b8594050d347",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "roots_bowen_test/interpretive-themes.md": {
+  "codec_items": "ad3466e0ea51557a",
+  "judge_blocks": "84e8d8fc20e184cf",
+  "judge_input": "833928d97362552e",
+  "page_blocks": "64a63bbc923cdef9",
+  "prompt_text": "461bd9e0227c21c7",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "roots_bowen_test/structural-themes.md": {
+  "codec_items": "d9af816e5e27a048",
+  "judge_blocks": "e07c00be4e8cb518",
+  "judge_input": "dc6063b381d2e4ca",
+  "page_blocks": "1dcc93aaf79f8d7d",
+  "prompt_text": "e7b84035f7726739",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "societal_emotional/interpretive-themes.md": {
+  "codec_items": "62eff3d15cef054a",
+  "judge_blocks": "4cd6556e8b4105e0",
+  "judge_input": "85c93f1566336456",
+  "page_blocks": "1bfaadaa606d6084",
+  "prompt_text": "8427ed6e77bbf4db",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "societal_emotional/structural-themes.md": {
+  "codec_items": "69b9c76759dea0dc",
+  "judge_blocks": "f36eb3f07bfb03c8",
+  "judge_input": "06e51c2eef4181d7",
+  "page_blocks": "e9e05edf2404d136",
+  "prompt_text": "de4659d8ab7d387e",
+  "trimmed": "4f53cda18c2baa0c",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "theme_trailing/beautiful_boy_structural-themes.md": {
+  "codec_items": "fa086066a945bac9",
+  "judge_blocks": "b1dbaa41adf9fef6",
+  "judge_input": "d97ee8a2cc99f46e",
+  "page_blocks": "c6044e559064203d",
+  "prompt_text": "a063da8460527a9f",
+  "trimmed": "e68c8b110cad035d",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "theme_trailing/triangles_lecture_structural-themes.md": {
+  "codec_items": "5ba878e583d87d90",
+  "judge_blocks": "50d1253ae43ed255",
+  "judge_input": "b2b96c15183e69f3",
+  "page_blocks": "f1e25b1059467df1",
+  "prompt_text": "9d851fbc6c0984d3",
+  "trimmed": "83e95576666c523d",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "theme_trailing/why_families_interpretive-themes.md": {
+  "codec_items": "aaca638a53cbe476",
+  "judge_blocks": "5a6e297a01889165",
+  "judge_input": "4527427636a5818d",
+  "page_blocks": "6b4b4b4708028b0f",
+  "prompt_text": "40d89750e12de9d2",
+  "trimmed": "6847fb60c9da06f9",
+  "unclassified": "4f53cda18c2baa0c"
+ },
+ "theme_trailing/why_families_structural-themes.md": {
+  "codec_items": "1283e4f285bee769",
+  "judge_blocks": "46cf6f57f2adcfb1",
+  "judge_input": "1919559080391acd",
+  "page_blocks": "c25bd3254644bbbd",
+  "prompt_text": "c5477fdebb17ad6b",
+  "trimmed": "5f90683950611585",
+  "unclassified": "4f53cda18c2baa0c"
+ }
+}

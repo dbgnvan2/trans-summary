@@ -646,7 +646,7 @@ def _log_once(key, logger, level, msg, *args):
 
 
 def model_request_params(model: str, temperature, max_tokens: int, logger=None,
-                         effort=USE_EFFORT_SETTING) -> dict:
+                         effort=USE_EFFORT_SETTING, output_format=None) -> dict:
     """Model-specific request fields (MV.2/MV.4/MV.5): only what ``model`` accepts.
 
     Returns ``{"params": {...}, "max_tokens": int, "betas": [...], "extra_body": {...}}``:
@@ -655,10 +655,13 @@ def model_request_params(model: str, temperature, max_tokens: int, logger=None,
       supports that level (else omitted, logged once);
     - ``max_tokens`` plus config.THINKING_TOKEN_HEADROOM for models that think
       first, capped at the model's max output;
-    - server-side refusal fallbacks for the models in config.REFUSAL_FALLBACK_MODELS.
+    - server-side refusal fallbacks for the models in config.REFUSAL_FALLBACK_MODELS;
+    - ``output_format`` (a JSON-schema format, ST) as ``output_config.format``, in the
+      same ``output_config`` object as the effort.
 
     Spec:  docs/plan_v5_models_2026-10-10.md#MV.2
     Tests: tests/test_v5_models.py::test_mv2_v5_request_has_no_temperature
+           tests/test_structured_themes_st.py::test_st2_request_has_format_and_effort
     """
     import model_specs
 
@@ -681,6 +684,13 @@ def model_request_params(model: str, temperature, max_tokens: int, logger=None,
         else:
             _log_once((model, effort), logger, "warning",
                       "Effort '%s' is not supported by %s; using its default.", effort, model)
+    if output_format is not None:
+        if not cap.get("structured_output"):
+            # Fail before the call: the request would be rejected (ST review).
+            raise ValueError(f"{model} does not accept a JSON-schema output format; the "
+                             "theme stages need a Claude 4.5 model or later.")
+        extra_body["output_config"] = {**extra_body.get("output_config", {}),
+                                       "format": output_format}
     if cap["thinking"] == "always":
         max_tokens += config.THINKING_TOKEN_HEADROOM
     # Every model, not only thinking ones: a raised shared ceiling must not exceed an
@@ -707,6 +717,8 @@ def call_claude_with_retry(
     stream: bool = False,
     effort=USE_EFFORT_SETTING,
     max_words: int = 0,
+    output_format=None,
+    check_reply=None,
     **kwargs
 ):
     """
@@ -727,6 +739,9 @@ def call_claude_with_retry(
         min_words: Minimum expected length of response in words
         max_words: Maximum length in words (0 = no limit); a longer reply is retried
         stream: Whether to stream the response (recommended for long outputs)
+        output_format: a JSON-schema output format, sent as output_config.format (ST)
+        check_reply: called with the reply text; a ValueError it raises is retried
+            like a too-short reply, and raised after the last attempt (ST.3)
 
     Returns:
         API response message
@@ -741,7 +756,8 @@ def call_claude_with_retry(
     current_timeout = kwargs.get('timeout') or config.TIMEOUT_FALLBACK
 
     # Only send what this model accepts (MV.2/MV.4/MV.5).
-    request = model_request_params(model, temperature, max_tokens, logger, effort=effort)
+    request = model_request_params(model, temperature, max_tokens, logger, effort=effort,
+                                   output_format=output_format)
     max_tokens = request["max_tokens"]
     beta_header = ",".join([config.ANTHROPIC_CACHE_BETA_HEADER, *request["betas"]])
     if request["extra_body"]:
@@ -816,6 +832,8 @@ def call_claude_with_retry(
                 if max_words > 0 and len(text_content.split()) > max_words:
                     raise ValueError(
                         f"Response text too long: {len(text_content.split())} words (expected <= {max_words})")
+                if check_reply is not None:
+                    check_reply(text_content)
             except (ValueError, RuntimeError) as e:
                 # Validation failed
                 if logger:
@@ -1546,6 +1564,7 @@ _THEME_PATTERNS = (_BOLD_THEME_RE, _H3_THEME_RE, _LIST_THEME_RE)
 
 
 _THEME_FIELD_RE = re.compile(r"(?:^|\n)\*\*([A-Z][^:\n*]+):\*\*[ \t]*")
+_LINE_HEADING_RE = re.compile(r"(?m)^#{1,6}[ \t]")
 
 
 def _extract_theme_evidence(block: str) -> str:
@@ -1653,10 +1672,12 @@ def _theme_own_text_report(block: str, last: bool = False) -> tuple:
         fields = list(_THEME_FIELD_RE.finditer(block))
         if fields:
             head, rest = block[:fields[-1].end()], block[fields[-1].end():]
-            heading = re.search(r"(?m)^#{1,6}[ \t]", rest)
+            # Searched in ``block`` from the field's end, so ``^`` matches only a real
+            # line start: a field value that begins with "# " is not a heading (ST).
+            heading = _LINE_HEADING_RE.search(block, fields[-1].end())
             if heading:
                 notes.append("heading after the last field")
-                rest = rest[:heading.start()]
+                rest = block[fields[-1].end():heading.start()]
             label = fields[-1].group(1).strip().lower()
             theme_meta = label in (config.THEME_JUDGE_META_LABELS - config.THEME_DOCUMENT_LEVEL_LABELS)
             paragraphs = [p for p in re.split(r"\n[ \t]*\n", rest)

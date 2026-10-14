@@ -1054,6 +1054,9 @@ PROMPT_FORMATTING_HEADER_VALIDATION_FILENAME = (
 PROMPT_FORMATTING_FILENAME = "Transcript Formatting Prompt v12-Lite.md"
 PROMPT_EXTRACTS_FILENAME = "Transcript Summary Key Items v1.md"
 PROMPT_TOPICS_FILENAME = "Transcript Summary - Topics v1.md"
+# Shortest acceptable theme-stage reply, in characters (ST: the JSON reply; the same
+# values the free-form stage used).
+THEME_MIN_REPLY_CHARS = {"structural": 180, "interpretive": 260}
 PROMPT_STRUCTURAL_THEMES_FILENAME = "Transcript Summary - Structural Themes v2.md"
 PROMPT_INTERPRETIVE_THEMES_FILENAME = "Transcript Summary - Interpretive Themes v1.md"
 PROMPT_LENS_GENERATION_FILENAME = "Transcript Summary - Lens Generation v1.md"

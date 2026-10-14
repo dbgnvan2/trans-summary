@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (structured theme output — ST)
+
+- The structural and interpretive theme stages return JSON that must match a schema
+  (`output_config.format`), and the pipeline writes the theme `.md` file from it in one
+  layout: `**N. Title**`, then `**Description:**`, Key evidence as a list, and
+  `**Coverage / role:**` or `**Nested under structural theme(s):**` / `**Lens fuel
+  value:**`. The model's own layout and labels no longer reach the file, so the label
+  drift seen in runs 4 and 5 ("Summary", "Closing paragraph:") cannot recur in new runs.
+- The JSON is saved next to the markdown (`… - structural-themes.json`,
+  `… - interpretive-themes.json`, schema version 2) and keeps the model's closing note in
+  `rationale`, which is never written to the markdown, the page, the judge input or a
+  prompt. The prompts ask for that note in `rationale` instead of after the list.
+- A reply that is not JSON or fails the local checks (numbers 1..N, no empty text, a
+  title the parsers would skip, an interpretive theme nested under a structural theme
+  that does not exist) is retried, and the stage fails after the last attempt.
+- In the theme/lens validation loop, new structural themes now bring new interpretive
+  themes, since those refer to the structural themes by number. In PART 1/2 both sets
+  are saved only after both are generated, so a failed interpretive stage leaves the
+  earlier run's pair as it was.
+- The theme stages need a model with structured output (`model_specs` flag
+  `structured_output`: Claude 4.5 and later); on another model they stop before any
+  request, with the reason.
+- Readers are unchanged: the page, judge, prompts, gate and webpage checks read the
+  `.md` as before. Old theme files parse exactly as before (hash snapshot of every
+  parser output over 21 real fixtures).
+- Fixed in passing: when the last theme's last field began with "# ", the page lost that
+  field (`transcript_utils._theme_own_text_report`).
+- Cost: each theme call writes its own prompt cache (the schema sits in front of the
+  transcript), about $0.03 per call on an 8k-token talk.
+- Plan and details: `docs/plan_structured_themes_2026-10-14.md`. Tests:
+  `tests/test_structured_themes_st.py`.
+
 ## [Unreleased] - 2026-10-14 (summary length band — SL)
 
 - A structured summary is accepted from 10% under to 20% over its target (author

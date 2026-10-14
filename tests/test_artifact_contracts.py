@@ -59,12 +59,18 @@ def _codec_and_args(sample_key: str):
 def test_m3a_schemas_valid_and_versioned():
     from jsonschema import Draft202012Validator
 
-    for key in ("bowen", "emphasis", "key_terms", "topics", "themes", "abstract_input"):
+    for key in ("bowen", "emphasis", "key_terms", "topics", "abstract_input"):
         schema = ac.load_schema(key)
         Draft202012Validator.check_schema(schema)  # the schema itself is well-formed
         assert schema.get("version") == ac.SCHEMA_VERSION
         # the envelope pins the artifact identity so a mis-routed object is caught
-        assert schema["properties"]["artifact"]["const"] in (key, "themes")
+        assert schema["properties"]["artifact"]["const"] == key
+    # themes is version 2 (ST): one envelope per shape, each pinned to "themes"
+    schema = ac.load_schema("themes")
+    Draft202012Validator.check_schema(schema)
+    assert schema.get("version") == ac.THEMES_SCHEMA_VERSION
+    for shape in ("v1", "v2_structural", "v2_interpretive"):
+        assert schema["$defs"][shape]["properties"]["artifact"]["const"] == "themes"
 
 
 # --------------------------------------------------------------------------- M3.D.1

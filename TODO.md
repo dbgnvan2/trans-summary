@@ -24,9 +24,18 @@ New from this run:
 - **Q&A share of Beautiful Boy varies: 100%, 18%, 100%** across runs 2–4 of the same talk.
   The detector depends on the formatter's headings and labels. Not gated, but it feeds
   the summary and abstract inputs.
-- **A theme used a new field label, "Summary"** (Why Families interpretive themes). Sent
+- ~~**A theme used a new field label, "Summary"**~~ (Why Families interpretive themes). Sent
   to the judge as evidence and reported (TE, as designed). Another case of the model's
-  free-form layout drifting.
+  free-form layout drifting. Fixed for new runs 2026-10-14 (ST): the theme stages return
+  JSON and the pipeline writes the layout (`docs/plan_structured_themes_2026-10-14.md`).
+  Old files keep the TE/TD handling.
+
+- **The first abstract can describe interpretive themes that were later replaced**
+  (found in the ST review, 2026-10-14; not fixed). PART 5 builds `abstract-initial` from
+  the first interpretive set; if the theme/lens validation loop regenerates the themes,
+  the saved abstract and theme file disagree. Before ST this happened when the
+  validator rejected the interpretive themes; now also when it rejects the structural
+  ones. The structured-abstract stage reads the saved files, so it is not affected.
 
 **Rerun after E2E1–E2E5 (commit cbbf54e, $5.78):** all three talks pass the release gate
 (ALLOW_WITH_WARNINGS). Systems Biology is no longer blocked (abstract: one flag on attempt
@@ -86,7 +95,9 @@ pass. Systems Biology: blocked.
   Fix: use `transcript_utils.theme_display_blocks`.
 - **Open risk (TP/TD):** a theme the published-theme parser rejects (a title like
   "Summary", or a list item with no Description) is left out of the page, the judge and
-  now the prompts, with no log line. None on disk today (55 files checked).
+  now the prompts, with no log line. None on disk today (55 files checked). New runs
+  cannot produce one: ST rejects such a title and requires a description. Old files
+  still can.
 - **Summary and overview are also given figures their judge cannot check.**
   `summary_pipeline.SummaryInput.to_json` sends topic `percentage`, `sections` and the
   Q&A percentage. The overview gets the raw topics text ("~XX% of transcript;

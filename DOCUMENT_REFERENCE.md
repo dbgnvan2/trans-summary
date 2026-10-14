@@ -16,8 +16,9 @@ This guide reflects the current artifact set produced by the transcript processi
 | Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
 | Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
 | YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter; fallback structured-transcript source for summary/abstract generation | `formatting_pipeline.add_yaml` |
-| Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
-| Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript | `extraction_pipeline.summarize_transcript` |
+| Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript; rendered from the `.json` next to it | `extraction_pipeline.summarize_transcript` |
+| Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript; rendered from the `.json` next to it | `extraction_pipeline.summarize_transcript` |
+| Theme data | `<Base Name> - structural-themes.json`, `- interpretive-themes.json` | The theme stage's checked JSON (schema version 2, `schemas/themes.schema.json`), including the model's `rationale` note, which is not published. Files made before 2026-10-14 hold a version-1 object read back from the markdown | `extraction_pipeline._save_themes` |
 | Topics | `<Base Name> - topics.md` | Topic objects with coverage metadata | `extraction_pipeline.summarize_transcript` |
 | Ranked Lenses | `<Base Name> - lenses-ranked.md` | Ranked lenses (top lens used for blog generation) | `extraction_pipeline.summarize_transcript` |
 | Key Terms | `<Base Name> - key-terms.md` | Term-focused extract (if generated in flow) | `extraction_pipeline` |

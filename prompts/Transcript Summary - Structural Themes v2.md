@@ -40,41 +40,23 @@ Instructions:
     - Turning themes into summaries or lists of topics
     - Using overly vague or generic labels (e.g. “Bowen Theory” or “Cancer” alone)
     - Naming a person, institution, place or published work that the transcript does not name. Use only names the transcript says. If the speaker refers to someone without saying their name, describe them; do not add a name from your own knowledge.
-4. For each structural theme, provide:
-    - A clear, concise title (ideally 4–10 words)
-    - A 2–4 sentence description explaining the theme and why it is central
-    - Key supporting evidence (specific sections, pages, quotes, or motifs from the document)
-    - Approximate coverage / importance (e.g. “spans ~40% of content via repeated emphasis” or “anchors the entire convergence argument”)
-
-Output format: the pipeline parses this file, so use exactly this layout. Each theme
-starts with a line `**N. Title**` (number and title both inside the bold), followed by
-the fields `**Description:**`, `**Key evidence:**` and `**Coverage / role:**`, each at
-the start of its own line (not indented). Do not use a table.
-
-Example output structure:
-
-### Structural Themes (3 total)
-
-**1. Title of Theme 1**
-**Description:** 2–4 sentences.
-**Key evidence:** Sections X–Y, emphasized items, high-% topics, quotes, etc.
-**Coverage / role:** ...
-
-**2. Title of Theme 2**
-**Description:** ...
-**Key evidence:** ...
-**Coverage / role:** ...
-
-**3. Title of Theme 3**
-...
+4. For each structural theme, fill these fields:
+    - `number`: 1, 2, 3 … in order
+    - `title`: a clear, concise title (ideally 4–10 words), plain text
+    - `description`: 2–4 sentences explaining the theme and why it is central
+    - `key_evidence`: the supporting evidence as a list, one item per piece (specific sections, pages, quotes, or motifs from the document)
+    - `coverage_role`: approximate coverage / importance (e.g. “spans ~40% of content via repeated emphasis” or “anchors the entire convergence argument”)
 
 If you identify only 2 very strong themes that fully cover the talk, stop at 2. If the content strongly supports 4 distinct high-level organizers, use 4 — but never exceed 4.
 
-After listing the themes, add one short paragraph summarizing:
+5. In `rationale`, write one short paragraph on:
+    - Why these themes were chosen
+    - How well they cover the full presentation (including Q&A)
+    - Any notable edge cases or tensions resolved by this set
 
-- Why these themes were chosen
-- How well they cover the full presentation (including Q&A)
-- Any notable edge cases or tensions resolved by this set
+   The rationale is kept with the record and is not published, so put nothing a reader needs in it.
+
+Your reply is JSON that matches the schema you are given; the pipeline writes the theme file from it.
 
 Do not generate interpretive / mid-level themes, process motifs, or blog lenses at this stage — focus exclusively on structural (top-level) themes.
 

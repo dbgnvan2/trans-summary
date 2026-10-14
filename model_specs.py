@@ -165,14 +165,17 @@ def get_pricing(model_name: str) -> dict:
 #                "budget"   - legacy budget_tokens thinking, not used here.
 #   effort_levels / default_effort: output_config.effort values the model takes.
 #   max_output:  largest max_tokens.
+#   structured_output: accepts output_config.format (JSON schema output); the theme
+#                stages need it (ST). Claude 4.5 models and later.
 _ALL_EFFORT = ("low", "medium", "high", "xhigh", "max")
 _V5 = {"temperature": False, "thinking": "always", "effort_levels": _ALL_EFFORT,
-       "default_effort": "high", "max_output": 128000}
+       "default_effort": "high", "max_output": 128000, "structured_output": True}
 _V46 = {"temperature": True, "thinking": "adaptive",
         "effort_levels": ("low", "medium", "high", "max"), "default_effort": "high",
-        "max_output": 128000}
+        "max_output": 128000, "structured_output": True}
 _LEGACY = {"temperature": True, "thinking": "budget", "effort_levels": (),
-           "default_effort": None, "max_output": 8192}
+           "default_effort": None, "max_output": 8192, "structured_output": False}
+_V45 = {**_LEGACY, "max_output": 64000, "structured_output": True}
 
 MODEL_CAPABILITIES = {
     "claude-opus-5-5": {**_V5, "default_effort": "medium"},
@@ -183,11 +186,11 @@ MODEL_CAPABILITIES = {
     "claude-sonnet-5": dict(_V5),
     "claude-opus-4-6": dict(_V46),
     "claude-sonnet-4-6": dict(_V46),
-    "claude-haiku-4-5-20251001": {**_LEGACY, "max_output": 64000},
-    "claude-haiku-4-5": {**_LEGACY, "max_output": 64000},
-    "claude-sonnet-4-5-20250929": {**_LEGACY, "max_output": 64000},
-    "claude-opus-4-5-20251101": {**_LEGACY, "effort_levels": ("low", "medium", "high"),
-                                 "default_effort": "high", "max_output": 64000},
+    "claude-haiku-4-5-20251001": dict(_V45),
+    "claude-haiku-4-5": dict(_V45),
+    "claude-sonnet-4-5-20250929": dict(_V45),
+    "claude-opus-4-5-20251101": {**_V45, "effort_levels": ("low", "medium", "high"),
+                                 "default_effort": "high"},
 }
 
 

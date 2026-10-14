@@ -20,7 +20,8 @@ longer silently publishes wrong/fabricated/unverifiable content.
 - **Schema contracts** (`artifact_contracts.py` + `schemas/`, M3): every structured
   boundary (bowen, emphasis, key-terms, topics, themes, abstract-input) is
   schema-validated on both sides; producer/consumer format drift (P19) is a hard,
-  loud error, never a silent zero.
+  loud error, never a silent zero. Since 2026-10-14 the two theme stages return JSON
+  checked against the schema, and the theme markdown is written from it (ST).
 - **Semantic faithfulness judge** (`faithfulness_judge.py`, M2): **ARMED** — a
   claim-level LLM entailment check on prose artifacts (abstract/summary/overview; the
   blog has its own advisory check) catches fluent hallucinations the lexical checks miss

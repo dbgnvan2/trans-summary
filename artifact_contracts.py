@@ -11,6 +11,11 @@ sidecar, and the generation prompts are NOT yet rewritten to emit JSON. U4 (ever
 boundary schema-validated, drift is a hard error not a silent zero) is delivered
 by this layer regardless of wire format.
 
+Exception (ST, 2026-10-14): the two theme stages return JSON checked against
+``schemas/themes.schema.json`` version 2 (``structured_themes_from_reply``), and the
+theme markdown is written from it (``themes_to_markdown``). The JSON is the saved
+source of truth; readers still read the markdown.
+
 Each boundary has:
   * a JSON Schema in ``schemas/<key>.schema.json`` (the versioned contract),
   * ``parse_markdown``  — the migration shim (delegates to the ONE canonical
@@ -208,12 +213,166 @@ def themes_from_markdown(text: str, kind: str) -> dict:
     return {"version": SCHEMA_VERSION, "artifact": "themes", "kind": kind, "items": items}
 
 
-def themes_to_markdown(obj: dict) -> str:
+def themes_to_markdown(obj: dict, structural: Optional[dict] = None) -> str:
+    """Markdown for a themes object. A version-2 object (ST) is written in the one
+    layout the theme parsers read: ``**N. Title**`` then one ``**Label:**`` field per
+    line, Key evidence as a list. ``rationale`` is never written. ``structural``: the
+    structural themes object, so an interpretive theme's ``nested_under`` numbers are
+    shown with their titles.
+
+    Purpose: Write the theme file from the structured object, not from the model's text.
+    Spec:    docs/plan_structured_themes_2026-10-14.md#ST.4
+    Tests:   tests/test_structured_themes_st.py::test_st4_round_trip_generated
+    """
     title = "Structural" if obj.get("kind") == "structural" else "Interpretive"
     blocks = [f"## {title} Themes"]
+    if obj.get("version") != THEMES_SCHEMA_VERSION:
+        for it in obj["items"]:
+            blocks.append(f"**{it['number']}. {it['name']}**\n**Description:** {it['description']}")
+        return "\n\n".join(blocks) + "\n"
+    titles = {it["number"]: it["title"] for it in (structural or {}).get("items", [])}
     for it in obj["items"]:
-        blocks.append(f"**{it['number']}. {it['name']}**\n**Description:** {it['description']}")
+        lines = [f"**{it['number']}. {it['title']}**", f"**Description:** {it['description']}"]
+        if obj["kind"] == "interpretive":
+            nested = "; ".join(f"{n} ({titles[n]})" if n in titles else str(n)
+                               for n in it["nested_under"])
+            lines.append(f"**Nested under structural theme(s):** {nested}")
+        lines.append("**Key evidence:**")
+        lines += [f"- {e}" for e in it["key_evidence"]]
+        if obj["kind"] == "structural":
+            lines.append(f"**Coverage / role:** {it['coverage_role']}")
+        else:
+            lines.append(f"**Lens fuel value:** {it['lens_fuel_value']}")
+        blocks.append("\n".join(lines))
     return "\n\n".join(blocks) + "\n"
+
+
+# --------------------------------------------------------------------------- structured themes (ST)
+THEMES_SCHEMA_VERSION = "2"
+
+# Keywords the model-side schema leaves out: the API does not enforce length or
+# number limits, so they are checked here after the reply (check_structured_themes).
+_LOCAL_ONLY_KEYWORDS = ("minLength", "minimum", "minItems", "pattern")
+
+
+def _strip_local_only(node):
+    if isinstance(node, dict):
+        return {k: _strip_local_only(v) for k, v in node.items() if k not in _LOCAL_ONLY_KEYWORDS}
+    if isinstance(node, list):
+        return [_strip_local_only(v) for v in node]
+    return node
+
+
+def _inline_refs(node, defs: dict):
+    if isinstance(node, dict):
+        if "$ref" in node:
+            return _inline_refs(defs[node["$ref"].rsplit("/", 1)[-1]], defs)
+        return {k: _inline_refs(v, defs) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_inline_refs(v, defs) for v in node]
+    return node
+
+
+def themes_model_schema(kind: str) -> dict:
+    """The JSON schema the theme stage sends as ``output_config.format``: the theme
+    fields from ``schemas/themes.schema.json`` (one source), with ``$ref`` inlined and
+    the keywords the API does not enforce left out. The model returns
+    ``{"themes": [...], "rationale": "..."}``; the pipeline adds version, artifact and
+    kind (``structured_themes_from_reply``).
+
+    Spec:  docs/plan_structured_themes_2026-10-14.md#ST.2
+    Tests: tests/test_structured_themes_st.py::test_st2_model_schema_matches_stored_fields
+    """
+    defs = load_schema("themes")["$defs"]
+    item = _strip_local_only(_inline_refs(defs[f"{kind}_theme"], defs))
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["themes", "rationale"],
+        "properties": {
+            "themes": {"type": "array", "items": item},
+            "rationale": {"type": "string"},
+        },
+    }
+
+
+@lru_cache(maxsize=None)
+def _v2_validator(kind: str):
+    from jsonschema import Draft202012Validator
+
+    schema = load_schema("themes")
+    return Draft202012Validator({"$ref": f"#/$defs/v2_{kind}", "$defs": schema["$defs"]})
+
+
+def _collapse(value):
+    """Whitespace runs to one space, so each field is one line in the markdown and
+    reads back the same (the parsers join a field's lines with spaces)."""
+    if isinstance(value, str):
+        return " ".join(value.split())
+    if isinstance(value, list):
+        return [_collapse(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _collapse(v) for k, v in value.items()}
+    return value
+
+
+def check_structured_themes(obj: dict, structural_count: Optional[int] = None) -> dict:
+    """Check a version-2 themes object: the schema for its kind, then what the API does
+    not enforce. Raises ``SchemaError`` (a ValueError, so a reply checked inside
+    ``call_claude_with_retry`` is retried) naming every problem found.
+
+    - every required string has text, and a title has no ``*`` or line break;
+    - numbers run 1..N in order;
+    - no title is a word the theme parsers skip as scaffolding ("Summary", "Rationale");
+    - with ``structural_count``, every ``nested_under`` number is 1..structural_count.
+
+    Spec:  docs/plan_structured_themes_2026-10-14.md#ST.1
+    Tests: tests/test_structured_themes_st.py::test_st1_*
+    """
+    import transcript_utils as tu
+
+    kind = obj.get("kind") if isinstance(obj, dict) else None
+    if kind not in ("structural", "interpretive") or obj.get("version") != THEMES_SCHEMA_VERSION:
+        raise SchemaError("themes: not a version-2 structural or interpretive object")
+    errors = sorted(_v2_validator(kind).iter_errors(obj), key=lambda e: list(e.path))
+    problems = [f"{'/'.join(str(p) for p in e.path) or '<root>'}: {e.message}"
+                for e in errors[:10]]
+    if not errors:
+        items = obj["items"]
+        numbers = [it["number"] for it in items]
+        if numbers != list(range(1, len(items) + 1)):
+            problems.append(f"theme numbers are {numbers}, expected 1..{len(items)} in order")
+        problems += [f"items/{i}/title: {it['title']!r} is read as a heading, not a theme"
+                     for i, it in enumerate(items) if tu.is_scaffolding_theme_name(it["title"])]
+        if kind == "interpretive" and structural_count is not None:
+            problems += [f"items/{i}/nested_under: no structural theme {n} "
+                         f"(there are {structural_count})"
+                         for i, it in enumerate(items) for n in it["nested_under"]
+                         if not 1 <= n <= structural_count]
+    if problems:
+        raise SchemaError(f"{kind} themes: " + "; ".join(problems))
+    return obj
+
+
+def structured_themes_from_reply(text: str, kind: str,
+                                 structural_count: Optional[int] = None) -> dict:
+    """The version-2 object for a theme stage's JSON reply: parsed, whitespace
+    collapsed, and checked (``check_structured_themes``). Raises ``SchemaError`` or
+    ``json.JSONDecodeError`` (both ValueError) on a reply that is not usable.
+
+    Spec:  docs/plan_structured_themes_2026-10-14.md#ST.3
+    Tests: tests/test_structured_themes_st.py::test_st3_invalid_reply_retried_then_fails
+    """
+    reply = json.loads(text)
+    if not isinstance(reply, dict):
+        raise SchemaError(f"{kind} themes: the reply is not a JSON object")
+    obj = {"version": THEMES_SCHEMA_VERSION, "artifact": "themes", "kind": kind,
+           "items": _collapse(reply.get("themes")),
+           "rationale": _collapse(reply.get("rationale", ""))}
+    extra = sorted(set(reply) - {"themes", "rationale"})
+    if extra:
+        raise SchemaError(f"{kind} themes: unexpected field(s) in the reply: {extra}")
+    return check_structured_themes(obj, structural_count)
 
 
 # --------------------------------------------------------------------------- codec registry

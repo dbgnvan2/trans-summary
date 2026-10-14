@@ -1,6 +1,8 @@
 # Plan: structured theme output (ST) — 2026-10-14
 
-Status: **plan — awaiting approval.** No code written.
+Status: **built 2026-10-14; ST.1–ST.7 tested; ST.8 and ST.9 wait on the end-to-end
+rounds.** Approved by the author 2026-10-14. See "Built" at the end for what differs
+from the plan.
 
 ## Problem
 
@@ -135,3 +137,50 @@ request with a new schema has a one-time compile delay, and the API caches the s
   theme layout (TODO, found in the TP review).
 - The summary and overview prompts receive topic coverage percentages that the judge
   cannot check (TODO, E2E review).
+
+## Built (2026-10-14)
+
+Code: `schemas/themes.schema.json` (version 2), `artifact_contracts.py`
+(`check_structured_themes`, `structured_themes_from_reply`, `themes_model_schema`,
+`themes_to_markdown`), `transcript_utils.call_claude_with_retry` (`output_format`,
+`check_reply`), `extraction_pipeline._generate_structured_themes` and `_save_themes`.
+Tests: `tests/test_structured_themes_st.py`.
+
+Differences from the plan:
+
+- **Interpretive themes are regenerated when the structural themes are.** In the
+  theme/lens validation loop, a rejected structural set used to be regenerated alone,
+  and the kept interpretive themes still named the old structural themes. With numbers
+  in `nested_under` that would point at the wrong theme or at none, so new structural
+  themes now bring new interpretive themes. This adds one call only when the validator
+  rejects the structural themes (none in end-to-end runs 1–5).
+- **A parser fix found by the round-trip test.** When the last theme's last field
+  started with "# ", the trimming code (`_theme_own_text_report`) took the start of the
+  value for a line start and cut the field from the page. It now searches from the
+  field's end, so only a real line start counts. No fixture changed (ST.7 snapshot).
+- **Both theme sets are saved together.** PART 1 used to save the structural themes
+  before PART 2 ran; if PART 2 failed, the new structural file sat next to the earlier
+  run's interpretive file, which names the earlier structural themes (review finding).
+  Both are now saved after both are generated.
+- **Read-back before saving.** `_save_themes` checks that the rendered markdown reads
+  back to the object's themes; if not (a renderer bug), it raises and writes nothing.
+- **Models without structured output.** `model_specs` has a `structured_output` flag
+  (Claude 4.5 and later). On another model the theme stage fails before any request,
+  with the reason, instead of a "malformed request" from the API.
+- **Title check.** A title the parsers skip as a heading ("Summary", "Conclusion",
+  "… (3 total)", "# …") is rejected and retried, since it would vanish from the page.
+- **Whitespace.** Every string in the reply is reduced to single spaces, so each field
+  is one line in the markdown and reads back the same.
+- **Old T2 tests replaced.** They checked that the prompts describe the markdown
+  layout; the prompts no longer do (ST.6).
+- **Cache.** The API puts the schema in front of the cached transcript, so each theme
+  call writes its own cache entry instead of reading the shared one. Measured on Why
+  Families: 8,263 and 8,315 tokens written where run 5 read 8,074. That is about $0.03
+  per call on an 8k-token talk, more on longer ones.
+- **Quotes.** In JSON the model quotes with single quotes ('…') where the old files used
+  double quotes. No check reads quotes from theme files (the verbatim check reads Bowen
+  and emphasis quotes only).
+
+Live smoke test (Why Families, public, claude-sonnet-5-5, about $0.15): both calls
+passed on the first attempt, 3 structural and 8 interpretive themes. Output 2,061 and
+3,957 tokens (run 5: 2,539 and 4,544).

@@ -53,37 +53,22 @@ Instructions:
     - Producing more than 8 (inflation reduces discriminability for lenses)
     - Generating summary-like or purely descriptive items
     - Naming a person, institution, place or published work that the transcript does not name. Use only names the transcript says. If the speaker refers to someone without saying their name, describe them; do not add a name from your own knowledge.
-4. For each interpretive theme, provide:
-    - A clear, concise title (ideally 5–12 words)
-    - A 2–4 sentence description explaining the dynamic/process/tension
-    - Which structural theme(s) it nests under or relates to most strongly
-    - Key supporting evidence (specific sections, quotes, emphasized items, Q&A moments, etc.)
-    - Why this is a useful "lens fuel" element (brief — 1 sentence)
+4. For each interpretive theme, fill these fields:
+    - `number`: 1, 2, 3 … in order
+    - `title`: a clear, concise title (ideally 5–12 words), plain text
+    - `description`: 2–4 sentences explaining the dynamic/process/tension
+    - `nested_under`: the number(s) of the structural theme(s) it nests under or relates to most strongly, from the structural themes provided
+    - `key_evidence`: the supporting evidence as a list, one item per piece (specific sections, quotes, emphasized items, Q&A moments, etc.)
+    - `lens_fuel_value`: why this is a useful "lens fuel" element (brief — 1 sentence)
 
-Output format: the pipeline parses this file, so use exactly this layout. Each theme
-starts with a line `**N. Title**` (number and title both inside the bold), followed by
-the fields `**Description:**`, `**Nested under structural theme(s):**`, `**Key evidence:**` and
-`**Lens fuel value:**`, each at the start of its own line (not indented). Do not use a
-table.
+5. In `rationale`, write one short paragraph on:
+    - How these interpretive themes collectively derive from and enrich the structural themes
+    - The range of dynamics covered (e.g. biological-family parallels, stress processes, variability, etc.)
+    - Any notable gaps or edge cases intentionally left for lens-level exploration
 
-Example structure:
+   The rationale is kept with the record and is not published, so put nothing a reader needs in it.
 
-## Interpretive / Process Themes (7 total)
-
-**1. Title of Theme 1**
-**Description:** 2–4 sentences explaining the dynamic.
-**Nested under structural theme(s):** [list]
-**Key evidence:** Sections X–Y, emphasized item Z, Q&A moment A...
-**Lens fuel value:** Enables lenses on [practical implication / contrast / application].
-
-**2. Title of Theme 2**
-...
-
-After the list, add one short paragraph summarizing:
-
-- How these interpretive themes collectively derive from and enrich the structural themes
-- The range of dynamics covered (e.g. biological-family parallels, stress processes, variability, etc.)
-- Any notable gaps or edge cases intentionally left for lens-level exploration
+Your reply is JSON that matches the schema you are given; the pipeline writes the theme file from it.
 
 Do not generate structural themes (already provided), blog lenses, or full blog posts at this stage — focus exclusively on mid-level interpretive/process themes.
 ## Usage Recommendations
