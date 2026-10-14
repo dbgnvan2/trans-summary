@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (theme notes left out of generation prompts — TP)
+
+- The prompts that take theme files now get the published themes (each
+  `**N. Name**` and its own fields), not the model's closing notes after the last
+  theme ("These three themes were chosen because…", "Rationale and coverage summary")
+  or the file's preamble ("Prompt version used", "Input note"). TD did this for the
+  page and the judge; the prompts still got the raw text.
+- Covered: the overview, lens generation and theme/lens validation (which choose the
+  blog's lens, so the blog), and the interpretive-themes prompt (which is given the
+  structural themes). One helper, `transcript_utils.themes_for_prompt`, applied in
+  `extraction_pipeline._generate_with_cached_transcript` and the overview prompt.
+  The saved theme files are unchanged; a file with no parseable theme is passed as it is.
+- Measured on 55 real theme files (268 themes): 66 closing-note lines and 16 preamble
+  lines removed; nothing removed from inside a theme and nothing added
+  (`docs/calibration/2026-10-14_theme_prompts/measure_theme_prompts.py`).
+- Tests: `tests/test_e2e_fixes.py::test_tp1_*`,
+  `tests/test_overview_post.py::test_tp1_overview_prompt_has_no_theme_closing_notes`.
+
 ## [Unreleased] - 2026-10-14 (summary coverage messages — E2E7)
 
 - The summary coverage messages now follow the verdict the release gate uses. Before,

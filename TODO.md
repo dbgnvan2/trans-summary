@@ -77,6 +77,14 @@ pass. Systems Biology: blocked.
   cached, so cheap, but the log repeats each verdict 4 times.
 
 ### ⏸ Open (adjacent, found in the E2E review, not fixed)
+- **Output critic reads no real themes** (found in the TP review, 2026-10-14):
+  `skills/trans-summary-output-critic/scripts/review_outputs.py` `extract_candidate_items`
+  (~line 135) does not know the `**N. Title**` format; on the structural fixtures it returns
+  only the heading "Structural Themes (3 total)", so its semantic review checks no theme.
+  Fix: use `transcript_utils.theme_display_blocks`.
+- **Open risk (TP/TD):** a theme the published-theme parser rejects (a title like
+  "Summary", or a list item with no Description) is left out of the page, the judge and
+  now the prompts, with no log line. None on disk today (55 files checked).
 - **Summary and overview are also given figures their judge cannot check.**
   `summary_pipeline.SummaryInput.to_json` sends topic `percentage`, `sections` and the
   Q&A percentage. The overview gets the raw topics text ("~XX% of transcript;
@@ -520,8 +528,8 @@ Remaining boundaries stage one at a time behind the migration shim.
   ~~**Still open (display):** the published page shows the trailing paragraph inside the
   last theme~~ — fixed 2026-10-13 (TD, `docs/plan_theme_display_2026-10-13.md`; labelled and
   unlabeled closing notes); rebuild the Why Families, Beautiful Boy and "This is a test"
-  pages to pick it up. Adjacent, open: the overview/blog prompts still get the raw themes
-  files, notes included. Was: the
+  pages to pick it up. Adjacent: the overview/blog prompts got the raw themes
+  files, notes included — fixed 2026-10-14 (TP). Was: the
   last theme in a file runs to the end of the text, so a trailing bold paragraph ("Summary
   paragraph", "Rationale and coverage summary") becomes that theme's evidence for the
   judge and is published with it (`transcript_utils._extract_theme_evidence`,

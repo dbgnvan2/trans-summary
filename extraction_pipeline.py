@@ -28,6 +28,7 @@ from transcript_utils import (
     parse_scored_emphasis_output,
     setup_logging,
     strip_yaml_frontmatter,
+    themes_for_prompt,
     validate_emphasis_item,
     validate_input_file,
 )
@@ -244,6 +245,18 @@ def _extract_lens_count(transcript_word_count: int) -> int:
     return 12
 
 
+# Prompt placeholders that take a theme file's text (TP).
+_THEME_PROMPT_KEYS = ("structural_themes", "interpretive_themes")
+
+
+def _for_prompt(replacements: dict) -> dict:
+    """Prompt values with each theme file reduced to its published themes
+    (``themes_for_prompt``), leaving out the model's closing notes (TP)."""
+    return {key: (themes_for_prompt(value) if key in _THEME_PROMPT_KEYS and isinstance(value, str)
+                  else value)
+            for key, value in replacements.items()}
+
+
 def _generate_with_cached_transcript(
     prompt_filename: str,
     model: str,
@@ -253,6 +266,7 @@ def _generate_with_cached_transcript(
     **replacements,
 ) -> str:
     """Generate an artifact using a prompt template and cached transcript context."""
+    replacements = _for_prompt(replacements)
     template = _load_summary_prompt(prompt_filename)
     prompt = fill_prompt_template(template, {}, "", **replacements)
     # If prompts do not include placeholders, still provide dynamic context explicitly.
@@ -1993,16 +2007,18 @@ def summarize_transcript(
                 prompt_template,
                 metadata,
                 transcript="",
-                focus_keyword=focus_keyword,
-                target_audience=target_audience,
-                target_word_count=config.OVERVIEW_MIN_WORDS,
-                title=metadata.get("title", ""),
-                presenter=metadata.get("presenter", metadata.get("author", "")),
-                date=metadata.get("date", ""),
-                abstract=abstract_output,
-                structural_themes=structural_output,
-                topics=topics_output,
-                key_terms=key_terms_output,
+                **_for_prompt(dict(
+                    focus_keyword=focus_keyword,
+                    target_audience=target_audience,
+                    target_word_count=config.OVERVIEW_MIN_WORDS,
+                    title=metadata.get("title", ""),
+                    presenter=metadata.get("presenter", metadata.get("author", "")),
+                    date=metadata.get("date", ""),
+                    abstract=abstract_output,
+                    structural_themes=structural_output,  # closing notes left out (TP)
+                    topics=topics_output,
+                    key_terms=key_terms_output,
+                )),
             )
             overview_paths = []
 

@@ -1703,6 +1703,23 @@ def theme_display_blocks(text: str) -> list:
     return []
 
 
+def themes_for_prompt(text: str) -> str:
+    """A theme file's text for a generation prompt (lenses, theme/lens validation,
+    interpretive themes, overview): the published themes, each ``**N. Name**`` and its
+    own fields (``theme_display_blocks``), so the model's closing notes ("Summary
+    paragraph", "Rationale and coverage summary", an unlabeled closing paragraph) do not
+    reach the prompt, as they do not reach the page or the judge (TD). The saved file is
+    unchanged. A file with no parseable theme is returned as it is, not dropped.
+
+    Spec:  CHANGELOG 2026-10-14 (theme notes in prompts — TP)
+    Tests: tests/test_e2e_fixes.py::test_tp1_*
+    """
+    blocks = theme_display_blocks(text or "")
+    if not blocks:
+        return text
+    return "\n\n".join(f"**{number}. {name}**\n{body}".rstrip() for number, name, body in blocks)
+
+
 def _theme_body(raw: str) -> str:
     """A theme block's body with each line's leading whitespace removed, so fields
     indented under a list item (`   **Description:**`) read like column-0 fields,

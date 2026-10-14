@@ -291,3 +291,56 @@ def test_e2e6_cost_estimate_emphasis_row(monkeypatch, tmp_path):
         T = est.transcript_tokens
         assert row["output_tokens"] == max(int(T * config.EMPHASIS_OUTPUT_PCT),
                                            config.EMPHASIS_OUTPUT_FLOOR)
+
+
+# --- TP: generation prompts get the published themes, not the closing notes --------
+
+TRAILING = Path(__file__).parent / "fixtures" / "theme_trailing"
+NOTES = ("Summary paragraph", "Rationale and coverage summary", "Why these themes were chosen",
+         "These three themes", "These seven themes")
+
+
+def test_tp1_prompt_text_drops_only_the_notes():
+    """Real files whose last theme is followed by the model's notes: the notes are gone,
+    every theme keeps its header and every line of its own fields, nothing is added."""
+    for f in TRAILING.glob("*.md"):
+        text = f.read_text(encoding="utf-8")
+        prompt = tu.themes_for_prompt(text)
+        blocks = tu.theme_display_blocks(text)
+        assert blocks, f.name
+        for note in NOTES:
+            assert note not in prompt, (f.name, note)
+        orig_lines = {ln.strip() for ln in text.splitlines()}
+        for number, name, body in blocks:
+            assert f"**{number}. {name}**" in prompt
+            for ln in body.splitlines():
+                assert ln.strip() in orig_lines and ln in prompt, (f.name, ln)
+        headers = {f"**{n}. {nm}**" for n, nm, _b in blocks}
+        assert all(ln.strip() in orig_lines or ln.strip() in headers or not ln.strip()
+                   for ln in prompt.splitlines()), f.name
+
+
+def test_tp1_unparseable_theme_text_passes_through():
+    text = "## Structural Themes\n\n### Frame A\nA structural anchor used throughout.\n"
+    assert tu.themes_for_prompt(text) == text
+
+
+def test_tp1_shared_generator_trims_theme_placeholders(monkeypatch):
+    """Lens generation, theme/lens validation and interpretive themes all build their
+    prompt in _generate_with_cached_transcript."""
+    import extraction_pipeline as ep
+    sent = {}
+    monkeypatch.setattr(ep, "_load_summary_prompt",
+                        lambda name: "S:\n{{structural_themes}}\nI:\n{{interpretive_themes}}\nT:\n{{topics}}")
+    monkeypatch.setattr(ep, "_generate_summary_with_claude",
+                        lambda prompt, *a, **k: sent.setdefault("prompt", prompt))
+    structural = (TRAILING / "why_families_structural-themes.md").read_text(encoding="utf-8")
+    interpretive = (TRAILING / "why_families_interpretive-themes.md").read_text(encoding="utf-8")
+    topics = "### Topic A\nThese three themes appear in a topic and stay."
+    ep._generate_with_cached_transcript("x.md", "claude-sonnet-5-5", MagicMock(), None,
+                                        structural_themes=structural,
+                                        interpretive_themes=interpretive, topics=topics)
+    prompt = sent["prompt"]
+    assert "Summary paragraph" not in prompt and "These seven themes" not in prompt
+    assert tu.theme_display_blocks(structural)[0][1] in prompt
+    assert "These three themes appear in a topic and stay." in prompt  # other keys untouched

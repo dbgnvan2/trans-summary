@@ -6,6 +6,7 @@ remain unaffected.
 Spec:    docs/implementation_plan_2026-05-13.md (OV.3 through OV.10)
 """
 import inspect
+from pathlib import Path
 import re
 from unittest.mock import MagicMock
 
@@ -374,3 +375,34 @@ def test_ov10_overview_output_has_geo_frontmatter_and_faq(tmp_path, monkeypatch)
     assert len(question_headers) >= 3, (
         f"FAQ section must have at least 3 ### question headers, got {len(question_headers)}"
     )
+
+
+def test_tp1_overview_prompt_has_no_theme_closing_notes(tmp_path, monkeypatch):
+    """TP: the overview receives the published themes, not the model's closing notes
+    after the last theme (the page and the judge already leave them out, TD)."""
+    import shutil
+    import transcript_utils as tu
+    stem = "TP1-Overview-Notes-Test"
+    projects_dir, project_dir = _seed_project_dir(tmp_path, stem)
+    src = Path(__file__).parent / "fixtures" / "theme_trailing" / "why_families_structural-themes.md"
+    shutil.copy(src, project_dir / f"{stem}{config.SUFFIX_STRUCTURAL_THEMES}")
+    captured = _patch_pipeline_for_overview(monkeypatch, projects_dir, _MOCK_OVERVIEW_OUTPUT)
+    monkeypatch.setattr(
+        extraction_pipeline, "parse_filename_metadata", _filename_metadata_stub(stem)
+    )
+    extraction_pipeline.summarize_transcript(
+        formatted_filename=f"{stem}{config.SUFFIX_YAML}",
+        model="claude-sonnet-4-6",
+        focus_keyword="Test Focus",
+        target_audience="General readers",
+        skip_extracts_summary=True,
+        skip_emphasis=True,
+        skip_bowen=True,
+        skip_blog=True,
+        skip_overview=False,
+        logger=MagicMock(),
+    )
+    prompt = captured["prompt"]
+    assert "Summary paragraph" not in prompt
+    for _n, name, _body in tu.theme_display_blocks(src.read_text(encoding="utf-8")):
+        assert name in prompt
