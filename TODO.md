@@ -30,6 +30,15 @@ New from this run:
   JSON and the pipeline writes the layout (`docs/plan_structured_themes_2026-10-14.md`).
   Old files keep the TE/TD handling.
 
+**Run 8 (2026-10-14, commit 73168f1, $6.27):** Beautiful Boy and Systems Biology passed every
+stage; the gate allowed both with warnings. Why Families: the overview failed faithfulness
+on all three tries, one different claim each time (a made-up Bowen quote, "webinar-style",
+a line addressed to the reader), so the gate blocked publication. Near misses: Beautiful
+Boy summary 516 words (retried), Systems Biology abstract 274 and 266 words (retried twice).
+The abstracts' Q&A sentences now come from the transcript, but the check still lists them
+for review. Fixes for these and for the Format stops in runs 4, 6 and 7 are planned in
+`docs/plan_run_safe_2026-10-14.md` (RS, awaiting approval).
+
 **Runs 6 and 7 (2026-10-14, ST end-to-end, $6.26 and $6.08)** — theme stages all passed;
 found outside them:
 - ~~**Structured summary fails when every attempt is short.**~~ Fixed 2026-10-14 (SL3,
