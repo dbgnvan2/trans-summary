@@ -1009,6 +1009,20 @@ FORMATTING_THINKING_RATIO_MAX = 5.0
 # Formatting always runs at the model's default effort (None), the setting the ratios
 # were measured at; the GUI Effort setting does not apply to it.
 FORMATTING_EFFORT = None
+# Scored emphasis runs at a fixed thinking level; the GUI Effort setting does not
+# apply to it. At the model default ("high" on claude-sonnet-5-5) the reply was cut
+# off on 3 of 4 calls on 11-12k-word talks (once at 16,192 tokens, twice at 24,000).
+# Measured 2026-10-13 on three public talks
+# (docs/calibration_emphasis_effort_2026-10-13.md): "medium" finished 6 of 6 (largest
+# 13,071 output tokens) with every quote verbatim; on Why Families its items overlap the
+# "high" items 0.91 and 0.78 (both directions averaged; two "high" runs: 0.94). "Low"
+# gave one non-verbatim quote per call on Why Families.
+EMPHASIS_EFFORT = "medium"
+# Cost estimate for scored emphasis at EMPHASIS_EFFORT, thinking included:
+# max(transcript tokens x PCT, FLOOR). Measured medians: 5.2k (5.7k-token talk), 10.6k
+# (18.8k), 12.3k (17.4k).
+EMPHASIS_OUTPUT_PCT = 0.65
+EMPHASIS_OUTPUT_FLOOR = 5000
 
 # Temperature Settings
 TEMP_STRICT = 0.0

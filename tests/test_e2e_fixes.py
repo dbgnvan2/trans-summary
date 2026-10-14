@@ -227,3 +227,67 @@ def test_e2e5_logs_and_prompts_dirs_are_not_reset_by_folder_setters():
     src = (ROOT / "config.py").read_text(encoding="utf-8")
     body = src.split("def _update_derived_paths", 1)[1].split("def set_validation_approved", 1)[0]
     assert not re.search(r"self\.(LOGS_DIR|PROMPTS_DIR)\s*=", body)
+
+
+# --- E2E6: scored emphasis runs at a fixed, measured thinking level ------------------
+
+def test_e2e6_emphasis_request_uses_the_fixed_effort(monkeypatch, tmp_path):
+    """The emphasis call sends config.EMPHASIS_EFFORT through the real request builder,
+    whatever the GUI Effort setting is (it was the model default, "high", whose
+    thinking ran past a 24,000-token ceiling on long talks)."""
+    from types import SimpleNamespace
+    import extraction_pipeline as ep
+    sent = []
+    reply = ('[Explicit - Direct Importance - Rank: 95%] Concept: The family unit\n'
+             '"The family is an emotional unit and you cannot understand one person alone."\n'
+             '(Section 2)\n')
+
+    class _Client:
+        class messages:
+            @staticmethod
+            def stream(**kw):
+                sent.append(kw)
+                msg = SimpleNamespace(type="message", role="assistant", stop_reason="end_turn",
+                                      stop_details=None, model="m",
+                                      content=[SimpleNamespace(type="text", text=reply)],
+                                      usage=SimpleNamespace(input_tokens=1, output_tokens=1,
+                                                            cache_creation_input_tokens=0,
+                                                            cache_read_input_tokens=0))
+
+                class _Ctx:
+                    def __enter__(self):
+                        return SimpleNamespace(get_final_message=lambda: msg)
+
+                    def __exit__(self, *a):
+                        return False
+                return _Ctx()
+
+    monkeypatch.setattr(ep, "get_anthropic_client", lambda *a, **k: _Client())
+    monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
+    monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: "max"))
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config.settings, "PROJECTS_DIR", tmp_path)
+    base = "Talk - A Person - 2021-01-01"
+    (tmp_path / base).mkdir()
+    ok = ep.extract_scored_emphasis(f"{base}{config.SUFFIX_YAML}", model="claude-sonnet-5-5",
+                                    transcript_text="The family is an emotional unit and you "
+                                                    "cannot understand one person alone.")
+    assert ok
+    assert sent[0]["extra_body"]["output_config"] == {"effort": config.EMPHASIS_EFFORT}
+    assert config.EMPHASIS_EFFORT == "medium"
+
+
+def test_e2e6_cost_estimate_emphasis_row(monkeypatch, tmp_path):
+    """The emphasis row is the measured output at EMPHASIS_EFFORT, thinking included,
+    whatever the GUI Effort setting (E2E6 review)."""
+    import transcript_cost_estimator as tce
+    monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: "max"))
+    for words in (500, 20000):
+        src = tmp_path / f"Talk - A Person - 2021-01-01-{words}.txt"
+        src.write_text("word " * words, encoding="utf-8")
+        est = tce.CostEstimator(src)
+        est.estimate_summarization_steps()
+        row = next(c for c in est.costs if c["step"].startswith("2e. Scored Emphasis"))
+        T = est.transcript_tokens
+        assert row["output_tokens"] == max(int(T * config.EMPHASIS_OUTPUT_PCT),
+                                           config.EMPHASIS_OUTPUT_FLOOR)

@@ -32,7 +32,8 @@ pass. Systems Biology: blocked.
   Niche and System, Not Rogue Cell"), on freshly generated themes. It fails on every
   run of this talk. Needs one look: is the theme wrong (names such as "Bertoloso",
   "Weinberg", "Popper") or is the judge wrong?
-- **Scored emphasis truncated — NOT fixed by E2E3.** Rerun (cbbf54e): it failed on Beautiful Boy and
+- **Scored emphasis truncated** — E2E3 did not fix it; E2E6 sets its thinking level to "medium" (measured,
+  `docs/calibration_emphasis_effort_2026-10-13.md`); confirm with the next end-to-end run. Was: NOT fixed by E2E3. Rerun (cbbf54e): it failed on Beautiful Boy and
   Systems Biology at the new 24,000-token ceiling. The saved answer is ~3–4k tokens; successful calls
   used 11–14.5k output tokens, so the rest is thinking, and it varies run to run (Beautiful Boy: 14,540
   in one run, over 24,000 in the next). Raising the ceiling only moves the line. Next: set the thinking

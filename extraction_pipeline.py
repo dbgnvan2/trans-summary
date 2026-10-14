@@ -672,6 +672,7 @@ def extract_scored_emphasis(
             logger,
             min_length=100,
             timeout=config.TIMEOUT_SUMMARY,
+            effort=config.EMPHASIS_EFFORT,  # fixed thinking level (measured; see config)
             **call_kwargs,
         )
 

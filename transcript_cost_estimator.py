@@ -181,12 +181,13 @@ class CostEstimator:
             self._calculate_cost(step_name, config.settings.DEFAULT_MODEL, _prompt_tokens(prompt_file),
                                  output_tokens, is_cached_read=True, cached_tokens=T, category="processing")
 
-        # 2e. Scored Emphasis
-        # Heuristic: ~20 items per 10k transcript tokens, each item ~150 output tokens
-        num_items = (T / 10000) * 20
+        # 2e. Scored Emphasis: runs at its own thinking level (config.EMPHASIS_EFFORT),
+        # so its output, thinking included, is the measured share of the transcript.
         self._calculate_cost("2e. Scored Emphasis", config.settings.DEFAULT_MODEL,
                              _prompt_tokens(config.PROMPT_EMPHASIS_SCORING_FILENAME),
-                             int(num_items * 150), is_cached_read=True, cached_tokens=T, category="processing")
+                             out(config.EMPHASIS_OUTPUT_PCT, config.EMPHASIS_OUTPUT_FLOOR),
+                             is_cached_read=True, cached_tokens=T, category="processing",
+                             add_thinking=False)
 
         # 2f. Bowen References: extraction (cached transcript) + a small semantic-filter call (no transcript)
         self._calculate_cost("2f. Bowen Extraction", config.settings.DEFAULT_MODEL,

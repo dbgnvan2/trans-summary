@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (scored emphasis thinking level — E2E6)
+
+- Scored emphasis runs at a fixed thinking level, `config.EMPHASIS_EFFORT = "medium"`;
+  the GUI Effort setting does not apply to it (as for Format and the judges). At the
+  model default ("high") the reply was cut off on 3 of 4 calls on long talks (twice at
+  the 24,000-token ceiling). Measured on three public talks: "medium" finished 6 of 6
+  calls (largest 13,071 tokens), every quote verbatim, items close to but less stable
+  than "high" (`docs/calibration_emphasis_effort_2026-10-13.md`).
+- The cost estimate for the emphasis step uses the measured output at that level
+  (`config.EMPHASIS_OUTPUT_PCT`, `EMPHASIS_OUTPUT_FLOOR`).
+- Tests: `tests/test_e2e_fixes.py::test_e2e6_*`.
+
 ## [Unreleased] - 2026-10-13 (end-to-end run fixes — E2E1–E2E5)
 
 - **E2E1 Abstract inputs.** The abstract model no longer receives topic coverage
