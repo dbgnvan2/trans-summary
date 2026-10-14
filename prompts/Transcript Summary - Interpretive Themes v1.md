@@ -52,6 +52,7 @@ Instructions:
     - Making themes too narrow (e.g. single quote or minor anecdote)
     - Producing more than 8 (inflation reduces discriminability for lenses)
     - Generating summary-like or purely descriptive items
+    - Naming a person, institution, place or published work that the transcript does not name. Use only names the transcript says. If the speaker refers to someone without saying their name, describe them; do not add a name from your own knowledge.
 4. For each interpretive theme, provide:
     - A clear, concise title (ideally 5–12 words)
     - A 2–4 sentence description explaining the dynamic/process/tension

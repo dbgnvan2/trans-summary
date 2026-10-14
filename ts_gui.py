@@ -778,6 +778,7 @@ class TranscriptProcessorGUI:
             INIT_VAL_FILTER_VERSION,
             config.VALIDATION_APPROVED_TERMS_PATH,
         )
+        self._warn_if_terms_missing()  # a saved path may point at a deleted file
 
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -1339,11 +1340,21 @@ class TranscriptProcessorGUI:
 
     def update_terms_file_label(self):
         active_path = Path(config.VALIDATION_APPROVED_TERMS_PATH)
-        if active_path == config.TRANSCRIPTS_BASE / config.VALIDATION_APPROVED_TERMS_FILENAME:
+        if active_path == config.settings.default_terms_path():
             display = f"{active_path.name} (default)"
         else:
             display = active_path.name
+        if not active_path.exists():
+            display += " (missing)"  # E2E: a missing file means no approved terms
         self.terms_file_var.set(display)
+
+    def _warn_if_terms_missing(self):
+        """Init Val reads the approved-terms file; a missing one silently loads as no
+        terms (E2E 2026-10-13), so say so in the run log."""
+        path = Path(config.VALIDATION_APPROVED_TERMS_PATH)
+        if not path.exists():
+            self.log("⚠️ Approved-terms file not found: %s — Init Val runs without approved "
+                     "terms. Use Terms File: Choose... to pick it.", path)
 
     def select_validation_terms_file(self):
         file_path = filedialog.askopenfilename(
@@ -1628,6 +1639,7 @@ class TranscriptProcessorGUI:
             config.VALIDATION_APPROVED_TERMS_PATH,
             self.selected_file,
         )
+        self._warn_if_terms_missing()
         self.run_task_in_thread(self._run_initial_validation)
 
     def _run_initial_validation(self):
@@ -1767,7 +1779,7 @@ class TranscriptProcessorGUI:
             self.log(
                 "Added %d approved term(s)/phrase(s) to %s.",
                 added,
-                config.VALIDATION_APPROVED_TERMS_FILENAME,
+                config.VALIDATION_APPROVED_TERMS_PATH,  # full path (E2E review)
             )
 
         if aliases:
@@ -1775,7 +1787,7 @@ class TranscriptProcessorGUI:
             self.log(
                 "Added %d deterministic alias(es) to %s.",
                 added_aliases,
-                config.VALIDATION_APPROVED_TERMS_FILENAME,
+                config.VALIDATION_APPROVED_TERMS_PATH,
             )
 
         self.log("🛠️ Writing to -> %s", new_filename)
@@ -3125,6 +3137,7 @@ class TranscriptProcessorGUI:
             self.selected_file,
             mode,
         )
+        self._warn_if_terms_missing()
         try:
             findings = []
             file_to_validate = self.selected_file

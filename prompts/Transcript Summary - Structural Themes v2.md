@@ -39,6 +39,7 @@ Instructions:
     - Making themes too narrow or section-specific
     - Turning themes into summaries or lists of topics
     - Using overly vague or generic labels (e.g. “Bowen Theory” or “Cancer” alone)
+    - Naming a person, institution, place or published work that the transcript does not name. Use only names the transcript says. If the speaker refers to someone without saying their name, describe them; do not add a name from your own knowledge.
 4. For each structural theme, provide:
     - A clear, concise title (ideally 4–10 words)
     - A 2–4 sentence description explaining the theme and why it is central

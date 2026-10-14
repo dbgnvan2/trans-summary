@@ -682,7 +682,10 @@ def model_request_params(model: str, temperature, max_tokens: int, logger=None,
             _log_once((model, effort), logger, "warning",
                       "Effort '%s' is not supported by %s; using its default.", effort, model)
     if cap["thinking"] == "always":
-        max_tokens = min(cap["max_output"], max_tokens + config.THINKING_TOKEN_HEADROOM)
+        max_tokens += config.THINKING_TOKEN_HEADROOM
+    # Every model, not only thinking ones: a raised shared ceiling must not exceed an
+    # older model's output limit (E2E review).
+    max_tokens = min(cap.get("max_output", max_tokens), max_tokens)
     betas = []
     if config.REFUSAL_FALLBACKS_ENABLED and model in config.REFUSAL_FALLBACK_MODELS:
         betas.append(config.REFUSAL_FALLBACK_BETA)

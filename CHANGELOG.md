@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (end-to-end run fixes — E2E1–E2E5)
+
+- **E2E1 Abstract inputs.** The abstract model no longer receives topic coverage
+  percentages, section numbers or the Q&A share. It gets topic names in order and a
+  yes/no `include_qa_note`, decided in code (`config.ABSTRACT_QA_NOTE_MIN_PCT`, 20).
+  It had written "the Q&A accounted for roughly fifteen percent", which the transcript
+  does not say, and the judge blocked Systems Biology. The prompt also says to leave
+  out the conclusion when there is none, instead of saying the talk has none.
+- **E2E2 Theme names.** Both theme prompts say to use only names the transcript says.
+  The blocked Systems Biology theme named a chapter author the speaker never named.
+  Measured: 3 old-prompt and 3 new-prompt generations all passed; the invented name
+  is occasional, so the rule's effect is not shown yet.
+- **E2E3 Extraction token ceiling** 8,192 → 16,000 (24,000 with thinking headroom).
+  Scored emphasis used 11,228 / 14,540 tokens and failed above 16,192.
+- **E2E4 Approved-terms file.** When the base folder has no `approve_terms.txt`, the
+  one in the chosen source folder is used (`config.settings.default_terms_path`). Init
+  Val logs a warning when the terms file is missing, and the GUI label shows
+  "(missing)". Before, the GUI's Init Val ran without your terms and said nothing.
+- **E2E5 Tests no longer write `logs/runtime_settings.json`.** Changing the transcripts
+  folder reset `LOGS_DIR` to the real logs folder, undoing the tests' redirect. It is
+  now set once. Each test also gets its own copy of the in-memory settings.
+- **Review fixes.**
+  - The abstract model gets "" instead of the fixed "not found" texts
+    (`config.PURPOSE_MISSING_TEXT`, `NO_CONCLUSION_TEXT`, `PURPOSE_EXTRACTION_FAILED`),
+    so the prompt's empty-value rules apply.
+  - Topics are sent in presentation order (by first section).
+  - The Q&A thresholds are in config (`ABSTRACT_QA_OPTIONAL_PCT`, `ABSTRACT_QA_REQUIRED_PCT`).
+  - The output ceiling is capped for every model, not only thinking ones.
+  - The terms loaders warn once for a missing file, so the command line warns too; the
+    GUI warns at startup and logs full paths.
+  - Tests get a deep copy of the settings, and the session fails if the real settings
+    file changes.
+  - The end-to-end runner skips Format when Init Val produced no validated transcript
+    (as the GUI does), refuses a used `--out` folder, and removes its logging hooks.
+- Tests: `tests/test_e2e_fixes.py`, `tests/test_e2e_runner.py`.
+
 ## [Unreleased] - 2026-10-13 (end-to-end runner — E2E)
 
 - `scripts/e2e_run.py` runs every GUI stage on real transcripts without the window.

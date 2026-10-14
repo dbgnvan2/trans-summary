@@ -142,8 +142,8 @@ def find_ungrounded_names(abstract: str, transcript: str,
             ungrounded.append(name)
     return ungrounded
 
-QA_OPTIONAL_THRESHOLD = 15
-QA_REQUIRED_THRESHOLD = 30
+QA_OPTIONAL_THRESHOLD = config.ABSTRACT_QA_OPTIONAL_PCT
+QA_REQUIRED_THRESHOLD = config.ABSTRACT_QA_REQUIRED_PCT
 
 
 @dataclass
@@ -386,7 +386,7 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
     # Conclusion coverage
     if (
         abstract_input.closing_conclusion
-        and abstract_input.closing_conclusion != "No explicit conclusion stated"
+        and abstract_input.closing_conclusion != config.NO_CONCLUSION_TEXT
     ):
         conclusion_keywords = extract_keywords(
             abstract_input.closing_conclusion)

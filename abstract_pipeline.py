@@ -51,6 +51,13 @@ class Theme:
     description: str
 
 
+def _first_section(topic: "Topic") -> float:
+    """First section number in a topic's ``sections`` ("6-7, 17-22" -> 6); a topic
+    without one sorts last, keeping its place among the others (sort is stable)."""
+    m = re.search(r"\d+", topic.sections or "")
+    return int(m.group(0)) if m else float("inf")
+
+
 @dataclass
 class AbstractInput:
     metadata: dict
@@ -63,23 +70,38 @@ class AbstractInput:
     target_word_count: int
 
     def to_json(self) -> str:
-        """Serialize for API prompt injection."""
+        """Serialize for API prompt injection.
+
+        Only what the abstract may say: topic names in order, without their coverage
+        percentages or section numbers, and whether to add a Q&A note, without the
+        Q&A share. Figures the transcript does not state must not reach the model
+        (E2E 2026-10-13: "the Q&A accounted for roughly fifteen percent", judged
+        unsupported). The full data stays in to_contract_dict.
+        """
+        include_qa = self.qa_percentage > config.ABSTRACT_QA_NOTE_MIN_PCT
+        placeholders = {config.PURPOSE_MISSING_TEXT, config.PURPOSE_EXTRACTION_FAILED,
+                        config.NO_CONCLUSION_TEXT}
         data = {
             "metadata": self.metadata,
-            "topics": [asdict(t) for t in self.topics],
+            # Presentation order (first section), since the section numbers are not sent
+            # and self.topics is sorted by coverage.
+            "topics": [t.name for t in sorted(self.topics, key=_first_section)],
             "themes": [asdict(t) for t in self.themes],
-            "opening_purpose": self.opening_purpose,
-            "closing_conclusion": self.closing_conclusion,
-            "qa_percentage": self.qa_percentage,
-            "qa_topics": self.qa_topics,
+            # A fixed "not found" text is not content: send "" so the prompt's
+            # empty-value rules apply (E2E review).
+            "opening_purpose": "" if self.opening_purpose in placeholders else self.opening_purpose,
+            "closing_conclusion": ("" if self.closing_conclusion in placeholders
+                                   else self.closing_conclusion),
+            "include_qa_note": include_qa,
+            "qa_topics": self.qa_topics if include_qa else [],
             "target_word_count": self.target_word_count,
         }
         return json.dumps(data, indent=2)
 
     def to_contract_dict(self) -> dict:
-        """Schema-shaped dict for the abstract_input boundary contract (M3).
-        Same payload as ``to_json`` plus the ``version``/``artifact`` envelope
-        the schema pins."""
+        """Schema-shaped dict for the abstract_input boundary contract (M3): the
+        full data, with the ``version``/``artifact`` envelope the schema pins.
+        ``to_json`` (what the model sees) leaves out the figures (E2E)."""
         return {
             "version": "1",
             "artifact": "abstract_input",
@@ -263,7 +285,7 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
             opening_text += f"## Section {sections[i]}\n{sections[i+1]}"
 
     if not opening_text.strip():
-        return "Speakers purpose missing - manually insert"
+        return config.PURPOSE_MISSING_TEXT
 
     # 2. Load the prompt
     try:
@@ -295,7 +317,7 @@ def extract_opening_purpose(transcript: str, section_count: int) -> str:
 
         # 4. Process the response
         if "Not explicitly stated" in purpose:
-            return "Speakers purpose missing - manually insert"
+            return config.PURPOSE_MISSING_TEXT
         
         return purpose
 
@@ -331,7 +353,7 @@ def extract_closing_conclusion(transcript: str, section_count: int) -> str:
         if match:
             return match.group(0).strip()
 
-    return "No explicit conclusion stated"
+    return config.NO_CONCLUSION_TEXT
 
 
 def calculate_qa_percentage(

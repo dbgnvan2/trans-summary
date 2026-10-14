@@ -38,7 +38,12 @@ class ProjectSettings:
         if getattr(self, "_initialized", False):
             return
 
-        # Default initialization
+        # Default initialization. PROMPTS_DIR and LOGS_DIR belong to the code, not to
+        # the transcripts folder, so they are set once here and never reset when the
+        # folder changes; resetting LOGS_DIR undid the test suite's redirect and tests
+        # wrote the real logs/runtime_settings.json (E2E 2026-10-13).
+        self.PROMPTS_DIR = Path(__file__).parent / "prompts"
+        self.LOGS_DIR = Path(__file__).parent / "logs"
         self.TRANSCRIPTS_BASE = Path(os.getenv("TRANSCRIPTS_DIR", "."))
         self._update_derived_paths()
 
@@ -136,13 +141,21 @@ class ProjectSettings:
         self.SOURCE_DIR = self.TRANSCRIPTS_BASE / "source"
         self.PROCESSED_DIR = self.TRANSCRIPTS_BASE / "processed"
         self.PROJECTS_DIR = self.TRANSCRIPTS_BASE / "projects"
-        self.PROMPTS_DIR = Path(__file__).parent / "prompts"
-        self.LOGS_DIR = Path(__file__).parent / "logs"
         current_terms_path = getattr(self, "VALIDATION_APPROVED_TERMS_PATH", None)
         if current_terms_path is None:
-            self.VALIDATION_APPROVED_TERMS_PATH = (
-                self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
-            )
+            self.VALIDATION_APPROVED_TERMS_PATH = self.default_terms_path()
+
+    def default_terms_path(self) -> Path:
+        """The approved-terms file used when none is chosen: the first that exists of
+        <base>/approve_terms.txt and <source folder>/approve_terms.txt, else the base
+        one. A source folder chosen directly (sources not in a source/ subfolder)
+        makes the base its parent, where the file usually is not; Init Val then ran
+        with no approved terms and no warning (E2E 2026-10-13)."""
+        candidates = [self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME]
+        source_dir = getattr(self, "SOURCE_DIR", None)
+        if source_dir is not None:
+            candidates.append(Path(source_dir) / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME)
+        return next((c for c in candidates if c.exists()), candidates[0])
 
     def set_transcripts_base(self, path: Union[str, Path]):
         """Update the base directory for transcripts and all related paths."""
@@ -153,11 +166,7 @@ class ProjectSettings:
         """Set the source directory directly and infer the base from its parent."""
         self.SOURCE_DIR = Path(path)
         self.TRANSCRIPTS_BASE = self.SOURCE_DIR.parent
-        self.PROMPTS_DIR = Path(__file__).parent / "prompts"
-        self.LOGS_DIR = Path(__file__).parent / "logs"
-        self.VALIDATION_APPROVED_TERMS_PATH = (
-            self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
-        )
+        self.VALIDATION_APPROVED_TERMS_PATH = self.default_terms_path()
         # Use saved overrides if present, otherwise derive from base
         processed_override = self.runtime_settings.get("default_processed_dir")
         self.PROCESSED_DIR = Path(processed_override) if processed_override else self.TRANSCRIPTS_BASE / "processed"
@@ -167,8 +176,7 @@ class ProjectSettings:
     def set_validation_approved_terms_path(self, path: Union[str, Path, None]):
         """Set the active validation approved-terms file."""
         if path is None:
-            new_path = self.TRANSCRIPTS_BASE / DEFAULT_VALIDATION_APPROVED_TERMS_FILENAME
-            self.VALIDATION_APPROVED_TERMS_PATH = new_path
+            self.VALIDATION_APPROVED_TERMS_PATH = self.default_terms_path()
             self.runtime_settings.pop("validation_approved_terms_path", None)
         else:
             self.VALIDATION_APPROVED_TERMS_PATH = Path(path)
@@ -864,6 +872,11 @@ KEY_TERMS_JUDGE_AMBIGUOUS_OVERLAP = 0.6
 # A transient failure keeps the purpose check REQUIRED so validation can't silently
 # pass on an unverified purpose (A10/P1). Compared by-value; keep stable.
 PURPOSE_EXTRACTION_FAILED = "Speaker's purpose UNDETERMINED - extraction failed (retryable)"
+# Fixed texts the abstract pipeline records when the opening states no purpose or the
+# closing has no conclusion. They are never sent to the abstract model as content
+# (AbstractInput.to_json sends "" instead; E2E review).
+PURPOSE_MISSING_TEXT = "Speakers purpose missing - manually insert"
+NO_CONCLUSION_TEXT = "No explicit conclusion stated"
 
 # Conclusion-indicator phrases for extract_closing_conclusion (editorial — rule #9:
 # content, not code). Each is a regex fragment matched (case-insensitively) against
@@ -951,7 +964,11 @@ DEFAULT_SUMMARY_WORD_COUNT = 650
 #   Validation/Audit: ~2,300 observed → 4,096
 MAX_TOKENS_FORMATTING = 20000
 MAX_TOKENS_SUMMARY = 4096
-MAX_TOKENS_EXTRACTION = 8192
+# A ceiling, not a charge; THINKING_TOKEN_HEADROOM is added for thinking models.
+# Scored emphasis used 11,228 / 14,540 output tokens (thinking included) on 4k / 12k-word
+# talks and went over 16,192 (8192 + headroom) on an 11k-word talk, failing the stage
+# (E2E run 2026-10-13). 16000 + 8000 = 24,000. Other extraction calls stayed under 10k.
+MAX_TOKENS_EXTRACTION = 16000
 MAX_TOKENS_AUDIT = 4096
 # Per 5-section batch (transcript_validate_headers.BATCH_SIZE). A ceiling, not a
 # charge. Largest batch measured 2026-10-12: 2,410 tokens (Haiku 4.5), 6,525 incl.
@@ -1067,6 +1084,16 @@ ABSTRACT_TARGET_PERCENT = 0.03  # 3% of transcript word count
 ABSTRACT_MIN_WORDS = 150
 ABSTRACT_MAX_WORDS = 230        # target ceiling — keeps abstracts well under the hard max
 ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= as too long
+# The abstract gets a one-sentence Q&A note when Q&A is more than this share of the
+# talk (was the literal 20 in the prompt). The share itself is not sent to the model:
+# it wrote "the Q&A accounted for roughly fifteen percent", which the transcript does
+# not state, and the judge blocked it (E2E run 2026-10-13, Systems Biology).
+ABSTRACT_QA_NOTE_MIN_PCT = 20
+# Abstract coverage validation: a Q&A item is checked at or above OPTIONAL and must
+# be covered at or above REQUIRED (were constants in abstract_validation.py). The
+# note threshold must stay below REQUIRED, or a required item could never be met.
+ABSTRACT_QA_OPTIONAL_PCT = 15
+ABSTRACT_QA_REQUIRED_PCT = 30
 # Abstract generation retries: regenerate (with corrective feedback) up to this
 # many times to get a version that passes the gate's faithfulness + entity checks
 # at generation time, instead of only discovering an unfaithful abstract at publish.

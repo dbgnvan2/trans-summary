@@ -15,6 +15,9 @@ code as Run Selected. Differences from a GUI run, on purpose:
   logs/token_usage.csv, and the judge cache in logs/ is shared.
 - It does not stop at the first failure. A stage runs when its inputs exist; every
   failure, warning and error is collected into <out>/report.md (and report.json).
+  As in the GUI, Format runs only on a validated transcript: if Init Val did not
+  produce one, Format and everything that needs its output are skipped.
+- --out must be empty or new, so no file from an earlier run can make a stage pass.
 - Format differences that need a person's review are counted, not opened in a
   dialog. The GUI pauses there; this run records it as a Format failure and goes on
   with the formatted file as written.
@@ -167,6 +170,9 @@ def run_one(source: Path, stages, out: Path, module_warnings: _ModuleWarnings):
         module_warnings.lines = []
         run.log("\n--- %s ---", label)
         missing = run.missing_inputs(key)
+        if key == "format" and "_validated" not in run.gui.selected_file.name:
+            # The GUI refuses to run Format on an unvalidated transcript (do_run_selected).
+            missing = ["a validated transcript (Init Val did not produce one)"]
         if missing:
             results.append({"stage": label, "status": "SKIPPED",
                             "detail": "missing input: " + "; ".join(missing),
@@ -238,6 +244,8 @@ def main(argv=None):
         ap.error(f"unknown stage(s): {', '.join(sorted(unknown))}; known: {', '.join(keys)}")
 
     out = args.out.resolve()
+    if out.exists() and any(out.iterdir()):
+        ap.error(f"--out {out} is not empty; use a new folder so no earlier output is reused")
     (out / "source").mkdir(parents=True, exist_ok=True)
     config.set_transcripts_base(out)  # source/ and projects/ under --out
     config.settings.VALIDATION_APPROVED_TERMS_PATH = args.terms
@@ -248,7 +256,14 @@ def main(argv=None):
     logging.getLogger().addHandler(module_warnings)
     est_logger = logging.getLogger("e2e.estimate")
     est_logger.propagate = False  # the estimate report is not a run warning
+    try:
+        return _run(args, out, stages, keys, module_warnings, est_logger)
+    finally:
+        logging.getLogger().removeHandler(module_warnings)
+        est_logger.propagate = True
 
+
+def _run(args, out, stages, keys, module_warnings, est_logger):
     started = datetime.now()
     header = {"started": f"{started:%Y-%m-%d %H:%M}",
               "commit": ts_gui._current_git_revision(),
@@ -260,8 +275,7 @@ def main(argv=None):
     talks = []
     for src in args.sources:
         dest = out / "source" / src.name
-        if not dest.exists():
-            shutil.copy2(src, dest)
+        shutil.copy2(src, dest)
         cost = estimate(dest, est_logger)
         print(f"\n{dest.name}: estimated ${cost:.2f} (judges and retries not included)",
               flush=True)

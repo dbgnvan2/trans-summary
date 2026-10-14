@@ -58,7 +58,7 @@ def test_e2e_runs_every_stage_and_keeps_going(e2e, monkeypatch, tmp_path):
     runners = _fake_runners(calls)
     monkeypatch.setattr(ts_gui.TranscriptProcessorGUI, "stage_runners",
                         property(lambda self: runners))
-    src = tmp_path / f"{BASE}.txt"
+    src = tmp_path / f"{BASE}_validated.txt"  # as Init Val leaves it; Format needs it
     src.write_text("Kerr said things.", encoding="utf-8")
     out = tmp_path / "out"
     assert mod.main(["--out", str(out), str(src)]) == 1  # one stage failed
@@ -97,3 +97,49 @@ def test_e2e_records_format_review_instead_of_pausing(e2e, monkeypatch, tmp_path
     assert run.gui._open_review_if_needed() is False  # never opens a dialog or pauses
     assert run.review_items == 3
     assert any("3 difference(s) need a person's review" in t for _l, t in run.lines)
+
+
+def test_e2e_format_needs_a_validated_transcript(e2e, monkeypatch, tmp_path):
+    """E2E review (P13): the GUI refuses Format on an unvalidated transcript. When Init
+    Val fails, Format and the stages that need its output are skipped, never PASS."""
+    mod, _ = e2e
+    calls = []
+    runners = _fake_runners(calls, fail="init_val")
+    monkeypatch.setattr(ts_gui.TranscriptProcessorGUI, "stage_runners",
+                        property(lambda self: runners))
+    src = tmp_path / f"{BASE}.txt"
+    src.write_text("raw", encoding="utf-8")
+    out = tmp_path / "out"
+    assert mod.main(["--out", str(out), str(src)]) == 1
+    results = {r["stage"]: r for r in json.loads(
+        (out / "report.json").read_text(encoding="utf-8"))["talks"][0]["results"]}
+    assert results["0. Init Val"]["status"] == "FAIL"
+    assert results["1. Format"]["status"] == "SKIPPED"
+    assert "validated transcript" in results["1. Format"]["detail"]
+    assert "format" not in calls
+    assert all(r["status"] in ("FAIL", "SKIPPED") for r in results.values())
+
+
+def test_e2e_refuses_a_used_output_folder(e2e, tmp_path):
+    """E2E review (P8): files from an earlier run must not make a stage pass."""
+    mod, _ = e2e
+    out = tmp_path / "out"
+    (out / "projects").mkdir(parents=True)
+    src = tmp_path / f"{BASE}.txt"
+    src.write_text("x", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        mod.main(["--out", str(out), str(src)])
+
+
+def test_e2e_removes_its_logging_hooks(e2e, monkeypatch, tmp_path):
+    import logging
+    mod, _ = e2e
+    runners = _fake_runners([], fail=None)
+    monkeypatch.setattr(ts_gui.TranscriptProcessorGUI, "stage_runners",
+                        property(lambda self: runners))
+    before = list(logging.getLogger().handlers)
+    src = tmp_path / f"{BASE}_validated.txt"
+    src.write_text("x", encoding="utf-8")
+    mod.main(["--out", str(tmp_path / "out"), str(src)])
+    assert logging.getLogger().handlers == before
+    assert logging.getLogger("e2e.estimate").propagate is True

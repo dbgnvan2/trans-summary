@@ -48,10 +48,24 @@ def _approved_terms_path() -> Path:
     return config.VALIDATION_APPROVED_TERMS_PATH
 
 
+_WARNED_MISSING: set[str] = set()
+
+
+def _warn_missing_terms_file(target: Path) -> None:
+    """A missing terms file loads as no terms; say so once per path (E2E review, P2).
+    Before, every caller (GUI and command line) ran without approved terms silently."""
+    key = str(target)
+    if key not in _WARNED_MISSING:
+        _WARNED_MISSING.add(key)
+        logging.getLogger(__name__).warning(
+            "Approved-terms file not found: %s — no approved terms or aliases applied.", target)
+
+
 def load_approved_terms(path: Path | None = None) -> set[str]:
     """Load approved terms/phrases from the configured file."""
     target = path or _approved_terms_path()
     if not target.exists():
+        _warn_missing_terms_file(target)
         return set()
 
     approved: set[str] = set()
@@ -71,6 +85,7 @@ def load_validation_aliases(path: Path | None = None) -> dict[str, str]:
     """Load deterministic alias corrections from the approved terms file."""
     target = path or _approved_terms_path()
     if not target.exists():
+        _warn_missing_terms_file(target)
         return {}
 
     aliases: dict[str, str] = {}

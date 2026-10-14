@@ -14,18 +14,20 @@ Why Families: all stages pass, gate ALLOW_WITH_WARNINGS. Beautiful Boy: all stag
 pass. Systems Biology: blocked.
 
 ### ⏸ Open — found by the run
-- **Abstract is given numbers the transcript does not contain (blocks Systems Biology).**
+- ~~**Abstract is given numbers the transcript does not contain (blocks Systems Biology).**~~ Fixed E2E1.
   The abstract prompt receives topic coverage ("~15% of transcript") and a Q&A
   percentage. The model wrote "The question-and-answer session, which accounted for
   roughly fifteen percent of the presentation…"; the judge, reading only the
   transcript, correctly finds it unsupported. Regeneration produced a different flag
   each time (3 attempts). Fix the inputs: do not give the generator figures it must
   not state, or tell it not to state them.
-- **Systems Biology structural theme judged ungrounded again** ("Cancer as Dysregulated
+- ~~**Systems Biology structural theme judged ungrounded again**~~ Cause found (E2E2): the theme named the
+  chapter author ("Pellikainen"), whom the speaker never names; the judge was right. Prompt rule added;
+  its effect is not shown yet (6 of 6 test generations passed, old and new prompt). Was: ("Cancer as Dysregulated
   Niche and System, Not Rogue Cell"), on freshly generated themes. It fails on every
   run of this talk. Needs one look: is the theme wrong (names such as "Bertoloso",
   "Weinberg", "Popper") or is the judge wrong?
-- **Scored emphasis truncated on Systems Biology** (11k words): the reply used the full
+- ~~**Scored emphasis truncated on Systems Biology**~~ Fixed E2E3. (11k words): the reply used the full
   16,192 output tokens (8,192 + thinking headroom) and was rejected; the Bowen +
   Emphasis stage failed. Beautiful Boy (12k words) fit, so it depends on the run.
   `config.MAX_TOKENS_EXTRACTION` (8192) predates the thinking models.
@@ -43,13 +45,34 @@ pass. Systems Biology: blocked.
 - **The release gate runs 4 times per publish step** (web, PDF, simple, bundle);
   cached, so cheap, but the log repeats each verdict 4 times.
 
+### ⏸ Open (adjacent, found in the E2E review, not fixed)
+- **Summary and overview are also given figures their judge cannot check.**
+  `summary_pipeline.SummaryInput.to_json` sends topic `percentage`, `sections` and the
+  Q&A percentage. The overview gets the raw topics text ("~XX% of transcript;
+  Sections X-Y") and the structural themes, whose prompt asks for "spans ~40% of
+  content". Both are judged. Same fix as E2E1 if they start to block.
+- `summary_pipeline.py` (~line 546) has its own "No explicit conclusion stated" text
+  and conclusion patterns hardcoded in code (rule 9: editorial content belongs in
+  config).
+- `pattern_sets.patterns_dir()` builds its folder from the transcripts base, so with a
+  source folder chosen directly it is `~/patterns`: the same parent-folder problem
+  E2E4 fixed for the terms file.
+- Choosing a new source folder replaces a saved custom terms path in memory, and a
+  restart brings the saved one back (existing behaviour, tested).
+- **Your real `logs/runtime_settings.json` still has test values:**
+  `validation_approved_terms_path` (a deleted pytest folder) and `default_source_dir`
+  / a favorite "/path/to/my/default/source". The saved terms path wins at startup, so
+  E2E4 does not apply until it is reset (GUI: Terms File reset). The GUI now warns at
+  startup.
+
 ### ⏸ Open — found while setting up the run
-- **The GUI's Init Val runs without your approved terms.** Choosing
+- ~~**The GUI's Init Val runs without your approved terms.**~~ Fixed E2E4. Choosing
   `/Users/davemini2/transcripts` as the source folder sets the base to its parent, so
   the terms file becomes `/Users/davemini2/approve_terms.txt`, which does not exist.
   `validation_learning.load_approved_terms` returns an empty set for a missing file
   with no warning (P2). Your file is `/Users/davemini2/transcripts/approve_terms.txt`.
-- **The test suite writes into the real `logs/runtime_settings.json`.** After a full
+- ~~**The test suite writes into the real `logs/runtime_settings.json`.**~~ Fixed E2E5 (the leaking tests were in
+  `tests/test_ts_gui_run_all.py`; `set_transcripts_base` reset `LOGS_DIR`). The bad entries already in your file are not removed yet. After a full
   run, `validation_approved_terms_path` points to a pytest temp folder and
   `default_source_dir` is "/path/to/my/default/source". `tests/test_folder_defaults.py`
   alone does not do it; it depends on test order. Not yet traced.

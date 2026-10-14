@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +25,13 @@ def _isolate_logs_dir(tmp_path, monkeypatch):
         return
     monkeypatch.setattr(config, "LOGS_DIR", tmp_path, raising=False)
     monkeypatch.setattr(config.settings, "LOGS_DIR", tmp_path, raising=False)
+    # Each test gets its own deep copy of the in-memory settings, restored afterwards,
+    # so one test's saved settings (favorites, stage selections) cannot carry into the
+    # next (E2E 2026-10-13; a shallow copy shared the nested lists).
+    import copy as _copy
+    monkeypatch.setattr(config.settings, "runtime_settings",
+                        _copy.deepcopy(getattr(config.settings, "runtime_settings", {}) or {}),
+                        raising=False)
 
     # Reset the cached artifact_contracts logger so it rebinds to THIS test's
     # LOGS_DIR instead of leaking a FileHandler pointing at a prior test's
@@ -113,3 +121,24 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if "live_api" in item.keywords:
             item.add_marker(skip_live)
+
+
+_REAL_SETTINGS = Path(__file__).resolve().parent / "logs" / "runtime_settings.json"
+
+
+def _settings_fingerprint():
+    try:
+        return _REAL_SETTINGS.read_bytes()
+    except OSError:
+        return None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _real_settings_file_untouched():
+    """The suite must never write the GUI's real logs/runtime_settings.json (E2E 2026-10-13:
+    tests had saved pytest temp paths into it). Fails the session if it changed."""
+    before = _settings_fingerprint()
+    yield
+    assert _settings_fingerprint() == before, (
+        f"the test suite changed {_REAL_SETTINGS} — a test saved settings without the "
+        "logs redirect")

@@ -81,6 +81,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Problems that only a full run shows (2026-10-13, end-to-end run, E2E).**
+- Issue: one headless run of all 16 stages on three public talks found five problems the unit tests and earlier fixes had not: the abstract was given figures (coverage percentages) the transcript does not state, then blocked for stating one; a theme named a person the speaker never named; the emphasis reply ran past its token ceiling on a long talk; the GUI's Init Val ran without the approved-terms file; and the test suite wrote the real settings file.
+- Root cause: fixes were checked one stage at a time with tests and calibrations, and the user's GUI run was the only full run, so each round found one new failure. Two were design mismatches (a generator given data its judge cannot check; a cap set before thinking models), one was a path rule, and one was a setter that reset a redirected path (P8).
+- What would have caught it: running every stage end to end on real public talks before handing a change over. `scripts/e2e_run.py` does that and reports every failure in one list.
+- Fix: E2E1–E2E5 (CHANGELOG). Tests: `tests/test_e2e_fixes.py`, `tests/test_e2e_runner.py`.
+- Rule: a change is not done until a full run passes. Give a generator only what its judge can verify. A setter must not reset paths it does not own. (P6, P8, P9)
+
 **A valid empty answer stopped Init Val (2026-10-13, real run, IV).**
 - Issue: for a transcript chunk with nothing to fix, the model replied with a fenced empty list, "```json\n[]\n```" (14 characters). `call_claude_with_retry` rejects any reply under 50 characters by default, retried three times, and the run stopped at Init Val. The same transcript and model passed the day before because that chunk had findings.
 - Root cause (P7/P1): a generic sanity check (minimum reply length) applied to a prompt whose correct answer can be very short. F13 fixed the same thing for a "YES/NO" reply, but the other callers on the default were not checked. The v1 validator also returned zero findings for a reply with no JSON list; the 50-character minimum hid that for short replies only.
