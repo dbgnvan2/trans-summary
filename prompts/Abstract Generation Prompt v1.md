@@ -8,7 +8,7 @@ Context (1-2 sentences): Speaker, event type, subject domain
 Central Argument (1-2 sentences): The opening_purpose restated as thesis; if opening_purpose is empty, state the talk's main subject instead. Unless provided the event type is always "webinar"; or "conference" if indicated in the transcript. 
 Key Content (2-3 sentences): Cover the topics in the order given, stating what the speaker does with each
 Conclusions (1-2 sentences): The closing_conclusion restated. If closing_conclusion is empty, leave this component out; do not say that the talk has no conclusion.
-Q&A note (1 sentence, only if include_qa_note is true): Mention qa_topics
+Q&A note (1 sentence, only if include_qa_note is true): What the audience asked about or discussed in the question period, as the transcript shows it
 Constraints:
 
 Third person, present tense

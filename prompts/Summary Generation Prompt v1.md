@@ -5,7 +5,7 @@ You will receive a JSON object below with structural metadata (word targets, top
 
 **LENGTH REQUIREMENT:**
 This summary should be approximately {opening_words} + {body_words} + {qa_words} + {closing_words} words total (target: {target_word_count} words).
-A summary is accepted between {min_words} and {max_words} words; outside that range it is rejected. Aim for the target.
+Write between {min_words} and {max_words} words. Aim for the target.
 
 **TASK:** Generate a rich, detailed, and cohesive summary of the transcript.
 **SOURCE:** You MUST use the **FULL TRANSCRIPT** (system message) as the primary source for all content, details, and examples.
@@ -35,7 +35,7 @@ State the conclusion, open questions, and future directions.
 *   Chronological narrative flow.
 *   No citations (e.g. "Section 1 says...").
 *   No bullet points.
-*   **Length:** Aim for about {target_word_count} words total ({min_words}-{max_words} accepted). Include specific details, examples, and evidence from the transcript.
+*   **Length:** Aim for about {target_word_count} words total ({min_words}-{max_words}). Include specific details, examples, and evidence from the transcript.
 
 Input data:
 {input_json}

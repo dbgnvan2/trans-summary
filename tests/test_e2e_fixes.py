@@ -38,14 +38,14 @@ def test_e2e1_abstract_payload_has_no_figures():
     for figure in ("37", "23", "17-22", "41-48", "15"):  # coverage, sections, Q&A share
         assert figure not in text, figure
     assert "qa_percentage" not in data and "percentage" not in text
-    assert data["include_qa_note"] is False and data["qa_topics"] == []
+    assert data["include_qa_note"] is False and "qa_topics" not in data
 
 
 def test_e2e1_qa_note_threshold_is_decided_in_code():
     at = json.loads(_input(config.ABSTRACT_QA_NOTE_MIN_PCT).to_json())
     above = json.loads(_input(config.ABSTRACT_QA_NOTE_MIN_PCT + 1).to_json())
     assert at["include_qa_note"] is False
-    assert above["include_qa_note"] is True and above["qa_topics"] == ["q one"]
+    assert above["include_qa_note"] is True and "qa_topics" not in above
 
 
 def test_e2e1_contract_dict_keeps_the_full_data():
@@ -346,7 +346,7 @@ def test_tp1_shared_generator_trims_theme_placeholders(monkeypatch):
     assert "These three themes appear in a topic and stay." in prompt  # other keys untouched
 
 
-# --- SL: summary length band, 10% under to 20% over the target (2026-10-14) ----------
+# --- SL/SL3: summary length; asked 10% under, accepted 15% under, to 20% over --------
 
 def _words_client(n_words):
     from types import SimpleNamespace
@@ -359,25 +359,41 @@ def _words_client(n_words):
                                                 cache_creation_input_tokens=0,
                                                 cache_read_input_tokens=0))
 
+    class _Stream:
+        def __enter__(self):
+            return SimpleNamespace(get_final_message=lambda: msg)
+
+        def __exit__(self, *a):
+            return False
+
     class _Client:
         class messages:
             @staticmethod
             def create(**kw):
                 calls.append(kw)
                 return msg
+
+            @staticmethod
+            def stream(**kw):
+                calls.append(kw)
+                return _Stream()
     return _Client(), calls
 
 
 def test_sl1_bounds_follow_the_target():
-    assert config.summary_word_bounds(650) == (585, 780)
-    assert config.summary_word_bounds(750) == (675, 900)
+    """Accepted: 15% under (author decision 2026-10-14, SL3; was 10%) to 20% over. The
+    prompt still asks for 10% under to 20% over."""
+    assert config.summary_word_bounds(650) == (553, 780)
+    assert config.summary_word_bounds(750) == (638, 900)
+    assert config.summary_prompt_word_range(650) == (585, 780)
 
 
-@pytest.mark.parametrize("n_words,accepted", [(585, True), (587, True), (780, True),
-                                              (584, False), (781, False)])
+@pytest.mark.parametrize("n_words,accepted", [(553, True), (562, True), (580, True),
+                                              (780, True), (552, False), (781, False)])
 def test_sl1_band_through_the_real_retry(monkeypatch, n_words, accepted):
-    """E2E run 5: 587 and 572 words were rejected against a fixed 600-word minimum. The
-    band for the 650 target is 585-780; outside it the reply is retried, then fails."""
+    """E2E run 5: 587 and 572 words were rejected against a fixed 600-word minimum; run 7:
+    every draft at 580 and 562 against 585. The band for the 650 target is 553-780;
+    outside it the reply is retried, then fails."""
     monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
     monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
     monkeypatch.setattr("time.sleep", lambda s: None)
@@ -394,18 +410,41 @@ def test_sl1_band_through_the_real_retry(monkeypatch, n_words, accepted):
         assert len(calls) == 2  # retried, then failed
 
 
-def test_sl1_prompt_states_the_band():
+def test_sl3_prompt_asks_for_more_than_the_check_accepts(monkeypatch):
+    """SL3 measurement (docs/calibration_summary_floor_2026-10-14.md): drafts were longer
+    with the asked minimum in the prompt (long talks 539-636) than without (490-608), so
+    the prompt asks for 585-780 while 553-780 is accepted."""
+    import summary_pipeline as sp
     text = (config.PROMPTS_DIR / "Summary Generation Prompt v1.md").read_text(encoding="utf-8")
     assert "600" not in text and "650-750" not in text and "800" not in text
+    assert "rejected" not in text  # the asked range is not what is accepted
     for ph in ("{target_word_count}", "{min_words}", "{max_words}"):
         assert ph in text
+    seen = {}
+
+    def fake_call(**kw):
+        seen.update(kw)
+        raise RuntimeError("stop")
+    monkeypatch.setattr(sp, "call_claude_with_retry", fake_call)
+    si = sp.prepare_summary_input(
+        metadata={"title": "T", "presenter": "P", "date": "2021-01-01"}, topics_markdown=
+        "## Topics\n\n### A\nD.\n*_(~50% of transcript; Sections 1-2)_*\n",
+        themes_markdown="", transcript="## Section 1\nKerr said things.\n")
+    with pytest.raises(RuntimeError):
+        sp.generate_summary(si, api_client=object(), model="claude-sonnet-5-5")
+    target = si.target_word_count
+    assert (seen["min_words"], seen["max_words"]) == config.summary_word_bounds(target)
+    prompt = seen["messages"][0]["content"]
+    asked_min, asked_max = config.summary_prompt_word_range(target)
+    assert f"between {asked_min} and {asked_max} words" in prompt
+    assert str(config.summary_word_bounds(target)[0]) not in prompt
 
 
 def test_sl1_validation_uses_the_same_band():
     from summary_validation import validate_structural
     para = lambda n: " ".join(["word"] * n)  # noqa: E731
-    ok = "\n\n".join([para(195)] * 3)        # 585 words
-    short = "\n\n".join([para(194)] * 3)     # 582
+    ok = "\n\n".join([para(185)] * 3)        # 555 words
+    short = "\n\n".join([para(184)] * 3)     # 552
     long_ = "\n\n".join([para(261)] * 3)     # 783
     warn = lambda s: [w for w in validate_structural(s, 650)["warnings"] if "Length" in w]  # noqa: E731
     assert warn(ok) == []
@@ -449,3 +488,65 @@ def test_sl2_first_attempt_failure_still_raises(monkeypatch):
     with pytest.raises(ValueError):
         ep._generate_until_faithful("summary", "B", " - x.md", MagicMock(), generate,
                                     lambda t: None, precheck=lambda *a: ("pass", []))
+
+
+# --- AQ: the abstract is not given pattern-made Q&A topics ---------------------------
+
+def test_aq1_abstract_payload_has_no_qa_topics():
+    """Run 7, Beautiful Boy: the abstract model was given "exploration reading book
+    written" as Q&A topics and wrote a sentence from them that the judge rejected on all
+    three attempts. The model now describes the Q&A from the transcript."""
+    fragments = ["exploration reading book written", "meaning getting high methamphetamines"]
+    for pct in (config.ABSTRACT_QA_NOTE_MIN_PCT + 1, 100):
+        data = json.loads(_input(pct, qa_topics=fragments).to_json())
+        assert data["include_qa_note"] is True and "qa_topics" not in data
+        assert not any(f in json.dumps(data) for f in fragments)
+    prompt = (config.PROMPTS_DIR / config.PROMPT_STRUCTURED_ABSTRACT_FILENAME).read_text(encoding="utf-8")
+    assert "qa_topics" not in prompt and "as the transcript shows it" in prompt
+
+
+def _qa_item(pct, topics=("exploration reading book written",)):
+    import abstract_validation as av
+    items = av.generate_coverage_items(_input(pct, qa_topics=topics))
+    return [i for i in items if i.category == "qa"]
+
+
+def test_aq2_qa_coverage_checks_for_a_qa_note():
+    import abstract_validation as av
+    item = _qa_item(config.ABSTRACT_QA_REQUIRED_PCT)[0]
+    assert item.required is True
+    # Q&A sentences the model wrote in the AQ measurement, and the old style
+    for note in ("The question period addressed detachment as a practice versus differentiation.",
+                 "Participants asked about what a higher level of differentiation would look like.",
+                 "In the question period, audience members asked about the difference.",
+                 "The question-and-answer session addressed the book and its author."):
+        assert av.check_keyword_coverage(note, item)[0] is True, note
+    # Adversarial (P7): ordinary prose with Q&A-ish words is not a Q&A note (AQ review:
+    # the first is from a real abstract with no Q&A note), nor are the old fragments.
+    for prose in ("Michael Kerr presents Bowen theory to an audience unfamiliar with the approach.",
+                  "The central question is how anxiety moves; the discussion then turns to cancer.",
+                  "The talk covers exploration, reading the book he had written, and his son."):
+        assert av.check_keyword_coverage(prose, item)[0] is False, prose
+    # The item no longer depends on the fragments: present with none of them.
+    assert _qa_item(config.ABSTRACT_QA_REQUIRED_PCT, topics=())[0].required is True
+    assert _qa_item(config.ABSTRACT_QA_OPTIONAL_PCT - 1) == []
+
+
+@pytest.mark.parametrize("n_words,accepted", [(config.ABSTRACT_HARD_MAX_WORDS - 1, True),
+                                              (config.ABSTRACT_HARD_MAX_WORDS, False),
+                                              (265, False)])
+def test_aq3_abstract_hard_limit_enforced_at_generation(monkeypatch, n_words, accepted):
+    """AQ measurement: one Beautiful Boy abstract came out at 265 words and was kept; the
+    250-word limit was stated in the prompt and only warned about in validation. A
+    reply at or over it is now retried, then fails."""
+    monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
+    monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    client, calls = _words_client(n_words)
+    run = lambda: ap.generate_abstract(_input(50), client, model="claude-sonnet-5-5")  # noqa: E731
+    if accepted:
+        assert len(run().split()) == n_words and len(calls) == 1
+    else:
+        with pytest.raises(Exception, match="too long"):
+            run()
+        assert len(calls) == config.MAX_RETRIES  # retried, then failed

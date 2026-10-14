@@ -89,6 +89,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**A prompt change based on a guess about the model did the opposite (2026-10-14, SL3).**
+- Issue: summaries for long talks came in just under the stated 585-word floor. I guessed that stating the floor pulled drafts down toward it, removed it from the prompt and lowered the accepted floor.
+- Root cause: an untested belief about model behaviour. Measured, the drafts without the stated minimum were shorter (490–608 words against 539–636).
+- What would have caught it: measuring the prompt change before relying on it, which is what caught it here (nine drafts per prompt, about $0.70 each).
+- Fix: the prompt keeps asking for 585–780; the check accepts from 553 (`docs/calibration_summary_floor_2026-10-14.md`).
+- Rule: measure a prompt change against the current prompt on real inputs before shipping it; a plausible mechanism is not evidence.
+
 **Theme layout drift needed a fix each run until the format was enforced (2026-10-14, ST).**
 - Issue: the theme stages returned free-form markdown and every reader parsed it with patterns. In five days the model produced seven layout variants (a list layout, new labels "Summary" and "Closing paragraph:", closing notes read as evidence or published); each needed its own parser fix (T1, TM, TE, TD, TP).
 - Root cause (P19): the format contract lived only in the prompt's wording, which the model follows loosely, and the prompts themselves asked for a closing paragraph after the list, so a note in some new form came back every run.

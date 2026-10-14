@@ -504,3 +504,12 @@ def test_sl1_target_change_invalidates_the_stored_verdict(project, monkeypatch):
     before = vp.summary_coverage_key(base)
     monkeypatch.setattr(config, "DEFAULT_SUMMARY_WORD_COUNT", config.DEFAULT_SUMMARY_WORD_COUNT + 50)
     assert vp.summary_coverage_key(base) != before
+
+
+def test_sl3_accepted_floor_change_invalidates_the_stored_verdict(project, monkeypatch):
+    """The validation warns against the accepted floor, so a change to it must re-run the
+    stored verdict (AQ/SL3 review: the key used the asked ratio)."""
+    base, _proj = project()
+    before = vp.summary_coverage_key(base)
+    monkeypatch.setattr(config, "SUMMARY_LENGTH_ACCEPT_MIN_RATIO", 0.5)
+    assert vp.summary_coverage_key(base) != before

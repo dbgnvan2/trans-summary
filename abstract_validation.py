@@ -401,24 +401,20 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
             )
         )
 
-    # Q&A coverage (if significant and extractable). Q&A is only required when it
-    # is a substantial share of the transcript and topics are high-signal.
-    if abstract_input.qa_percentage >= QA_OPTIONAL_THRESHOLD and abstract_input.qa_topics:
-        qa_keywords = []
-        for topic in abstract_input.qa_topics:
-            qa_keywords.extend(extract_keywords(topic))
-        qa_keywords = list(dict.fromkeys(qa_keywords))[:8]
-
-        if len(qa_keywords) >= 2:
-            items.append(
-                CoverageItem(
-                    category="qa",
-                    label=f"Q&A content ({abstract_input.qa_percentage}%)",
-                    required=abstract_input.qa_percentage >= QA_REQUIRED_THRESHOLD,
-                    keywords=qa_keywords,
-                    source_text=", ".join(abstract_input.qa_topics),
-                )
+    # Q&A note: when the Q&A is a substantial share of the transcript, the abstract
+    # should say what it discussed. Checked by the words that show a Q&A note
+    # (config.ABSTRACT_QA_NOTE_MARKERS), not the pattern-made Q&A topics, which the
+    # model is no longer given (AQ).
+    if abstract_input.qa_percentage >= QA_OPTIONAL_THRESHOLD:
+        items.append(
+            CoverageItem(
+                category="qa",
+                label=f"Q&A note ({abstract_input.qa_percentage}%)",
+                required=abstract_input.qa_percentage >= QA_REQUIRED_THRESHOLD,
+                keywords=list(config.ABSTRACT_QA_NOTE_MARKERS),
+                source_text="one sentence on what the audience asked about or discussed",
             )
+        )
 
     return items
 
@@ -772,7 +768,7 @@ def generate_review_checklist(abstract_input) -> str:
             "",
             "## Constraints",
             "",
-            "- [ ] Word count: 150-250 words",
+            f"- [ ] Word count: 150-{config.ABSTRACT_HARD_MAX_WORDS - 1} words",
             "- [ ] Third person, present tense",
             "- [ ] No citations or section references",
             "- [ ] No evaluative language",

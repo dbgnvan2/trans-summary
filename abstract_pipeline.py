@@ -76,7 +76,9 @@ class AbstractInput:
         percentages or section numbers, and whether to add a Q&A note, without the
         Q&A share. Figures the transcript does not state must not reach the model
         (E2E 2026-10-13: "the Q&A accounted for roughly fifteen percent", judged
-        unsupported). The full data stays in to_contract_dict.
+        unsupported). Nor do the pattern-made Q&A topics (AQ 2026-10-14: a sentence
+        built from them failed the judge on three attempts). The full data stays in
+        to_contract_dict.
         """
         include_qa = self.qa_percentage > config.ABSTRACT_QA_NOTE_MIN_PCT
         placeholders = {config.PURPOSE_MISSING_TEXT, config.PURPOSE_EXTRACTION_FAILED,
@@ -93,7 +95,9 @@ class AbstractInput:
             "closing_conclusion": ("" if self.closing_conclusion in placeholders
                                    else self.closing_conclusion),
             "include_qa_note": include_qa,
-            "qa_topics": self.qa_topics if include_qa else [],
+            # No qa_topics (AQ): they are pattern-made fragments ("exploration reading
+            # book written") the judge cannot check; the model describes the Q&A from
+            # the transcript it is given.
             "target_word_count": self.target_word_count,
         }
         return json.dumps(data, indent=2)
@@ -481,6 +485,7 @@ def generate_abstract(
     model: str | None = None,  # Haiku: cost-effective for abstract generation
     system: Optional[list] = None,
     feedback_claims: Optional[list] = None,
+    max_words: int = config.ABSTRACT_HARD_MAX_WORDS - 1,
 ) -> str:
     """
     Generate abstract via API call.
@@ -492,6 +497,9 @@ def generate_abstract(
         feedback_claims: On a regeneration attempt, the specific statements a
             previous draft made that were NOT supported by the transcript — fed
             back so the model corrects them (grounds every sentence).
+        max_words: longest accepted reply; a longer one is retried, then raises. The
+            prompt's hard limit by default (AQ: a 265-word abstract had passed; the
+            limit was a validation warning only). 0 = no limit.
 
     Returns:
         Generated abstract text
@@ -526,6 +534,7 @@ def generate_abstract(
         temperature=config.TEMP_BALANCED,
         stream=True,
         min_length=150,  # Ensure substantial abstract
+        max_words=max_words,
         logger=logger,  # named logger -> real script name in token-usage log
         **kwargs,
     )

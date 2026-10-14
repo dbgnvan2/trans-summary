@@ -1503,12 +1503,23 @@ def generate_structured_abstract(
         max_attempts = max(1, int(getattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)))
         feedback = None
         best_text, best_issue_count = None, None
+        generation_error = None
         for attempt in range(1, max_attempts + 1):
             logger.info("Generating abstract via API (attempt %d/%d)...", attempt, max_attempts)
-            abstract_text = abstract_pipeline.generate_abstract(
-                abstract_input, client, model=model,
-                system=transcript_system_message, feedback_claims=feedback,
-            )
+            try:
+                abstract_text = abstract_pipeline.generate_abstract(
+                    abstract_input, client, model=model,
+                    system=transcript_system_message, feedback_claims=feedback,
+                )
+            except Exception as e:  # noqa: BLE001
+                # A later attempt that fails outright (e.g. every retry over the word
+                # limit, AQ) keeps the best earlier draft, as the summary does (SL2).
+                # On the first attempt there is no draft: the stage fails.
+                if best_text is None:
+                    raise
+                logger.error("Abstract attempt %d/%d failed: %s", attempt, max_attempts, e)
+                generation_error = (attempt, e)
+                break
             output_path.write_text(abstract_text, encoding="utf-8")
 
             status, issues = _abstract_gate_precheck(base_name, logger)
@@ -1532,10 +1543,17 @@ def generate_structured_abstract(
         # All attempts failed — keep the least-bad draft; honest, loud status.
         if best_text is not None:
             output_path.write_text(best_text, encoding="utf-8")
-        logger.error("⚠️ Could not produce a fully faithful abstract after %d attempt(s); "
-                     "kept the best draft (%s unresolved issue(s)). The release gate will "
-                     "BLOCK publication until it is regenerated or edited.",
-                     max_attempts, best_issue_count)
+        if generation_error:
+            attempt, e = generation_error
+            logger.error("⚠️ Abstract attempt %d/%d could not be generated (%s); kept the "
+                         "best earlier draft (%s unresolved issue(s)). The release gate will "
+                         "BLOCK publication until it is regenerated or edited.",
+                         attempt, max_attempts, e, best_issue_count)
+        else:
+            logger.error("⚠️ Could not produce a fully faithful abstract after %d attempt(s); "
+                         "kept the best draft (%s unresolved issue(s)). The release gate will "
+                         "BLOCK publication until it is regenerated or edited.",
+                         max_attempts, best_issue_count)
         # The stage failed its purpose; report it as failed so Run Selected stops
         # here rather than showing green (author decision, plan R11).
         return False
@@ -1787,8 +1805,12 @@ def summarize_transcript(
                 target_word_count=target_word_count,
             )
             client = get_anthropic_client()
+            # An intermediate draft (the Gen Abstract stage writes the published one,
+            # which is length-checked), so no hard limit: a long draft must not fail
+            # Core after the themes, topics and key terms are paid for (AQ review).
             abstract_output = abstract_pipeline.generate_abstract(
-                abstract_input, client, model=model, system=transcript_system_message
+                abstract_input, client, model=model, system=transcript_system_message,
+                max_words=0,
             )
             _save_summary(abstract_output, formatted_filename, "abstract-initial", logger=logger)
 

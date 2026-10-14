@@ -531,7 +531,7 @@ class _ThemeClient(_Client):
         self.messages = _Messages()
 
 
-def _core(tmp_path, monkeypatch, client, verdicts):
+def _core(tmp_path, monkeypatch, client, verdicts, abstract=None):
     """Run Core (PART 1-8) with the real theme stages and fake everything else.
     Returns (ok, project folder, stem, the theme texts the validator saw)."""
     stem = "ST5-Talk"
@@ -553,7 +553,8 @@ def _core(tmp_path, monkeypatch, client, verdicts):
              "Lens": "## Lenses (Ranked)\n\n1. **Lens A**\nRationale.\n"}
     monkeypatch.setattr(ep, "_generate_with_cached_transcript", lambda name, *a, **k: next(
         v for key, v in texts.items() if key.lower().split()[0] in name.lower()))
-    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", lambda *a, **k: "Abstract.")
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
+                        abstract or (lambda *a, **k: "Abstract."))
     seen = []
 
     def _validate(model, logger, system, structural, interpretive, lenses):
@@ -738,3 +739,19 @@ def test_st8_estimate_rows(monkeypatch, tmp_path):
             assert measured <= visible <= 1.5 * measured, (step, T, visible, measured)
             assert row["breakdown"]["cache_write"] > 0 and row["breakdown"]["cache_read"] == 0
             assert row["input_tokens"] > T  # the transcript is part of what is written
+
+
+def test_aq5_core_initial_abstract_has_no_hard_limit(quiet, tmp_path, monkeypatch):
+    """AQ review: Core's PART 5 writes an intermediate abstract (the Gen Abstract stage
+    writes the published, length-checked one), so it asks for no word limit; three long
+    replies must not fail Core after the themes, topics and key terms are paid for."""
+    calls = []
+
+    def abstract(*a, **k):
+        calls.append(k)
+        return "Abstract."
+    verdicts = [{"structural_themes_valid": True, "interpretive_themes_valid": True}]
+    client = _ThemeClient([_titled("structural", "S", 2)], [_titled("interpretive", "I", 3)])
+    ok, *_rest = _core(tmp_path, monkeypatch, client, verdicts, abstract=abstract)
+    assert ok is True
+    assert [c.get("max_words") for c in calls] == [0]

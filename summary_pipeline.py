@@ -786,6 +786,8 @@ def generate_summary(
                 summary_input.opening.word_allocation + summary_input.body.word_allocation +
                 summary_input.qa.word_allocation + summary_input.closing.word_allocation)
 
+    # The prompt asks for 90-120% of the target; 85% and up is accepted (SL3).
+    asked_min, asked_max = config.summary_prompt_word_range(summary_input.target_word_count)
     min_words, max_words = config.summary_word_bounds(summary_input.target_word_count)
     prompt = prompt_template.format(
         opening_words=summary_input.opening.word_allocation,
@@ -794,8 +796,8 @@ def generate_summary(
         qa_instruction=qa_instruction,
         closing_words=summary_input.closing.word_allocation,
         target_word_count=summary_input.target_word_count,
-        min_words=min_words,
-        max_words=max_words,
+        min_words=asked_min,
+        max_words=asked_max,
         input_json=summary_input.to_json(),
     )
     if feedback_claims:
@@ -813,7 +815,7 @@ def generate_summary(
         max_tokens=config.MAX_TOKENS_SUMMARY,
         temperature=config.TEMP_BALANCED,
         stream=True,
-        # Within 10% under / 20% over the target (config.summary_word_bounds); a reply
+        # Within 15% under / 20% over the target (config.summary_word_bounds); a reply
         # outside it is retried.
         min_words=min_words,
         max_words=max_words,

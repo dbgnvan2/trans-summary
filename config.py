@@ -955,12 +955,17 @@ VALIDATION_MEMORY_PROMOTION_THRESHOLD = 3
 # Set to 650 - Claude 3.7 Sonnet tends to generate slightly more
 # Typically results in 700-900 word summaries
 DEFAULT_SUMMARY_WORD_COUNT = 650
-# Summary length band around its target (author decision 2026-10-14): up to 10% under
-# and 20% over is accepted. Generation regenerates a reply outside it; validation warns.
-# Was a fixed 600-word minimum against the 650 target (8% under), which rejected
-# on-target summaries (E2E run 5: 587 words rejected; 572 is still under the band),
-# and no upper limit.
+# Summary length around its target (author decisions 2026-10-14). The prompt asks for
+# MIN_RATIO to MAX_RATIO of the target (585-780 for 650); a reply from ACCEPT_MIN_RATIO up
+# is accepted (553), so a draft slightly under the asked minimum is not regenerated.
+# Generation regenerates a reply outside the accepted band; validation warns.
+# Measured (docs/calibration_summary_floor_2026-10-14.md), the long talks' drafts: with
+# the asked minimum in the prompt 539-636 words (end-to-end runs 6-7: 562-603); without
+# it 490-608. With 585 as the accepted floor, run 7 failed the summary on two talks
+# (drafts 580 and 562). The coverage gate passed every draft checked, down to 490 words.
+# Before SL: a fixed 600-word minimum and no upper limit.
 SUMMARY_LENGTH_MIN_RATIO = 0.9
+SUMMARY_LENGTH_ACCEPT_MIN_RATIO = 0.85
 SUMMARY_LENGTH_MAX_RATIO = 1.2
 
 # Token Limits
@@ -1125,6 +1130,17 @@ ABSTRACT_QA_NOTE_MIN_PCT = 20
 # note threshold must stay below REQUIRED, or a required item could never be met.
 ABSTRACT_QA_OPTIONAL_PCT = 15
 ABSTRACT_QA_REQUIRED_PCT = 30
+# Phrases that show an abstract has a Q&A note (AQ, 2026-10-14). The abstract coverage
+# check looks for them when the Q&A share is at or above ABSTRACT_QA_OPTIONAL_PCT.
+# Matched as lower-case substrings. Q&A-specific on purpose: single words such as
+# "audience", "question" or "discussion" occur in ordinary prose ("to an audience
+# unfamiliar with the approach", "the central question is"; AQ review).
+ABSTRACT_QA_NOTE_MARKERS = (
+    "q&a", "question-and-answer", "question and answer", "question period",
+    "question session", "questions from the audience", "audience questions",
+    "audience asked", "audience members asked", "participants asked",
+    "attendees asked", "audience discussion",
+)
 # Abstract generation retries: regenerate (with corrective feedback) up to this
 # many times to get a version that passes the gate's faithfulness + entity checks
 # at generation time, instead of only discovering an unfaithful abstract at publish.
@@ -1135,8 +1151,18 @@ GENERATION_FAITHFULNESS_ATTEMPTS = 3
 
 
 def summary_word_bounds(target_word_count: int) -> tuple[int, int]:
-    """(fewest, most) words a summary may have for ``target_word_count``:
-    SUMMARY_LENGTH_MIN_RATIO and SUMMARY_LENGTH_MAX_RATIO of the target. 650 -> (585, 780)."""
+    """(fewest, most) words a summary is accepted with for ``target_word_count``:
+    SUMMARY_LENGTH_ACCEPT_MIN_RATIO and SUMMARY_LENGTH_MAX_RATIO of the target.
+    650 -> (553, 780)."""
+    import math
+    return (math.ceil(target_word_count * SUMMARY_LENGTH_ACCEPT_MIN_RATIO),
+            math.floor(target_word_count * SUMMARY_LENGTH_MAX_RATIO))
+
+
+def summary_prompt_word_range(target_word_count: int) -> tuple[int, int]:
+    """(fewest, most) words the summary prompt asks for: SUMMARY_LENGTH_MIN_RATIO and
+    SUMMARY_LENGTH_MAX_RATIO of the target. 650 -> (585, 780). The asked minimum is
+    above the accepted one (``summary_word_bounds``) on purpose (SL3)."""
     import math
     return (math.ceil(target_word_count * SUMMARY_LENGTH_MIN_RATIO),
             math.floor(target_word_count * SUMMARY_LENGTH_MAX_RATIO))

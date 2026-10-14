@@ -116,8 +116,8 @@ class TestAPICallParameters:
 
     @patch('summary_pipeline.call_claude_with_retry')
     def test_min_and_max_words_follow_target(self, mock_call):
-        """generate_summary accepts 10% under to 20% over the target (SL, 2026-10-14;
-        was a fixed 600-word minimum)."""
+        """generate_summary accepts 15% under to 20% over the target (SL3, 2026-10-14;
+        was 10% under, and before SL a fixed 600-word minimum)."""
         # Setup mock
         mock_message = Mock()
         mock_message.content = [Mock(text="Test summary content" * 50)]
@@ -155,7 +155,7 @@ class TestAPICallParameters:
 
         mock_call.assert_called_once()
         call_kwargs = mock_call.call_args.kwargs
-        assert (call_kwargs['min_words'], call_kwargs['max_words']) == (675, 900)  # 750 target
+        assert (call_kwargs['min_words'], call_kwargs['max_words']) == (638, 900)  # 750 target
 
     @patch('summary_pipeline.call_claude_with_retry')
     def test_max_tokens_is_4000(self, mock_call):
@@ -272,14 +272,14 @@ class TestValidationThresholds:
         # At exactly 600, should not warn about minimum
         assert not any("minimum 600" in w for w in length_warnings)
 
-    def test_validation_warns_below_90_percent_of_target(self):
-        """Structural validation warns below 90% of the target (SL, 2026-10-14; was 85%
-        plus a fixed 600-word minimum)."""
+    def test_validation_warns_below_85_percent_of_target(self):
+        """Structural validation warns below 85% of the target (SL3, 2026-10-14; was 90%,
+        and before SL 85% plus a fixed 600-word minimum)."""
         target = 750
-        threshold = 675  # 90% of 750
+        threshold = 638  # 85% of 750, rounded up
 
         # Summary just below threshold
-        short_summary = " ".join(["word"] * (threshold - 10))  # 627 words
+        short_summary = " ".join(["word"] * (threshold - 10))  # 628 words
 
         # Need at least 3 paragraphs
         words_per_para = (threshold - 10) // 3
@@ -292,7 +292,7 @@ class TestValidationThresholds:
         result = validate_structural(short_summary, target_word_count=target)
 
         assert any("Too short" in w for w in result['warnings'])
-        at_threshold = "\n\n".join([" ".join(["word"] * 225)] * 3)  # 675 words
+        at_threshold = "\n\n".join([" ".join(["word"] * 213)] * 3)  # 639 words
         assert not any("Length check" in w for w in
                        validate_structural(at_threshold, target_word_count=target)['warnings'])
 

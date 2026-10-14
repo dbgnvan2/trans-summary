@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (summary floor and abstract Q&A note — SL3, AQ)
+
+- Structured summary: the prompt still asks for 585–780 words (target 650), and a draft
+  from 553 words is accepted (`config.SUMMARY_LENGTH_ACCEPT_MIN_RATIO` 0.85; author
+  decision). Run 7 failed the summary on two talks whose drafts were 580 and 562 words.
+  Measured: the coverage gate passed every draft down to 490 words; drafts were longer
+  with the asked minimum in the prompt than without it, so it stays in the prompt.
+- Abstract: the model is no longer given the pattern-made Q&A topics ("exploration
+  reading book written"); it writes the Q&A sentence from the transcript. Run 7's
+  Beautiful Boy abstract was blocked on that sentence; measured afterwards, 3 of 3
+  passed. The abstract coverage check looks for a Q&A note by Q&A-specific phrases
+  ("question period", "participants asked"; `config.ABSTRACT_QA_NOTE_MARKERS`) instead of
+  the fragments.
+- The published abstract's 250-word limit is enforced at generation (it was a validation
+  warning; one measured abstract had 265 words). A later attempt that fails outright
+  keeps the best earlier draft, and the log names that attempt and the error. Core's
+  intermediate first abstract (PART 5) has no limit, so a long draft cannot fail Core.
+- Details: `docs/calibration_summary_floor_2026-10-14.md`. Tests:
+  `tests/test_e2e_fixes.py::test_sl3_*`, `::test_aq*`,
+  `tests/test_abstract_faithful_retry.py::test_aq4_*`.
+
 ## [Unreleased] - 2026-10-14 (theme estimate rows and end-to-end results — ST.8/ST.9)
 
 - Cost estimate: the theme rows now hold the measured visible output

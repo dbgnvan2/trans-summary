@@ -712,7 +712,7 @@ def validate_structural(summary: str, target_word_count: int) -> dict:
     word_count = len(summary.split())
 
     # Word count: the same band generation accepts (config.summary_word_bounds:
-    # 10% under / 20% over the target). Advisory here.
+    # 15% under / 20% over the target). Advisory here.
     min_words, max_words = config.summary_word_bounds(target_word_count)
     if word_count < min_words:
         warnings.append(f"Length check: Too short ({word_count} words, target "

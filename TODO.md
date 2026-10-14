@@ -32,19 +32,31 @@ New from this run:
 
 **Runs 6 and 7 (2026-10-14, ST end-to-end, $6.26 and $6.08)** — theme stages all passed;
 found outside them:
-- **Structured summary fails when every attempt is short.** Run 7: Beautiful Boy 580
+- ~~**Structured summary fails when every attempt is short.**~~ Fixed 2026-10-14 (SL3,
+  `docs/calibration_summary_floor_2026-10-14.md`): 553 words accepted, 585 still asked. Run 7: Beautiful Boy 580
   words and Systems Biology 562, under the 585 floor on all three attempts, so the stage
   failed. Run 6: 584 and 581 on a first attempt, then passed. The model writes about
   560–600 words when asked for 650 (585–780 accepted). Options: ask for the middle of
   the band (about 680) while accepting 585–780, or retry with the draft and its word
   count. Needs the author's choice (it changes what the model is asked for).
-- **Abstract Q&A sentence built from pattern fragments.** When the Q&A note is on,
+- ~~**Abstract Q&A sentence built from pattern fragments.**~~ Fixed 2026-10-14 (AQ, same
+  doc). `calculate_qa_percentage` still extracts the fragments for the abstract-input
+  record (`to_contract_dict`); nothing reads them now (cleanup, not fixed). When the Q&A note is on,
   `AbstractInput.to_json` sends `qa_topics`: words after "about/on/regarding" with
   small words removed ("exploration reading book written"), and the prompt says to
   mention them. Run 7 Beautiful Boy: the judge flagged the Q&A sentence on all three
   attempts and the gate blocked. Beautiful Boy's Q&A share swings (100% / 18% / 100%),
   so this comes and goes. Fix: stop sending `qa_topics`; have the model describe the
   Q&A from the transcript, which the judge can check (same rule as E2E1).
+- **Summary input still carries pattern-made Q&A fragments** (found in the AQ review, not
+  fixed). `summary_pipeline.SummaryInput.to_json` sends `qa` with `question_types` (raw
+  phrases after "about/on/regarding") and `percentage`, and the summary's Q&A coverage
+  item is built from them. Lower risk than the abstract (the prompt does not name the
+  field; the item does not gate), but the same rule applies (E2E1/AQ).
+- **A first-attempt abstract failure leaves the earlier run's abstract on disk** (AQ
+  review, existed before). If attempt 1 cannot be generated, the stage fails without
+  writing, so the previous `abstract-generated.md` stays. The enforced word limit makes
+  that path a little more likely.
 - **Format variance, again:** run 6 Systems Biology (one malformed heading, one dropped
   word), run 7 Beautiful Boy (two differences). Format at high effort passed 8 of 9 in
   the 2026-10-14 measurement; these runs give 4 of 6.
@@ -93,11 +105,11 @@ pass. Systems Biology: blocked.
   16,192 output tokens (8,192 + thinking headroom) and was rejected; the Bowen +
   Emphasis stage failed. Beautiful Boy (12k words) fit, so it depends on the run.
   `config.MAX_TOKENS_EXTRACTION` (8192) predates the thinking models.
-- **Structured summary minimum length:** band fixed 2026-10-14 (SL: 10% under to 20% over the
-  target, 585–780 for 650). Still open: the target is a fixed 650 whatever the talk length,
-  so a short talk's summary can still be rejected (the 569- and 572-word drafts would be). a 569-word summary was rejected (minimum
-  600 words) and regenerated. The minimum is a fixed guess; a short talk can be
-  summarised in fewer words.
+- **Structured summary minimum length:** band fixed 2026-10-14 (SL, then SL3: the prompt
+  asks for 585–780 words for the 650 target and 553–780 is accepted). Still open: the
+  target is a fixed 650 whatever the talk length, so a short talk's summary may still
+  run under 553 words. Was: a 569-word summary was rejected (minimum 600 words) and
+  regenerated.
 - **Meta-claims about the talk get flagged:** "The talk states no explicit
   conclusion" (overview, Why Families) and "though no explicit closing conclusion is
   stated" (abstract, Systems Biology). The prompts ask for a conclusion; when there is

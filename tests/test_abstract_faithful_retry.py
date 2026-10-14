@@ -139,3 +139,58 @@ def test_gate_precheck_classifies_pass_fail_unavailable(monkeypatch):
     monkeypatch.setattr(rg, "check_faithfulness",
                         lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.ERROR, "no key"))
     assert ep._abstract_gate_precheck("b")[0] == "unavailable"
+
+
+def test_aq4_failed_later_attempt_keeps_the_best_draft(monkeypatch, tmp_path):
+    """AQ review: generation can now fail outright (every retry over the word limit).
+    On a later attempt the best earlier draft is kept and the stage fails; before, the
+    exception left the last written draft in the file."""
+    base, proj = _setup(monkeypatch, tmp_path)
+    texts = iter(["draft-1-best", "draft-2"])
+
+    def generate(ai, client, model=None, system=None, feedback_claims=None):
+        try:
+            return next(texts)
+        except StopIteration:
+            raise ValueError("Response text too long: 265 words (expected <= 249)")
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", generate)
+    seq = iter([("fail", ["a"]), ("fail", ["a", "b"])])
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
+
+    assert ep.generate_structured_abstract(base, logger=_log()) is False
+    saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
+    assert saved == "draft-1-best"
+
+
+def test_aq4_final_message_names_the_failed_attempt(monkeypatch, tmp_path, caplog):
+    """AQ review: the closing error gives the attempt that could not be generated and
+    why, not "after 3 attempts" and a faithfulness reason."""
+    base, proj = _setup(monkeypatch, tmp_path)
+    texts = iter(["draft-1"])
+
+    def generate(*a, **k):
+        try:
+            return next(texts)
+        except StopIteration:
+            raise ValueError("Response text too long: 265 words (expected <= 249)")
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", generate)
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: ("fail", ["a"]))
+    with caplog.at_level(logging.ERROR):
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    final = caplog.records[-1].getMessage()
+    assert "attempt 2/3 could not be generated" in final and "too long" in final
+    assert "after 3 attempt" not in final
+
+
+def test_aq4_failed_first_attempt_fails_the_stage(monkeypatch, tmp_path, caplog):
+    base, proj = _setup(monkeypatch, tmp_path)
+
+    def generate(*a, **k):
+        raise ValueError("Response text too long: 265 words (expected <= 249)")
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", generate)
+    with caplog.at_level(logging.ERROR):
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    assert not (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").exists()
+    # no draft to keep: the error itself is reported, not a kept-draft message
+    assert any("Error generating structured abstract" in r.getMessage() for r in caplog.records)
+    assert not any("kept the" in r.getMessage() for r in caplog.records)

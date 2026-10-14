@@ -1,0 +1,10 @@
+model=claude-sonnet-5-5 target=650 accepted floor (not applied here)=553 max=780
+Beautiful Boy Review - Kathlee draft 1: 553 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Beautiful Boy Review - Kathlee draft 2: 561 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Beautiful Boy Review - Kathlee draft 3: 539 words (under floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Systems Biology Meets Bowen Th draft 1: 572 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Systems Biology Meets Bowen Th draft 2: 626 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Systems Biology Meets Bowen Th draft 3: 636 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Why Families Repeat the Same P draft 1: 709 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Why Families Repeat the Same P draft 2: 637 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []
+Why Families Repeat the Same P draft 3: 710 words (within floor 553) | Gate status: PASS (gating on: closing, topic items) | []

@@ -1033,7 +1033,7 @@ def _summary_coverage_logic_version() -> str:
         config.settings.AUX_MODEL,  # the model the GUI runs the check with (U5 sweep)
         repr(sorted(config.SUMMARY_COVERAGE_GATING_CATEGORIES)),
         # The target the summary is checked against and the length band (SL).
-        repr((config.DEFAULT_SUMMARY_WORD_COUNT, config.SUMMARY_LENGTH_MIN_RATIO,
+        repr((config.DEFAULT_SUMMARY_WORD_COUNT, config.SUMMARY_LENGTH_ACCEPT_MIN_RATIO,
               config.SUMMARY_LENGTH_MAX_RATIO)),
         prompt.read_text(encoding="utf-8") if prompt.exists() else "<no prompt>",
         *(inspect.getsource(fn) for fn in (
