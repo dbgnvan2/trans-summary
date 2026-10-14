@@ -1030,6 +1030,13 @@ EMPHASIS_EFFORT = "medium"
 # (18.8k), 12.3k (17.4k).
 EMPHASIS_OUTPUT_PCT = 0.65
 EMPHASIS_OUTPUT_FLOOR = 5000
+# ST.8 (2026-10-14): the theme stages' visible output (the JSON reply), as
+# max(pct * transcript tokens, floor); thinking is added per the Effort setting, since
+# these calls follow it. Measured on three public talks, end-to-end runs 6 and 7
+# (5.7k-18.8k transcript tokens): structural 1,212-1,587, interpretive 2,160-3,037.
+# Details: docs/plan_structured_themes_2026-10-14.md (ST.8).
+THEME_OUTPUT_PCT = {"structural": 0.08, "interpretive": 0.16}
+THEME_OUTPUT_FLOOR = {"structural": 1600, "interpretive": 3100}
 
 # Temperature Settings
 TEMP_STRICT = 0.0

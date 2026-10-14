@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (theme estimate rows and end-to-end results — ST.8/ST.9)
+
+- Cost estimate: the theme rows now hold the measured visible output
+  (`config.THEME_OUTPUT_PCT` / `THEME_OUTPUT_FLOOR`: structural `max(0.08T, 1600)`,
+  interpretive `max(0.16T, 3100)`) plus the Effort setting's thinking, priced as cache
+  writes (each theme call writes its own cache). The old rows were about 2x and 1.4x
+  high. Test: `tests/test_structured_themes_st.py::test_st8_estimate_rows`.
+- Two end-to-end rounds (runs 6 and 7, three public talks): all 12 theme calls passed on
+  the first attempt, the theme judge passed every talk, no unclassified field or trimmed
+  note. Results and the side-by-side read: `docs/plan_structured_themes_2026-10-14.md`,
+  `docs/calibration/2026-10-14_structured_themes/`.
+
 ## [Unreleased] - 2026-10-14 (structured theme output — ST)
 
 - The structural and interpretive theme stages return JSON that must match a schema

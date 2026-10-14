@@ -152,10 +152,10 @@ class CostEstimator:
     def estimate_summarization_steps(self):
         """Estimate costs for all steps that use the cached transcript.
 
-        Core extraction (summarize_transcript) issues a SEPARATE cached-transcript
-        call per artifact — Structural Themes, Interpretive Themes, Topics, Key
-        Terms, Emphasis, Bowen (x2), Ranked Lenses, and a Theme/Lens validation
-        pass — not one bundled "key items" call. Each is modelled below.
+        Core extraction (summarize_transcript) issues a SEPARATE call per artifact —
+        Structural Themes, Interpretive Themes, Topics, Key Terms, Emphasis, Bowen
+        (x2), Ranked Lenses, and a Theme/Lens validation pass — not one bundled "key
+        items" call. Each is modelled below.
 
         Output-token heuristics are `max(pct * transcript, floor)`: analytical
         output has a large fixed component (so a floor) plus mild growth with
@@ -170,10 +170,24 @@ class CostEstimator:
         def _prompt_tokens(filename):
             return estimate_token_count((config.PROMPTS_DIR / filename).read_text())
 
-        # 2a-2d. Core extraction items (each a separate Sonnet call on the cached transcript)
+        # 2a-2b. Theme stages (ST): a JSON reply, priced as a cache write, since the
+        # output schema sits in front of the transcript, so each call writes its own
+        # cache. The interpretive prompt also carries the structural themes.
+        structural_out = out(config.THEME_OUTPUT_PCT["structural"],
+                             config.THEME_OUTPUT_FLOOR["structural"])
+        for step_name, prompt_file, extra_input, output_tokens in (
+            ("2a. Structural Themes", config.PROMPT_STRUCTURAL_THEMES_FILENAME, 0,
+             structural_out),
+            ("2b. Interpretive Themes", config.PROMPT_INTERPRETIVE_THEMES_FILENAME,
+             structural_out, out(config.THEME_OUTPUT_PCT["interpretive"],
+                                 config.THEME_OUTPUT_FLOOR["interpretive"])),
+        ):
+            self._calculate_cost(step_name, config.settings.DEFAULT_MODEL,
+                                 _prompt_tokens(prompt_file) + extra_input + T, output_tokens,
+                                 is_cache_write=True, category="processing")
+
+        # 2c-2d. Core extraction items (each a separate Sonnet call on the cached transcript)
         core_items = [
-            ("2a. Structural Themes", config.PROMPT_STRUCTURAL_THEMES_FILENAME, out(0.12, 1100)),
-            ("2b. Interpretive Themes", config.PROMPT_INTERPRETIVE_THEMES_FILENAME, out(0.20, 2000)),
             ("2c. Topics", config.PROMPT_TOPICS_FILENAME, out(0.06, 450)),
             ("2d. Key Terms", config.PROMPT_KEY_TERMS_FILENAME, out(0.06, 450)),
         ]

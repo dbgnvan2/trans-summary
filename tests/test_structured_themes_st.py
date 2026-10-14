@@ -707,3 +707,34 @@ def test_st7_legacy_fixtures_unchanged():
     current = mod.snapshot(FIXTURES)
     for name, hashes in expected.items():
         assert current[name] == hashes, name
+
+
+# --------------------------------------------------------------------------- ST.8
+# (transcript tokens, structural visible, interpretive visible): the JSON replies of
+# end-to-end runs 6 and 7 on three public talks, in estimate_token_count tokens.
+MEASURED_VISIBLE = [(18753, 1481, 2455), (17416, 1587, 3037), (5660, 1212, 2160),
+                    (18753, 1417, 2602), (17416, 1432, 2724), (5660, 1393, 2455)]
+
+
+def test_st8_estimate_rows(monkeypatch, tmp_path):
+    """The theme rows cover every measured reply without more than 1.5x room, add the
+    Effort setting's thinking (these calls follow it), and are priced as cache writes
+    (each theme call writes its own cache: the schema sits in front of the transcript)."""
+    import transcript_cost_estimator as tce
+    from transcript_cost_estimator import thinking_tokens_estimate
+    monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
+    for T, structural, interpretive in MEASURED_VISIBLE:
+        src = tmp_path / f"Talk - A Person - 2021-01-01-{T}.txt"
+        src.write_text("abcd" * T, encoding="utf-8")
+        est = tce.CostEstimator(src)
+        assert est.transcript_tokens == T
+        est.estimate_summarization_steps()
+        rows = {c["step"]: c for c in est.costs}
+        thinking = thinking_tokens_estimate(config.settings.DEFAULT_MODEL)
+        for step, measured in (("2a. Structural Themes", structural),
+                               ("2b. Interpretive Themes", interpretive)):
+            row = rows[step]
+            visible = row["output_tokens"] - thinking
+            assert measured <= visible <= 1.5 * measured, (step, T, visible, measured)
+            assert row["breakdown"]["cache_write"] > 0 and row["breakdown"]["cache_read"] == 0
+            assert row["input_tokens"] > T  # the transcript is part of what is written

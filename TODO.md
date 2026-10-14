@@ -30,6 +30,28 @@ New from this run:
   JSON and the pipeline writes the layout (`docs/plan_structured_themes_2026-10-14.md`).
   Old files keep the TE/TD handling.
 
+**Runs 6 and 7 (2026-10-14, ST end-to-end, $6.26 and $6.08)** — theme stages all passed;
+found outside them:
+- **Structured summary fails when every attempt is short.** Run 7: Beautiful Boy 580
+  words and Systems Biology 562, under the 585 floor on all three attempts, so the stage
+  failed. Run 6: 584 and 581 on a first attempt, then passed. The model writes about
+  560–600 words when asked for 650 (585–780 accepted). Options: ask for the middle of
+  the band (about 680) while accepting 585–780, or retry with the draft and its word
+  count. Needs the author's choice (it changes what the model is asked for).
+- **Abstract Q&A sentence built from pattern fragments.** When the Q&A note is on,
+  `AbstractInput.to_json` sends `qa_topics`: words after "about/on/regarding" with
+  small words removed ("exploration reading book written"), and the prompt says to
+  mention them. Run 7 Beautiful Boy: the judge flagged the Q&A sentence on all three
+  attempts and the gate blocked. Beautiful Boy's Q&A share swings (100% / 18% / 100%),
+  so this comes and goes. Fix: stop sending `qa_topics`; have the model describe the
+  Q&A from the transcript, which the judge can check (same rule as E2E1).
+- **Format variance, again:** run 6 Systems Biology (one malformed heading, one dropped
+  word), run 7 Beautiful Boy (two differences). Format at high effort passed 8 of 9 in
+  the 2026-10-14 measurement; these runs give 4 of 6.
+- **Shared thinking estimate is high for short calls.** `THINKING_TOKENS_ESTIMATE`
+  adds 3,000 per call at high effort; the theme calls measured 375–2,036. Calibrate per
+  stage if tighter estimates matter (see "Cost estimator still ~20% low").
+
 - **The first abstract can describe interpretive themes that were later replaced**
   (found in the ST review, 2026-10-14; not fixed). PART 5 builds `abstract-initial` from
   the first interpretive set; if the theme/lens validation loop regenerates the themes,

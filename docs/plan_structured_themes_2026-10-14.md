@@ -1,8 +1,8 @@
 # Plan: structured theme output (ST) — 2026-10-14
 
-Status: **built 2026-10-14; ST.1–ST.7 tested; ST.8 and ST.9 wait on the end-to-end
-rounds.** Approved by the author 2026-10-14. See "Built" at the end for what differs
-from the plan.
+Status: **built 2026-10-14 (commit 24e0a3f); ST.1–ST.8 tested; ST.9 end-to-end rounds
+done (runs 6 and 7, below); the author's side-by-side read of the themes is pending.**
+Approved by the author 2026-10-14. See "Built" at the end for what differs from the plan.
 
 ## Problem
 
@@ -174,9 +174,10 @@ Differences from the plan:
 - **Old T2 tests replaced.** They checked that the prompts describe the markdown
   layout; the prompts no longer do (ST.6).
 - **Cache.** The API puts the schema in front of the cached transcript, so each theme
-  call writes its own cache entry instead of reading the shared one. Measured on Why
-  Families: 8,263 and 8,315 tokens written where run 5 read 8,074. That is about $0.03
-  per call on an 8k-token talk, more on longer ones.
+  call writes its own cache entry instead of reading the shared one. The later calls
+  (Topics, Key Terms) still read the shared cache. Measured in runs 6 and 7: 8.5k–28k
+  tokens written per theme call, $0.04–0.12 per talk for the two calls, less the
+  smaller output ($0.01–0.03): about $0.04–0.11 more per talk.
 - **Quotes.** In JSON the model quotes with single quotes ('…') where the old files used
   double quotes. No check reads quotes from theme files (the verbatim check reads Bowen
   and emphasis quotes only).
@@ -184,3 +185,57 @@ Differences from the plan:
 Live smoke test (Why Families, public, claude-sonnet-5-5, about $0.15): both calls
 passed on the first attempt, 3 structural and 8 interpretive themes. Output 2,061 and
 3,957 tokens (run 5: 2,539 and 4,544).
+
+## ST.8 — estimate rows (2026-10-14)
+
+The old rows (structural `max(0.12T, 1100)`, interpretive `max(0.20T, 2000)`, plus the
+Effort setting's thinking, priced as cache reads) were about 2x high for structural and
+1.4x high for interpretive, before and after ST. The theme calls follow the Effort
+setting, so the rows now hold the visible output (the JSON reply) and the thinking is
+added as for other rows:
+
+| Talk (transcript tokens) | Structural visible, runs 6 / 7 | Interpretive visible, runs 6 / 7 |
+|---|---|---|
+| Beautiful Boy (18,753) | 1,481 / 1,417 | 2,455 / 2,602 |
+| Systems Biology (17,416) | 1,587 / 1,432 | 3,037 / 2,724 |
+| Why Families (5,660) | 1,212 / 1,393 | 2,160 / 2,455 |
+
+New rows: `config.THEME_OUTPUT_PCT` / `THEME_OUTPUT_FLOOR`, structural `max(0.08T, 1600)`,
+interpretive `max(0.16T, 3100)`, priced as cache writes of prompt + transcript (+ the
+structural themes for interpretive). Thinking measured at high effort was 375–1,168
+(structural) and 1,355–2,036 (interpretive) per call; the shared estimate adds 3,000 per
+call at high, so these rows' totals stay high (TODO). Test: `::test_st8_estimate_rows`.
+
+## ST.9 — end-to-end rounds (2026-10-14)
+
+Runs 6 and 7, all 16 stages on Beautiful Boy, Systems Biology and Why Families
+(public talks), claude-sonnet-5-5. Run 6 cost $6.26, run 7 $6.08 (run 5: $6.05).
+
+| | Run 5 (old) | Run 6 | Run 7 |
+|---|---|---|---|
+| Theme calls passed on the first attempt | n/a | 6 of 6 | 6 of 6 |
+| Theme judge (`theme_grounding`) | PASS 3 of 3 talks | PASS 3 of 3 | PASS 3 of 3 |
+| Unclassified theme fields reported | 1 (Beautiful Boy) | 0 | 0 |
+| Trimmed theme notes | 0 | 0 | 0 |
+| `.md` equal to the rendering of the `.json` | n/a | 6 of 6 | 6 of 6 |
+| Validator rejected a theme set | 0 | 0 | 0 |
+| Gate | 3 allowed | 2 allowed, 1 blocked (Format) | 2 allowed, 1 blocked (Format, abstract) |
+
+The criterion is met: every theme stage passed, the theme judge passed every talk, and
+no unclassified field or trimmed note was reported. The blocks were not theme stages:
+
+- Run 6, Systems Biology: Format wrote one malformed heading (section 48, timestamp
+  `[00:01:02:04]` and a trailing period) and dropped "the,".
+- Run 7, Beautiful Boy: Format had two differences from the source; the abstract kept
+  one unfaithful Q&A sentence after three attempts (from the pattern-made `qa_topics`,
+  TODO).
+- Run 7: the structured summary failed on two talks (580 and 562 words, under the
+  585-word floor on all three attempts; TODO).
+
+Theme length (average words): structural descriptions 72–97 (run 5: 78–89);
+interpretive descriptions 57–74 (run 5: 78–99), so about 25% shorter; whole themes
+slightly longer, since the evidence lists hold more items. Systems Biology got 3
+structural themes in runs 6 and 7 (run 5: 4).
+
+Human review: `docs/calibration/2026-10-14_structured_themes/side_by_side.html` (made
+by `side_by_side.py` in the same folder) puts runs 5, 6 and 7 next to each other.
