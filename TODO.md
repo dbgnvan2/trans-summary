@@ -6,6 +6,56 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-13 — End-to-end run findings (E2E)
+
+Run with `scripts/e2e_run.py` (all 16 GUI stages, headless, separate folder) on three
+public talks at commit 6b712d9, main model claude-sonnet-5-5. Cost $6.18 in total.
+Why Families: all stages pass, gate ALLOW_WITH_WARNINGS. Beautiful Boy: all stages
+pass. Systems Biology: blocked.
+
+### ⏸ Open — found by the run
+- **Abstract is given numbers the transcript does not contain (blocks Systems Biology).**
+  The abstract prompt receives topic coverage ("~15% of transcript") and a Q&A
+  percentage. The model wrote "The question-and-answer session, which accounted for
+  roughly fifteen percent of the presentation…"; the judge, reading only the
+  transcript, correctly finds it unsupported. Regeneration produced a different flag
+  each time (3 attempts). Fix the inputs: do not give the generator figures it must
+  not state, or tell it not to state them.
+- **Systems Biology structural theme judged ungrounded again** ("Cancer as Dysregulated
+  Niche and System, Not Rogue Cell"), on freshly generated themes. It fails on every
+  run of this talk. Needs one look: is the theme wrong (names such as "Bertoloso",
+  "Weinberg", "Popper") or is the judge wrong?
+- **Scored emphasis truncated on Systems Biology** (11k words): the reply used the full
+  16,192 output tokens (8,192 + thinking headroom) and was rejected; the Bowen +
+  Emphasis stage failed. Beautiful Boy (12k words) fit, so it depends on the run.
+  `config.MAX_TOKENS_EXTRACTION` (8192) predates the thinking models.
+- **Structured summary minimum length:** a 569-word summary was rejected (minimum
+  600 words) and regenerated. The minimum is a fixed guess; a short talk can be
+  summarised in fewer words.
+- **Meta-claims about the talk get flagged:** "The talk states no explicit
+  conclusion" (overview, Why Families) and "though no explicit closing conclusion is
+  stated" (abstract, Systems Biology). The prompts ask for a conclusion; when there is
+  none the model says so, and the judge flags it. Retries fixed it here.
+- **Init Val holds "abit" -> "a bit"** as not a mishearing fix (Why Families).
+- **Header validation is slow and noisy:** 2–6 minutes per talk; 13–20 warnings per
+  talk that a heading "contains problematic terms" such as "anxiety",
+  "differentiation", "emotional system" (the talk's own subject).
+- **The release gate runs 4 times per publish step** (web, PDF, simple, bundle);
+  cached, so cheap, but the log repeats each verdict 4 times.
+
+### ⏸ Open — found while setting up the run
+- **The GUI's Init Val runs without your approved terms.** Choosing
+  `/Users/davemini2/transcripts` as the source folder sets the base to its parent, so
+  the terms file becomes `/Users/davemini2/approve_terms.txt`, which does not exist.
+  `validation_learning.load_approved_terms` returns an empty set for a missing file
+  with no warning (P2). Your file is `/Users/davemini2/transcripts/approve_terms.txt`.
+- **The test suite writes into the real `logs/runtime_settings.json`.** After a full
+  run, `validation_approved_terms_path` points to a pytest temp folder and
+  `default_source_dir` is "/path/to/my/default/source". `tests/test_folder_defaults.py`
+  alone does not do it; it depends on test order. Not yet traced.
+
+---
+
 ## 2026-10-13 — Init Val (IV)
 
 ### ✅ Fixed 2026-10-13

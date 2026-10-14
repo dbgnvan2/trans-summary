@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-13 (end-to-end runner — E2E)
+
+- `scripts/e2e_run.py` runs every GUI stage on real transcripts without the window.
+  It calls the GUI's own stage runners and logger, works in its own folder (real
+  projects and saved settings are untouched), does not stop at the first failure,
+  and writes one report of every failure, warning and error (`report.md`,
+  `report.json`). Tests: `tests/test_e2e_runner.py`.
+- First run (three public talks): findings in TODO.md (E2E).
+
 ## [Unreleased] - 2026-10-13 (Init Val stopped on a clean chunk — IV)
 
 - Init Val no longer stops when the model finds nothing to fix in a chunk. Its reply,
