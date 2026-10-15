@@ -80,7 +80,7 @@ class AbstractInput:
         built from them failed the judge on three attempts). The full data stays in
         to_contract_dict.
         """
-        include_qa = self.qa_percentage > config.ABSTRACT_QA_NOTE_MIN_PCT
+        include_qa = config.abstract_wants_qa_note(self.qa_percentage)
         placeholders = {config.PURPOSE_MISSING_TEXT, config.PURPOSE_EXTRACTION_FAILED,
                         config.NO_CONCLUSION_TEXT}
         data = {

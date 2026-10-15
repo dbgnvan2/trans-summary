@@ -1325,8 +1325,13 @@ def _blog_precheck(base_name: str, suffix: str, logger=None):
 def _revise_reply_check(draft: str):
     """A ``check_reply`` for a revision of ``draft``: the reply must be the text, not
     a comment on it (no opening line from config.REVISE_PREAMBLE_STARTS the draft did
-    not have), must not repeat the revise instructions, and must keep the draft's
-    first line when that is front matter or a heading (RS.6 review)."""
+    not have), must not repeat the revise instructions, and, when the draft opens with
+    front matter (``---`` or a fenced yaml block), must open with front matter the
+    claim extractor still recognizes. Run 9: after a revision the overview's metadata
+    ("target_audience: ...") was judged as a claim, so the block no longer counted as
+    front matter. A changed title or a different front-matter form is allowed: a
+    flagged title must be fixable (RS.6 review)."""
+    from abstract_validation import _strip_fenced_block, _strip_front_matter
     template = _load_summary_prompt(config.PROMPT_REVISE_FLAGGED_FILENAME)
     instructions = [line.strip() for line in template.split("\n---\n")[0].splitlines()
                     if len(line.strip()) >= 40 and "{{" not in line]
@@ -1335,14 +1340,20 @@ def _revise_reply_check(draft: str):
     def _comment(line: str) -> bool:
         return line.lower().startswith(config.REVISE_PREAMBLE_STARTS)
 
+    def _opens_with_metadata(text: str) -> bool:
+        whole = text.strip()
+        return _strip_fenced_block(_strip_front_matter(whole)) != whole
+
+    draft_has_metadata = _opens_with_metadata(draft)
+
     def check(text: str) -> None:
         head = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
         if any(line in text for line in instructions):
             raise ValueError("the revision repeats the revise instructions")
         if _comment(head) and not _comment(first):
             raise ValueError(f"the revision starts with a comment: {head[:60]!r}")
-        if first.startswith(("---", "#")) and head != first:
-            raise ValueError(f"the revision dropped the draft's first line {first[:60]!r}")
+        if draft_has_metadata and not _opens_with_metadata(text):
+            raise ValueError("the revision no longer opens with the draft's front matter")
     return check
 
 

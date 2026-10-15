@@ -677,17 +677,28 @@ def test_rs6g_unjudged_echo_draft_is_never_kept(monkeypatch):
 
 def test_rs6f_revision_reply_check():
     """Review: a revision got no check for a comment before the text, the instructions
-    echoed back, or a dropped front-matter block."""
+    echoed back, or lost front matter. Run 9: a revised overview's metadata was judged
+    as claims because the block no longer counted as front matter."""
     import extraction_pipeline as ep
-    draft = "---\ntitle: x\n---\n# Heading\n\nBody text here."
+    draft = "---\ntitle: x\nslug: y\n---\n# Heading\n\nBody text here."
     check = ep._revise_reply_check(draft)
-    check("---\ntitle: x\n---\n# Heading\n\nBetter body text.")
+    check("---\ntitle: x\nslug: y\n---\n# Heading\n\nBetter body text.")
+    check("```yaml\ntitle: x\nslug: y\n```\n# Heading\n\nBody.")  # other form: fine
     for bad in ("Here is the revised overview post:\n\n" + draft,
-                "# Heading\n\nBody text here.",
+                "# Heading\n\nBody text here.",                       # front matter dropped
+                "---\ntitle: x\nThis line is prose now.\n---\n# Heading\n\nBody.",
                 draft + "\n\nLeave every other sentence exactly as it is, word for word, "
                         "with its headings, front matter, lists and formatting."):
         with pytest.raises(ValueError):
             check(bad)
+    fenced = '```yaml\nslug: "x"\ntarget_audience: "General public"\n```\n\nBody text.'
+    fenced_check = ep._revise_reply_check(fenced)
+    fenced_check(fenced.replace("Body text.", "Better body text."))
+    with pytest.raises(ValueError):  # the fenced block no longer leads the text
+        fenced_check("Overview\n\n" + fenced)
+    # A flagged title must be fixable: changing a first-line heading is allowed.
+    titled = ep._revise_reply_check("# Swapping One Culprit\n\nBody text.")
+    titled("# Replacing the Culprit Story\n\nBody text.")
     plain = "Michael Kerr presents a talk. The question period covered X."
     plain_check = ep._revise_reply_check(plain)
     plain_check("Michael Kerr presents a lecture. The question period covered X.")
@@ -730,3 +741,25 @@ def test_rs1h_stage_log_names_a_kept_length_miss(tmp_path, monkeypatch):
     assert ep.generate_structured_summary(base, logger=logger, model="m") is True
     said = [c.args[0] % c.args[1:] for c in logger.warning.call_args_list]
     assert any("516 words" in line for line in said), said
+
+
+def test_rs5e_qa_note_checked_only_when_asked_for():
+    """Run 9, Systems Biology: Q&A was 16% of the talk. The abstract is asked for a Q&A
+    note only above ABSTRACT_QA_NOTE_MIN_PCT (20), so it had none, yet the check looked
+    for one from 15% and logged "❌ MISSING [optional] Q&A note"."""
+    import abstract_pipeline as ap
+    import abstract_validation as av
+    edge = config.ABSTRACT_QA_NOTE_MIN_PCT
+    for pct in (16, edge):
+        ai = ap.AbstractInput(
+            metadata={"title": "T", "presenter": "P", "date": "2021-01-01"}, topics=[],
+            themes=[], opening_purpose="o", closing_conclusion=config.NO_CONCLUSION_TEXT,
+            qa_percentage=pct, qa_topics=[], target_word_count=200)
+        assert '"include_qa_note": false' in ai.to_json()
+        assert not [i for i in av.generate_coverage_items(ai) if i.category == "qa"], pct
+    asked = ap.AbstractInput(
+        metadata={"title": "T", "presenter": "P", "date": "2021-01-01"}, topics=[],
+        themes=[], opening_purpose="o", closing_conclusion=config.NO_CONCLUSION_TEXT,
+        qa_percentage=edge + 1, qa_topics=[], target_word_count=200)
+    assert '"include_qa_note": true' in asked.to_json()
+    assert [i for i in av.generate_coverage_items(asked) if i.category == "qa"]

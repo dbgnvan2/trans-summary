@@ -202,3 +202,17 @@ DOCUMENT_REFERENCE) in the same commit.
 | Automatic restores counted with a person's rejects | counted apart (`auto_restored`) | `test_rs3b_restore_is_logged_and_recorded` |
 
 Not changed: a revision that removes sentences from an overview just over 800 words can fall under the floor and costs two more calls before the closest is kept; the abstract loop still lacks the echo check (TODO).
+
+## End-to-end run 9 (commit 59d64c8, $6.62)
+
+All 39 stages passed on the three public talks; the gate allowed all three
+(ALLOW_WITH_WARNINGS). Every faithfulness retry passed by its second revision (abstract
+twice, summary once, overview three times, blog once). No length miss had to be kept.
+Format was clean on all three talks, so RS.3 did not run live; replayed offline on the
+real Format failures of runs 4, 6 and 7, it restored the dropped words, RS.4 fixed run
+6's heading, the stage passed, and after the YAML step the gate's source check passed.
+
+Follow-ups (same day): the revision check keeps front matter by the extractor's own
+rule instead of the first line (a flagged title must stay fixable; run 9 showed
+metadata judged as claims after a revision); the abstract Q&A check uses the
+generator's threshold (`config.abstract_wants_qa_note`).

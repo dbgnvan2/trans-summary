@@ -1136,13 +1136,20 @@ ABSTRACT_HARD_MAX_WORDS = 250   # abstracts must be < this; validation flags >= 
 # it wrote "the Q&A accounted for roughly fifteen percent", which the transcript does
 # not state, and the judge blocked it (E2E run 2026-10-13, Systems Biology).
 ABSTRACT_QA_NOTE_MIN_PCT = 20
-# Abstract coverage validation: a Q&A item is checked at or above OPTIONAL and must
-# be covered at or above REQUIRED (were constants in abstract_validation.py). The
-# note threshold must stay below REQUIRED, or a required item could never be met.
-ABSTRACT_QA_OPTIONAL_PCT = 15
+# Abstract coverage validation: a Q&A item is checked when the abstract was asked for
+# a note (abstract_wants_qa_note) and must be covered at or above REQUIRED. It was
+# checked from 15%, below the 20% the prompt uses, so a correct abstract got
+# "MISSING Q&A note" (run 9, 2026-10-14). The note threshold must stay below
+# REQUIRED, or a required item could never be met.
 ABSTRACT_QA_REQUIRED_PCT = 30
+
+
+def abstract_wants_qa_note(qa_percentage) -> bool:
+    """True when the abstract is asked for a Q&A note: the generator and the coverage
+    check use this one rule (RS.5)."""
+    return qa_percentage > ABSTRACT_QA_NOTE_MIN_PCT
 # Phrases that show an abstract has a Q&A note (AQ, 2026-10-14). The abstract coverage
-# check looks for them when the Q&A share is at or above ABSTRACT_QA_OPTIONAL_PCT.
+# check looks for them when abstract_wants_qa_note is true.
 # Matched as lower-case substrings. Q&A-specific on purpose: single words such as
 # "audience", "question" or "discussion" occur in ordinary prose ("to an audience
 # unfamiliar with the approach", "the central question is"; AQ review).

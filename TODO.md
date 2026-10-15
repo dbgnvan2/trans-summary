@@ -30,6 +30,16 @@ New from this run:
   JSON and the pipeline writes the layout (`docs/plan_structured_themes_2026-10-14.md`).
   Old files keep the TE/TD handling.
 
+**Run 9 (2026-10-14, commit 59d64c8, $6.62):** all 39 stages passed; the gate allowed all
+three talks. Remaining noise, none of it failing a run:
+- **The name check flags headings the model invents** in the overview and blog
+  ("Patterns Identified", "Multigenerational Roots", "Closing Advice", "On June",
+  "Swapping One Culprit") as names that do not appear in the source. Each costs a
+  revision (all converged in run 9). Possible fix: judge a generated heading as a name
+  only when it looks like a person's name. Needs the author's choice (it loosens a
+  blocker's backstop).
+- **Header validation** still logs 12–20 "problematic terms" warnings per talk.
+
 **Run 8 (2026-10-14, commit 73168f1, $6.27):** Beautiful Boy and Systems Biology passed every
 stage; the gate allowed both with warnings. Why Families: the overview failed faithfulness
 on all three tries, one different claim each time (a made-up Bowen quote, "webinar-style",

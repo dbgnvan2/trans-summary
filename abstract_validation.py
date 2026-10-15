@@ -142,7 +142,6 @@ def find_ungrounded_names(abstract: str, transcript: str,
             ungrounded.append(name)
     return ungrounded
 
-QA_OPTIONAL_THRESHOLD = config.ABSTRACT_QA_OPTIONAL_PCT
 QA_REQUIRED_THRESHOLD = config.ABSTRACT_QA_REQUIRED_PCT
 
 
@@ -404,11 +403,11 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
             )
         )
 
-    # Q&A note: when the Q&A is a substantial share of the transcript, the abstract
-    # should say what it discussed. Checked by the words that show a Q&A note
+    # Q&A note: when the abstract was asked for one (the same rule as the prompt,
+    # config.abstract_wants_qa_note), it should say what the audience discussed. Checked by the words that show a Q&A note
     # (config.ABSTRACT_QA_NOTE_MARKERS), not the pattern-made Q&A topics, which the
     # model is no longer given (AQ).
-    if abstract_input.qa_percentage >= QA_OPTIONAL_THRESHOLD:
+    if config.abstract_wants_qa_note(abstract_input.qa_percentage):
         items.append(
             CoverageItem(
                 category="qa",

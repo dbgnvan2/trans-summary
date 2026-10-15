@@ -89,7 +89,6 @@ def test_e2e1_topics_in_presentation_order():
 
 def test_e2e1_qa_thresholds_are_consistent():
     import abstract_validation as av
-    assert av.QA_OPTIONAL_THRESHOLD == config.ABSTRACT_QA_OPTIONAL_PCT
     assert av.QA_REQUIRED_THRESHOLD == config.ABSTRACT_QA_REQUIRED_PCT
     # a required Q&A item must be one the generator was told to write
     assert config.ABSTRACT_QA_NOTE_MIN_PCT < config.ABSTRACT_QA_REQUIRED_PCT
@@ -530,7 +529,7 @@ def test_aq2_qa_coverage_checks_for_a_qa_note():
         assert av.check_keyword_coverage(prose, item)[0] is False, prose
     # The item no longer depends on the fragments: present with none of them.
     assert _qa_item(config.ABSTRACT_QA_REQUIRED_PCT, topics=())[0].required is True
-    assert _qa_item(config.ABSTRACT_QA_OPTIONAL_PCT - 1) == []
+    assert _qa_item(config.ABSTRACT_QA_NOTE_MIN_PCT) == []  # not asked for: not checked (RS.5)
 
 
 @pytest.mark.parametrize("n_words,accepted", [(config.ABSTRACT_HARD_MAX_WORDS - 1, True),

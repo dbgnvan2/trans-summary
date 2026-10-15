@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (end-to-end run 9 and two follow-ups — RS)
+
+- Run 9 (commit 59d64c8, three public talks, $6.62): all 39 stages passed and the gate
+  allowed all three talks (ALLOW_WITH_WARNINGS), the first round with no failure. Every
+  faithfulness retry passed by its second revision. No length miss had to be kept
+  (summaries 576–672 words, abstracts 169–207). Format was clean, so the automatic
+  restore did not run; replayed offline on the real Format failures of runs 4, 6 and 7,
+  it restored the dropped words (and RS.4 fixed run 6's heading), the stage passed, and
+  after the YAML step the gate's source check passed.
+- A revision must keep front matter that still counts as front matter (`---` or a
+  fenced yaml block, checked with the claim extractor's own helpers). In run 9 a
+  revised overview's metadata ("target_audience: ...") was judged as a claim. The
+  earlier first-line rule is gone: it would have refused a revision that fixes a
+  flagged title.
+- The abstract coverage check looks for a Q&A note only when the abstract was asked
+  for one (`config.abstract_wants_qa_note`, above 20%). It looked from 15%, so run 9's
+  Systems Biology abstract (16% Q&A, correctly no note) showed "❌ MISSING Q&A note".
+  `ABSTRACT_QA_OPTIONAL_PCT` is removed.
+- Tests: `tests/test_run_safe_rs.py::test_rs6f_revision_reply_check`,
+  `::test_rs5e_qa_note_checked_only_when_asked_for`,
+  `tests/test_validator_logic_hardening.py::test_abstract_qa_required_only_at_or_above_required_threshold`.
+
 ## [Unreleased] - 2026-10-14 (runs finish on acceptable output — RS)
 
 Author's goal: the run should not fail, especially on warnings; output must be very good,

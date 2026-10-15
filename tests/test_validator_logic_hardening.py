@@ -264,19 +264,21 @@ def test_abstract_speaker_and_closing_required():
 
 
 def test_abstract_qa_required_only_at_or_above_required_threshold():
-    """qa_pct>=30 -> required; 15<=qa_pct<30 -> present but optional; <15 -> absent."""
+    """qa_pct>=30 -> required; above ABSTRACT_QA_NOTE_MIN_PCT (20) and <30 -> present but
+    optional; at or below 20 -> absent: the abstract was not asked for a note (RS.5)."""
     topics = ["family boundaries", "emotional cutoff patterns"]
     req = _item_by_cat(abstract_validation.generate_coverage_items(
         _abstract_input(qa_pct=30, qa_topics=topics)), "qa")
     assert req and req[0].required is True, "qa_pct 30 (>= REQUIRED) must be required"
 
     opt = _item_by_cat(abstract_validation.generate_coverage_items(
-        _abstract_input(qa_pct=20, qa_topics=topics)), "qa")
-    assert opt and opt[0].required is False, "qa_pct 20 (optional band) present but not required"
+        _abstract_input(qa_pct=25, qa_topics=topics)), "qa")
+    assert opt and opt[0].required is False, "qa_pct 25 (optional band) present but not required"
 
-    absent = _item_by_cat(abstract_validation.generate_coverage_items(
-        _abstract_input(qa_pct=10, qa_topics=topics)), "qa")
-    assert absent == [], "qa_pct 10 (< OPTIONAL) must produce no qa item"
+    for pct in (10, 20):
+        absent = _item_by_cat(abstract_validation.generate_coverage_items(
+            _abstract_input(qa_pct=pct, qa_topics=topics)), "qa")
+        assert absent == [], f"qa_pct {pct} (note not asked for) must produce no qa item"
 
 
 def _av_item(keywords):
