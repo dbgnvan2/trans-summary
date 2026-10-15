@@ -332,13 +332,15 @@ def test_find_ungrounded_names_skips_headings_and_bold_labels():
 
 def test_r6b_label_with_no_source_words_is_flagged():
     """Behaviour change (plan R6): a bold label whose words never occur in the
-    source is treated like any other ungrounded name. Real artifacts had none
-    (tests/fixtures/prose_real); a fabricated name in a label is the case this
-    closes."""
+    source is treated like any other ungrounded name — a fabricated name in a
+    label is the case this closes. Since HN.1 (docs/plan_heading_names_2026-10-14.md)
+    a label of English words that are not given names ("Role Absorption") is a
+    generated label, not a name, and is not flagged."""
     from abstract_validation import find_ungrounded_names
     src = "the speaker discusses family systems and differentiation"
-    assert "Role Absorption" in find_ungrounded_names(
-        "**Role Absorption** — a concept about roles.", src)
+    assert "Hannah Okafor" in find_ungrounded_names(
+        "**Hannah Okafor** — a researcher on roles.", src)
+    assert find_ungrounded_names("**Role Absorption** — a concept about roles.", src) == []
 
 
 def test_find_ungrounded_names_still_catches_bold_name_without_separator():

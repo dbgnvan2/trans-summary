@@ -201,6 +201,7 @@ trans-summary/
 ├── transcript_utils.py     # Shared utilities (logging, API calls)
 ├── transcript_*.py         # CLI wrappers for specific tasks
 ├── prompts/                # Markdown prompt templates for Claude
+├── data/                   # Word lists for the name check (English words, given names, surnames)
 ├── source/                 # Raw input files (txt)
 ├── projects/               # Project-specific output folders
 │   └── [Transcript Name]/  # Flat artifact set per transcript (md/html/pdf/zip)
@@ -353,6 +354,7 @@ The system employs a "Trust but Verify" approach:
     *   **Warnings**: deviations in length, word allocation, or stylistic constraints (e.g., evaluative language).
 6.  **Fidelity Validation**: Ensures quoted text (Bowen References, Emphasis) exists in the source.
 7.  **Completeness Validation**: Verifies all required artifacts (files) were generated and meet minimum length requirements.
+8.  **Name check**: a multi-word proper name in the abstract, summary or overview must appear in the source or the filename metadata (a release gate blocker); the blog's names are checked the same way by the advisory blog check. In headings and bold labels, a phrase counts as a name only when it looks like one (a word that is not English, a given name that is not a word, or two given names or surnames; word lists in `data/`), so a generated heading such as "Closing Advice" is not flagged; a written-out date ("On June 25") is not a name. Plan: `docs/plan_heading_names_2026-10-14.md`.
 
 ## Security
 

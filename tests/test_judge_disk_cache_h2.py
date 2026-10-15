@@ -3,6 +3,8 @@ orchestrator (which runs each publish step in its own process) doesn't re-run th
 judge N times per publish. A disk memo keyed on content+model+prompt-version backs the
 in-memory cache; a transient ERROR is never persisted (P1); corrupt cache -> empty (P8).
 """
+from pathlib import Path
+
 import pytest
 
 import config
@@ -119,6 +121,8 @@ def test_h2_theme_judge_also_persists_to_disk(tmp_path, monkeypatch):
     "scaffolding_name_spans", "parse_theme_blocks_with_evidence", "_extract_theme_evidence",
     "with_theme_evidence",
     "_theme_body", "_theme_own_text_report", "_accepted_theme_blocks", "_candidate_theme_blocks",
+    # HN: which heading runs count as names
+    "looks_like_name", "_english_word", "_base_forms", "_word_list",
 ])
 def test_r9a_component_change_changes_key(monkeypatch, fn_name):
     import inspect as inspect_mod
@@ -137,6 +141,30 @@ def test_r9a_component_change_changes_key(monkeypatch, fn_name):
 def test_r9a_vocabulary_change_changes_key(monkeypatch, attr):
     before = rg._judge_logic_version("instructions")
     monkeypatch.setattr(config, attr, frozenset(getattr(config, attr)) | {"zz new label"})
+    assert rg._judge_logic_version("instructions") != before, attr
+
+
+@pytest.mark.parametrize("attr,value", [
+    ("NAME_CHECK_WORD_PREFIXES", ("multi", "zz")),
+    ("NAME_CHECK_MONTHS", ("June",)),
+    ("NAME_CHECK_WEEKDAYS", ("Friday",)),
+    ("NAME_CHECK_GIVEN_NAME_MIN_LEN", 4),
+])
+def test_hn_name_check_vocabulary_changes_key(monkeypatch, attr, value):
+    before = rg._judge_logic_version("instructions")
+    monkeypatch.setattr(config, attr, value)
+    assert rg._judge_logic_version("instructions") != before, attr
+
+
+@pytest.mark.parametrize("attr", ["NAME_CHECK_ENGLISH_WORDS_PATH",
+                                  "NAME_CHECK_FIRST_NAMES_PATH", "NAME_CHECK_SURNAMES_PATH"])
+def test_hn_name_list_content_changes_key(monkeypatch, tmp_path, attr):
+    """Adding a name to a list (a stricter check) must not serve a cached PASS."""
+    before = rg._judge_logic_version("instructions")
+    copy = tmp_path / "list.txt"
+    copy.write_text(Path(getattr(config, attr)).read_text(encoding="utf-8") + "zzname\n",
+                    encoding="utf-8")
+    monkeypatch.setattr(config, attr, copy)
     assert rg._judge_logic_version("instructions") != before, attr
 
 

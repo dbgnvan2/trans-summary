@@ -1,0 +1,165 @@
+old: code=hn_old runs=e2e_run1,e2e_run2,e2e_run3,e2e_run4,e2e_run5,e2e_run6,e2e_run7,e2e_run8,e2e_run9,e2e_run10
+new: code=trans-summary runs=e2e_run1,e2e_run2,e2e_run3,e2e_run4,e2e_run5,e2e_run6,e2e_run7,e2e_run8,e2e_run9,e2e_run10
+== pairs: 4900 made-up people as headings; flagged old=4900 new=4824; flagged by old, not by new: 76
+     Aria: Baker Brown Carter Clark Flores Green Hall Hill King Lee Lewis Martin Miller Nelson Smith Walker White Wright Young
+     Maverick: Baker Brown Carter Clark Flores Green Hall Hill King Lee Lewis Martin Miller Nelson Smith Walker White Wright Young
+     Willow: Baker Brown Carter Clark Flores Green Hall Hill King Lee Lewis Martin Miller Nelson Smith Walker White Wright Young
+     Zoe: Baker Brown Carter Clark Flores Green Hall Hill King Lee Lewis Martin Miller Nelson Smith Walker White Wright Young
+== same: 106 checks; names flagged old=1 new=0
+   no longer flagged (1 distinct):
+     'Hurtful Remarks'  x1
+   newly flagged (0 distinct):
+== cross: 212 checks; names flagged old=708 new=617
+   no longer flagged (36 distinct):
+     'Addiction Model'  x2
+     'Addictions Model'  x2
+     'Audience Discussion'  x1
+     'Autonomic Nervous'  x3
+     'Buffering Capacity'  x2
+     'Carry Forward'  x1
+     'Case Conclusions'  x1
+     'Causal Chain'  x1
+     'Cell Behavior'  x1
+     'Cerebral Hemorrhage'  x2
+     'Chapter Proposes'  x1
+     'Chronic Inflammation'  x2
+     'Closing Advice'  x1
+     'Complexity Was Misjudged'  x1
+     'Emergent Features'  x10
+     'Emerging Drug'  x1
+     'Escalating Drug'  x2
+     'Evolutionary Synthesis'  x8
+     'Extended Evolutionary Synthesis'  x6
+     'Extracellular Matrix'  x2
+     'Matrix Research'  x1
+     'Multigenerational Perspective'  x7
+     'Niche Construction'  x1
+     'Niche Reconstruction'  x4
+     'Nick Today'  x1
+     'Only Runs'  x1
+     'Reductionist Causal'  x2
+     'Reductionist Causal Chain'  x2
+     'Relapse Cycle'  x4
+     'Single Culprit'  x2
+     'Tissue Homeostasis'  x6
+     'Tissue Microenvironment'  x1
+     'Tissue Niche'  x5
+     'Tissue Resilience'  x1
+     'Wasp Colony'  x2
+     'Worth Carrying'  x1
+   newly flagged (0 distinct):
+== probe: 63 checks; names flagged old=43 new=24
+   no longer flagged (10 distinct):
+     'Final Reflections'  x1
+     'Hall Speaks'  x1
+     'Hurtful Remark'  x2
+     'In June'  x3
+     'Multigenerational Roots'  x1
+     'On Friday'  x3
+     'On June'  x3
+     'Patterns Identified'  x1
+     'Replacing One Culprit'  x1
+     'Swapping One Culprit'  x3
+   newly flagged (0 distinct):
+   probe results (new code):
+     Why Families Repeat the Same | heading | Closing Advice: []
+     Why Families Repeat the Same | heading | Multigenerational Roots: []
+     Why Families Repeat the Same | heading | Patterns Identified: []
+     Why Families Repeat the Same | heading | Swapping One Culprit: []
+     Why Families Repeat the Same | heading | Replacing One Culprit: []
+     Why Families Repeat the Same | heading | Final Reflections: []
+     Why Families Repeat the Same | heading | Hurtful Remark: []
+     Why Families Repeat the Same | heading | How Jane Doerfler Changed Family Therapy: ['Jane Doerfler']
+     Why Families Repeat the Same | heading | Luciano Malorni and the Tumor: ['Luciano Malorni']
+     Why Families Repeat the Same | heading | Notes From Sarah Miller: ['Sarah Miller']
+     Why Families Repeat the Same | heading | What Robert Feldstein Found: ['Robert Feldstein']
+     Why Families Repeat the Same | heading | Insights From Hannah Okafor: ['Hannah Okafor']
+     Why Families Repeat the Same | heading | The Work of Tomasz Wierzbicki: ['Tomasz Wierzbicki']
+     Why Families Repeat the Same | heading | José García On Systems: ['José García']
+     Why Families Repeat the Same | heading | Lessons From Gilbert Walker: []
+     Why Families Repeat the Same | heading | Grace Hall Speaks: []
+     Why Families Repeat the Same | prose | On June 25, 2021, the talk began.: []
+     Why Families Repeat the Same | prose | In June, the group met.: []
+     Why Families Repeat the Same | prose | On Friday, June 25, the talk began.: []
+     Why Families Repeat the Same | prose | June Carter spoke next.: ['June Carter']
+     Why Families Repeat the Same | prose | April Smith asked a question.: ['April Smith']
+     Beautiful Boy Review - Kathl | heading | Closing Advice: []
+     Beautiful Boy Review - Kathl | heading | Multigenerational Roots: []
+     Beautiful Boy Review - Kathl | heading | Patterns Identified: []
+     Beautiful Boy Review - Kathl | heading | Swapping One Culprit: []
+     Beautiful Boy Review - Kathl | heading | Replacing One Culprit: []
+     Beautiful Boy Review - Kathl | heading | Final Reflections: []
+     Beautiful Boy Review - Kathl | heading | Hurtful Remark: []
+     Beautiful Boy Review - Kathl | heading | How Jane Doerfler Changed Family Therapy: ['Jane Doerfler']
+     Beautiful Boy Review - Kathl | heading | Luciano Malorni and the Tumor: ['Luciano Malorni']
+     Beautiful Boy Review - Kathl | heading | Notes From Sarah Miller: ['Sarah Miller']
+     Beautiful Boy Review - Kathl | heading | What Robert Feldstein Found: ['Robert Feldstein']
+     Beautiful Boy Review - Kathl | heading | Insights From Hannah Okafor: ['Hannah Okafor']
+     Beautiful Boy Review - Kathl | heading | The Work of Tomasz Wierzbicki: ['Tomasz Wierzbicki']
+     Beautiful Boy Review - Kathl | heading | José García On Systems: ['José García']
+     Beautiful Boy Review - Kathl | heading | Lessons From Gilbert Walker: []
+     Beautiful Boy Review - Kathl | heading | Grace Hall Speaks: []
+     Beautiful Boy Review - Kathl | prose | On June 25, 2021, the talk began.: []
+     Beautiful Boy Review - Kathl | prose | In June, the group met.: []
+     Beautiful Boy Review - Kathl | prose | On Friday, June 25, the talk began.: []
+     Beautiful Boy Review - Kathl | prose | June Carter spoke next.: []
+     Beautiful Boy Review - Kathl | prose | April Smith asked a question.: ['April Smith']
+     Systems Biology Meets Bowen  | heading | Closing Advice: []
+     Systems Biology Meets Bowen  | heading | Multigenerational Roots: []
+     Systems Biology Meets Bowen  | heading | Patterns Identified: []
+     Systems Biology Meets Bowen  | heading | Swapping One Culprit: []
+     Systems Biology Meets Bowen  | heading | Replacing One Culprit: []
+     Systems Biology Meets Bowen  | heading | Final Reflections: []
+     Systems Biology Meets Bowen  | heading | Hurtful Remark: []
+     Systems Biology Meets Bowen  | heading | How Jane Doerfler Changed Family Therapy: []
+     Systems Biology Meets Bowen  | heading | Luciano Malorni and the Tumor: ['Luciano Malorni']
+     Systems Biology Meets Bowen  | heading | Notes From Sarah Miller: []
+     Systems Biology Meets Bowen  | heading | What Robert Feldstein Found: []
+     Systems Biology Meets Bowen  | heading | Insights From Hannah Okafor: ['Hannah Okafor']
+     Systems Biology Meets Bowen  | heading | The Work of Tomasz Wierzbicki: ['Tomasz Wierzbicki']
+     Systems Biology Meets Bowen  | heading | José García On Systems: ['José García']
+     Systems Biology Meets Bowen  | heading | Lessons From Gilbert Walker: ['Gilbert Walker']
+     Systems Biology Meets Bowen  | heading | Grace Hall Speaks: ['Grace Hall']
+     Systems Biology Meets Bowen  | prose | On June 25, 2021, the talk began.: []
+     Systems Biology Meets Bowen  | prose | In June, the group met.: []
+     Systems Biology Meets Bowen  | prose | On Friday, June 25, the talk began.: []
+     Systems Biology Meets Bowen  | prose | June Carter spoke next.: []
+     Systems Biology Meets Bowen  | prose | April Smith asked a question.: ['April Smith']
+== names: 31 checks; names flagged old=25 new=24
+   no longer flagged (2 distinct):
+     'Alcoholics Anonymous'  x1
+     'Narcotics Anonymous'  x1
+   newly flagged (1 distinct):
+     'Ben Kerman'  x1
+   probe results (new code):
+     Robert Weinberg: ['Robert Weinberg']
+     Dennis Noble: ['Dennis Noble']
+     Conrad Waddington: ['Conrad Waddington']
+     Karl Popper: ['Karl Popper']
+     Nick Sheff: ['Nick Sheff']
+     Mina Bissell: ['Mina Bissell']
+     David Sheff: ['David Sheff']
+     San Francisco: []
+     Janice Norton: ['Janice Norton']
+     Vicki Sheff: ['Vicki Sheff']
+     Carolyn Jacobs: ['Carolyn Jacobs']
+     Paul Davies: ['Paul Davies']
+     Ben Kerman: ['Ben Kerman']
+     Hampshire College: ['Hampshire College']
+     Los Angeles: []
+     New York: []
+     Alcoholics Anonymous: []
+     Amy Post: []
+     Ford Doolittle: ['Ford Doolittle']
+     Marta Bertolaso: ['Marta Bertolaso']
+     Narcotics Anonymous: []
+     Judith Wallerstein: ['Judith Wallerstein']
+     Aaron Antonovsky: ['Aaron Antonovsky']
+     Mississippi Delta: ['Mississippi Delta']
+     Berkeley Lab: []
+     Georgetown University: ['Georgetown University']
+     Kathy Jablonski: ['Kathy Jablonski']
+     Karen Sheff: ['Karen Sheff']
+     Murray Bowen: ['Murray Bowen']
+     Michael Kerr: ['Michael Kerr']
+     Kathleen Kerr: ['Kathleen Kerr']

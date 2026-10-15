@@ -17,6 +17,7 @@ Usage:
         print(validation["human_review_checklist"])
 """
 
+import logging
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -28,7 +29,7 @@ from transcript_utils import call_claude_with_retry, cap_max_tokens_for_model
 
 
 def find_ungrounded_names(abstract: str, transcript: str,
-                          known_names=None) -> list[str]:
+                          known_names=None, excused: Optional[list] = None) -> list[str]:
     """
     Return multi-word proper names in the abstract that are NOT grounded in the
     source transcript.
@@ -39,6 +40,10 @@ def find_ungrounded_names(abstract: str, transcript: str,
     ASR spelling normalizations (e.g. "Bertoloso" -> "Bertolaso") while still
     catching a fabricated name whose tokens appear nowhere in the source. Matches
     Latin-accented names ("José García") as well as ASCII.
+
+    ``excused``, when given a list, receives the heading/label runs not in the
+    source that were not counted because they do not look like a name (HN.1), so a
+    caller can report them instead of dropping them silently.
 
     ``known_names`` is an optional iterable of names that are legitimately ABSENT
     from the transcript body (the presenter/author, who is named in the filename
@@ -58,8 +63,14 @@ def find_ungrounded_names(abstract: str, transcript: str,
     grounded the same way (review F2), minus generic heading phrases
     (``config.SCAFFOLDING_HEADING_PHRASES``). A concept label ("Role Absorption")
     passes because its words are in the source; a fabricated name in a heading
-    or label is flagged. The faithfulness judge receives the same ungrounded
-    spans as claims (``faithfulness_judge.extract_claims(text, source=...)``).
+    or label is flagged. An ungrounded heading run counts only when it looks like
+    a name (``looks_like_name``, HN.1): "Closing Advice" is English words and
+    passes, "Jane Doerfler" and "Grace Walker" are flagged. A made-up name with
+    at most one name-like word ("Willow Green", "Alcoholics Anonymous") is not
+    caught in a heading; in prose it still is. A span whose significant words
+    are all month or weekday names ("On June" from a written-out date) is not a
+    name (HN.2). The faithfulness judge receives the same ungrounded spans as
+    claims (``faithfulness_judge.extract_claims(text, source=...)``).
     """
     # Strip ALL markdown scaffolding — leading YAML/headings AND mid-document
     # headings / bold labels — so a Title-Case heading or concept label in a
@@ -112,18 +123,36 @@ def find_ungrounded_names(abstract: str, transcript: str,
                 cur.append(word)
         runs.append(cur)
         out = []
+        given = _word_list(str(config.NAME_CHECK_FIRST_NAMES_PATH))
+        surnames = _word_list(str(config.NAME_CHECK_SURNAMES_PATH))
+
+        def _short(word: str, names: frozenset) -> bool:
+            # A short edge word is dropped unless it is a given name at the start
+            # ("Ben Kerman") or a surname at the end ("Abigail Lee"); looks_like_name
+            # then weighs it (HN.1). Other short words ("Black Art") are dropped.
+            return len(word) < min_len and not (
+                len(word) >= config.NAME_CHECK_GIVEN_NAME_MIN_LEN and word.lower() in names)
+
         for run in runs:
-            while run and len(run[0]) < min_len:
+            while run and _short(run[0], given):
                 run = run[1:]
-            while run and len(run[-1]) < min_len:
+            while run and _short(run[-1], surnames):
                 run = run[:-1]
             text = " ".join(run)
             if len(run) >= 2 and text.lower() not in config.SCAFFOLDING_HEADING_PHRASES:
                 out.append(text)
         return out
 
-    scaffold_names = [run for span in scaffold_names for run in _ungrounded_runs(span)]
+    # A heading run counts only when it looks like a name (HN.1): a generated heading
+    # made of English words ("Closing Advice") is not an invented name.
+    runs = [run for span in scaffold_names for run in _ungrounded_runs(span)]
+    scaffold_names = [run for run in runs if looks_like_name(run)]
+    if excused is not None:
+        excused.extend(run for run in runs
+                       if run not in scaffold_names and run not in excused)
 
+    # A date written out ("On June 25") yields a span of month/weekday words (HN.2).
+    date_words = {w.lower() for w in config.NAME_CHECK_MONTHS + config.NAME_CHECK_WEEKDAYS}
     ungrounded: list[str] = []
     seen: set[str] = set()
     # Use [ \t]+ (not \s+) between name words: a real multi-word proper name is
@@ -137,8 +166,9 @@ def find_ungrounded_names(abstract: str, transcript: str,
             t for t in name.split()
             if len(t) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
         ]
-        if sig_tokens and not any(_grounded(t) for t in sig_tokens) \
-                and not _known_name(name):
+        if all(t.lower() in date_words for t in sig_tokens):
+            continue
+        if not any(_grounded(t) for t in sig_tokens) and not _known_name(name):
             ungrounded.append(name)
     return ungrounded
 
@@ -908,6 +938,103 @@ def scaffolding_name_spans(text: str) -> list[str]:
             if name.lower() not in exclude and name not in spans:
                 spans.append(name)
     return spans
+
+
+_WORD_LISTS: dict = {}
+
+
+def _word_list(path: str) -> frozenset:
+    """Lowercase words from a one-per-line list (``#`` lines are comments), cached
+    per path. An unreadable list is logged and read as empty, and not cached (a later
+    call tries again); ``looks_like_name`` then treats every heading run as a name,
+    so the check is as strict as before HN.1."""
+    if path in _WORD_LISTS:
+        return _WORD_LISTS[path]
+    try:
+        with open(path, encoding="utf-8") as fh:
+            words = frozenset(line.strip().lower() for line in fh
+                              if line.strip() and not line.startswith("#"))
+    except OSError as exc:
+        logging.getLogger(__name__).warning(
+            "Name check word list %s not readable (%s); every heading run is "
+            "checked as a name", path, exc)
+        return frozenset()
+    _WORD_LISTS[path] = words
+    return words
+
+
+def _base_forms(word: str) -> list[str]:
+    """The word and the forms an English inflection would come from: "reflections"
+    -> "reflection", "identified" -> "identify", "replacing" -> "replace",
+    "swapping" -> "swap"."""
+    forms = [word]
+    if word.endswith(("ies", "ied")):
+        forms.append(word[:-3] + "y")
+    if word.endswith("es"):
+        forms.append(word[:-2])
+    if word.endswith("s") and not word.endswith("ss"):
+        forms.append(word[:-1])
+    for suffix in ("ed", "ing", "er", "est", "ly"):
+        if word.endswith(suffix):
+            stem = word[: -len(suffix)]
+            forms += [stem, stem + "e"]
+            if len(stem) >= 2 and stem[-1] == stem[-2]:
+                forms.append(stem[:-1])
+    if word.endswith("ily"):
+        forms.append(word[:-3] + "y")
+    return [f for f in forms if len(f) >= 3]
+
+
+def _english_word(word: str, words: frozenset) -> bool:
+    """True when ``word`` (lowercase) or a form it inflects from is in ``words``, also
+    after taking off a common prefix ("multigenerational" -> "generational")."""
+    if any(f in words for f in _base_forms(word)):
+        return True
+    for prefix in config.NAME_CHECK_WORD_PREFIXES:
+        rest = word[len(prefix):]
+        if (word.startswith(prefix) and len(rest) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN
+                and any(f in words for f in _base_forms(rest))):
+            return True
+    return False
+
+
+def looks_like_name(span: str) -> bool:
+    """True when a Title-Case heading/label run could be a name. Strong evidence,
+    enough alone: a word that is not English ("Doerfler", "José") or a given name
+    that is not an English word ("Sarah", "Jennifer"). Weak evidence: a given name
+    that is also a word ("Grace", "Mark", "Amy") or a surname that is a word, directly or by
+    inflection ("Walker", "Rogers"). Two weak words count ("Grace Walker", "Mark
+    Turner", "Harper Baker"). A run of English words with at most one name-like
+    word ("Closing Advice", "Multigenerational Roots", "Young Adults") is a
+    generated heading. If any word list cannot be read, every run counts (strict).
+
+    Purpose: Stop generated headings from being flagged as invented names (HN.1).
+    Spec:    docs/plan_heading_names_2026-10-14.md#HN.1
+    Tests:   tests/test_heading_names_hn.py::test_hn1_generated_headings_not_flagged
+    """
+    words = _word_list(str(config.NAME_CHECK_ENGLISH_WORDS_PATH))
+    given = _word_list(str(config.NAME_CHECK_FIRST_NAMES_PATH))
+    surnames = _word_list(str(config.NAME_CHECK_SURNAMES_PATH))
+    if not (words and given and surnames):
+        return True
+    # Month and weekday names are ordinary words here ("Friday Session Highlights");
+    # Webster's lists them capitalised, so they would read as not English (HN.2).
+    date_words = {w.lower() for w in config.NAME_CHECK_MONTHS + config.NAME_CHECK_WEEKDAYS}
+    weak = 0
+    for token in span.split():
+        low = token.lower()
+        if len(low) < config.NAME_CHECK_GIVEN_NAME_MIN_LEN:
+            continue
+        english = low in date_words or _english_word(low, words)
+        if low in given:
+            if not english:
+                return True
+            weak += 1
+        elif len(low) >= config.ABSTRACT_NAME_TOKEN_MIN_LEN:
+            if not english:
+                return True
+            weak += low in surnames
+    return weak >= 2
 
 
 def _strip_fenced_block(text: str) -> str:

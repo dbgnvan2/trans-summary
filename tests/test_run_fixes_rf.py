@@ -1139,14 +1139,18 @@ def test_rfn1_contradicted_claim_is_never_overridden(tmp_path, monkeypatch):
 
 def test_rfn1_lens_headline_fragment_not_judged(tmp_path, monkeypatch):
     # Sweep: extract_claims turns the lens headline into a claim; it must be dropped,
-    # not sent to the grounding judge.
+    # not sent to the grounding judge. Since HN.1 a headline of English words is not
+    # re-emitted as a name, so this one carries a word that is not English.
     import faithfulness_judge as fjudge
-    claims = fjudge.extract_claims("# The Hidden Debt Inside Every Family\n\nMy mother protected Billy.\n",
+    headline = "The Hidden Debt Of Every Okafor Household"
+    claims = fjudge.extract_claims(f"# {headline}\n\nMy mother protected Billy.\n",
                                    source="My mother protected Billy.")
     frag = [c for c in claims if "Hidden Debt" in c]
     assert frag, "precondition: the headline is extracted as a claim"
-    base = _blog_gate_project(tmp_path, monkeypatch, "# The Hidden Debt Inside Every Family\n\nText.\n",
+    base = _blog_gate_project(tmp_path, monkeypatch, f"# {headline}\n\nText.\n",
                               frag, {})  # an unexpected judge call would KeyError
+    (tmp_path / base / f"{base}{config.SUFFIX_LENSES}").write_text(
+        f"## Lenses (Ranked)\n\n1. **{headline}**\nR.\n", encoding="utf-8")
     assert release_gate.check_blog_faithfulness(base).status is release_gate.Status.PASS
 
 

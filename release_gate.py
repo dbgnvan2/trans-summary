@@ -214,15 +214,17 @@ def check_entity_grounding(base_name: str, logger=None, suffixes=None) -> Verdic
     values = _filename_metadata_values(base_name)
     source = f"{transcript}\n{values}" if values else transcript
     offending = {}
+    excused: list = []  # heading phrases not in the source that do not look like names (HN.1)
     for suffix in (suffixes if suffixes is not None else config.GATE_ENTITY_ARTIFACT_SUFFIXES):
         path = config.PROJECTS_DIR / base_name / f"{base_name}{suffix}"
         if not path.exists():
             continue
         names = abstract_validation.find_ungrounded_names(
-            path.read_text(encoding="utf-8"), source
+            path.read_text(encoding="utf-8"), source, excused=excused
         )
         if names:
             offending[suffix.strip(" -").removesuffix(".md")] = names
+    note = _excused_note(excused, logger)
     if offending:
         flat = sorted({n for names in offending.values() for n in names})
         arts = ", ".join(offending.keys())
@@ -231,9 +233,21 @@ def check_entity_grounding(base_name: str, logger=None, suffixes=None) -> Verdic
         # <names> — regenerate and try again".
         return Verdict("entity_grounding", Status.FAIL,
                        f"check failed in {arts}: name(s) not in source: "
-                       f"{', '.join(flat)} — regenerate and try again",
+                       f"{', '.join(flat)} — regenerate and try again{note}",
                        items=[{"artifact": k, "names": v} for k, v in offending.items()])
-    return Verdict("entity_grounding", Status.PASS, "all proper names grounded")
+    return Verdict("entity_grounding", Status.PASS, f"all proper names grounded{note}")
+
+
+def _excused_note(excused: list, logger=None) -> str:
+    """Name the heading phrases the name check did not count as names (HN.1, P2):
+    logged and returned as a suffix for the verdict detail ("" when there are none)."""
+    if not excused:
+        return ""
+    if logger:
+        logger.info("Name check: %d heading phrase(s) not in the source were not counted "
+                    "as names: %s", len(excused), ", ".join(excused))
+    return (f"; {len(excused)} heading phrase(s) not in the source and not counted as "
+            f"names: {', '.join(excused)}")
 
 
 # --------------------------------------------------------------------------- source fidelity
@@ -426,14 +440,18 @@ def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
     titles = _lens_titles(base_name)
     values = _filename_metadata_values(base_name)
     name_source = "\n".join(x for x in (transcript, values, *titles) if x)
+    excused: list = []
     names = [f"the name '{n}' does not appear in the source"
-             for n in abstract_validation.find_ungrounded_names(text, name_source)]
+             for n in abstract_validation.find_ungrounded_names(text, name_source,
+                                                                excused=excused)]
+    excused_note = _excused_note(excused, logger)
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return "error", names, ("claims not verified (faithfulness judge disabled)"
-                                + (f"; {len(names)} name(s) not in source" if names else ""))
+                                + (f"; {len(names)} name(s) not in source" if names else "")
+                                + excused_note)
     faith = check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_BLOG])
     if faith.status is Status.ERROR:
-        return "error", names, f"claims not verified: {faith.detail}"
+        return "error", names, f"claims not verified: {faith.detail}{excused_note}"
     contradicted = [c for item in (faith.items or []) for c in item.get("contradicted", [])]
     rejected = [c for item in (faith.items or []) for c in item.get("unfaithful", [])
                 if c not in contradicted and not _is_lens_title_fragment(c, titles)]
@@ -448,7 +466,7 @@ def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
                 from transcript_utils import get_anthropic_client, resolve_anthropic_key
                 key = resolve_anthropic_key()
                 if not key:
-                    return "error", names, "claims not verified: no Anthropic API key"
+                    return "error", names, f"claims not verified: no Anthropic API key{excused_note}"
                 labels = _judge_blog_grounding_cached(
                     fjudge, rejected, transcript, get_anthropic_client(key), logger)
                 for claim in rejected:
@@ -459,9 +477,10 @@ def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
             except Exception as e:  # noqa: BLE001 — cannot verify: report, do not pass
                 if logger:
                     logger.warning("Blog grounding judge failed: %s", e)
-                return "error", names, f"claims not verified: grounding judge {type(e).__name__}"
+                return "error", names, (f"claims not verified: grounding judge "
+                                        f"{type(e).__name__}{excused_note}")
     note = (f"; {accepted_as_interpretation} claim(s) accepted as interpretation"
-            if accepted_as_interpretation else "")
+            if accepted_as_interpretation else "") + excused_note
     if ungrounded:
         return "warn", ungrounded, f"{len(ungrounded)} blog claim(s) not grounded in the source{note}"
     return "pass", [], f"all blog claims entailed or grounded{note}"
@@ -808,6 +827,8 @@ def _judge_input_functions() -> list:
         fjudge.instructions_for,
         av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
         av.scaffolding_name_spans, av.find_ungrounded_names,
+        # HN: which heading runs count as names (re-emitted to the judge as claims).
+        av.looks_like_name, av._english_word, av._base_forms, av._word_list,
         tu.parse_theme_blocks_with_evidence, tu._theme_blocks,
         tu._extract_theme_description, tu._extract_theme_evidence,
         tu._theme_body, tu._is_theme_block,
@@ -830,7 +851,25 @@ def _judge_input_patterns() -> list:
                 tu._LINE_START_LABEL_RE, fjudge._QA_MARK, fjudge._QA_INSERT_AT]
     # SA: the label threshold and the note text change what the judge is told.
     patterns += [str(config.SPEAKER_LABEL_MIN_TURNS), config.UNLABELED_SPEAKERS_NOTE]
+    # HN: the name check's vocabularies decide which heading runs are re-emitted.
+    patterns += [config.NAME_CHECK_WORD_PREFIXES, config.NAME_CHECK_MONTHS,
+                 config.NAME_CHECK_WEEKDAYS, str(config.NAME_CHECK_GIVEN_NAME_MIN_LEN),
+                 _name_list_digest()]
     return [repr(getattr(p, "pattern", p)) for p in patterns]
+
+
+def _name_list_digest() -> str:
+    """SHA-256 of the name check's three word lists (HN), so editing a list changes
+    the judge cache key. A missing file hashes as its path and "missing"."""
+    import hashlib
+    h = hashlib.sha256()
+    for path in (config.NAME_CHECK_ENGLISH_WORDS_PATH, config.NAME_CHECK_FIRST_NAMES_PATH,
+                 config.NAME_CHECK_SURNAMES_PATH):
+        try:
+            h.update(Path(path).read_bytes())
+        except OSError:
+            h.update(f"{path}: missing".encode("utf-8"))
+    return h.hexdigest()
 
 
 def _judge_logic_version(instructions: str) -> str:

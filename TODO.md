@@ -32,12 +32,26 @@ New from this run:
 
 **Run 9 (2026-10-14, commit 59d64c8, $6.62):** all 39 stages passed; the gate allowed all
 three talks. Remaining noise, none of it failing a run:
-- **The name check flags headings the model invents** in the overview and blog
+- ~~**The name check flags headings the model invents** in the overview and blog
   ("Patterns Identified", "Multigenerational Roots", "Closing Advice", "On June",
-  "Swapping One Culprit") as names that do not appear in the source. Each costs a
-  revision (all converged in run 9). Possible fix: judge a generated heading as a name
-  only when it looks like a person's name. Needs the author's choice (it loosens a
-  blocker's backstop).
+  "Swapping One Culprit") as names that do not appear in the source.~~ Fixed 2026-10-15
+  (HN, `docs/plan_heading_names_2026-10-14.md`): a heading run is a name only when it
+  looks like one (a word that is not English, a given name that is not a word, or two
+  given names or surnames); a span of month/weekday words is a date.
+  Adjacent, not fixed (from HN):
+  - `faithfulness_judge._name_shaped_bold_labels` sends every name-shaped `**Label:**` to
+    the judge whatever its words. No run showed the judge flagging one.
+  - The abstract's advisory name report (`validation_pipeline`, abstract coverage)
+    grounds against the transcript only, without the filename metadata the gate adds.
+  - Words newer than the 1934 list or proper adjectives ("rehab", "allostatic",
+    "Freudian") still read as names in a heading when the talk does not use them. Seen
+    only when checking against another talk's source, never on a real run.
+  - Given names newer than the 1990 census lists that are also words (Aria, Willow,
+    Maverick, Zoe) with a surname that is a word are not caught in a heading. A current
+    US Social Security given-name list (public domain) would close most of it; needs a
+    download.
+  - Month names live in two config lists: `FAITHFULNESS_HEADING_MONTH_WORDS` (judge, no
+    "may") and `NAME_CHECK_MONTHS`.
 - **Header validation** still logs 12–20 "problematic terms" warnings per talk.
 
 **Run 8 (2026-10-14, commit 73168f1, $6.27):** Beautiful Boy and Systems Biology passed every

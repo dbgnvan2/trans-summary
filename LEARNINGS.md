@@ -89,6 +89,14 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**The name check read every generated heading as an invented name (2026-10-15, HN).**
+- Issue: in runs 9 and 10 the entity check flagged "Closing Advice", "Final Reflections", "Multigenerational Roots" and five other overview/blog headings, and "On June" (from "On June 25, 2021"), as names absent from the source; each cost a faithfulness revision.
+- Root cause (P7, wrong proxy): the check treated "Title-Case and not in the source" as "a name". Review F2 extended it to headings, where every word is capitalised and the model chooses its own words, so absence from the source says nothing about whether a span is a name. The date came from the filename metadata, which holds "2021-06-25", not "June".
+- What would have caught it: running the F2 change over real overviews and blogs checked against a source that lacks their heading words (the cross-talk set in `docs/calibration/2026-10-14_heading_names/`): 36 phrases were flagged there: 35 concepts or headings and one first name with an ordinary word ("Nick Today").
+- Fix: in headings and labels, an ungrounded run counts only when it looks like a name: a non-English word, a given name that is not a word, or two given names or surnames that are words (public-domain lists in `data/`); a span of only month/weekday words is a date. Measured old against new on runs 1–10: same-talk flags 1 → 0; 4,824 of 4,900 made-up people written as headings still flagged.
+- The first version looked only at a small given-name list. The learning-qa review measured it letting 6.3% of made-up name pairs through and making the check looser when that list was missing; both were found by testing the misses, not the hits.
+- Rule: a lexical check's signal must separate the classes it claims to separate. Before widening or loosening a check, run it on real samples of the text it will see, and measure what it now lets through as well as what it stops flagging.
+
 **Checks held the output to a stricter bar than a person would, so runs kept stopping (2026-10-14, RS).**
 - Issue: across end-to-end runs 4–8, every stage failure after the faithfulness fixes came from checks a careful person would wave through: one dropped "that," in 12,000 words stopped Format and blocked four publish stages; summaries of 580 and 562 words failed a 585-word floor; abstracts of 266–274 words were retried against a 249 limit; a retry for one flagged overview sentence rewrote the whole overview and made a new claim each time.
 - Root cause: limits written as hard guards (raise after N tries) where they were really targets, and a retry that regenerated the whole artifact instead of fixing what was flagged. Each fix tightened a check; none asked whether failing the run was the right outcome.

@@ -1400,6 +1400,38 @@ KEY_TERMS_PARTIAL_DEF_MIN = 0.35
 ABSTRACT_NAME_TOKEN_MIN_LEN = 4
 ABSTRACT_NAME_FUZZY_MIN = 0.80
 
+# Heading name check (HN.1). A Title-Case run in a heading or bold label whose words
+# are not in the source counts as a name only when it looks like one: a word that is
+# not English, a given name that is not an English word ("Sarah", "Jennifer"), or two
+# given names or surnames that are also words ("Grace Walker", "Mark Turner", "Harper
+# Baker"). Generated headings ("Closing Advice", "Final Reflections")
+# are English words, so they no longer read as invented names. Prose names are checked
+# as before. Word lists: data/english_words.txt (Webster's Second, public domain),
+# data/first_names.txt and data/surnames.txt (US Census 1990 lists, public domain,
+# plus BSD propernames).
+NAME_CHECK_ENGLISH_WORDS_PATH = Path(__file__).parent / "data" / "english_words.txt"
+NAME_CHECK_FIRST_NAMES_PATH = Path(__file__).parent / "data" / "first_names.txt"
+NAME_CHECK_SURNAMES_PATH = Path(__file__).parent / "data" / "surnames.txt"
+# Given names this short or longer are looked up ("Amy", "Ben"); other words count
+# from ABSTRACT_NAME_TOKEN_MIN_LEN.
+NAME_CHECK_GIVEN_NAME_MIN_LEN = 3
+# Prefixes taken off a word that is not in the list ("multigenerational" ->
+# "generational"); what remains must be an English word of 4+ letters.
+NAME_CHECK_WORD_PREFIXES = (
+    "multi", "inter", "intra", "trans", "cross", "counter", "over", "under", "self",
+    "super", "hyper", "micro", "macro", "anti", "non", "post", "pre", "re", "un",
+)
+# A span whose significant words are all month or weekday names ("On June" from "On
+# June 25, 2021", "In March", "On Friday") is a date, not a name, so the name check
+# skips it (HN.2). A span with any other word ("June Carter") is still checked.
+NAME_CHECK_MONTHS = (
+    "January", "February", "March", "April", "May", "June", "July", "August",
+    "September", "October", "November", "December",
+)
+NAME_CHECK_WEEKDAYS = (
+    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+)
+
 # ============================================================================
 # VALIDATION V2 SETTINGS
 # ============================================================================

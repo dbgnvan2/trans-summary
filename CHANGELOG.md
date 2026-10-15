@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-15 (the name check stops flagging generated headings — HN)
+
+Plan and measurement: `docs/plan_heading_names_2026-10-14.md`.
+
+- HN.1: in headings and bold labels, a run of words not in the source counts as a name
+  only when it looks like one (`abstract_validation.looks_like_name`): a word that is
+  not English, a given name that is not a word ("Sarah", "Jennifer"), or two given names or
+  surnames that are words ("Grace Walker", "Mark Turner"). "Closing Advice", "Final
+  Reflections", "Multigenerational Roots" and the other headings flagged in runs 9 and
+  10 pass. Prose is checked as before. Word lists in `data/`: Webster's Second (public
+  domain), US Census 1990 given names and surnames (public domain, via zxcvbn) and BSD
+  propernames without 50 ordinary words. If a list cannot be read, every heading run is
+  checked as a name, as before. The entity gate and the blog check name the heading
+  phrases they did not count.
+- HN.2: a span of only month or weekday names ("On June" from "On June 25, 2021") is a
+  date, not a name. "June Carter" is still checked.
+- The judge cache key now covers the name check's functions, settings and word lists.
+- Measured on every overview, blog, summary and abstract of runs 1–10 (no API calls):
+  same-talk flags 1 → 0; against another talk's source, 36 phrases no longer flagged
+  (35 concepts or headings and "Nick Today") and none newly flagged; 4,824 of 4,900
+  made-up people written as headings still flagged. Residual: a heading-only made-up
+  name with at most one name-like word (a given name missing from the lists that is
+  also a word, such as "Willow" or "Hope", with a surname that is a word; "Amy Post";
+  "Alcoholics Anonymous"). Known false flag: "Max Effort".
+- Two learning-qa rounds. Round 1: a missing given-name list loosened the check, too
+  many made-up names passed (6.3% of name pairs), the judge cache key missed the new
+  inputs, and skipped phrases were not reported. Round 2: the blog check still dropped
+  skipped phrases, keeping short given names at a run's end made new false flags
+  ("Black Art"), and weekday headings ("Friday Session Highlights") were still flagged.
+  All fixed before landing.
+- Tests: `tests/test_heading_names_hn.py` (86; 60 fail on the old code) and 11 new cases
+  in `tests/test_judge_disk_cache_h2.py`. Changed for the new behaviour:
+  `tests/test_release_gate.py::test_r6b_label_with_no_source_words_is_flagged`,
+  `tests/test_run_fixes_rf.py::test_rfn1_lens_headline_fragment_not_judged`.
+
 ## [Unreleased] - 2026-10-14 (end-to-end run 9 and two follow-ups — RS)
 
 - Run 9 (commit 59d64c8, three public talks, $6.62): all 39 stages passed and the gate
