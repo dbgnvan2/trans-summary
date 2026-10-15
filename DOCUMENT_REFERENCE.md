@@ -14,7 +14,7 @@ This guide reflects the current artifact set produced by the transcript processi
 | Artifact | Filename Pattern | Contains | Producer |
 | --- | --- | --- | --- |
 | Source transcript | `<Base Name>.txt` | Raw transcript text | external transcription input |
-| Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript` |
+| Formatted transcript | `<Base Name> - formatted.md` | Cleaned/structured transcript | `formatting_pipeline.format_transcript`; the Format stage then sets differences in ordinary text back to the source's words (`format_review.restore_source_words`, RS.3), recorded in ` - format-review.json` with reviewer `auto (RS.3)` |
 | YAML transcript | `<Base Name> - yaml.md` | Formatted transcript + YAML front matter; fallback structured-transcript source for summary/abstract generation | `formatting_pipeline.add_yaml` |
 | Structural Themes | `<Base Name> - structural-themes.md` | Overarching structural themes grounded in transcript; rendered from the `.json` next to it | `extraction_pipeline.summarize_transcript` |
 | Interpretive Themes | `<Base Name> - interpretive-themes.md` | Interpretive themes grounded in transcript; rendered from the `.json` next to it | `extraction_pipeline.summarize_transcript` |

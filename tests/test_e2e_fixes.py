@@ -393,7 +393,8 @@ def test_sl1_bounds_follow_the_target():
 def test_sl1_band_through_the_real_retry(monkeypatch, n_words, accepted):
     """E2E run 5: 587 and 572 words were rejected against a fixed 600-word minimum; run 7:
     every draft at 580 and 562 against 585. The band for the 650 target is 553-780;
-    outside it the reply is retried, then fails."""
+    outside it the reply is retried, then fails (hard limits, the helper's default; the
+    summary itself uses soft limits, RS.1)."""
     monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
     monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
     monkeypatch.setattr("time.sleep", lambda s: None)
@@ -538,7 +539,8 @@ def test_aq2_qa_coverage_checks_for_a_qa_note():
 def test_aq3_abstract_hard_limit_enforced_at_generation(monkeypatch, n_words, accepted):
     """AQ measurement: one Beautiful Boy abstract came out at 265 words and was kept; the
     250-word limit was stated in the prompt and only warned about in validation. A
-    reply at or over it is now retried, then fails."""
+    reply at or over it is now retried; after the last try the shortest reply is kept
+    with a warning (RS.1: a length miss never fails the run)."""
     monkeypatch.setattr(type(config.settings), "EFFORT", property(lambda self: None))
     monkeypatch.setattr(tu, "log_token_usage", lambda *a, **k: None)
     monkeypatch.setattr("time.sleep", lambda s: None)
@@ -547,6 +549,5 @@ def test_aq3_abstract_hard_limit_enforced_at_generation(monkeypatch, n_words, ac
     if accepted:
         assert len(run().split()) == n_words and len(calls) == 1
     else:
-        with pytest.raises(Exception, match="too long"):
-            run()
-        assert len(calls) == config.MAX_RETRIES  # retried, then failed
+        assert len(run().split()) == n_words  # kept, not failed (RS.1)
+        assert len(calls) == config.MAX_RETRIES  # retried first

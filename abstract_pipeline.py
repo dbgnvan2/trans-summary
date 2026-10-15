@@ -497,9 +497,9 @@ def generate_abstract(
         feedback_claims: On a regeneration attempt, the specific statements a
             previous draft made that were NOT supported by the transcript — fed
             back so the model corrects them (grounds every sentence).
-        max_words: longest accepted reply; a longer one is retried, then raises. The
-            prompt's hard limit by default (AQ: a 265-word abstract had passed; the
-            limit was a validation warning only). 0 = no limit.
+        max_words: longest reply wanted; a longer one is retried, then the shortest
+            reply is kept with a warning (RS.1). The prompt's hard limit by default
+            (AQ: a 265-word abstract had passed without a retry). 0 = no limit.
 
     Returns:
         Generated abstract text
@@ -535,6 +535,7 @@ def generate_abstract(
         stream=True,
         min_length=150,  # Ensure substantial abstract
         max_words=max_words,
+        word_limits="soft",  # a long abstract is kept with a warning (RS.1)
         logger=logger,  # named logger -> real script name in token-usage log
         **kwargs,
     )

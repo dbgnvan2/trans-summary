@@ -330,7 +330,7 @@ def format_transcript(
             total = sum(1 for line in formatted_content.splitlines()
                         if _HEADING_RE.match(line))
             logger.info(
-                "Corrected %d of %d heading timestamp(s) (raw m:ss read as h:mm), "
+                "Corrected %d of %d heading timestamp(s) to match the raw transcript, "
                 "e.g. Section %d %s -> %s.", len(rewrites), total, *rewrites[0])
 
         output_path = save_formatted_transcript(
@@ -889,6 +889,10 @@ _HEADING_RE = re.compile(
     r"^## Section (\d+) – (.+?) \(\[(\d{2}):(\d{2}):(\d{2})\]\)\.[ \t]*$"
 )
 _RAW_TIME_RE = re.compile(r"(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])")
+# A heading timestamp with an extra leading 00 group, e.g. ([00:01:02:04]). (RS.4).
+_EXTRA_ZERO_TS_RE = re.compile(
+    r"^(## Section (\d+) – .+? \(\[)00:((\d{2}):(\d{2}):(\d{2}))(\]\)\.[ \t]*)$"
+)
 
 
 def _raw_timestamp_seconds(raw_text: str) -> Set[int]:
@@ -912,13 +916,19 @@ def normalize_heading_timestamps(formatted_text: str, raw_text: str) -> tuple:
     ``00:00:00`` fallback, and values that match neither reading are left for
     ``validate_section_headings`` to report.
 
+    Also (RS.4): a heading written with an extra leading ``00`` group,
+    ``([00:01:02:04]).``, is rewritten to ``([01:02:04]).`` when that time occurs in
+    the raw transcript.
+
     Returns ``(text, rewrites)`` where ``rewrites`` is a list of
     ``(section_number, old, new)``.
 
     Purpose: Make heading timestamps follow the raw transcript, not the model's
              reading of it.
-    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.A.1
-    Tests:   tests/test_run_fixes_rf.py::test_rfa1_mss_read_as_hmm_is_rewritten
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.A.1,
+             docs/plan_run_safe_2026-10-14.md#RS.4
+    Tests:   tests/test_run_fixes_rf.py::test_rfa1_mss_read_as_hmm_is_rewritten,
+             tests/test_run_safe_rs.py::test_rs4a_extra_zero_group_rewritten
     """
     raw_seconds = _raw_timestamp_seconds(raw_text)
     if not raw_seconds:
@@ -926,6 +936,13 @@ def normalize_heading_timestamps(formatted_text: str, raw_text: str) -> tuple:
     rewrites = []
     lines = formatted_text.split("\n")
     for idx, line in enumerate(lines):
+        extra = _EXTRA_ZERO_TS_RE.match(line)
+        if extra:
+            hh, mm, ss = (int(extra.group(g)) for g in (4, 5, 6))
+            if mm <= 59 and ss <= 59 and hh * 3600 + mm * 60 + ss in raw_seconds:
+                lines[idx] = extra.group(1) + extra.group(3) + extra.group(7)
+                rewrites.append((int(extra.group(2)), "00:" + extra.group(3), extra.group(3)))
+            continue
         match = _HEADING_RE.match(line)
         if not match:
             continue
@@ -1323,8 +1340,14 @@ def validate_format(
     formatted_filename: Optional[str] = None,
     skip_words_file: Optional[str] = None,
     logger=None,
+    review_as_warning: bool = False,
 ) -> bool:
-    """Orchestrates the format validation process."""
+    """Orchestrates the format validation process.
+
+    ``review_as_warning``: when the only failure is differences that need a decision,
+    log them as warnings, not errors. The GUI Format stage sets it on its first check,
+    because it restores the source's words next (RS.3) and reports the final result
+    itself."""
     if logger is None:
         logger = setup_logging("validate_format")
     try:
@@ -1383,6 +1406,15 @@ def validate_format(
             logger.warning("Check: %s", warning)
 
         if not outcome["passed"]:
+            if (review_as_warning and outcome["review_needed"]
+                    and len(outcome["errors"]) == 1):
+                logger.warning("%d difference(s) from the source need a decision; the "
+                               "Format stage restores the source's words where it can.",
+                               len(outcome["unresolved"]))
+                for item in outcome["unresolved"][:20]:
+                    logger.warning("    Section %s, %s: %r -> %r", item["section"],
+                                   item["kind"], item["raw_text"], item["formatted_text"])
+                return False
             logger.error("Validation FAILED: %d error(s).", len(outcome["errors"]))
             for error in outcome["errors"][:20]:
                 logger.error("  %s", error)

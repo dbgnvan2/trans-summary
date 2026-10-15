@@ -1851,15 +1851,40 @@ class TranscriptProcessorGUI:
         if pattern_set:
             self._remember_pattern_set_for_presenter(pattern_set)
         self.log("Format complete. Now validating...")
-        if not pipeline.validate_format(self.selected_file.name, logger=self.logger):
-            # Differences that only need a person's decision pause the run (RF.L);
-            # anything else is a real failure.
-            if self._format_failure_is_review_only():
-                self._paused_for_review = self._open_review_if_needed()
-            if not self._paused_for_review:
-                self.log("❌ Validation failed. Please check the logs.")
+        name = self.selected_file.name
+        if pipeline.validate_format(name, logger=self.logger, review_as_warning=True):
+            return True
+        # Differences that only need a decision: the source's words go back in by
+        # themselves (RS.3), then the final check reports in full; any left at a
+        # heading or speaker label pause the run for a person (RF.L). Anything else
+        # is a real failure, already reported.
+        if self._format_failure_is_review_only():
+            self._restore_source_words()
+            if pipeline.validate_format(name, logger=self.logger):
+                return True
+        if self._format_failure_is_review_only():
+            self._paused_for_review = self._open_review_if_needed()
+        if not self._paused_for_review:
+            self.log("❌ Validation failed. Please check the logs.")
+        return False
+
+    def _restore_source_words(self) -> bool:
+        """Put the source's words back where the formatter dropped or changed them
+        in plain text; log each one. True if any were restored (RS.3)."""
+        try:
+            result = format_review.restore_source_words(self.base_name)
+        except Exception as e:  # the review window is still there
+            self.log("⚠️ Could not restore the source's words automatically: %s", e)
             return False
-        return True
+        for item in result["restored"]:
+            self.log("⚠️ Restored the source's words in section %s: %r (formatted: %r)",
+                     item["section"], item["raw_text"], item["formatted_text"])
+        for error in result["errors"]:
+            self.log("⚠️ %s", error)
+        if result["restored"]:
+            self.log("Restored %d difference(s) from the source; %d left for review.",
+                     len(result["restored"]), len(result["left"]))
+        return bool(result["restored"])
 
     # ------------------------------------------------------------ pattern sets
     def _pattern_set_choices(self):

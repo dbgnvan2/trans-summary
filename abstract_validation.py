@@ -157,6 +157,9 @@ class CoverageItem:
     source_text: str  # Original text for LLM verification
     covered: Optional[bool] = None  # Result of validation
     confidence: Optional[str] = None  # "high", "medium", "low"
+    # True when each keyword alone shows coverage (alternative phrasings, e.g. the Q&A
+    # note markers): one hit is high confidence, none is low (RS.5).
+    match_any: bool = False
 
 
 def extract_keywords(text: str, min_length: int = 4) -> list[str]:
@@ -413,6 +416,7 @@ def generate_coverage_items(abstract_input) -> list[CoverageItem]:
                 required=abstract_input.qa_percentage >= QA_REQUIRED_THRESHOLD,
                 keywords=list(config.ABSTRACT_QA_NOTE_MARKERS),
                 source_text="one sentence on what the audience asked about or discussed",
+                match_any=True,
             )
         )
 
@@ -445,6 +449,13 @@ def check_keyword_coverage(
         # / human review rather than silently satisfied OR hard-failed with no
         # recovery (a short/stopword topic name legitimately yields no keywords).
         return False, "low"
+
+    if item.match_any:
+        # Alternative phrasings: any one of them, as whole words, is the full signal
+        # (RS.5); "question period" must not match "question periodically".
+        hit = any(re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", abstract_lower)
+                  for kw in item.keywords)
+        return (True, "high") if hit else (False, "low")
 
     match_ratio = match_count / total_keywords
 

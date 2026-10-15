@@ -1,0 +1,18 @@
+RS.6 measurement 2026-10-14 17:11:08; models main=claude-sonnet-5-5 aux=claude-haiku-5-5
+
+== e2e_run8 overview: Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13
+   kept draft (1459 words) judged again: fail; claims: ['Michael Kerr says Murray Bowen told him, "You have to heal in the system."']
+   revise 1: pass  words=1468 changed=1% claims=[]
+   revise 2: pass  words=1468 changed=1% claims=[]
+   revise 3: pass  words=1466 changed=1% claims=[]
+   revise 4: pass  words=1468 changed=1% claims=[]
+   revise 5: pass  words=1468 changed=1% claims=[]
+   rewrite 1: pass  words=1461 changed=63% claims=[]
+   rewrite 2: fail  words=1597 changed=50% claims=['The conversation was recorded as a webinar on 2026-09-13.']
+   rewrite 3: pass  words=1537 changed=44% claims=[]
+   rewrite 4: pass  words=1522 changed=50% claims=[]
+   rewrite 5: pass  words=1423 changed=48% claims=[]
+
+revise: 5/5 passed the check on one retry
+rewrite: 4/5 passed the check on one retry
+cost: $0.85 (token log since 2026-10-14 17:11:08)

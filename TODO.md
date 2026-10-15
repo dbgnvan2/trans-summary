@@ -37,7 +37,17 @@ a line addressed to the reader), so the gate blocked publication. Near misses: B
 Boy summary 516 words (retried), Systems Biology abstract 274 and 266 words (retried twice).
 The abstracts' Q&A sentences now come from the transcript, but the check still lists them
 for review. Fixes for these and for the Format stops in runs 4, 6 and 7 are planned in
-`docs/plan_run_safe_2026-10-14.md` (RS, awaiting approval).
+`docs/plan_run_safe_2026-10-14.md` (RS, approved and built 2026-10-14; see CHANGELOG).
+
+Adjacent, found while building RS (not fixed):
+- **The abstract has its own copy of the faithfulness retry loop**
+  (`generate_structured_abstract`) instead of `_generate_until_faithful`. RS.6 added the
+  revise step to both; the copy still lacks the shared loop's check that rejects a draft
+  repeating a flagged claim (the judge then flags it again, one extra judge call).
+- **The abstract prompt makes "webinar" the default event type**; the Why Families
+  overview turned that into "a webinar-style conversation", which the judge flagged
+  (the talk is an interview). The judge accepted "webinar" everywhere else in run 8.
+  Author's choice in the prompt; noted, not changed.
 
 **Runs 6 and 7 (2026-10-14, ST end-to-end, $6.26 and $6.08)** — theme stages all passed;
 found outside them:
@@ -64,11 +74,14 @@ found outside them:
   field; the item does not gate), but the same rule applies (E2E1/AQ).
 - **A first-attempt abstract failure leaves the earlier run's abstract on disk** (AQ
   review, existed before). If attempt 1 cannot be generated, the stage fails without
-  writing, so the previous `abstract-generated.md` stays. The enforced word limit makes
-  that path a little more likely.
+  writing, so the previous `abstract-generated.md` stays. (The word limit no longer
+  raises: RS.1 keeps the shortest draft with a warning.)
 - **Format variance, again:** run 6 Systems Biology (one malformed heading, one dropped
   word), run 7 Beautiful Boy (two differences). Format at high effort passed 8 of 9 in
-  the 2026-10-14 measurement; these runs give 4 of 6.
+  the 2026-10-14 measurement; these runs give 4 of 6. Since RS.3/RS.4 (2026-10-14) these
+  no longer stop the run: dropped or changed words in ordinary text are set back to the
+  source's words, and the extra-`00:` heading timestamp is corrected. The variance
+  itself is unchanged; a difference at a heading or speaker label still needs review.
 - **Shared thinking estimate is high for short calls.** `THINKING_TOKENS_ESTIMATE`
   adds 3,000 per call at high effort; the theme calls measured 375–2,036. Calibrate per
   stage if tighter estimates matter (see "Cost estimator still ~20% low").
@@ -117,7 +130,7 @@ pass. Systems Biology: blocked.
 - **Structured summary minimum length:** band fixed 2026-10-14 (SL, then SL3: the prompt
   asks for 585–780 words for the 650 target and 553–780 is accepted). Still open: the
   target is a fixed 650 whatever the talk length, so a short talk's summary may still
-  run under 553 words. Was: a 569-word summary was rejected (minimum 600 words) and
+  run under 553 words; since RS.1 it is kept with a warning instead of failing. Was: a 569-word summary was rejected (minimum 600 words) and
   regenerated.
 - **Meta-claims about the talk get flagged:** "The talk states no explicit
   conclusion" (overview, Why Families) and "though no explicit closing conclusion is

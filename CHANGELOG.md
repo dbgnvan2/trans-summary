@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-14 (runs finish on acceptable output — RS)
+
+Author's goal: the run should not fail, especially on warnings; output must be very good,
+not perfect. Faithfulness stays strict. Plan: `docs/plan_run_safe_2026-10-14.md`.
+
+- RS.1: a summary, abstract or overview outside its word range is retried; if every try
+  misses, the reply closest to the range is kept with a warning instead of failing the
+  stage (`call_claude_with_retry(word_limits="soft")`). Formatting keeps its hard floor
+  (a guard against a cut-off reply). Run 7 failed two summaries at 580 and 562 words;
+  run 8 retried a 516-word summary and two over-long abstracts.
+- RS.2: a retried check is logged as a warning; an error only when the call gives up.
+  A stage that passed no longer shows "2 error(s)".
+- RS.3: the Format stage sets every dropped, added or changed word in ordinary text
+  back to the source's words (the review's reject action, logged as "Restored the
+  source's words in section N" and recorded with reviewer `auto (RS.3)`). Only a
+  difference at a heading or speaker label still opens the review window. Runs 4, 6 and
+  7 each stopped on one or two dropped words, which also blocked the four publish
+  stages. `transcript_validate_format.py` still only checks.
+- RS.4: a heading timestamp written with an extra `00:` group (`([00:01:02:04]).`) is
+  rewritten to `([01:02:04]).` when the raw transcript has that time (run 6).
+- RS.5: the abstract's Q&A note counts as found, with high confidence, when any one Q&A
+  phrase is present; a correct note is no longer put on the human-review list.
+- RS.6: after a failed faithfulness check, the retry changes only the flagged sentences
+  of the previous draft and keeps the rest (`prompts/Revise Flagged Statements v1.md`,
+  `extraction_pipeline._revise_flagged`), for the summary, overview, blog and abstract.
+  Run 8's Why Families overview was rewritten three times and made a new unsupported
+  claim each time. Measured (`docs/calibration/2026-10-14_revise_flagged/`, $2.17): from three kept drafts that had failed every try (run 8 Why Families overview; runs 7 and 2 abstracts), one retry on the production models passed 10 of 11 times by revising and 10 of 11 by rewriting. Revising changed 1–5% of the draft, rewriting 44–79%; revise's one failure was a sentence it had not touched (already in the draft, flagged in run 7 too). The gain is that a retry no longer starts over: only the changed sentences can bring a new problem.
+- Review fixes: a near-miss reply held under soft limits is kept when a later try fails
+  with an API error or a cut-off reply; soft limits keep only a reply within 25% of the
+  range (`config.SOFT_WORD_LIMIT_TOLERANCE`); the Format stage's first check logs a
+  fixable difference as a warning and the final check reports in full; the stage log
+  names a kept length miss; a revision is checked for a comment before the text, echoed
+  instructions and a dropped front matter (`config.REVISE_PREAMBLE_STARTS`); only judged
+  drafts can be kept as the best; Q&A markers match whole words; restore acts only on a
+  check record for the current files; automatic restores are counted apart.
+- Tests: `tests/test_run_safe_rs.py`, plus updated loop tests in
+  `tests/test_run_fixes_rf.py`, `tests/test_abstract_faithful_retry.py`,
+  `tests/test_e2e_fixes.py::test_aq3_*`, `tests/test_overview_post.py::test_rs1e_*`.
+
 ## [Unreleased] - 2026-10-14 (summary floor and abstract Q&A note — SL3, AQ)
 
 - Structured summary: the prompt still asks for 585–780 words (target 650), and a draft

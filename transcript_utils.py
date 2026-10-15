@@ -703,6 +703,25 @@ def model_request_params(model: str, temperature, max_tokens: int, logger=None,
     return {"params": params, "max_tokens": max_tokens, "betas": betas, "extra_body": extra_body}
 
 
+class WordCountError(ValueError):
+    """A reply outside the requested word range. ``distance``: words outside it."""
+
+    def __init__(self, message: str, word_count: int, distance: int):
+        super().__init__(message)
+        self.word_count = word_count
+        self.distance = distance
+
+
+def _check_word_count(text: str, min_words: int, max_words: int) -> None:
+    words = len(text.split())
+    if min_words > 0 and words < min_words:
+        raise WordCountError(f"Response text too short: {words} words (expected >= {min_words})",
+                             words, min_words - words)
+    if max_words > 0 and words > max_words:
+        raise WordCountError(f"Response text too long: {words} words (expected <= {max_words})",
+                             words, words - max_words)
+
+
 def call_claude_with_retry(
     client,
     model: str,
@@ -719,6 +738,7 @@ def call_claude_with_retry(
     max_words: int = 0,
     output_format=None,
     check_reply=None,
+    word_limits: str = "hard",
     **kwargs
 ):
     """
@@ -742,6 +762,10 @@ def call_claude_with_retry(
         output_format: a JSON-schema output format, sent as output_config.format (ST)
         check_reply: called with the reply text; a ValueError it raises is retried
             like a too-short reply, and raised after the last attempt (ST.3)
+        word_limits: "hard" (a reply outside min_words/max_words is retried, then
+            raises) or "soft" (retried, then the reply closest to the range is kept
+            with a warning). Soft is for prose whose length is a target, not a
+            guard (RS.1); every other check stays hard.
 
     Returns:
         API response message
@@ -751,6 +775,98 @@ def call_claude_with_retry(
         RuntimeError: If output is truncated or connection fails
         APIError: If API call fails after retries
     """
+    if word_limits not in ("hard", "soft"):
+        raise ValueError(f"word_limits must be 'hard' or 'soft', not {word_limits!r}")
+    # Soft limits: the closest reply that missed only the word range, as
+    # (distance, message). Kept unlogged until it is replaced or returned (RS.1).
+    closest = None
+
+    def _log_rejected(msg):
+        usage = getattr(msg, "usage", None)
+        if usage is not None:
+            log_token_usage(script_name or getattr(logger, "name", None)
+                            or "unknown_script", model, usage,
+                            f"rejected:{getattr(msg, 'stop_reason', '')}")
+
+    def _keepable(words: int) -> bool:
+        """Soft limits keep only a near miss: within SOFT_WORD_LIMIT_TOLERANCE of the
+        range. A reply far outside it (a non-answer, a stub) is a hard miss."""
+        tol = config.SOFT_WORD_LIMIT_TOLERANCE
+        return ((not min_words or words >= min_words * (1 - tol))
+                and (not max_words or words <= max_words * (1 + tol)))
+
+    def _range_text() -> str:
+        if min_words and max_words:
+            return f"{min_words}-{max_words}"
+        return f"at least {min_words}" if min_words else f"at most {max_words}"
+
+    def _accept(message):
+        """The success path: usage logged once, as a call (RS.1)."""
+        # Warn if close to limit
+        if message.usage.output_tokens > max_tokens * config.TOKEN_USAGE_WARNING_THRESHOLD:
+            warning = f"⚠️  Nearly hit token limit: {message.usage.output_tokens}/{max_tokens} tokens used"
+            if logger:
+                logger.warning(warning)
+            print(f"\n{warning}")
+
+        # Log successful usage
+        if logger:
+            # Estimate breakdown
+            system_content = kwargs.get('system', [])
+            if isinstance(system_content, list):
+                sys_text = "".join(
+                    [b.get('text', '') for b in system_content if b.get('type') == 'text'])
+            else:
+                sys_text = str(system_content) if system_content else ""
+
+            msg_text = "".join([m.get('content', '') if isinstance(m.get('content'), str) else
+                               "".join([b.get('text', '') for b in m.get(
+                                   'content', []) if b.get('type') == 'text'])
+                                for m in normalized_messages])
+
+            est_sys_tokens = len(sys_text) // config.CHARS_PER_TOKEN
+            est_msg_tokens = len(msg_text) // config.CHARS_PER_TOKEN
+
+            # Get cache stats
+            cache_read = getattr(
+                message.usage, 'cache_read_input_tokens', 0) or 0
+            cache_create = getattr(
+                message.usage, 'cache_creation_input_tokens', 0) or 0
+
+            cache_msg = ""
+            if cache_read > 0:
+                cache_msg = f" (+{cache_read} cached)"
+            elif cache_create > 0:
+                cache_msg = f" (created {cache_create} cache)"
+
+            logger.info("API call successful - Input: %d%s (~%d context, ~%d prompt), Output: %d, Stop: %s",
+                        message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens,
+                        message.usage.output_tokens, message.stop_reason)
+
+        # Log to CSV. Prefer an explicit script_name, then the logger's name; fall
+        # back to 'unknown_script' but SURFACE it (P2) — a silent 'unknown_script'
+        # row loses per-stage cost attribution (review L8).
+        resolved_script = (
+            script_name
+            or (getattr(logger, 'name', None) if logger else None)
+            or "unknown_script"
+        )
+        if resolved_script == "unknown_script" and logger:
+            logger.warning("token cost logged as 'unknown_script' — pass a named "
+                           "logger or script_name= for per-stage cost attribution")
+        # A server-side refusal fallback answers from another model: price the
+        # call at the model that served it, and say so (MV.5 sweep, P2).
+        served_by = getattr(message, "model", None)
+        served_by = served_by if isinstance(served_by, str) and served_by else model
+        if served_by != model and request["betas"]:
+            (logger or logging.getLogger(__name__)).warning(
+                "%s declined this request; it was answered by fallback model %s.",
+                model, served_by)
+        log_token_usage(resolved_script, served_by, message.usage,
+                        message.stop_reason)
+
+        return message
+
     # Track timeout across retries. A call that passes no timeout gets the SDK's
     # own default explicitly, so escalation starts from a known value (review F12).
     current_timeout = kwargs.get('timeout') or config.TIMEOUT_FALLBACK
@@ -778,278 +894,235 @@ def call_claude_with_retry(
     if not suppress_caching_warnings:
         _check_caching_for_large_input(normalized_messages, kwargs.get('system'), logger)
 
-    for attempt in range(max_retries):
-        try:
-            call_kwargs = kwargs.copy()
-
-            # Apply dynamic timeout if set
-            if current_timeout is not None:
-                call_kwargs['timeout'] = current_timeout
-
-            # Handle streaming argument
-            # Check if 'stream' was also in kwargs (legacy support)
-            is_streaming = stream or call_kwargs.pop('stream', False)
-
-            if is_streaming:
-                with client.messages.stream(
-                    model=model,
-                    max_tokens=max_tokens,
-                    messages=normalized_messages,
-                    extra_headers={"anthropic-beta": beta_header},
-                    **request["params"],
-                    **call_kwargs
-                ) as stream_manager:
-                    message = stream_manager.get_final_message()
-            else:
-                message = client.messages.create(
-                    model=model,
-                    max_tokens=max_tokens,
-                    messages=normalized_messages,
-                    extra_headers={"anthropic-beta": beta_header},
-                    **request["params"],
-                    **call_kwargs
-                )
-
-            # Comprehensive response validation
+    try:
+        for attempt in range(max_retries):
             try:
-                validate_api_response(
-                    message,
-                    expected_model=model,
-                    min_length=min_length,
-                    min_words=min_words,
-                    logger=logger
-                )
-                # Enforce minimum length with retry
-                text_content = response_text(message)
-                if len(text_content) < min_length:
-                    raise ValueError(
-                        f"Response text too short: {len(text_content)} chars (expected >= {min_length})")
+                call_kwargs = kwargs.copy()
 
-                if min_words > 0:
-                    if len(text_content.split()) < min_words:
-                        raise ValueError(
-                            f"Response text too short: {len(text_content.split())} words (expected >= {min_words})")
-                if max_words > 0 and len(text_content.split()) > max_words:
-                    raise ValueError(
-                        f"Response text too long: {len(text_content.split())} words (expected <= {max_words})")
-                if check_reply is not None:
-                    check_reply(text_content)
-            except (ValueError, RuntimeError) as e:
-                # Validation failed
-                if logger:
-                    logger.error("Response validation failed: %s", e)
-                # The tokens were billed even though the response is rejected.
-                usage = getattr(message, "usage", None)
-                if usage is not None:
-                    log_token_usage(script_name or getattr(logger, "name", None)
-                                    or "unknown_script", model, usage,
-                                    f"rejected:{getattr(message, 'stop_reason', '')}")
-                # Truncation at max_tokens repeats on an identical request (B-11);
-                # so does a refusal (MV.5).
-                if isinstance(e, (TruncatedResponseError, RefusalError)):
-                    raise
-                # If we have retries left, continue to next attempt
-                if attempt < max_retries - 1:
-                    if logger:
-                        logger.warning("Retrying due to validation failure (%d/%d)...",
-                                       attempt + 1, max_retries)
-                    continue
-                raise
+                # Apply dynamic timeout if set
+                if current_timeout is not None:
+                    call_kwargs['timeout'] = current_timeout
 
-            # Warn if close to limit
-            if message.usage.output_tokens > max_tokens * config.TOKEN_USAGE_WARNING_THRESHOLD:
-                warning = f"⚠️  Nearly hit token limit: {message.usage.output_tokens}/{max_tokens} tokens used"
-                if logger:
-                    logger.warning(warning)
-                print(f"\n{warning}")
+                # Handle streaming argument
+                # Check if 'stream' was also in kwargs (legacy support)
+                is_streaming = stream or call_kwargs.pop('stream', False)
 
-            # Log successful usage
-            if logger:
-                # Estimate breakdown
-                system_content = kwargs.get('system', [])
-                if isinstance(system_content, list):
-                    sys_text = "".join(
-                        [b.get('text', '') for b in system_content if b.get('type') == 'text'])
+                if is_streaming:
+                    with client.messages.stream(
+                        model=model,
+                        max_tokens=max_tokens,
+                        messages=normalized_messages,
+                        extra_headers={"anthropic-beta": beta_header},
+                        **request["params"],
+                        **call_kwargs
+                    ) as stream_manager:
+                        message = stream_manager.get_final_message()
                 else:
-                    sys_text = str(system_content) if system_content else ""
+                    message = client.messages.create(
+                        model=model,
+                        max_tokens=max_tokens,
+                        messages=normalized_messages,
+                        extra_headers={"anthropic-beta": beta_header},
+                        **request["params"],
+                        **call_kwargs
+                    )
 
-                msg_text = "".join([m.get('content', '') if isinstance(m.get('content'), str) else
-                                   "".join([b.get('text', '') for b in m.get(
-                                       'content', []) if b.get('type') == 'text'])
-                                    for m in normalized_messages])
+                # Comprehensive response validation. The word range is checked last, so a
+                # reply kept under soft limits has passed every other check (RS.1).
+                try:
+                    validate_api_response(
+                        message,
+                        expected_model=model,
+                        min_length=min_length,
+                        logger=logger
+                    )
+                    # Enforce minimum length with retry
+                    text_content = response_text(message)
+                    if len(text_content) < min_length:
+                        raise ValueError(
+                            f"Response text too short: {len(text_content)} chars (expected >= {min_length})")
+                    if check_reply is not None:
+                        check_reply(text_content)
+                    _check_word_count(text_content, min_words, max_words)
+                except (ValueError, RuntimeError) as e:
+                    soft_miss = (word_limits == "soft" and isinstance(e, WordCountError)
+                                 and _keepable(e.word_count))
+                    # The tokens were billed even though the response is rejected; a soft
+                    # miss is logged when it is dropped, or as a call when it is kept.
+                    if not soft_miss:
+                        _log_rejected(message)
+                    elif closest is None or e.distance < closest[0]:
+                        if closest is not None:
+                            _log_rejected(closest[1])
+                        closest = (e.distance, message)
+                    else:
+                        _log_rejected(message)
+                    # Truncation at max_tokens repeats on an identical request (B-11);
+                    # so does a refusal (MV.5).
+                    if isinstance(e, (TruncatedResponseError, RefusalError)):
+                        if logger:
+                            logger.error("Response validation failed: %s", e)
+                        raise
+                    # A retried miss is a warning; an error only when the run gives up (RS.2).
+                    if attempt < max_retries - 1:
+                        if logger:
+                            logger.warning("Response validation failed: %s — retrying (%d/%d)...",
+                                           e, attempt + 1, max_retries)
+                        continue
+                    if closest is None:
+                        if logger:
+                            logger.error("Response validation failed: %s", e)
+                        raise
+                    # Soft limits: a reply that missed only the word range (it passed
+                    # every other check) is kept, even if the last try failed otherwise.
+                    (logger or logging.getLogger(__name__)).warning(
+                        "No reply within %s words after %d tries; kept the closest one "
+                        "(%d words).", _range_text(), max_retries,
+                        len(response_text(closest[1]).split()))
+                    return _accept(closest[1])
 
-                est_sys_tokens = len(sys_text) // config.CHARS_PER_TOKEN
-                est_msg_tokens = len(msg_text) // config.CHARS_PER_TOKEN
+                return _accept(message)
 
-                # Get cache stats
-                cache_read = getattr(
-                    message.usage, 'cache_read_input_tokens', 0) or 0
-                cache_create = getattr(
-                    message.usage, 'cache_creation_input_tokens', 0) or 0
-
-                cache_msg = ""
-                if cache_read > 0:
-                    cache_msg = f" (+{cache_read} cached)"
-                elif cache_create > 0:
-                    cache_msg = f" (created {cache_create} cache)"
-
-                logger.info("API call successful - Input: %d%s (~%d context, ~%d prompt), Output: %d, Stop: %s",
-                            message.usage.input_tokens, cache_msg, est_sys_tokens, est_msg_tokens,
-                            message.usage.output_tokens, message.stop_reason)
-
-            # Log to CSV. Prefer an explicit script_name, then the logger's name; fall
-            # back to 'unknown_script' but SURFACE it (P2) — a silent 'unknown_script'
-            # row loses per-stage cost attribution (review L8).
-            resolved_script = (
-                script_name
-                or (getattr(logger, 'name', None) if logger else None)
-                or "unknown_script"
-            )
-            if resolved_script == "unknown_script" and logger:
-                logger.warning("token cost logged as 'unknown_script' — pass a named "
-                               "logger or script_name= for per-stage cost attribution")
-            # A server-side refusal fallback answers from another model: price the
-            # call at the model that served it, and say so (MV.5 sweep, P2).
-            served_by = getattr(message, "model", None)
-            served_by = served_by if isinstance(served_by, str) and served_by else model
-            if served_by != model and request["betas"]:
-                (logger or logging.getLogger(__name__)).warning(
-                    "%s declined this request; it was answered by fallback model %s.",
-                    model, served_by)
-            log_token_usage(resolved_script, served_by, message.usage,
-                            message.stop_reason)
-
-            return message
-
-        except AuthenticationError as e:
-            # Don't retry - API key is invalid
-            if logger:
-                logger.error("Authentication failed - invalid API key")
-            raise ValueError(
-                "ANTHROPIC_API_KEY is invalid or expired. "
-                "Get a new key from https://console.anthropic.com/"
-            ) from e
-
-        except NotFoundError as e:
-            # Don't retry - model not found
-            if logger:
-                logger.error("Model not found: %s", e)
-            raise ValueError(
-                f"The model '{model}' is not available (404). "
-                "Please check config.py or your API key permissions."
-            ) from e
-
-        except BadRequestError as e:
-            # Don't retry - request is malformed
-            if logger:
-                logger.error("Bad request: %s", e)
-            if "credit balance is too low" in str(e):
+            except AuthenticationError as e:
+                # Don't retry - API key is invalid
+                if logger:
+                    logger.error("Authentication failed - invalid API key")
                 raise ValueError(
-                    "Anthropic API credit balance is too low. "
-                    "Please go to Plans & Billing to upgrade or purchase credits."
+                    "ANTHROPIC_API_KEY is invalid or expired. "
+                    "Get a new key from https://console.anthropic.com/"
                 ) from e
-            raise ValueError(
-                f"API request was malformed: {e}\n"
-                "Check that model name, max_tokens, and message format are valid."
-            ) from e
 
-        except APITimeoutError as e:
-            if attempt < max_retries - 1:
-                current_timeout = float(current_timeout) * config.TIMEOUT_ESCALATION_FACTOR
-
-                # Used in print
-                msg = f"Request timed out. Increasing timeout to {current_timeout:.0f}s and retrying ({attempt + 2}/{max_retries})..."
+            except NotFoundError as e:
+                # Don't retry - model not found
                 if logger:
-                    logger.warning("Request timed out. Increasing timeout to %.0fs and retrying (%d/%d)...",
-                                   current_timeout, attempt + 2, max_retries)
-                print(f"\n⚠️  {msg}")
-                continue
+                    logger.error("Model not found: %s", e)
+                raise ValueError(
+                    f"The model '{model}' is not available (404). "
+                    "Please check config.py or your API key permissions."
+                ) from e
 
-            if logger:
-                logger.error("Request timed out: %s", e)
-            raise RuntimeError(
-                "API request timed out. "
-                "The transcript may be too long. Try processing in smaller chunks."
-            ) from e
+            except BadRequestError as e:
+                # Don't retry - request is malformed
+                if logger:
+                    logger.error("Bad request: %s", e)
+                if "credit balance is too low" in str(e):
+                    raise ValueError(
+                        "Anthropic API credit balance is too low. "
+                        "Please go to Plans & Billing to upgrade or purchase credits."
+                    ) from e
+                raise ValueError(
+                    f"API request was malformed: {e}\n"
+                    "Check that model name, max_tokens, and message format are valid."
+                ) from e
 
-        except APIConnectionError as e:
-            if attempt < max_retries - 1:
-                wait_time = config.RETRY_BACKOFF_BASE ** attempt
-                # Used in print
-                msg = f"Connection error, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
+            except APITimeoutError as e:
+                if attempt < max_retries - 1:
+                    current_timeout = float(current_timeout) * config.TIMEOUT_ESCALATION_FACTOR
+
+                    # Used in print
+                    msg = f"Request timed out. Increasing timeout to {current_timeout:.0f}s and retrying ({attempt + 2}/{max_retries})..."
+                    if logger:
+                        logger.warning("Request timed out. Increasing timeout to %.0fs and retrying (%d/%d)...",
+                                       current_timeout, attempt + 2, max_retries)
+                    print(f"\n⚠️  {msg}")
+                    continue
+
                 if logger:
-                    logger.warning("Connection error, retrying in %ds... (%d/%d)",
-                                   wait_time, attempt + 2, max_retries)
-                print(f"\n⚠️  {msg}")
-                time.sleep(wait_time)
-            else:
-                if logger:
-                    logger.error("Connection failed after retries")
+                    logger.error("Request timed out: %s", e)
                 raise RuntimeError(
-                    "Could not connect to Anthropic API. "
-                    "Check your internet connection."
+                    "API request timed out. "
+                    "The transcript may be too long. Try processing in smaller chunks."
                 ) from e
 
-        except RateLimitError as e:
-            if attempt < max_retries - 1:
-                wait_time = _retry_wait_seconds(e, attempt)
-                # Used in print
-                msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
+            except APIConnectionError as e:
+                if attempt < max_retries - 1:
+                    wait_time = config.RETRY_BACKOFF_BASE ** attempt
+                    # Used in print
+                    msg = f"Connection error, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
+                    if logger:
+                        logger.warning("Connection error, retrying in %ds... (%d/%d)",
+                                       wait_time, attempt + 2, max_retries)
+                    print(f"\n⚠️  {msg}")
+                    time.sleep(wait_time)
+                else:
+                    if logger:
+                        logger.error("Connection failed after retries")
+                    raise RuntimeError(
+                        "Could not connect to Anthropic API. "
+                        "Check your internet connection."
+                    ) from e
+
+            except RateLimitError as e:
+                if attempt < max_retries - 1:
+                    wait_time = _retry_wait_seconds(e, attempt)
+                    # Used in print
+                    msg = f"Rate limit hit, waiting {wait_time}s before retry {attempt + 2}/{max_retries}..."
+                    if logger:
+                        logger.warning("Rate limit hit, waiting %ds before retry %d/%d...",
+                                       wait_time, attempt + 2, max_retries)
+                    print(f"\n⚠️  {msg}")
+                    time.sleep(wait_time)
+                else:
+                    if logger:
+                        logger.error(
+                            "Rate limit exceeded after %d retries", max_retries)
+                    raise
+
+            except APIError as e:
+                error_text = str(e).lower()
+                body = getattr(e, "body", None)
+                body_error_type = ""
+                if isinstance(body, dict):
+                    body_error = body.get("error", {})
+                    if isinstance(body_error, dict):
+                        body_error_type = str(body_error.get("type", "")).lower()
+
+                is_overloaded = (
+                    "overloaded" in error_text
+                    or body_error_type == "overloaded_error"
+                )
+                # 5xx server errors: the SDK used to retry these itself; with SDK
+                # retries off (get_anthropic_client) the wrapper must (review F12).
+                status_code = getattr(e, "status_code", None)
+                is_server_error = isinstance(status_code, int) and status_code >= 500
+                is_retryable = is_overloaded or is_server_error
+
+                if is_retryable and attempt < max_retries - 1:
+                    wait_time = _retry_wait_seconds(e, attempt)
+                    if logger:
+                        logger.warning(
+                            "API overloaded or server error, retrying in %ds... (%d/%d)",
+                            wait_time,
+                            attempt + 2,
+                            max_retries,
+                        )
+                    print(
+                        f"\n⚠️  API overloaded, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
+                    )
+                    time.sleep(wait_time)
+                    continue
+
                 if logger:
-                    logger.warning("Rate limit hit, waiting %ds before retry %d/%d...",
-                                   wait_time, attempt + 2, max_retries)
-                print(f"\n⚠️  {msg}")
-                time.sleep(wait_time)
-            else:
-                if logger:
-                    logger.error(
-                        "Rate limit exceeded after %d retries", max_retries)
+                    logger.error("API error: %s", e)
+
+                if is_overloaded:
+                    raise RuntimeError(
+                        "Anthropic API is currently overloaded after retries. "
+                        "Please retry in a few minutes."
+                    ) from e
+
                 raise
 
-        except APIError as e:
-            error_text = str(e).lower()
-            body = getattr(e, "body", None)
-            body_error_type = ""
-            if isinstance(body, dict):
-                body_error = body.get("error", {})
-                if isinstance(body_error, dict):
-                    body_error_type = str(body_error.get("type", "")).lower()
-
-            is_overloaded = (
-                "overloaded" in error_text
-                or body_error_type == "overloaded_error"
-            )
-            # 5xx server errors: the SDK used to retry these itself; with SDK
-            # retries off (get_anthropic_client) the wrapper must (review F12).
-            status_code = getattr(e, "status_code", None)
-            is_server_error = isinstance(status_code, int) and status_code >= 500
-            is_retryable = is_overloaded or is_server_error
-
-            if is_retryable and attempt < max_retries - 1:
-                wait_time = _retry_wait_seconds(e, attempt)
-                if logger:
-                    logger.warning(
-                        "API overloaded or server error, retrying in %ds... (%d/%d)",
-                        wait_time,
-                        attempt + 2,
-                        max_retries,
-                    )
-                print(
-                    f"\n⚠️  API overloaded, retrying in {wait_time}s... ({attempt + 2}/{max_retries})"
-                )
-                time.sleep(wait_time)
-                continue
-
-            if logger:
-                logger.error("API error: %s", e)
-
-            if is_overloaded:
-                raise RuntimeError(
-                    "Anthropic API is currently overloaded after retries. "
-                    "Please retry in a few minutes."
-                ) from e
-
+    except Exception as exc:
+        # Soft limits: a near-miss reply from an earlier try passed every other
+        # check; a later try that fails (API error, cut-off, refusal) does not
+        # discard it (RS.1 review).
+        if closest is None:
             raise
+        (logger or logging.getLogger(__name__)).warning(
+            "A later try failed (%s); kept the earlier reply closest to %s words "
+            "(%d words).", exc, _range_text(), len(response_text(closest[1]).split()))
+        return _accept(closest[1])
 
 
 def load_prompt(prompt_filename: str) -> str:

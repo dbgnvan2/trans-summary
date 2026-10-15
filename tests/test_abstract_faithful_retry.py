@@ -1,6 +1,8 @@
-"""Abstract generation regenerates (with corrective feedback) until it passes the
+"""Abstract generation retries (with corrective feedback) until it passes the
 gate's faithfulness + entity checks — so an unfaithful abstract is caught and
-fixed at generation time, not only at publish."""
+fixed at generation time, not only at publish. Since RS.6 a retry revises the
+flagged sentences of the previous draft (``_revise_flagged``); these loop tests
+stub it to hand off to their fake ``generate_abstract``."""
 
 import logging
 
@@ -28,6 +30,9 @@ def _setup(monkeypatch, tmp_path, base="Talk Title - Some Author - 2025-01-01"):
     monkeypatch.setattr(ep, "create_system_message_with_cache",
                         lambda *a, **k: [{"type": "text", "text": "sys"}])
     monkeypatch.setattr(ep, "get_anthropic_client", lambda *a, **k: object())
+    monkeypatch.setattr(ep, "_revise_flagged",
+                        lambda what, draft, claims, **k: ep.abstract_pipeline.generate_abstract(
+                            None, None, feedback_claims=claims))
     return base, proj
 
 
@@ -194,3 +199,36 @@ def test_aq4_failed_first_attempt_fails_the_stage(monkeypatch, tmp_path, caplog)
     # no draft to keep: the error itself is reported, not a kept-draft message
     assert any("Error generating structured abstract" in r.getMessage() for r in caplog.records)
     assert not any("kept the" in r.getMessage() for r in caplog.records)
+
+
+def test_rs6d_abstract_retry_revises_previous_draft(monkeypatch, tmp_path):
+    """RS.6 (docs/plan_run_safe_2026-10-14.md): try 2 revises try 1's flagged sentences."""
+    base, proj = _setup(monkeypatch, tmp_path)
+    generated, revised = [], []
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
+                        lambda ai, client, model=None, system=None, feedback_claims=None:
+                        generated.append(feedback_claims) or "draft one")
+    monkeypatch.setattr(ep, "_revise_flagged",
+                        lambda what, draft, claims, **k: revised.append((what, draft, claims, k))
+                        or " draft two \n")
+    seq = iter([("fail", ["claim X is unsupported"]), ("pass", [])])
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
+
+    assert ep.generate_structured_abstract(base, logger=_log(), model="m") is True
+    assert generated == [None]
+    what, draft, claims, k = revised[0]
+    assert (what, draft, claims) == ("abstract", "draft one", ["claim X is unsupported"])
+    assert k["max_words"] == config.ABSTRACT_HARD_MAX_WORDS - 1 and k["word_limits"] == "soft"
+    assert k["model"] == "m" and k["system"] == [{"type": "text", "text": "sys"}]
+    saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
+    assert saved == "draft two"
+
+
+def test_rs1h_abstract_stage_log_names_a_kept_length_miss(monkeypatch, tmp_path, caplog):
+    base, proj = _setup(monkeypatch, tmp_path)
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
+                        lambda *a, **k: " ".join(["word"] * 265))
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: ("pass", []))
+    with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
+        assert ep.generate_structured_abstract(base, logger=_log()) is True
+    assert any("265 words" in r.getMessage() for r in caplog.records)

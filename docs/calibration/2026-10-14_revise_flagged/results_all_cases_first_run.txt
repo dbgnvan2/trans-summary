@@ -1,0 +1,37 @@
+# First run: overview on claude-sonnet-4-6 (the config default; the script did not yet set the main model as scripts/e2e_run.py does). The overview rows here are NOT the production model; the abstract rows are (aux=claude-haiku-5-5).
+RS.6 measurement 2026-10-14 16:56:00; models main=claude-sonnet-4-6 aux=claude-haiku-5-5
+
+== e2e_run8 overview: Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13
+   kept draft (1459 words) judged again: fail; claims: ['Kerr says Bowen told him, "You have to heal in the system," not leave it.', 'Michael Kerr says Murray Bowen told him, "You have to heal in the system."']
+   revise 1: pass  words=1455 changed=3% claims=[]
+   revise 2: pass  words=1455 changed=3% claims=[]
+   revise 3: pass  words=1455 changed=3% claims=[]
+   revise 4: pass  words=1470 changed=2% claims=[]
+   revise 5: pass  words=1455 changed=3% claims=[]
+   rewrite 1: fail  words=2226 changed=65% claims=['Kerr says chronic anxiety, not individual fault, is the invisible force driving most family conflict and physical illness.']
+   rewrite 2: pass  words=2236 changed=76% claims=[]
+   rewrite 3: fail  words=2139 changed=70% claims=["Kerr draws a firm distinction between physical distance from a family and genuine self-differentiation, citing Bowen's critical letter to him during his Navy posting as the moment that distinction became clear."]
+   rewrite 4: pass  words=1935 changed=90% claims=[]
+   rewrite 5: pass  words=2284 changed=92% claims=[]
+
+== e2e_run7 abstract: Beautiful Boy Review - Kathleen Kerr - 2023-02-16
+   kept draft (224 words) judged again: fail; claims: ["The question-and-answer session addressed the book and its author, the meaning of getting high on methamphetamines, and the son's own book, with participants asking about detachment versus differentiation, trauma-informed versus systems approaches, and how a therapist can formulate such a family."]
+   revise 1: pass  words=206 changed=5% claims=[]
+   revise 2: pass  words=206 changed=5% claims=[]
+   revise 3: fail  words=206 changed=5% claims=["She also reviews the experience of Carolyn Jacobs with her own son's addiction, and closes with a discussion of detachment, multigenerational questions, and therapy approaches."]
+   rewrite 1: pass  words=215 changed=67% claims=[]
+   rewrite 2: pass  words=218 changed=76% claims=[]
+   rewrite 3: pass  words=204 changed=70% claims=[]
+
+== e2e_run2 abstract: Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25
+   kept draft (234 words) judged again: fail; claims: ['The question-and-answer session, which accounted for roughly fifteen percent of the presentation, addressed how Bowen theory might integrate with systems biology, the parallels between societal regression and single cells trapped in self-serving states, and the influence of unresolved emotional attachment on adaptation to illness.']
+   revise 1: pass  words=225 changed=2% claims=[]
+   revise 2: pass  words=225 changed=2% claims=[]
+   revise 3: pass  words=225 changed=2% claims=[]
+   rewrite 1: pass  words=217 changed=69% claims=[]
+   rewrite 2: pass  words=220 changed=79% claims=[]
+   rewrite 3: pass  words=241 changed=73% claims=[]
+
+revise: 10/11 passed the check on one retry
+rewrite: 9/11 passed the check on one retry
+cost: $1.32 (token log since 2026-10-14 16:56:00)

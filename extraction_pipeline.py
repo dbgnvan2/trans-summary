@@ -1259,12 +1259,19 @@ def generate_structured_summary(
         def _write(text):
             output_path.write_text(text, encoding="utf-8")
 
-        ok = _generate_until_faithful(
-            "summary", base_name, config.SUFFIX_SUMMARY_GEN, logger,
-            lambda feedback: summary_pipeline.generate_summary(
+        lo, hi = config.summary_word_bounds(summary_input.target_word_count)
+        def _generate(feedback):
+            text = summary_pipeline.generate_summary(
                 summary_input, client, model=model, system=transcript_system_message,
-                feedback_claims=feedback),
-            _write,
+                feedback_claims=feedback)
+            _note_length("summary", text, lo, hi, logger)
+            return text
+
+        ok = _generate_until_faithful(
+            "summary", base_name, config.SUFFIX_SUMMARY_GEN, logger, _generate, _write,
+            revise=lambda draft, claims: _revise_flagged(
+                "summary", draft, claims, model=model, system=transcript_system_message,
+                logger=logger, min_words=lo, max_words=hi, word_limits="soft"),
         )
         logger.info("Generated summary saved to %s", output_path)
         return ok
@@ -1315,33 +1322,102 @@ def _blog_precheck(base_name: str, suffix: str, logger=None):
     return ("fail", ungrounded) if status == "warn" else ("pass", [])
 
 
+def _revise_reply_check(draft: str):
+    """A ``check_reply`` for a revision of ``draft``: the reply must be the text, not
+    a comment on it (no opening line from config.REVISE_PREAMBLE_STARTS the draft did
+    not have), must not repeat the revise instructions, and must keep the draft's
+    first line when that is front matter or a heading (RS.6 review)."""
+    template = _load_summary_prompt(config.PROMPT_REVISE_FLAGGED_FILENAME)
+    instructions = [line.strip() for line in template.split("\n---\n")[0].splitlines()
+                    if len(line.strip()) >= 40 and "{{" not in line]
+    first = next((ln.strip() for ln in draft.splitlines() if ln.strip()), "")
+
+    def _comment(line: str) -> bool:
+        return line.lower().startswith(config.REVISE_PREAMBLE_STARTS)
+
+    def check(text: str) -> None:
+        head = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+        if any(line in text for line in instructions):
+            raise ValueError("the revision repeats the revise instructions")
+        if _comment(head) and not _comment(first):
+            raise ValueError(f"the revision starts with a comment: {head[:60]!r}")
+        if first.startswith(("---", "#")) and head != first:
+            raise ValueError(f"the revision dropped the draft's first line {first[:60]!r}")
+    return check
+
+
+def _revise_flagged(what: str, draft: str, claims: list, *, model: str, system,
+                    logger, **limits) -> str:
+    """Ask the model to change only the sentences of ``draft`` that make the flagged
+    ``claims`` (say what the transcript supports, or drop the sentence) and keep the
+    rest word for word. ``system`` carries the cached transcript; ``limits`` are the
+    artifact's length settings (min_words, max_words, word_limits, min_length).
+
+    Purpose: A retry fixes the flagged sentences instead of writing a new draft
+             with new problems (run 8, Why Families overview).
+    Spec:    docs/plan_run_safe_2026-10-14.md#RS.6
+    Tests:   tests/test_run_safe_rs.py::test_rs6b_revise_prompt_has_draft_claims_and_keep_rule
+    """
+    template = _load_summary_prompt(config.PROMPT_REVISE_FLAGGED_FILENAME)
+    # The draft goes in last, so nothing in it is read as a placeholder.
+    prompt = (template.replace("{{artifact}}", what)
+              .replace("{{claims}}", "\n".join(f"- {c}" for c in claims))
+              .replace("{{draft}}", draft))
+    return _generate_summary_with_claude(prompt, model, config.TEMP_BALANCED, logger,
+                                         system=system,
+                                         check_reply=_revise_reply_check(draft), **limits)
+
+
+def _note_length(what: str, text: str, min_words: int, max_words: int, logger) -> None:
+    """Say in the stage log when a kept draft is outside its word range. The soft
+    limit's own warning goes to the pipeline module's logger, which the GUI does not
+    show (RS.1 review)."""
+    words = len(text.split())
+    if (min_words and words < min_words) or (max_words and words > max_words):
+        wanted = (f"{min_words}-{max_words}" if min_words and max_words
+                  else f"at least {min_words}" if min_words else f"at most {max_words}")
+        logger.warning("%s is %d words (wanted %s); kept, as the closest of the tries.",
+                       what.capitalize(), words, wanted)
+
+
 def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
-                             generate, write, precheck=None, advisory=False) -> bool:
-    """Generate ``what``, save it, judge it; on rejected claims regenerate with
-    them as feedback, up to config.GENERATION_FAITHFULNESS_ATTEMPTS. If every
-    attempt fails, keep the draft with the fewest rejected claims, log loudly and
-    return False (as the abstract, plan R11).
+                             generate, write, precheck=None, advisory=False,
+                             revise=None) -> bool:
+    """Generate ``what``, save it, judge it; on rejected claims try again, up to
+    config.GENERATION_FAITHFULNESS_ATTEMPTS. With ``revise(draft, claims)`` a retry
+    fixes the flagged sentences of the previous draft (RS.6); without it, it
+    regenerates with the claims as feedback. If every attempt fails, keep the draft
+    with the fewest rejected claims, log loudly and return False (as the abstract,
+    plan R11).
 
     Purpose: Catch unfaithful summary/blog claims at generation, not at publish.
-    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2
-    Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_fails
+    Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2,
+             docs/plan_run_safe_2026-10-14.md#RS.6
+    Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_fails,
+             tests/test_run_safe_rs.py::test_rs6a_second_try_revises_previous_draft
     """
     attempts = max(1, int(config.GENERATION_FAITHFULNESS_ATTEMPTS))
-    feedback, best_text, best_count = None, None, None
+    feedback, best_text, best_count, last_text = None, None, None, None
     for attempt in range(1, attempts + 1):
         try:
-            text = generate(feedback)
-        except Exception as e:  # e.g. every retry outside the length band (SL review)
+            if revise is not None and feedback and last_text is not None:
+                text = revise(last_text, feedback)
+            else:
+                text = generate(feedback)
+        except Exception as e:  # e.g. the API failed on every retry (SL review)
             if best_text is None:
                 raise
             logger.error("%s attempt %d/%d failed (%s); keeping the best earlier draft.",
                          what.capitalize(), attempt, attempts, e)
             break
         write(text)
+        last_text = text
         # A draft that echoes the correction instructions or the rejected claims
         # is not accepted, whatever the judge says (sweep, P19).
         echoed = [c for c in (feedback or []) if c and c in text]
-        if feedback and ("CORRECTION REQUIRED" in text or echoed):
+        # "CORRECTION REQUIRED" is the regenerate fallback's instruction (no revise).
+        unjudged = bool(feedback and ("CORRECTION REQUIRED" in text or echoed))
+        if unjudged:
             status, issues = "fail", echoed or ["the draft repeats the correction instructions"]
         else:
             status, issues = (precheck or _faithfulness_precheck)(base_name, suffix, logger)
@@ -1357,12 +1433,16 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
             logger.warning("Faithfulness check unavailable at generation; keeping the "
                            "%s — the release gate will verify it at publish.", what)
             return True
-        if best_text is None or len(issues) < best_count:
+        # Only a judged draft can be kept: an echo-rejected one was never judged, so
+        # its count is not its real one (RS.6 review).
+        if not unjudged and (best_text is None or len(issues) < best_count):
             best_text, best_count = text, len(issues)
         feedback = issues
-        logger.warning("%s attempt %d/%d not faithful (%d claim(s)); regenerating with "
-                       "corrective feedback. Claims: %s", what.capitalize(), attempt,
-                       attempts, len(issues), "; ".join(issues)[:300])
+        logger.warning("%s attempt %d/%d not faithful (%d claim(s)); %s. Claims: %s",
+                       what.capitalize(), attempt, attempts, len(issues),
+                       "revising the flagged sentences" if revise is not None
+                       else "regenerating with corrective feedback",
+                       "; ".join(issues)[:300])
     write(best_text)
     if advisory:
         # RF.N: a warning, not a failure — the run continues.
@@ -1502,15 +1582,25 @@ def generate_structured_abstract(
         # checks so they can't drift.
         max_attempts = max(1, int(getattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)))
         feedback = None
-        best_text, best_issue_count = None, None
+        best_text, best_issue_count, last_text = None, None, None
         generation_error = None
         for attempt in range(1, max_attempts + 1):
             logger.info("Generating abstract via API (attempt %d/%d)...", attempt, max_attempts)
             try:
-                abstract_text = abstract_pipeline.generate_abstract(
-                    abstract_input, client, model=model,
-                    system=transcript_system_message, feedback_claims=feedback,
-                )
+                if feedback and last_text is not None:
+                    # Fix the flagged sentences of the last draft, keep the rest (RS.6).
+                    abstract_text = _revise_flagged(
+                        "abstract", last_text, feedback, model=model,
+                        system=transcript_system_message, logger=logger, min_length=150,
+                        max_words=config.ABSTRACT_HARD_MAX_WORDS - 1,
+                        word_limits="soft").strip()
+                else:
+                    abstract_text = abstract_pipeline.generate_abstract(
+                        abstract_input, client, model=model,
+                        system=transcript_system_message, feedback_claims=feedback,
+                    )
+                    _note_length("abstract", abstract_text, 0,
+                                 config.ABSTRACT_HARD_MAX_WORDS - 1, logger)
             except Exception as e:  # noqa: BLE001
                 # A later attempt that fails outright (e.g. every retry over the word
                 # limit, AQ) keeps the best earlier draft, as the summary does (SL2).
@@ -1521,6 +1611,7 @@ def generate_structured_abstract(
                 generation_error = (attempt, e)
                 break
             output_path.write_text(abstract_text, encoding="utf-8")
+            last_text = abstract_text
 
             status, issues = _abstract_gate_precheck(base_name, logger)
             if status == "pass":
@@ -1537,7 +1628,7 @@ def generate_structured_abstract(
                 best_text, best_issue_count = abstract_text, len(issues)
             feedback = issues
             logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); "
-                           "regenerating with corrective feedback. Issues: %s",
+                           "revising the flagged sentences. Issues: %s",
                            attempt, max_attempts, len(issues), "; ".join(issues)[:300])
 
         # All attempts failed — keep the least-bad draft; honest, loud status.
@@ -2079,6 +2170,10 @@ def summarize_transcript(
                 _write_blog,
                 precheck=_blog_precheck,
                 advisory=True,
+                revise=lambda draft, claims: _revise_flagged(
+                    "blog post", draft, claims, model=model,
+                    system=transcript_system_message, logger=logger,
+                    min_length=config.MIN_BLOG_CHARS),
             )
             if blog_saved_ok:
                 logger.info("✓ Blog post saved to: %s", blog_paths[-1])
@@ -2137,9 +2232,14 @@ def summarize_transcript(
                     config.TEMP_BALANCED,
                     logger,
                     min_words=config.OVERVIEW_MIN_WORDS,
+                    word_limits="soft",  # a short overview is kept with a warning (RS.1)
                     system=transcript_system_message,
                 ),
                 _write_overview,
+                revise=lambda draft, claims: _revise_flagged(
+                    "overview post", draft, claims, model=model,
+                    system=transcript_system_message, logger=logger,
+                    min_words=config.OVERVIEW_MIN_WORDS, word_limits="soft"),
             )
             logger.info("✓ Overview post saved to: %s", overview_paths[-1])
             if not overview_ok:

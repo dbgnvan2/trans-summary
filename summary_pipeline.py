@@ -816,9 +816,10 @@ def generate_summary(
         temperature=config.TEMP_BALANCED,
         stream=True,
         # Within 15% under / 20% over the target (config.summary_word_bounds); a reply
-        # outside it is retried.
+        # outside it is retried, then the closest one is kept with a warning (RS.1).
         min_words=min_words,
         max_words=max_words,
+        word_limits="soft",
         logger=logger,    # named logger -> real script name in token-usage log
         **kwargs,
     )

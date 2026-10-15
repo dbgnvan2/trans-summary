@@ -1,6 +1,7 @@
 # Plan: runs finish on output a person would accept (RS)
 
-**Status:** awaiting approval (2026-10-14).
+**Status:** approved 2026-10-14 (author: "approved, go ahead with RS.3 auto-restore");
+built 2026-10-14. Status per criterion under "Built" at the end.
 
 **Goal (author, 2026-10-14):** "I just want to get to a point where the run doesn't fail,
 especially on warnings. If a human generated all these items they wouldn't be perfect. The
@@ -125,7 +126,7 @@ Change: try 1 writes the draft as today. Tries 2 and 3 send the previous draft a
 flagged statements (with the transcript, already cached) and ask the model to change only
 the sentences that make them: say what the transcript supports, or remove the sentence.
 Every other sentence stays as written, so it cannot gain new problems. New prompt
-`prompts/revise_flagged_claims_v1.md`, one shared helper, used by summary, overview, blog
+`prompts/Revise Flagged Statements v1.md`, one shared helper, used by summary, overview, blog
 and abstract. The existing checks stay: a draft that repeats a flagged claim or the
 instructions is rejected; the judge checks the whole revised draft; if claims remain after
 the last try, the gate still blocks (overview, summary, abstract) or warns (blog).
@@ -154,3 +155,50 @@ DOCUMENT_REFERENCE) in the same commit.
 - Header validation noise (13–30 "problematic terms" warnings per talk; sections marked
   FAIL). It never fails a run; quieting it is a separate change.
 - Advisory checks (key terms, abstract coverage, Q&A note) stay advisory.
+
+## Built (2026-10-14)
+
+| ID | Status | Evidence |
+|---|---|---|
+| RS.1.a | done | `tests/test_run_safe_rs.py::test_rs1a_soft_keeps_closest_after_last_try`, `::test_rs1a_soft_keeps_closest_over_the_top` |
+| RS.1.b | done | `::test_rs1b_soft_returns_first_reply_in_range` |
+| RS.1.c | done | `::test_rs1c_hard_still_raises`, `::test_rs1c_unknown_mode_is_refused` |
+| RS.1.d | done | `::test_rs1d_soft_does_not_soften_other_checks`, `::test_rs1d_soft_does_not_keep_too_few_characters`, `::test_rs1d_soft_keeps_earlier_miss_when_last_try_fails_otherwise` |
+| RS.1.e | done | `::test_rs1e_summary_and_abstract_use_soft_limits`, `::test_rs1e_formatting_keeps_hard_limits`, `tests/test_overview_post.py::test_rs1e_overview_word_floor_is_soft` |
+| RS.1.f | done | `::test_rs1f_kept_reply_logged_as_call_not_rejected` |
+| RS.2.a | done | `::test_rs2a_retried_miss_logs_warning` |
+| RS.2.b | done | `::test_rs2b_final_miss_logs_error`, `::test_rs2c_soft_keep_logs_no_error` |
+| RS.3.a | done | `::test_rs3a_dropped_word_restored_and_format_passes` |
+| RS.3.b | done | `::test_rs3b_restore_is_logged_and_recorded` |
+| RS.3.c | done | `::test_rs3c_heading_boundary_difference_still_needs_review`, `::test_rs3c_restores_plain_ones_and_leaves_boundary_one` |
+| RS.3.d | done | `::test_rs3d_gross_limits_still_fail` |
+| RS.3.e | done | `::test_rs3e_release_gate_source_fidelity_passes_after_restore` |
+| RS.3.f | done | GUI stage covered by RS.3.a–d (they run `_run_format_and_validate`); `validate_format` stays read-only: `::test_rs3f_validate_format_stays_read_only` |
+| RS.4.a | done | `::test_rs4a_extra_zero_group_rewritten` |
+| RS.4.b | done | `::test_rs4b_not_rewritten_when_raw_lacks_the_time` |
+| RS.5.a | done | `::test_rs5a_one_qa_marker_is_high_confidence` |
+| RS.5.b | done | `::test_rs5b_no_qa_marker_is_low`, `::test_rs5b_correct_note_leaves_no_review_item` |
+| RS.5.c | done | `::test_rs5c_topic_items_unchanged` |
+| RS.6.a | done | `::test_rs6a_second_try_revises_previous_draft`, `::test_rs6a_third_try_revises_the_second_draft` |
+| RS.6.b | done | `::test_rs6b_revise_prompt_has_draft_claims_and_keep_rule` |
+| RS.6.c | done | `::test_rs6c_revision_repeating_a_claim_is_rejected` |
+| RS.6.d | done | `::test_rs6d_summary_passes_revise`, `tests/test_abstract_faithful_retry.py::test_rs6d_abstract_retry_revises_previous_draft`, `tests/test_run_fixes_rf.py::test_rfj2_blog_regenerates_with_feedback` (blog revise prompt), `tests/test_overview_post.py::test_rs6d_overview_retry_revises_previous_draft` |
+| RS.6.e | done | `::test_rs6e_all_tries_fail_still_blocks_or_warns` |
+| RS.6 measurement | done | Measured (`docs/calibration/2026-10-14_revise_flagged/`, $2.17): from three kept drafts that had failed every try (run 8 Why Families overview; runs 7 and 2 abstracts), one retry on the production models passed 10 of 11 times by revising and 10 of 11 by rewriting. Revising changed 1–5% of the draft, rewriting 44–79%; revise's one failure was a sentence it had not touched (already in the draft, flagged in run 7 too). The gain is that a retry no longer starts over: only the changed sentences can bring a new problem. Results: `results_overview_sonnet55.txt`, `results_all_cases_first_run.txt` (its overview rows ran on claude-sonnet-4-6, not the production model; re-run on claude-sonnet-5-5). |
+
+### Review fixes (learning-qa, 2026-10-14)
+
+| Finding | Fix | Test (`tests/test_run_safe_rs.py` unless named) |
+|---|---|---|
+| A held near-miss reply was lost, unlogged, when a later try raised (timeout, cut-off) | one success path (`_accept`); a later failure returns the held reply | `test_rs1d_held_reply_kept_when_later_try_times_out`, `_when_later_reply_is_cut_off`, `test_rs1d_no_held_reply_still_raises_on_api_error` |
+| Soft limits had no outer bound (a 56-word non-answer kept as an overview) | keep only within `config.SOFT_WORD_LIMIT_TOLERANCE` (25%) of the range | `test_rs1g_far_miss_is_not_kept` |
+| The Format stage's first check logged "Validation FAILED" (errors) before restoring | `validate_format(review_as_warning=True)` on the first check; the final check reports in full | `test_rs3a_*` (no error records, no ❌), `test_rs3c_heading_boundary_*` (errors when nothing restorable) |
+| Placeholders in CHANGELOG and plan; wrong prompt file name | filled after the measurement; name corrected | — |
+| The kept-length warning for summary and abstract went to module loggers the GUI does not show | the stage logs it (`_note_length`) | `test_rs1h_stage_log_names_a_kept_length_miss`, `tests/test_abstract_faithful_retry.py::test_rs1h_*` |
+| A revision got no check for a comment before the text, echoed instructions, or a dropped front matter / heading | `_revise_reply_check` as the revision's `check_reply`; phrases in `config.REVISE_PREAMBLE_STARTS` | `test_rs6f_revision_reply_check`, `test_rs6f_revise_passes_the_reply_check` |
+| A draft rejected for repeating a claim was never judged but could be kept as "best" | only judged drafts compete | `test_rs6g_unjudged_echo_draft_is_never_kept` (two RF.J.2 tests had one-letter claims that matched inside "draft 2"; fixed) |
+| Q&A markers matched inside words ("question periodically") | whole-word match | `test_rs5d_qa_markers_match_whole_words` |
+| Restore trusted a possibly stale check record | restore only when the record's hashes match the current formatted text and raw source | `test_rs3g_stale_check_record_restores_nothing` |
+| Automatic restores counted with a person's rejects | counted apart (`auto_restored`) | `test_rs3b_restore_is_logged_and_recorded` |
+
+Not changed: a revision that removes sentences from an overview just over 800 words can fall under the floor and costs two more calls before the closest is kept; the abstract loop still lacks the echo check (TODO).

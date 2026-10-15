@@ -21,7 +21,7 @@ A robust, automated pipeline for processing audio/video transcripts into high-qu
 - **Source-folder favorites**: "Make Default" saves the current source folder as the auto-loaded default **and** adds it to a favorites list in the Folder Defaults dialog for quick switching. Spec: `docs/spec_folder_defaults_2026-07-16.md`.
 - **Status bar**: The bottom bar tracks the current major step during a run (`Step i/N: <stage>`) and shows a specific final message. Spec: `docs/spec_status_bar_2026-07-16.md`.
 - **Advisory validation**: A failed abstract-coverage check no longer halts the whole pipeline — it's advisory (parity with header validation), so independent downstream stages still complete. Publish is still governed by the release gate.
-- **Abstract length**: Abstracts are capped **under 250 words** — the target (`config.abstract_target_word_count`, ~3% of the transcript) is floored at `ABSTRACT_MIN_WORDS` and capped at `ABSTRACT_MAX_WORDS` (230); validation flags any abstract ≥ 250 words.
+- **Abstract length**: Abstracts are capped **under 250 words** — the target (`config.abstract_target_word_count`, ~3% of the transcript) is floored at `ABSTRACT_MIN_WORDS` and capped at `ABSTRACT_MAX_WORDS` (230); a draft of 250 words or more is retried, and if every try is over, the shortest is kept with a warning (RS.1); validation flags any abstract ≥ 250 words.
 
 ### Reliability & Quality (NEW - 2026-01-10)
 - **Configuration Validation**: Comprehensive startup validation for 70+ config values with auto-fix capability
@@ -301,7 +301,11 @@ ruff format .
 
 The formatted transcript must reproduce the raw transcript word for word. After
 formatting, every difference is either allowed automatically (a removed stutter
-such as "I I went", or a tag such as `[crosstalk]`) or must be decided in review:
+such as "I I went", or a tag such as `[crosstalk]`) or set back to the source's
+words by the Format stage itself (a dropped, added or changed word in ordinary text;
+each one is logged as "Restored the source's words in section N", RS.3). A
+difference at a section heading or speaker label cannot be restored automatically
+and must be decided in review:
 
 - **Accept** keeps the formatted wording.
 - **Reject** restores the raw wording in the formatted transcript.
@@ -327,7 +331,9 @@ edit the formatted file by hand, then re-run format validation.
 
 - GUI: choose the set under *Pattern Set* (or *New...*) before formatting; the set
   last used for the presenter is suggested. *Review Differences* opens the review
-  window, which also opens automatically when validation needs decisions.
+  window, which also opens automatically when validation still needs decisions after
+  the Format stage has restored what it can. The CLI format validation
+  (`transcript_validate_format.py`) only checks; it restores nothing.
 - CLI: `python transcript_review_format.py "Title - Presenter - Date"` to review;
   `--assign SET`, `--list-sets`, `--new-set SET`; `python transcript_format.py FILE --pattern-set SET`.
 

@@ -16,6 +16,10 @@ in that group before formatting.
 Decisions are stored in the project's `` - format-review.json``: the approved
 difference keys (valid only for the raw text they were made against) and a
 dated log of every decision.
+
+The Format stage rejects every difference in plain text by itself
+(``restore_source_words``, RS.3), so the run goes on with the source's words;
+a difference at a heading or speaker label still waits for a person.
 """
 from __future__ import annotations
 
@@ -31,6 +35,8 @@ import pattern_sets
 from transcript_utils import strip_yaml_frontmatter
 
 ACTIONS = ("accept", "reject", "edit")
+# Reviewer name on decisions the Format stage makes by itself (RS.3).
+AUTO_REVIEWER = "auto (RS.3)"
 
 
 def _sha(text: str) -> str:
@@ -71,10 +77,13 @@ def load_approvals(stem: str, raw_text: str) -> set:
 
 
 def review_counts(stem: str) -> dict:
-    """Counts of accepted / edited / rejected decisions (for the YAML note)."""
-    counts = {"accept": 0, "edit": 0, "reject": 0}
+    """Counts of a person's accepted / edited / rejected decisions (for the YAML
+    note), and of the differences the Format stage restored by itself (RS.3)."""
+    counts = {"accept": 0, "edit": 0, "reject": 0, "auto_restored": 0}
     for entry in _load_review(stem).get("log", []):
-        if entry.get("action") in counts:
+        if entry.get("reviewer") == AUTO_REVIEWER:
+            counts["auto_restored"] += 1
+        elif entry.get("action") in counts:
             counts[entry["action"]] += 1
     return counts
 
@@ -105,6 +114,50 @@ def _insertion_point_is_plain(text: str, offset: int) -> bool:
     following = next((t for t in tokens if t[1] >= offset), None)
     gap = text[offset:following[1] if following else len(text)]
     return "#" not in gap and "**" not in gap
+
+
+def _restorable(text: str, item: dict) -> bool:
+    """True if the review's reject action can put the source's words back here."""
+    start, end = item["span"]
+    if start == end:
+        return _insertion_point_is_plain(text, start)
+    return fp.span_is_plain_text(text, start, end)
+
+
+def restore_source_words(stem: str, raw_text: Optional[str] = None) -> dict:
+    """Put the source's words back for every difference that needs review and lies
+    in plain text (the review's reject action, logged as ``AUTO_REVIEWER``).
+
+    Returns {"restored": [items], "left": [items still needing a person],
+    "errors": [...]}. Differences at a heading or speaker label are left.
+
+    Purpose: A dropped or changed word does not stop the run; the transcript
+             keeps the source's words.
+    Spec:    docs/plan_run_safe_2026-10-14.md#RS.3
+    Tests:   tests/test_run_safe_rs.py::test_rs3a_dropped_word_restored_and_format_passes
+    """
+    raw_text = raw_text if raw_text is not None else project_raw(stem)
+    if raw_text is None:
+        raise FileNotFoundError(f"no raw source for {stem}; run format validation first")
+    text = formatted_path(stem).read_text(encoding="utf-8")
+    pending = pending_items(stem, raw_text)
+    # Only act on the check just made: the record must be for this formatted text
+    # and this raw text, or an older raw version's words could be written in.
+    record = fp.load_format_validation_record(stem) or {}
+    if (record.get("formatted_sha256") != fp._sha256_text(strip_yaml_frontmatter(text))
+            or record.get("raw_sha256") != fp._sha256_text(raw_text)):
+        return {"restored": [], "left": pending,
+                "errors": ["the format check record is not for the current transcript "
+                           "and raw source; nothing restored automatically"]}
+    plain = [item for item in pending if _restorable(text, item)]
+    if not plain:
+        return {"restored": [], "left": pending, "errors": []}
+    result = apply_decisions(stem, [{"key": i["key"], "action": "reject"} for i in plain],
+                             raw_text=raw_text, reviewer=AUTO_REVIEWER)
+    left = pending_items(stem, raw_text)
+    left_keys = {i["key"] for i in left}
+    return {"restored": [i for i in plain if i["key"] not in left_keys],
+            "left": left, "errors": result["errors"]}
 
 
 def apply_decisions(stem: str, decisions: list, raw_text: Optional[str] = None,

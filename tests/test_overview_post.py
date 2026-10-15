@@ -406,3 +406,70 @@ def test_tp1_overview_prompt_has_no_theme_closing_notes(tmp_path, monkeypatch):
     assert "Summary paragraph" not in prompt
     for _n, name, _body in tu.theme_display_blocks(src.read_text(encoding="utf-8")):
         assert name in prompt
+
+
+def test_rs1e_overview_word_floor_is_soft(tmp_path, monkeypatch):
+    """RS.1 (docs/plan_run_safe_2026-10-14.md): an overview under OVERVIEW_MIN_WORDS on
+    every try is kept with a warning; the floor no longer fails the stage."""
+    stem = "RS1e-Overview-Soft-Test"
+    projects_dir, _ = _seed_project_dir(tmp_path, stem)
+    captured = _patch_pipeline_for_overview(monkeypatch, projects_dir, _MOCK_OVERVIEW_OUTPUT)
+    monkeypatch.setattr(
+        extraction_pipeline, "parse_filename_metadata", _filename_metadata_stub(stem)
+    )
+    extraction_pipeline.summarize_transcript(
+        formatted_filename=f"{stem}{config.SUFFIX_YAML}",
+        model="claude-sonnet-4-6",
+        focus_keyword="Test Focus",
+        target_audience="General readers",
+        skip_extracts_summary=True,
+        skip_emphasis=True,
+        skip_bowen=True,
+        skip_blog=True,
+        skip_overview=False,
+        logger=MagicMock(),
+    )
+    assert captured["kwargs"].get("min_words") == config.OVERVIEW_MIN_WORDS
+    assert captured["kwargs"].get("word_limits") == "soft"
+
+
+def test_rs6d_overview_retry_revises_previous_draft(tmp_path, monkeypatch):
+    """RS.6: after a failed check the overview's retry revises the flagged sentence of
+    the first draft (run 8, Why Families: three rewrites, a new claim each time)."""
+    stem = "RS6d-Overview-Revise-Test"
+    projects_dir, project_dir = _seed_project_dir(tmp_path, stem)
+    _patch_pipeline_for_overview(monkeypatch, projects_dir, _MOCK_OVERVIEW_OUTPUT)
+    monkeypatch.setattr(
+        extraction_pipeline, "parse_filename_metadata", _filename_metadata_stub(stem)
+    )
+    calls = []
+
+    def _fake_generate(prompt, model, temperature, logger, **kwargs):
+        if kwargs.get("min_words") != config.OVERVIEW_MIN_WORDS:
+            return _MOCK_OVERVIEW_OUTPUT  # not an overview call (e.g. lens generation)
+        calls.append((prompt, kwargs))
+        return _MOCK_OVERVIEW_OUTPUT if len(calls) == 1 else "REVISED OVERVIEW"
+    monkeypatch.setattr(extraction_pipeline, "_generate_summary_with_claude", _fake_generate)
+    verdicts = iter([("fail", ["Three actionable insights are presented."]), ("pass", [])])
+    monkeypatch.setattr(extraction_pipeline, "_faithfulness_precheck",
+                        lambda b, suffix, logger=None: next(verdicts))
+    ok = extraction_pipeline.summarize_transcript(
+        formatted_filename=f"{stem}{config.SUFFIX_YAML}",
+        model="claude-sonnet-4-6",
+        focus_keyword="Test Focus",
+        target_audience="General readers",
+        skip_extracts_summary=True,
+        skip_emphasis=True,
+        skip_bowen=True,
+        skip_blog=True,
+        skip_overview=False,
+        logger=MagicMock(),
+    )
+    assert ok is True and len(calls) == 2
+    prompt, kwargs = calls[1]
+    assert "- Three actionable insights are presented." in prompt
+    assert _MOCK_OVERVIEW_OUTPUT.strip() in prompt
+    assert "Leave every other sentence exactly as it is" in prompt
+    assert kwargs["min_words"] == config.OVERVIEW_MIN_WORDS and kwargs["word_limits"] == "soft"
+    overview = (project_dir / f"{stem}{config.SUFFIX_OVERVIEW}").read_text(encoding="utf-8")
+    assert overview == "REVISED OVERVIEW"

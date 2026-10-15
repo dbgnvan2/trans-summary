@@ -967,6 +967,11 @@ DEFAULT_SUMMARY_WORD_COUNT = 650
 SUMMARY_LENGTH_MIN_RATIO = 0.9
 SUMMARY_LENGTH_ACCEPT_MIN_RATIO = 0.85
 SUMMARY_LENGTH_MAX_RATIO = 1.2
+# Soft word limits (summary, abstract, overview; RS.1): after the last try, the reply
+# closest to the range is kept only if it is within this share of it (e.g. a 650-word
+# summary's 553 floor keeps down to 415 words). Further out it fails as before: a stub
+# or non-answer must not be kept.
+SOFT_WORD_LIMIT_TOLERANCE = 0.25
 
 # Token Limits
 # Sized from observed peak output tokens on 10K+ word transcripts:
@@ -1080,6 +1085,12 @@ PROMPT_ABSTRACT_VALIDATION_FILENAME = "abstract_quality_assessment_prompt_v2.md"
 PROMPT_VOICE_AUDIT_FILENAME = "Transcript Voice Audit Prompt v1.md"
 PROMPT_STRUCTURED_SUMMARY_FILENAME = "Summary Generation Prompt v1.md"
 PROMPT_STRUCTURED_ABSTRACT_FILENAME = "Abstract Generation Prompt v1.md"
+# Fixes the sentences the faithfulness check flagged, keeping the rest (RS.6).
+PROMPT_REVISE_FLAGGED_FILENAME = "Revise Flagged Statements v1.md"
+# A revision whose first line starts with one of these is a comment on the text, not
+# the text (lower case; RS.6 review).
+REVISE_PREAMBLE_STARTS = ("here is", "here's", "below is", "sure", "certainly",
+                          "i have revised", "i've revised", "i revised", "revised version")
 PROMPT_VALIDATION_COVERAGE_FILENAME = "Validation Coverage Prompt v1.md"
 PROMPT_PROBLEMATIC_HEADER_TERMS_FILENAME = "problematic_header_terms_v2.md"
 PROMPT_EMPHASIS_SCORING_FILENAME = "emphasis_dedection_v3_production.md"

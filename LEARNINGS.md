@@ -89,6 +89,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Checks held the output to a stricter bar than a person would, so runs kept stopping (2026-10-14, RS).**
+- Issue: across end-to-end runs 4–8, every stage failure after the faithfulness fixes came from checks a careful person would wave through: one dropped "that," in 12,000 words stopped Format and blocked four publish stages; summaries of 580 and 562 words failed a 585-word floor; abstracts of 266–274 words were retried against a 249 limit; a retry for one flagged overview sentence rewrote the whole overview and made a new claim each time.
+- Root cause: limits written as hard guards (raise after N tries) where they were really targets, and a retry that regenerated the whole artifact instead of fixing what was flagged. Each fix tightened a check; none asked whether failing the run was the right outcome.
+- What would have caught it: asking, for each check, "would a person reject this output?" and "does a retry converge or start over?". The measurement answered the second: one retry passed about equally often either way (10 of 11 each), but revising changed 1–5% of a draft and rewriting 44–79%, so a rewrite can bring a new problem anywhere. The first measurement also ran the overview on the wrong model (the script did not set the main model as the e2e runner does); check the model line of a measurement before reading it.
+- Fix: soft word limits (keep the closest near miss with a warning, `word_limits="soft"`, within `SOFT_WORD_LIMIT_TOLERANCE`); Format restores the source's words for differences in ordinary text; retries revise only the flagged sentences (`_revise_flagged`). Faithfulness stays strict. The review then found the soft path's own holes: a held reply lost on a later API error, no outer bound (a 56-word non-answer kept as an 800-word overview), and unjudged drafts competing as "best".
+- Rule: a length or format target is not a guard; keep a near miss and warn. Retry by fixing what the check flagged, not by starting over. When softening a check, bound it and keep every other check hard.
+
 **A prompt change based on a guess about the model did the opposite (2026-10-14, SL3).**
 - Issue: summaries for long talks came in just under the stated 585-word floor. I guessed that stating the floor pulled drafts down toward it, removed it from the prompt and lowered the accepted floor.
 - Root cause: an untested belief about model behaviour. Measured, the drafts without the stated minimum were shorter (490–608 words against 539–636).

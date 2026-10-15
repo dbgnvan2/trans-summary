@@ -786,6 +786,10 @@ def _summary_project(tmp_path, monkeypatch, verdicts):
         return drafts[-1]
 
     monkeypatch.setattr(ep.summary_pipeline, "generate_summary", _gen)
+
+    def _revise(what, draft, claims, **k):  # RS.6: a retry revises the last draft
+        return _gen(None, None, feedback_claims=claims)
+    monkeypatch.setattr(ep, "_revise_flagged", _revise)
     seq = list(verdicts)
     monkeypatch.setattr(ep, "_faithfulness_precheck",
                         lambda b, suffix, logger=None: seq.pop(0) if seq else verdicts[-1])
@@ -793,16 +797,26 @@ def _summary_project(tmp_path, monkeypatch, verdicts):
 
 
 def test_rfj2_summary_regenerates_with_feedback(tmp_path, monkeypatch):
+    """The flagged claims go back to the model. Since RS.6 the retry revises the
+    flagged sentences of the previous draft instead of writing a new one."""
     base, proj, feedbacks = _summary_project(
         tmp_path, monkeypatch, [("fail", ["Kerr was Bowen's student in the 1950s."]), ("pass", [])])
+    revised = []
+    monkeypatch.setattr(ep, "_revise_flagged",
+                        lambda what, draft, claims, **k: revised.append((what, draft, claims))
+                        or "draft 2")
     assert ep.generate_structured_summary(base, logger=MagicMock(), model="m") is True
-    assert feedbacks == [None, ["Kerr was Bowen's student in the 1950s."]]
+    assert feedbacks == [None]
+    assert revised == [("summary", "draft 1", ["Kerr was Bowen's student in the 1950s."])]
     assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "draft 2"
 
 
 def test_rfj2_summary_all_fail_keeps_best_and_fails(tmp_path, monkeypatch):
+    # Claims are whole sentences: a one-letter claim ("a") occurs inside "draft 2", so
+    # the echo check would reject that draft unjudged (RS.6 review).
     base, proj, feedbacks = _summary_project(
-        tmp_path, monkeypatch, [("fail", ["a", "b"]), ("fail", ["c"]), ("fail", ["d", "e", "f"])])
+        tmp_path, monkeypatch, [("fail", ["Claim A.", "Claim B."]), ("fail", ["Claim C."]),
+                                ("fail", ["Claim D.", "Claim E.", "Claim F."])])
     logger = MagicMock()
     assert ep.generate_structured_summary(base, logger=logger, model="m") is False
     assert len(feedbacks) == config.GENERATION_FAITHFULNESS_ATTEMPTS
@@ -827,8 +841,15 @@ def test_rfj2_blog_regenerates_with_feedback(tmp_path, monkeypatch):
     monkeypatch.setattr(ep, "_generate_summary_with_claude", _gen)
     seq = [("fail", ["It is not spiritual bypassing."]), ("pass", [])]
     monkeypatch.setattr(ep, "_blog_precheck", lambda b, suffix, logger=None: seq.pop(0))
+    revise_prompt = (config.PROMPTS_DIR / config.PROMPT_REVISE_FLAGGED_FILENAME).read_text(
+        encoding="utf-8")
+    monkeypatch.setattr(ep, "_load_summary_prompt", lambda name: revise_prompt
+                        if name == config.PROMPT_REVISE_FLAGGED_FILENAME
+                        else "Blog for {{top_lens_title}}")
     assert _run_blog(stem, logger) is True
-    assert "It is not spiritual bypassing." in prompts[1] and "CORRECTION REQUIRED" in prompts[1]
+    # RS.6: the retry revises the first draft's flagged sentence, keeping the rest.
+    assert "- It is not spiritual bypassing." in prompts[1] and "blog draft 1" in prompts[1]
+    assert "Leave every other sentence exactly as it is" in prompts[1]
     assert (proj / f"{stem}{config.SUFFIX_BLOG}").read_text(encoding="utf-8") == "blog draft 2"
 
 
@@ -861,6 +882,7 @@ def test_rfj2_draft_echoing_feedback_is_rejected(tmp_path, monkeypatch):
     texts = iter(["draft one", "I removed: Billy was the youngest.", "clean draft"])
     monkeypatch.setattr(ep.summary_pipeline, "generate_summary",
                         lambda *a, feedback_claims=None, **k: next(texts))
+    monkeypatch.setattr(ep, "_revise_flagged", lambda *a, **k: next(texts))
     calls = []
     monkeypatch.setattr(ep, "_faithfulness_precheck",
                         lambda b, s, logger=None: calls.append(1) or (("fail", ["Billy was the youngest."])
