@@ -6,6 +6,12 @@ All notable changes to this project will be documented in this file.
 
 Plan and measurement: `docs/plan_heading_names_2026-10-14.md`.
 
+- Run 11 (commit 4d4b6fb, three public talks, $6.18): all 48 stages passed and the gate
+  allowed all three talks (ALLOW_WITH_WARNINGS). No name flags at generation or at
+  publish. The model's headings in this run all used words from the talks, so neither
+  the old nor the new check would have flagged them (checked offline): the fix was not
+  exercised live. Two faithfulness retries (Systems Biology summary, Why Families
+  abstract) were content claims the judge flagged; both passed on the first revision.
 - HN.1: in headings and bold labels, a run of words not in the source counts as a name
   only when it looks like one (`abstract_validation.looks_like_name`): a word that is
   not English, a given name that is not a word ("Sarah", "Jennifer"), or two given names or

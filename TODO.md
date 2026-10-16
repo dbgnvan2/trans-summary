@@ -30,6 +30,11 @@ New from this run:
   JSON and the pipeline writes the layout (`docs/plan_structured_themes_2026-10-14.md`).
   Old files keep the TE/TD handling.
 
+**Run 11 (2026-10-15, commit 4d4b6fb, $6.18):** all 48 stages passed; the gate allowed all
+three talks. No name flags (its headings used the talks' own words). Two faithfulness
+retries on content claims, both fixed by the first revision. Header validation still logs
+19 "problematic terms" warnings for Beautiful Boy (item below).
+
 **Run 9 (2026-10-14, commit 59d64c8, $6.62):** all 39 stages passed; the gate allowed all
 three talks. Remaining noise, none of it failing a run:
 - ~~**The name check flags headings the model invents** in the overview and blog

@@ -1,7 +1,8 @@
 # Plan: the name check stops flagging generated headings (HN)
 
 **Status:** requested 2026-10-14 (author: "fix the heading name false flags and continue
-until complete"); built 2026-10-15, revised the same day after the learning-qa review.
+until complete"); built 2026-10-15 (commit 4d4b6fb), revised the same day after two
+learning-qa rounds; end-to-end run 11 passed.
 Status per criterion under "Built" at the end.
 
 **Goal:** a heading the model writes ("Closing Advice") or a date it writes out ("On June
@@ -174,4 +175,4 @@ killed (tests were added for mutants that first survived).
 | HN.1 | done | `abstract_validation.looks_like_name`; `tests/test_heading_names_hn.py::test_hn1_*` |
 | HN.2 | done | `abstract_validation.find_ungrounded_names` (date span skip); `::test_hn2_*` |
 | HN.3 | done | `docs/calibration/2026-10-14_heading_names/results_old_vs_new.txt` |
-| end-to-end round | pending | run 11, after this commit |
+| end-to-end round | done | run 11 (commit 4d4b6fb, $6.18): 48 of 48 stages passed, gate allowed all three talks, no name flags. Its headings were all grounded, so old and new code agree on it (0 and 0): the fix was not exercised live |
