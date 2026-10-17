@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-17 (Format runs at "medium" thinking — halves Format cost)
+
+Per `docs/calibration_formatting_effort_2026-10-14.md`.
+
+- `config.FORMATTING_EFFORT`: `None` (model default "high") → `"medium"`. Sonnet 5.5 at
+  "medium" keeps the speaker's words (4/6 pass) at roughly half Format's cost (45–60%
+  cheaper on short talks, 33–51% on long) for a few more one-word review stops (2 of 6
+  runs vs 1 of 9). Format was ~31% of a full run. DeepSeek V4 Pro was ruled out for
+  Format in the same doc (0/6 pass — does not keep verbatim wording).
+- `FORMATTING_THINKING_RATIO` (3.5) / `_MAX` (5.0) stay as-is but are relabelled a
+  conservative upper bound (measured at "high"): the single-pass length check stays
+  safe and the cost report over-estimates Format until the ratio is re-measured at
+  "medium" (commit 803f021).
+- Test `test_u4_formatting_runs_at_model_default_effort` → `…_configured_effort`, now
+  asserts `effort == "medium"`.
+- Two learning-qa rounds: round 1 flagged the stale ratio comment and two calibration
+  docs still saying "stays at model default" (P6, doc-only); fixed in 803f021. Round 2
+  (re-sweep): clean against P1–P39, of which 3 were applicable.
+Offline suite: 1697 passed / 23 skipped / 1 xfailed.
+
 ## [Unreleased] - 2026-10-15 (the name check stops flagging generated headings — HN)
 
 Plan and measurement: `docs/plan_heading_names_2026-10-14.md`.
