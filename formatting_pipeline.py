@@ -199,7 +199,7 @@ def format_transcript_with_claude(
         logger=logger,
         timeout=config.TIMEOUT_FORMATTING,
         min_words=min_expected_words,
-        effort=config.FORMATTING_EFFORT,  # measured at the model default (U4)
+        effort=config.FORMATTING_EFFORT,  # "medium" (docs/calibration_formatting_effort_2026-10-14.md)
     )
 
     return transcript_utils.response_text(message)

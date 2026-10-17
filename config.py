@@ -1023,9 +1023,10 @@ FORMATTING_OUTPUT_EXPANSION = 1.15
 # maximum the step warns that the answer may be cut off (U4).
 FORMATTING_THINKING_RATIO = 3.5
 FORMATTING_THINKING_RATIO_MAX = 5.0
-# Formatting always runs at the model's default effort (None), the setting the ratios
-# were measured at; the GUI Effort setting does not apply to it.
-FORMATTING_EFFORT = None
+# Formatting runs at "medium" thinking (docs/calibration_formatting_effort_2026-10-14.md):
+# roughly half Format's cost (45-60% cheaper) for a few more one-word review stops.
+# The GUI Effort setting does not apply to it.
+FORMATTING_EFFORT = "medium"
 # Scored emphasis runs at a fixed thinking level; the GUI Effort setting does not
 # apply to it. At the model default ("high" on claude-sonnet-5-5) the reply was cut
 # off on 3 of 4 calls on 11-12k-word talks (once at 16,192 tokens, twice at 24,000).

@@ -66,13 +66,13 @@ def test_u4_warns_between_typical_and_maximum(tmp_path, monkeypatch):
     assert not any("too long" in c.args[0] for c in logger.error.call_args_list)
 
 
-def test_u4_formatting_runs_at_model_default_effort(monkeypatch):
+def test_u4_formatting_runs_at_configured_effort(monkeypatch):
     captured = {}
     monkeypatch.setattr(fp, "get_anthropic_client", lambda: object())
     monkeypatch.setattr(fp, "call_claude_with_retry", lambda *a, **k: captured.update(k) or "x")
     monkeypatch.setattr(fp.transcript_utils, "response_text", lambda m: "x")
     fp.format_transcript_with_claude("raw words here", "PROMPT", model="claude-sonnet-5-5")
-    assert "effort" in captured and captured["effort"] is config.FORMATTING_EFFORT is None
+    assert "effort" in captured and captured["effort"] == config.FORMATTING_EFFORT == "medium"
 
 
 def test_u4_cost_estimate_counts_formatting_thinking(tmp_path, monkeypatch):
