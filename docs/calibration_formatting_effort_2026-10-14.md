@@ -53,5 +53,8 @@ What the differences are:
 - No change made; `config.FORMATTING_EFFORT` stays at the model default pending the
   user's decision.
 
+> **2026-10-17 update:** later adopted — `config.FORMATTING_EFFORT` is now `"medium"`
+> (commit cc87ae1). The Sonnet "medium" row above is the current production behavior.
+
 Files: `docs/calibration/2026-10-14_formatting_effort/` (scripts, per-run results,
 DeepSeek usage). The formatted texts are not committed.

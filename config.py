@@ -1016,8 +1016,10 @@ MODEL_OUTPUT_TOKEN_LIMITS = {
 # pre-call check requires input-token estimate x this factor to fit max output.
 FORMATTING_OUTPUT_EXPANSION = 1.15
 # Thinking tokens per transcript token when an always-thinking (5-family) model
-# formats a transcript, at its default effort. Measured 2026-10-11 on 3 real talks
-# with Sonnet 5.5: 2.0-5.0, median ~3.6 (docs/calibration_formatting_model_2026-10-11.md).
+# formats a transcript at its DEFAULT ("high") effort. Measured 2026-10-11 on 3 real
+# talks with Sonnet 5.5: 2.0-5.0, median ~3.6 (docs/calibration_formatting_model_2026-10-11.md).
+# FORMATTING_EFFORT is now "medium" (below), so the live ratio is lower; these stay as a
+# conservative upper bound (safe for the length check, an over-estimate in the cost report).
 # The cost estimate and the single-pass length check use this typical value (a talk
 # that would not fit even then is stopped before a paid call); above the measured
 # maximum the step warns that the answer may be cut off (U4).

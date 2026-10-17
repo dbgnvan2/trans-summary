@@ -104,8 +104,9 @@ the measured maximum, 5.0 (`FORMATTING_THINKING_RATIO_MAX`, about 14.7k words), 
 runs but warns that the answer may be cut off. A cut-off answer fails loudly. The longest
 of the 70 real transcripts on disk (14,609 words in the file; 14,314 after the validation
 footer is removed) comes out at 124k of the 128k limit at
-the maximum ratio; in the test runs it actually used 60–92k. Formatting always runs at the model's default effort
-(`FORMATTING_EFFORT = None`), the setting these ratios were measured at.
+the maximum ratio; in the test runs it actually used 60–92k. The ratios above were measured at the model's default
+effort (`FORMATTING_EFFORT = None`); since 2026-10-17 formatting runs at `"medium"`
+(commit cc87ae1), so they are a conservative upper bound, not the live ratio.
 
 ## AUX model — Haiku 4.5 vs Haiku 5.5 (U5, 2026-10-12)
 
