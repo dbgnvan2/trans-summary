@@ -1,0 +1,577 @@
+{
+  "definition": "The ratio is defined the way the code uses it. T is the transcript estimate\n(transcript_utils.estimate_token_count of the footer-stripped source). The cost estimate\nassumes output = T x (1 + RATIO); the single-pass length check and the \"may be cut off\"\nwarning assume output = T x (FORMATTING_OUTPUT_EXPANSION + RATIO). So per run:\n    cost_ratio   = output_tokens / T - 1\n    length_ratio = output_tokens / T - FORMATTING_OUTPUT_EXPANSION\nHow the 2026-10-11 values (3.5 / 5.0) were computed was not recorded; this script\nre-computes those runs too (\"high_round2\") with the same definitions.",
+  "sources": {
+    "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt": {
+      "name": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "words": 11274,
+      "chars": 64420,
+      "T": 16105
+    },
+    "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt": {
+      "name": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_valid_validated.txt",
+      "words": 10732,
+      "chars": 64019,
+      "T": 16004
+    },
+    "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt": {
+      "name": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "words": 4055,
+      "chars": 22643,
+      "T": 5660
+    },
+    "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt": {
+      "name": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "words": 1989,
+      "chars": 11644,
+      "T": 2911
+    },
+    "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt": {
+      "name": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "words": 9901,
+      "chars": 57165,
+      "T": 14291
+    },
+    "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt": {
+      "name": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "words": 14314,
+      "chars": 80885,
+      "T": 20221
+    }
+  },
+  "medium": [
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "repeat": 1,
+      "source_row": "results_medium_Beautiful Boy Review.json r1",
+      "raw_words": 11274,
+      "formatted_words": 12156,
+      "T": 16105,
+      "output_tokens": 37321,
+      "out_per_T": 2.317,
+      "cost_ratio": 1.317,
+      "length_ratio": 1.167,
+      "thinking_ratio": 1.239
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "repeat": 2,
+      "source_row": "results_medium_Beautiful Boy Review.json r2",
+      "raw_words": 11274,
+      "formatted_words": 12396,
+      "T": 16105,
+      "output_tokens": 35324,
+      "out_per_T": 2.193,
+      "cost_ratio": 1.193,
+      "length_ratio": 1.043,
+      "thinking_ratio": 1.094
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "repeat": 1,
+      "source_row": "results_medium_Systems Biology Meet.json r1",
+      "raw_words": 10732,
+      "formatted_words": 11390,
+      "T": 16004,
+      "output_tokens": 28686,
+      "out_per_T": 1.792,
+      "cost_ratio": 0.792,
+      "length_ratio": 0.642,
+      "thinking_ratio": 0.731
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "repeat": 2,
+      "source_row": "results_medium_Systems Biology Meet.json r2",
+      "raw_words": 10732,
+      "formatted_words": 11497,
+      "T": 16004,
+      "output_tokens": 32233,
+      "out_per_T": 2.014,
+      "cost_ratio": 1.014,
+      "length_ratio": 0.864,
+      "thinking_ratio": 0.943
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "repeat": 1,
+      "source_row": "results_medium_Why Families Repeat .json r1",
+      "raw_words": 4055,
+      "formatted_words": 4159,
+      "T": 5660,
+      "output_tokens": 13700,
+      "out_per_T": 2.42,
+      "cost_ratio": 1.42,
+      "length_ratio": 1.27,
+      "thinking_ratio": 1.395
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "repeat": 2,
+      "source_row": "results_medium_Why Families Repeat .json r2",
+      "raw_words": 4055,
+      "formatted_words": 4184,
+      "T": 5660,
+      "output_tokens": 10717,
+      "out_per_T": 1.893,
+      "cost_ratio": 0.893,
+      "length_ratio": 0.743,
+      "thinking_ratio": 0.862
+    }
+  ],
+  "high_round2": [
+    {
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "repeat": 1,
+      "source_row": "token_usage.csv 2026-10-11 22:30:43",
+      "raw_words": 1989,
+      "formatted_words": 2127,
+      "T": 2911,
+      "output_tokens": 8577,
+      "out_per_T": 2.946,
+      "cost_ratio": 1.946,
+      "length_ratio": 1.796,
+      "thinking_ratio": 1.877
+    },
+    {
+      "file": "Roots of Bowen TEST - Mike Kerr - 2026-07015_validated.txt",
+      "repeat": 2,
+      "source_row": "token_usage.csv 2026-10-11 22:31:34",
+      "raw_words": 1989,
+      "formatted_words": 2134,
+      "T": 2911,
+      "output_tokens": 8664,
+      "out_per_T": 2.976,
+      "cost_ratio": 1.976,
+      "length_ratio": 1.826,
+      "thinking_ratio": 1.903
+    },
+    {
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "repeat": 1,
+      "source_row": "token_usage.csv 2026-10-11 22:43:57",
+      "raw_words": 9901,
+      "formatted_words": 10766,
+      "T": 14291,
+      "output_tokens": 79541,
+      "out_per_T": 5.566,
+      "cost_ratio": 4.566,
+      "length_ratio": 4.416,
+      "thinking_ratio": 4.478
+    },
+    {
+      "file": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21_validated.txt",
+      "repeat": 2,
+      "source_row": "token_usage.csv 2026-10-11 22:49:57",
+      "raw_words": 9901,
+      "formatted_words": 10743,
+      "T": 14291,
+      "output_tokens": 61407,
+      "out_per_T": 4.297,
+      "cost_ratio": 3.297,
+      "length_ratio": 3.147,
+      "thinking_ratio": 3.212
+    },
+    {
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "repeat": 1,
+      "source_row": "token_usage.csv 2026-10-11 22:59:02",
+      "raw_words": 14314,
+      "formatted_words": 15438,
+      "T": 20221,
+      "output_tokens": 60179,
+      "out_per_T": 2.976,
+      "cost_ratio": 1.976,
+      "length_ratio": 1.826,
+      "thinking_ratio": 1.898
+    },
+    {
+      "file": "Making a difference in Self and Family - Michael Kerr - 2010-04-23 edited_20260720_120749_v-valid-5m_validated.txt",
+      "repeat": 2,
+      "source_row": "token_usage.csv 2026-10-11 23:07:28",
+      "raw_words": 14314,
+      "formatted_words": 15397,
+      "T": 20221,
+      "output_tokens": 92399,
+      "out_per_T": 4.569,
+      "cost_ratio": 3.569,
+      "length_ratio": 3.419,
+      "thinking_ratio": 3.494
+    }
+  ],
+  "high_e2e": [
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-12 16:08:40",
+      "T": 5660,
+      "output_tokens": 41756,
+      "out_per_T": 7.377,
+      "cost_ratio": 6.377,
+      "length_ratio": 6.227
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-12 17:32:26",
+      "T": 5660,
+      "output_tokens": 35294,
+      "out_per_T": 6.236,
+      "cost_ratio": 5.236,
+      "length_ratio": 5.086
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 17:26:42",
+      "T": 5660,
+      "output_tokens": 42060,
+      "out_per_T": 7.431,
+      "cost_ratio": 6.431,
+      "length_ratio": 6.281
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 17:46:38",
+      "T": 16105,
+      "output_tokens": 88596,
+      "out_per_T": 5.501,
+      "cost_ratio": 4.501,
+      "length_ratio": 4.351
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 18:08:54",
+      "T": 16004,
+      "output_tokens": 49382,
+      "out_per_T": 3.086,
+      "cost_ratio": 2.086,
+      "length_ratio": 1.936
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 20:20:13",
+      "T": 5660,
+      "output_tokens": 40952,
+      "out_per_T": 7.235,
+      "cost_ratio": 6.235,
+      "length_ratio": 6.085
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 20:35:22",
+      "T": 16105,
+      "output_tokens": 50748,
+      "out_per_T": 3.151,
+      "cost_ratio": 2.151,
+      "length_ratio": 2.001
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 20:57:22",
+      "T": 16004,
+      "output_tokens": 51596,
+      "out_per_T": 3.224,
+      "cost_ratio": 2.224,
+      "length_ratio": 2.074
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 22:46:21",
+      "T": 5660,
+      "output_tokens": 24250,
+      "out_per_T": 4.284,
+      "cost_ratio": 3.284,
+      "length_ratio": 3.134
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 23:05:51",
+      "T": 16105,
+      "output_tokens": 81986,
+      "out_per_T": 5.091,
+      "cost_ratio": 4.091,
+      "length_ratio": 3.941
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-13 23:30:36",
+      "T": 16004,
+      "output_tokens": 72910,
+      "out_per_T": 4.556,
+      "cost_ratio": 3.556,
+      "length_ratio": 3.406
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 07:41:55",
+      "T": 5660,
+      "output_tokens": 32825,
+      "out_per_T": 5.799,
+      "cost_ratio": 4.799,
+      "length_ratio": 4.649
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 09:46:59",
+      "T": 5660,
+      "output_tokens": 38344,
+      "out_per_T": 6.775,
+      "cost_ratio": 5.775,
+      "length_ratio": 5.625
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 10:06:08",
+      "T": 16105,
+      "output_tokens": 63512,
+      "out_per_T": 3.944,
+      "cost_ratio": 2.944,
+      "length_ratio": 2.794
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 10:30:57",
+      "T": 16004,
+      "output_tokens": 98233,
+      "out_per_T": 6.138,
+      "cost_ratio": 5.138,
+      "length_ratio": 4.988
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 12:12:40",
+      "T": 16105,
+      "output_tokens": 76026,
+      "out_per_T": 4.721,
+      "cost_ratio": 3.721,
+      "length_ratio": 3.571
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 12:36:47",
+      "T": 16004,
+      "output_tokens": 63602,
+      "out_per_T": 3.974,
+      "cost_ratio": 2.974,
+      "length_ratio": 2.824
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 12:54:38",
+      "T": 5660,
+      "output_tokens": 38245,
+      "out_per_T": 6.757,
+      "cost_ratio": 5.757,
+      "length_ratio": 5.607
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 13:13:27",
+      "T": 16105,
+      "output_tokens": 66359,
+      "out_per_T": 4.12,
+      "cost_ratio": 3.12,
+      "length_ratio": 2.97
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 13:35:27",
+      "T": 16004,
+      "output_tokens": 59161,
+      "out_per_T": 3.697,
+      "cost_ratio": 2.697,
+      "length_ratio": 2.547
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 13:53:23",
+      "T": 5660,
+      "output_tokens": 45062,
+      "out_per_T": 7.961,
+      "cost_ratio": 6.961,
+      "length_ratio": 6.811
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 15:39:55",
+      "T": 16105,
+      "output_tokens": 48907,
+      "out_per_T": 3.037,
+      "cost_ratio": 2.037,
+      "length_ratio": 1.887
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 16:03:55",
+      "T": 16004,
+      "output_tokens": 92621,
+      "out_per_T": 5.787,
+      "cost_ratio": 4.787,
+      "length_ratio": 4.637
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 16:18:37",
+      "T": 5660,
+      "output_tokens": 19907,
+      "out_per_T": 3.517,
+      "cost_ratio": 2.517,
+      "length_ratio": 2.367
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 18:32:53",
+      "T": 16105,
+      "output_tokens": 57216,
+      "out_per_T": 3.553,
+      "cost_ratio": 2.553,
+      "length_ratio": 2.403
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 18:55:17",
+      "T": 16004,
+      "output_tokens": 46913,
+      "out_per_T": 2.931,
+      "cost_ratio": 1.931,
+      "length_ratio": 1.781
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 19:16:13",
+      "T": 5660,
+      "output_tokens": 54072,
+      "out_per_T": 9.553,
+      "cost_ratio": 8.553,
+      "length_ratio": 8.403
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 19:42:21",
+      "T": 16105,
+      "output_tokens": 91901,
+      "out_per_T": 5.706,
+      "cost_ratio": 4.706,
+      "length_ratio": 4.556
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 20:05:26",
+      "T": 16004,
+      "output_tokens": 64178,
+      "out_per_T": 4.01,
+      "cost_ratio": 3.01,
+      "length_ratio": 2.86
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-14 20:20:35",
+      "T": 5660,
+      "output_tokens": 30303,
+      "out_per_T": 5.354,
+      "cost_ratio": 4.354,
+      "length_ratio": 4.204
+    },
+    {
+      "file": "Beautiful Boy Review - Kathleen Kerr - 2023-02-16_validated.txt",
+      "source_row": "token_usage.csv 2026-10-15 16:40:02",
+      "T": 16105,
+      "output_tokens": 71793,
+      "out_per_T": 4.458,
+      "cost_ratio": 3.458,
+      "length_ratio": 3.308
+    },
+    {
+      "file": "Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_validated.txt",
+      "source_row": "token_usage.csv 2026-10-15 17:02:08",
+      "T": 16004,
+      "output_tokens": 97308,
+      "out_per_T": 6.08,
+      "cost_ratio": 5.08,
+      "length_ratio": 4.93
+    },
+    {
+      "file": "Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13_validated.txt",
+      "source_row": "token_usage.csv 2026-10-15 17:20:18",
+      "T": 5660,
+      "output_tokens": 53912,
+      "out_per_T": 9.525,
+      "cost_ratio": 8.525,
+      "length_ratio": 8.375
+    }
+  ],
+  "summary": {
+    "medium": {
+      "n": 6,
+      "out_per_T": {
+        "min": 1.792,
+        "median": 2.103,
+        "mean": 2.105,
+        "max": 2.42
+      },
+      "cost_ratio": {
+        "min": 0.792,
+        "median": 1.103,
+        "mean": 1.105,
+        "max": 1.42
+      },
+      "length_ratio": {
+        "min": 0.642,
+        "median": 0.954,
+        "mean": 0.955,
+        "max": 1.27
+      },
+      "thinking_ratio": {
+        "min": 0.731,
+        "median": 1.018,
+        "mean": 1.044,
+        "max": 1.395
+      }
+    },
+    "high_round2": {
+      "n": 6,
+      "out_per_T": {
+        "min": 2.946,
+        "median": 3.636,
+        "mean": 3.888,
+        "max": 5.566
+      },
+      "cost_ratio": {
+        "min": 1.946,
+        "median": 2.636,
+        "mean": 2.888,
+        "max": 4.566
+      },
+      "length_ratio": {
+        "min": 1.796,
+        "median": 2.486,
+        "mean": 2.738,
+        "max": 4.416
+      },
+      "thinking_ratio": {
+        "min": 1.877,
+        "median": 2.558,
+        "mean": 2.81,
+        "max": 4.478
+      }
+    },
+    "high_e2e": {
+      "n": 33,
+      "out_per_T": {
+        "min": 2.931,
+        "median": 5.091,
+        "mean": 5.29,
+        "max": 9.553
+      },
+      "cost_ratio": {
+        "min": 1.931,
+        "median": 4.091,
+        "mean": 4.29,
+        "max": 8.553
+      },
+      "length_ratio": {
+        "min": 1.781,
+        "median": 3.941,
+        "mean": 4.14,
+        "max": 8.403
+      }
+    }
+  }
+}

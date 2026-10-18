@@ -1018,15 +1018,19 @@ MODEL_OUTPUT_TOKEN_LIMITS = {
 # pre-call check requires input-token estimate x this factor to fit max output.
 FORMATTING_OUTPUT_EXPANSION = 1.15
 # Thinking tokens per transcript token when an always-thinking (5-family) model
-# formats a transcript at its DEFAULT ("high") effort. Measured 2026-10-11 on 3 real
-# talks with Sonnet 5.5: 2.0-5.0, median ~3.6 (docs/calibration_formatting_model_2026-10-11.md).
-# FORMATTING_EFFORT is now "medium" (below), so the live ratio is lower; these stay as a
-# conservative upper bound (safe for the length check, an over-estimate in the cost report).
+# formats a transcript at FORMATTING_EFFORT ("medium"). T = estimate_token_count of the
+# transcript; the cost estimate expects T x (1 + RATIO) output tokens, the length check
+# T x (FORMATTING_OUTPUT_EXPANSION + RATIO). Measured 2026-10-14 on 3 public talks with
+# Sonnet 5.5, 6 runs: 0.79-1.42 per T for the cost estimate (median 1.10), at most 1.27
+# for the length check (docs/calibration_formatting_model_2026-10-11.md, "Thinking ratio
+# at medium"; per-run table docs/calibration/2026-10-14_formatting_effort/thinking_ratio.json).
 # The cost estimate and the single-pass length check use this typical value (a talk
-# that would not fit even then is stopped before a paid call); above the measured
-# maximum the step warns that the answer may be cut off (U4).
-FORMATTING_THINKING_RATIO = 3.5
-FORMATTING_THINKING_RATIO_MAX = 5.0
+# that would not fit even then is stopped before a paid call, about 40k words); above
+# the maximum the step warns that the answer may be cut off (about 21.8k words) (U4).
+# The maximum is 2.4x the largest measured run: six runs are a small sample, and at
+# "high" six runs found 4.4 where 33 later runs found 8.4.
+FORMATTING_THINKING_RATIO = 1.1
+FORMATTING_THINKING_RATIO_MAX = 3.0
 # Formatting runs at "medium" thinking (docs/calibration_formatting_effort_2026-10-14.md):
 # roughly half Format's cost (45-60% cheaper) for a few more one-word review stops.
 # The GUI Effort setting does not apply to it.

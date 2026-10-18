@@ -96,17 +96,83 @@ here; they are not verbatim tasks, and U5 measures them separately.
 
 ## Decision (2026-10-12)
 
-`FORMATTING_MODEL = claude-sonnet-5-5` (user approved). Sonnet thinks about 3.5 tokens
-per transcript token while formatting (measured 2.0–5.0). `config.FORMATTING_THINKING_RATIO`
-is used for the cost estimate and the single-pass length check, so a talk that would
-not fit even at the typical ratio (about 20k words) is stopped before a paid call. Above
-the measured maximum, 5.0 (`FORMATTING_THINKING_RATIO_MAX`, about 14.7k words), the step
-runs but warns that the answer may be cut off. A cut-off answer fails loudly. The longest
-of the 70 real transcripts on disk (14,609 words in the file; 14,314 after the validation
-footer is removed) comes out at 124k of the 128k limit at
-the maximum ratio; in the test runs it actually used 60–92k. The ratios above were measured at the model's default
-effort (`FORMATTING_EFFORT = None`); since 2026-10-17 formatting runs at `"medium"`
-(commit cc87ae1), so they are a conservative upper bound, not the live ratio.
+`FORMATTING_MODEL = claude-sonnet-5-5` (user approved). Sonnet thinks before it answers,
+so the cost estimate and the single-pass length check count formatting thinking through
+`config.FORMATTING_THINKING_RATIO` (thinking tokens per transcript token). A talk that
+would not fit even at the typical ratio is stopped before a paid call. Above
+`FORMATTING_THINKING_RATIO_MAX` the step runs but warns that the answer may be cut off. A
+cut-off answer fails loudly.
+
+The values were first 3.5 / 5.0, measured at the model's default effort ("high"): stop
+at about 20k words, warn above about 14.7k. Since 2026-10-17 formatting runs at
+`"medium"` (commit cc87ae1), and the values are **1.1 / 3.0**, re-derived from the six
+"medium" runs (next section): stop at about 40k words, warn above about 21.8k. The
+longest of the 70 real transcripts on disk (14,609 words in the file; 14,314 after the
+validation footer is removed) needs about 84k of the 128k limit at the new maximum (124k
+at the old one); at "high" it actually used 60–92k.
+
+## Thinking ratio at "medium" (2026-10-17)
+
+Data: `docs/calibration/2026-10-14_formatting_effort/thinking_ratio.json`, written by
+`derive_thinking_ratio.py` in the same folder (no API calls).
+
+**Definition.** T is `estimate_token_count` of the footer-stripped transcript
+(characters ÷ 4). The cost estimate expects T × (1 + ratio) output tokens; the length
+check expects T × (1.15 + ratio). So for each run:
+- cost ratio = output ÷ T − 1;
+- length ratio = output ÷ T − 1.15.
+
+How 3.5 / 5.0 were computed on 2026-10-12 was not recorded: there is no script and no
+table. Re-computed from the round-2 log rows, no single definition gives "2.0–5.0,
+median ~3.6":
+- output ÷ T has median 3.64 and range 2.95–5.57;
+- the cost ratio has range 1.95–4.57 and median 2.64.
+
+The new values therefore use the code's own definition.
+
+**Sources.**
+- Output tokens: `results_medium_*.json`, also in `logs/token_usage.csv` 2026-10-14
+  08:23–08:28.
+- T: the source transcripts on disk whose footer-stripped word count equals `raw_words`.
+  The end-to-end run 4 copies used in the runs were not kept.
+
+| Run | Words | T | Output tokens | Cost ratio | Length ratio |
+|---|---|---|---|---|---|
+| Beautiful Boy r1 | 11,274 | 16,105 | 37,321 | 1.32 | 1.17 |
+| Beautiful Boy r2 | 11,274 | 16,105 | 35,324 | 1.19 | 1.04 |
+| Systems Biology r1 | 10,732 | 16,004 | 28,686 | 0.79 | 0.64 |
+| Systems Biology r2 | 10,732 | 16,004 | 32,233 | 1.01 | 0.86 |
+| Why Families r1 | 4,055 | 5,660 | 13,700 | 1.42 | 1.27 |
+| Why Families r2 | 4,055 | 5,660 | 10,717 | 0.89 | 0.74 |
+| median / max | | | | 1.10 / 1.42 | 0.95 / 1.27 |
+
+**"High" on the same talks, for comparison.** 33 GUI Format calls, 2026-10-12 to 10-15,
+found in the log by the size of their cached input. Every "medium" run used less output
+than every "high" run of the same talk:
+
+| Talk | "Medium", highest output ÷ T | "High", lowest output ÷ T |
+|---|---|---|
+| Beautiful Boy | 2.32 | 3.04 |
+| Systems Biology | 2.01 | 2.93 |
+| Why Families | 2.42 | 3.52 |
+
+The "medium" median (2.10) is 41% of the "high" median (5.09).
+
+**Values.**
+- `FORMATTING_THINKING_RATIO = 1.1` is the median cost ratio. It predicts each run's
+  output within −13% to +17%.
+- `FORMATTING_THINKING_RATIO_MAX = 3.0` is 2.4× the largest length ratio (1.27). Six runs
+  on three talks are a small sample for a maximum:
+  - at "high", round 2's six runs gave a maximum length ratio of 4.42, while the 33
+    end-to-end runs reached 8.40 (Why Families), 1.9× higher;
+  - 3.0 is also above the lowest "high" run of every talk (1.78–2.37).
+
+`tests/test_formatting_model_u4.py::test_u4_thinking_ratio_covers_medium_measurement`
+checks both values against the JSON.
+
+**Found, not fixed.** At "high" the old maximum of 5.0 did not hold: 9 of the 33
+end-to-end runs were above it (all Why Families, 5.1–8.4), and Systems Biology reached
+4.99. This no longer applies, since Format runs at "medium".
 
 ## AUX model — Haiku 4.5 vs Haiku 5.5 (U5, 2026-10-12)
 

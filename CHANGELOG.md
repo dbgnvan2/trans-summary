@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-17 (Format thinking ratio re-derived at "medium")
+
+Per `docs/calibration_formatting_model_2026-10-11.md`, "Thinking ratio at medium".
+
+- `config.FORMATTING_THINKING_RATIO` 3.5 → 1.1, `_MAX` 5.0 → 3.0. Derived from the six
+  "medium" runs of 2026-10-14 with no new API calls
+  (`docs/calibration/2026-10-14_formatting_effort/derive_thinking_ratio.py` →
+  `thinking_ratio.json`):
+  - 1.1 is the median, by the definition the cost estimate uses (output ÷ T − 1, range
+    0.79–1.42);
+  - 3.0 is 2.4× the largest run by the length check's definition (1.27). Six runs are a
+    small sample: at "high", six runs found 4.4 where 33 later runs found 8.4.
+- Effect:
+  - the GUI Format estimate drops from 4.5 × T to 2.1 × T output tokens;
+  - the single-pass stop moves from about 20k to about 40k words;
+  - the "may be cut off" warning moves from above about 14.7k to above about 21.8k words.
+
+  No current transcript (longest 14.6k words) reaches either.
+- How 3.5 / 5.0 were computed was not recorded, and no single definition reproduces the
+  documented "2.0–5.0, median ~3.6". The new values use the code's own definition, and
+  the script is committed so they can be re-derived. Found, not fixed (no longer
+  applies): at "high", 9 of 33 end-to-end Format runs were above the old maximum of 5.0.
+- Tests (`tests/test_formatting_model_u4.py`):
+  - the pin test now checks the new values;
+  - the warning test uses the midpoint of the two config values instead of a hard-coded
+    4.2;
+  - new `test_u4_thinking_ratio_covers_medium_measurement` checks `thinking_ratio.json`
+    against the committed results, and checks both config values against the data.
+Offline suite: 1698 passed / 23 skipped / 1 xfailed.
+
 ## [Unreleased] - 2026-10-17 (judge "disabled" wording; review of the Hermes Format change)
 
 - Release gate: when a judge flag is off, the PASS verdict detail now names the flag

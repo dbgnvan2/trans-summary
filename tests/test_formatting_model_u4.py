@@ -14,6 +14,7 @@ import transcript_cost_estimator as tce
 from transcript_utils import estimate_token_count
 
 ROOT = Path(__file__).resolve().parent.parent
+CALIBRATION = ROOT / "docs/calibration/2026-10-14_formatting_effort"
 
 
 def test_u4_formatting_default_is_sonnet55():
@@ -22,8 +23,37 @@ def test_u4_formatting_default_is_sonnet55():
 
 
 def test_u4_thinking_ratio_from_measurement():
-    # measured 2.0-5.0 (median ~3.6) on 3 real talks, 2026-10-11
-    assert 2.0 <= config.FORMATTING_THINKING_RATIO <= config.FORMATTING_THINKING_RATIO_MAX == 5.0
+    # measured at "medium" 2026-10-14, 6 runs on 3 public talks: 0.79-1.42 per transcript
+    # token for the cost estimate (median 1.10); the maximum is 2.4x the largest run (1.27)
+    assert config.FORMATTING_THINKING_RATIO == 1.1
+    assert config.FORMATTING_THINKING_RATIO_MAX == 3.0
+
+
+def test_u4_thinking_ratio_covers_medium_measurement():
+    """thinking_ratio.json is derived from the committed "medium" results (same output
+    tokens and word counts, T = chars // CHARS_PER_TOKEN). The typical ratio lies within
+    the measured cost ratios, and the maximum is at least twice the largest measured run
+    under the length-check definition: six runs are a small sample (at "high", six runs
+    found 4.4 where 33 later runs found 8.4)."""
+    import json
+    derived = json.loads((CALIBRATION / "thinking_ratio.json").read_text(encoding="utf-8"))
+    logged = {}
+    for f in CALIBRATION.glob("results_medium_*.json"):
+        for r in json.loads(f.read_text(encoding="utf-8")):
+            logged[(r["file"], r["repeat"])] = (r["output_tokens"], r["raw_words"])
+    runs = derived["medium"]
+    assert len(runs) == len(logged) == 6
+    for r in runs:
+        assert logged[(r["file"], r["repeat"])] == (r["output_tokens"], r["raw_words"])
+        source = derived["sources"][r["file"]]
+        assert source["words"] == r["raw_words"]
+        assert r["T"] == source["T"] == source["chars"] // config.CHARS_PER_TOKEN
+        assert abs(r["cost_ratio"] - (r["output_tokens"] / r["T"] - 1)) < 1e-3
+        assert abs(r["length_ratio"] - (r["output_tokens"] / r["T"]
+                                        - config.FORMATTING_OUTPUT_EXPANSION)) < 1e-3
+    cost = [r["cost_ratio"] for r in runs]
+    assert min(cost) <= config.FORMATTING_THINKING_RATIO <= max(cost)
+    assert config.FORMATTING_THINKING_RATIO_MAX >= 2 * max(r["length_ratio"] for r in runs)
 
 
 def _text_with_tokens(n):
@@ -50,9 +80,10 @@ def test_u4_length_check_no_thinking_for_legacy_model():
 
 
 def test_u4_warns_between_typical_and_maximum(tmp_path, monkeypatch):
-    """Fits at the typical ratio, not at the measured maximum -> runs, with a warning."""
+    """Fits at the typical ratio, not at the maximum -> runs, with a warning."""
     from unittest.mock import MagicMock
-    t = int(128000 / (config.FORMATTING_OUTPUT_EXPANSION + 4.2))
+    mid = (config.FORMATTING_THINKING_RATIO + config.FORMATTING_THINKING_RATIO_MAX) / 2
+    t = int(128000 / (config.FORMATTING_OUTPUT_EXPANSION + mid))
     source = tmp_path / "source"
     source.mkdir()
     (source / "Talk - A Person - 2021-01-01.txt").write_text(_text_with_tokens(t), encoding="utf-8")

@@ -8,22 +8,20 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-17 — Format at "medium" thinking (commit cc87ae1), follow-ups
 
-### ⏸ Open
-- **Re-derive `FORMATTING_THINKING_RATIO` / `_MAX` at "medium".** Both (3.5 / 5.0) were
-  measured at the model default ("high"); Format now runs at "medium", so they are an
-  upper bound. Until they are re-derived, the GUI cost estimate overstates Format
-  (`transcript_cost_estimator.estimate_formatting`), and in `formatting_pipeline.py` the
-  single-pass length check (stops at about 20k words) and the "may be cut off" warning
-  (above about 14.7k words) act earlier than needed. The six "medium" runs logged
-  `output_tokens`, `raw_words` and `formatted_words`
-  (`docs/calibration/2026-10-14_formatting_effort/results_medium_*.json`), so no new API
-  calls are needed. How 3.5 / 5.0 were computed is not written down, and the 2026-10-11
-  output-token counts are only in `logs/token_usage.csv` (gitignored, and removed by
-  Archive Logs): six `claude-sonnet-5-5` rows labelled `unknown_script`, 2026-10-11
-  22:30–23:07. Copy what is needed into the calibration folder and record the formula used.
-  Six runs on three talks is a small sample for a maximum: keep `_MAX` conservative
-  unless more "medium" runs are logged. Update the comment at `config.py` and
-  `docs/calibration_formatting_model_2026-10-11.md` (Decision) with the new values.
+### ✅ Fixed 2026-10-17
+- ~~**Re-derive `FORMATTING_THINKING_RATIO` / `_MAX` at "medium".**~~ Now 1.1 / 3.0 (were
+  3.5 / 5.0, measured at "high"), from the six "medium" runs with no new API calls
+  (`docs/calibration_formatting_model_2026-10-11.md`, "Thinking ratio at medium";
+  `docs/calibration/2026-10-14_formatting_effort/derive_thinking_ratio.py` →
+  `thinking_ratio.json`). Stop at about 40k words (was 20k), warn above about 21.8k (was
+  14.7k). `_MAX` is 2.4× the largest measured run because six runs are a small sample.
+  The original 3.5 / 5.0 derivation was not recorded and could not be reproduced; the new
+  values use the code's own definition, written in the JSON and the doc. The token counts
+  that were only in `logs/token_usage.csv` (the 2026-10-11 round-2 runs, and 33 "high"
+  Format calls of the same talks) are copied into `thinking_ratio.json` with their log
+  timestamps. The script reads "medium" runs only from `results_medium_*.json` (from
+  `compare_formatting_effort.py`); re-run it when more are added. Test:
+  `tests/test_formatting_model_u4.py::test_u4_thinking_ratio_covers_medium_measurement`.
 
 ### ⏸ Open (adjacent, found in the 2026-10-17 sweep, not fixed)
 - **The abstract stage reports "passed faithfulness" when the judge is off.**
