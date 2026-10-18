@@ -1108,7 +1108,7 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
     all -> ERROR (nothing verified is not "all faithful")."""
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return Verdict("topic_term_faithfulness", Status.PASS,
-                       "faithfulness judge disabled")
+                       "faithfulness judge disabled (FAITHFULNESS_JUDGE_ENABLED is False)")
     import faithfulness_judge as fjudge
     from transcript_utils import resolve_anthropic_key
 

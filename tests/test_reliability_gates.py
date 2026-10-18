@@ -275,7 +275,9 @@ def test_topic_term_faithfulness_nothing_to_judge_is_error(tmp_path, monkeypatch
 def test_topic_term_faithfulness_disabled_is_noop(tmp_path, monkeypatch):
     base = _topic_project(tmp_path, monkeypatch)
     monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)
-    assert rg.check_topic_term_faithfulness(base, LOG).status is Status.PASS
+    v = rg.check_topic_term_faithfulness(base, LOG)
+    assert v.status is Status.PASS
+    assert "FAITHFULNESS_JUDGE_ENABLED" in v.detail
 
 
 # ------------------------------------------------------------ heading claims
