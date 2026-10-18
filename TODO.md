@@ -54,14 +54,17 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   (`.txt` and ` - summary-generated.md`) and
   `tests/fixtures/speaker_unlabeled/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md`.
   All seven have "Why Families Repeat" in the name (the four emphasis outputs use a
-  shortened form, not the full base name). It was not a plain name search: five other
-  tracked files with that text survived — `prose_real/.../ - formatted.md` and
+  shortened form, not the full base name). The selection was by name: other talks' files
+  in the same folders are untouched. But not every match was deleted — five other
+  tracked files with that text survived: `prose_real/.../ - formatted.md` and
   ` - overview.md` (same folder as two deleted files),
   `docs/calibration/2026-10-14_formatting_effort/results_medium_Why Families Repeat .json`
   and the two `deepseek_usage/ds_Why Families Repeat _r{1,2}.json`. The deleted files are
   all `.md` or `.txt`; the survivors include every `.json`. No code in the repo deletes
-  files by this name. Hermes reported nine tests failing with `FileNotFoundError` until
-  the fixtures were restored. If it recurs, check what ran just before (end-to-end
+  files by this name. All seven were already missing when Hermes first looked (about
+  11:18); it restored the three fixtures at 11:26 and Claude restored the four emphasis
+  outputs later that day. Hermes reported nine tests failing with `FileNotFoundError`
+  until the fixtures were restored. If it recurs, check what ran just before (end-to-end
   runner, calibration scripts, another session).
 
 ## 2026-10-13 — End-to-end run findings (E2E)
