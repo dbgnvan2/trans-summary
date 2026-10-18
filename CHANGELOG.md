@@ -30,6 +30,13 @@ Per `docs/calibration_formatting_model_2026-10-11.md`, "Thinking ratio at medium
     4.2;
   - new `test_u4_thinking_ratio_covers_medium_measurement` checks `thinking_ratio.json`
     against the committed results, and checks both config values against the data.
+- learning-qa found 2 problems, both fixed (commit f795aeb):
+  - P6: the "may be cut off" warning in `formatting_pipeline.py` said "at the most
+    thinking measured", which is no longer true now that `_MAX` is a margin above the
+    data;
+  - P3/P9: the script could not read real "medium" Format runs. It now lists them as
+    `medium_e2e` (none yet), and an open TODO checks `_MAX` against them after the next
+    e2e run.
 Offline suite: 1698 passed / 23 skipped / 1 xfailed.
 
 ## [Unreleased] - 2026-10-17 (judge "disabled" wording; review of the Hermes Format change)
