@@ -557,6 +557,8 @@ def test_m2_faithfulness_disabled_is_noop_pass(real_run, monkeypatch):
     monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)
     v = rg.check_faithfulness(real_run, logging.getLogger("t"))
     assert v.status is Status.PASS
+    # The detail gives the real reason (the flag), not "awaiting calibration" (P6).
+    assert "FAITHFULNESS_JUDGE_ENABLED" in v.detail and "calibration" not in v.detail
 
 
 def test_m2_faithfulness_fail_blocks(cloned_run, monkeypatch):
@@ -622,7 +624,9 @@ def _theme_project(tmp_path, monkeypatch):
 
 def test_theme_grounding_disabled_is_noop_pass(real_run, monkeypatch):
     monkeypatch.setattr(config, "THEME_JUDGE_ENABLED", False)
-    assert rg.check_theme_grounding(real_run, logging.getLogger("t")).status is Status.PASS
+    v = rg.check_theme_grounding(real_run, logging.getLogger("t"))
+    assert v.status is Status.PASS
+    assert "THEME_JUDGE_ENABLED" in v.detail and "calibration" not in v.detail
 
 
 def test_theme_grounding_ungrounded_fails_and_blocks(tmp_path, monkeypatch):

@@ -1000,7 +1000,7 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
     blamed on the abstract (review M2); the publish gate always judges the full set."""
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return Verdict("faithfulness", Status.PASS,
-                       "faithfulness judge disabled (awaiting M2.B calibration)")
+                       "faithfulness judge disabled (FAITHFULNESS_JUDGE_ENABLED is False)")
     import faithfulness_judge as fjudge
     from transcript_utils import resolve_anthropic_key
 
@@ -1212,7 +1212,7 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
     flag is False it is a PASS no-op; the unit suite forces it off (root conftest)."""
     if not getattr(config, "THEME_JUDGE_ENABLED", False):
         return Verdict("theme_grounding", Status.PASS,
-                       "theme grounding judge disabled (awaiting calibration)")
+                       "theme grounding judge disabled (THEME_JUDGE_ENABLED is False)")
     import faithfulness_judge as fjudge
     import transcript_utils as tu
     from transcript_utils import resolve_anthropic_key

@@ -654,9 +654,10 @@ GATE_REQUIRED_ARTIFACT_SUFFIXES = [
 # M2 — SEMANTIC FAITHFULNESS JUDGE (spec_unattended_robustness_2026-07-15.md §M2)
 # ============================================================================
 # Claim-level entailment check for NARRATIVE artifacts — catches a fluent
-# hallucination the lexical checks can't. Gated behind an enable flag (strict mode)
-# until calibrated on the gold set; when enabled, an unentailed claim FAILs and the
-# judge's own error is ERROR (both blocking per U2 — see GATE_BLOCKING_CHECKS).
+# hallucination the lexical checks can't. Gated behind FAITHFULNESS_JUDGE_ENABLED
+# (armed 2026-07-15 after the gold-set calibration); when enabled, an unentailed
+# claim FAILs and the judge's own error is ERROR (both blocking per U2 — see
+# GATE_BLOCKING_CHECKS).
 # ARMED 2026-07-15. Calibrated on REAL prose artifacts (not just isolated claims —
 # the P10 fix): claim-level gold recall/precision 1.0; the 3 real abstracts judged
 # correctly (roots_bowen PASS; where_roots FAIL naming the real 'Luciano Malorni'

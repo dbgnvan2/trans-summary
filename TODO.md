@@ -12,13 +12,15 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **Re-derive `FORMATTING_THINKING_RATIO` / `_MAX` at "medium".** Both (3.5 / 5.0) were
   measured at the model default ("high"); Format now runs at "medium", so they are an
   upper bound. Until they are re-derived, the GUI cost estimate overstates Format
-  (`transcript_cost_estimator.estimate_formatting`), and the single-pass length check and
-  the "may be cut off" warning (`formatting_pipeline.py`, above about 14.7k words) act
-  earlier than needed. The six "medium" runs already logged `output_tokens`, `raw_words`
-  and `formatted_words` (`docs/calibration/2026-10-14_formatting_effort/results_medium_*.json`),
-  the same fields the 2026-10-11 ratio came from, so no new API calls are needed. Six runs
-  on three talks is a small sample for a maximum: keep `_MAX` conservative unless more
-  "medium" runs are logged. Update the comment at `config.py` and
+  (`transcript_cost_estimator.estimate_formatting`), and in `formatting_pipeline.py` the
+  single-pass length check (stops at about 20k words) and the "may be cut off" warning
+  (above about 14.7k words) act earlier than needed. The six "medium" runs logged
+  `output_tokens`, `raw_words` and `formatted_words`
+  (`docs/calibration/2026-10-14_formatting_effort/results_medium_*.json`), so no new API
+  calls are needed. How 3.5 / 5.0 were computed is not written down (the 2026-10-11
+  output-token counts are only in `logs/token_usage.csv`), so record the formula used.
+  Six runs on three talks is a small sample for a maximum: keep `_MAX` conservative
+  unless more "medium" runs are logged. Update the comment at `config.py` and
   `docs/calibration_formatting_model_2026-10-11.md` (Decision) with the new values.
 
 ## 2026-10-13 — End-to-end run findings (E2E)
