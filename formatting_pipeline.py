@@ -296,7 +296,8 @@ def format_transcript(
                                             ratio=config.FORMATTING_THINKING_RATIO_MAX)
         if worst > output_limit:
             logger.warning(
-                "Long transcript for %s: at the most thinking measured it needs about %d "
+                "Long transcript for %s: with the thinking margin (config "
+                "FORMATTING_THINKING_RATIO_MAX, above any measured run) it needs about %d "
                 "output tokens (limit %d), so the answer may be cut off. A cut-off answer "
                 "fails this step; re-run it, or use a model with more output room.",
                 model, worst, output_limit,

@@ -11,11 +11,15 @@ re-computes those runs too ("high_round2") with the same definitions.
 
 Inputs:
 - "medium": results_medium_*.json next to this script (output_tokens per run).
-- "high_round2" and "high_e2e" (only with --token-log): logs/token_usage.csv.
+- "high_round2", "high_e2e" and "medium_e2e" (only with --token-log): logs/token_usage.csv
+  (gitignored, cleared by Archive Logs; the JSON keeps a copy of the rows used).
   high_round2 = the six Sonnet runs of docs/calibration/2026-10-11_formatting_haiku/
   results_round2.json, whose token counts are only in the log (2026-10-11 22:30-23:08).
-  high_e2e = GUI Format calls of the same talks as "medium" before Format moved to
-  "medium" (commit cc87ae1), found by the size of their cached input.
+  high_e2e / medium_e2e = GUI or e2e-runner Format calls of the same talks as "medium",
+  before / since Format moved to "medium" (commit cc87ae1), found by the size of their
+  cached input. Compare medium_e2e with FORMATTING_THINKING_RATIO_MAX.
+The config ratio is cost_ratio (typical) and length_ratio (maximum); thinking_ratio
+(output minus the formatted text) is shown for comparison only.
 - SOURCE files: the raw transcripts. A source matches a run when its name starts with the
   run's file name (without "_validated.txt") and its footer-stripped word count equals
   the run's raw_words. A run with no matching source stops the script.
@@ -124,17 +128,27 @@ def main():
                 sys.exit(f"{row['source_row']}: {len(hits)} log rows with {row['output_tokens']} output tokens")
             x = hits[0]
             size[row["file"]] = int(x["Cache Creation Tokens"] or 0) or int(x["Cache Read Tokens"] or 0)
-        result["high_e2e"] = []
+        # medium_e2e: the same talks run through the GUI or e2e runner at "medium", for
+        # checking _MAX against real runs. Every stop reason is kept: a Format call cut
+        # off at max_tokens is the case _MAX is meant to predict.
+        result["high_e2e"], result["medium_e2e"] = [], []
         for x in sonnet:
             created = int(x["Cache Creation Tokens"] or 0)
             talk = next((f for f, n in size.items() if abs(created - n) <= 2), None)
-            if (talk and x["Script Name"] == "GuiLogger" and x["Stop Reason"] == "end_turn"
-                    and x["Timestamp"] < MEDIUM_ADOPTED):
-                row = {"file": talk, "source_row": f"token_usage.csv {x['Timestamp']}"}
-                row.update(ratios(int(x["Tokens Response"]), result["sources"][talk]["T"]))
+            if not (talk and x["Script Name"] == "GuiLogger"):
+                continue
+            row = {"file": talk, "source_row": f"token_usage.csv {x['Timestamp']}",
+                   "stop_reason": x["Stop Reason"]}
+            row.update(ratios(int(x["Tokens Response"]), result["sources"][talk]["T"]))
+            if x["Timestamp"] >= MEDIUM_ADOPTED:
+                result["medium_e2e"].append(row)
+            elif x["Stop Reason"] == "end_turn":
                 result["high_e2e"].append(row)
+        print(f"medium_e2e: {len(result['medium_e2e'])} Format calls at \"medium\" in the log",
+              file=sys.stderr)
 
-    result["summary"] = {k: summary(result[k]) for k in ("medium", "high_round2", "high_e2e") if k in result}
+    keys = ("medium", "medium_e2e", "high_round2", "high_e2e")
+    result["summary"] = {k: summary(result[k]) for k in keys if k in result}
     (HERE / "thinking_ratio.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result["summary"], indent=2))
 

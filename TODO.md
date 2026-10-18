@@ -19,9 +19,17 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   values use the code's own definition, written in the JSON and the doc. The token counts
   that were only in `logs/token_usage.csv` (the 2026-10-11 round-2 runs, and 33 "high"
   Format calls of the same talks) are copied into `thinking_ratio.json` with their log
-  timestamps. The script reads "medium" runs only from `results_medium_*.json` (from
+  timestamps. The script's "medium" values come from `results_medium_*.json` (from
   `compare_formatting_effort.py`); re-run it when more are added. Test:
   `tests/test_formatting_model_u4.py::test_u4_thinking_ratio_covers_medium_measurement`.
+
+### ⏸ Open (from the learning-qa review of the ratio change)
+- **Check `_MAX` against the first real "medium" Format runs.** No GUI or e2e Format call
+  at "medium" exists yet; the token log ends 2026-10-15. At "high", the six calibration
+  runs gave a maximum of 4.4 and the real runs 8.4. After the next e2e run, and before
+  Archive Logs clears `logs/token_usage.csv`, re-run `derive_thinking_ratio.py` with
+  `--token-log`. Its `medium_e2e` block lists those calls, max_tokens stops included.
+  Raise `_MAX` if any length ratio there is above 3.0.
 
 ### ⏸ Open (adjacent, found in the 2026-10-17 sweep, not fixed)
 - **The abstract stage reports "passed faithfulness" when the judge is off.**
