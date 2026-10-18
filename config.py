@@ -600,8 +600,9 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   topics_grounding / summary_coverage (plan R15, author decisions 2026-10-05):
 #   the topics and summary-coverage validators gate publication. Key terms stay
 #   advisory: two trusted samples still fail on paraphrased term labels.
-#   topic_term_faithfulness (added 2026-09-23) is NOT blocking: it is not yet
-#   calibrated on real runs, so it WARNs (author decision 3a, 2026-10-09).
+#   topic_term_faithfulness (added 2026-09-23) is NOT blocking: it WARNs (author
+#   decision 3a, 2026-10-09). Measured on real runs 2026-10-12
+#   (docs/calibration_topic_term_2026-10-12.md); making it blocking is still open.
 GATE_BLOCKING_CHECKS = {"source_fidelity", "entity_grounding", "artifact_contracts",
                         "faithfulness", "theme_grounding", "verbatim_quotes",
                         "consistency", "topics_grounding", "summary_coverage"}
@@ -812,7 +813,8 @@ FAITHFULNESS_ARTIFACT_SUFFIXES = [
 # remains is a WARNING, never a publication blocker (author decision 2026-10-10).
 # Topic descriptions and key-term definitions, judged by the same judge after
 # conversion to one "Title: sentence" claim per line (release_gate
-# .topics_terms_as_claims). Added 2026-09-23; NOT YET CALIBRATED on real runs.
+# .topics_terms_as_claims). Added 2026-09-23; measured on real runs 2026-10-12
+# (docs/calibration_topic_term_2026-10-12.md), still advisory.
 TOPIC_TERM_FAITHFULNESS_SUFFIXES = [
     SUFFIX_TOPICS,
     SUFFIX_KEY_TERMS,

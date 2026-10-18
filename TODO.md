@@ -17,11 +17,26 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   (above about 14.7k words) act earlier than needed. The six "medium" runs logged
   `output_tokens`, `raw_words` and `formatted_words`
   (`docs/calibration/2026-10-14_formatting_effort/results_medium_*.json`), so no new API
-  calls are needed. How 3.5 / 5.0 were computed is not written down (the 2026-10-11
-  output-token counts are only in `logs/token_usage.csv`), so record the formula used.
+  calls are needed. How 3.5 / 5.0 were computed is not written down, and the 2026-10-11
+  output-token counts are only in `logs/token_usage.csv` (gitignored, and removed by
+  Archive Logs): six `claude-sonnet-5-5` rows labelled `unknown_script`, 2026-10-11
+  22:30–23:07. Copy what is needed into the calibration folder and record the formula used.
   Six runs on three talks is a small sample for a maximum: keep `_MAX` conservative
   unless more "medium" runs are logged. Update the comment at `config.py` and
   `docs/calibration_formatting_model_2026-10-11.md` (Decision) with the new values.
+
+### ⏸ Open (adjacent, found in the 2026-10-17 sweep, not fixed)
+- **The abstract stage reports "passed faithfulness" when the judge is off.**
+  `extraction_pipeline._abstract_gate_precheck` treats the PASS that a disabled
+  `release_gate.check_faithfulness` returns as a verdict: with
+  `FAITHFULNESS_JUDGE_ENABLED = False` it returns "pass" and the stage logs "✓ Abstract
+  passed faithfulness + grounding" though nothing was judged. Its docstring says a
+  disabled judge gives "unavailable". The sibling `_faithfulness_precheck` checks the flag
+  first. Fix: the same flag guard ("unavailable", or "fail" when the entity check finds
+  names) and a test that runs the real `check_faithfulness` with the flag off
+  (`tests/test_abstract_faithful_retry.py` only stubs ERROR). Low impact today: the flag
+  ships True. Not fixed in the 2026-10-17 docs batch because it changes stage behaviour
+  (P24).
 
 ## 2026-10-13 — End-to-end run findings (E2E)
 
