@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-17 (judge "disabled" wording; review of the Hermes Format change)
+
+- Release gate: when a judge flag is off, the PASS verdict detail now names the flag
+  (`FAITHFULNESS_JUDGE_ENABLED is False` / `THEME_JUDGE_ENABLED is False`) instead of
+  "awaiting (M2.B) calibration" — both judges were armed 2026-07-15. Applies to
+  `check_faithfulness`, `check_theme_grounding` and `check_topic_term_faithfulness`
+  (gate output text only; no status change). The two judge docstrings, the release-gate
+  policy comment and the M2 header in `config.py`, and one test docstring said the same
+  stale thing and are corrected.
+- TODO: follow-up to re-derive `FORMATTING_THINKING_RATIO` / `_MAX` at "medium".
+- Restored four "Why Families" outputs under
+  `docs/calibration/emphasis_effort_2026-10-13/outputs/` that had been deleted from the
+  working tree (cause unknown; three test fixtures with the same name were also deleted
+  and were restored earlier today).
+- `config.py`: the two comments that said `topic_term_faithfulness` is "not yet calibrated"
+  now say it was measured on real runs 2026-10-12 and is still advisory.
+- TODO: the abstract stage reports "passed faithfulness" when the judge is switched off
+  (`extraction_pipeline._abstract_gate_precheck`); recorded, not fixed (behaviour change).
+- Sweep: learning-qa (4 findings, all fixed as wording), /code-review (1 finding, fixed),
+  learning-qa re-sweep of the fixes (3 adjacent findings: 2 fixed as wording, 1 recorded
+  in TODO). The gate CLI was run on a copy of the Why Families run with both judges off;
+  the verdicts show the new wording. Offline suite on a clean checkout: 1697 passed /
+  23 skipped / 1 xfailed.
+
 ## [Unreleased] - 2026-10-17 (Format runs at "medium" thinking — halves Format cost)
 
 Per `docs/calibration_formatting_effort_2026-10-14.md`.
