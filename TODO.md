@@ -43,20 +43,26 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   (`tests/test_abstract_faithful_retry.py` reaches "unavailable" only through a stubbed
   ERROR). Low impact today: the flag ships True. Not fixed in the 2026-10-17 docs batch
   because it changes stage behaviour (P24). Same function: `check_entity_grounding` is
-  called without `suffixes`, so an invented name in the summary or overview (generated
-  first) fails the abstract precheck and is fed back to the abstract generator; the
-  sibling scopes it to its own artifact. Scope it in the same fix.
+  called without `suffixes`, so an invented name in the summary (generated before the
+  abstract) or in an overview left from an earlier run (the overview stage runs after
+  the abstract) fails the abstract precheck and is fed back to the abstract generator;
+  the sibling scopes it to its own artifact. Scope it in the same fix.
 - **Tracked "Why Families" files were deleted from the working tree (cause unknown).**
   Found 2026-10-17 and restored from git: the four
   `docs/calibration/emphasis_effort_2026-10-13/outputs/emph_{low,medium}_{0,1}_Why Families Repeat .md`,
   `tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/`
   (`.txt` and ` - summary-generated.md`) and
   `tests/fixtures/speaker_unlabeled/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md`.
-  All seven share the base name, and no code in the repo deletes by that name; a
-  name-based delete outside the app (e.g. a Finder search) is the likeliest cause. Hermes
-  reported nine tests failing with `FileNotFoundError` until the fixtures were restored.
-  If it recurs, check
-  what ran just before (end-to-end runner, calibration scripts, another session).
+  All seven have "Why Families Repeat" in the name (the four emphasis outputs use a
+  shortened form, not the full base name). It was not a plain name search: five other
+  tracked files with that text survived — `prose_real/.../ - formatted.md` and
+  ` - overview.md` (same folder as two deleted files),
+  `docs/calibration/2026-10-14_formatting_effort/results_medium_Why Families Repeat .json`
+  and the two `deepseek_usage/ds_Why Families Repeat _r{1,2}.json`. The deleted files are
+  all `.md` or `.txt`; the survivors include every `.json`. No code in the repo deletes
+  files by this name. Hermes reported nine tests failing with `FileNotFoundError` until
+  the fixtures were restored. If it recurs, check what ran just before (end-to-end
+  runner, calibration scripts, another session).
 
 ## 2026-10-13 — End-to-end run findings (E2E)
 

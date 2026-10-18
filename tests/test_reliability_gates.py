@@ -255,9 +255,10 @@ def test_topic_term_faithfulness_pass(tmp_path, monkeypatch):
     assert "of transcript" not in seen[0]
 
 
-def test_topic_term_faithfulness_fail_is_advisory_until_calibrated(tmp_path, monkeypatch):
-    """The check still FAILs, but it is not blocking until calibrated (author
-    decision 3a, 2026-10-09): a FAIL WARNs, it does not block publication."""
+def test_topic_term_faithfulness_fail_is_advisory(tmp_path, monkeypatch):
+    """The check still FAILs, but it is not blocking (author decision 3a,
+    2026-10-09; measured on real runs 2026-10-12, blocking still undecided): a FAIL
+    WARNs, it does not block publication."""
     base = _topic_project(tmp_path, monkeypatch)
     _stub_judge(monkeypatch, fj.FAIL)
     v = rg.check_topic_term_faithfulness(base, LOG)
