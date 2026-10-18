@@ -988,9 +988,11 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
     """Claim-level semantic faithfulness of the NARRATIVE artifacts (M2). Each
     artifact's claims must be entailed by the source; a contradicted/unsupported
     claim -> FAIL (fluent hallucination). The judge fails closed: no source / no
-    API key / judge error -> ERROR (blocks). Disabled by default until the M2.B
-    gold-set calibration clears thresholds (`config.FAITHFULNESS_JUDGE_ENABLED`),
-    in which state it is a PASS no-op so the deterministic gate is unaffected.
+    API key / judge error -> ERROR (blocks). Runs when
+    `config.FAITHFULNESS_JUDGE_ENABLED` is True (armed 2026-07-15 after the M2.B
+    gold-set calibration; config.py holds the current value and calibration record).
+    When the flag is False it is a PASS no-op, so the deterministic gate is
+    unaffected; the unit suite forces it off (root conftest).
 
     ``suffixes`` limits which artifacts are judged (default: all of
     ``config.FAITHFULNESS_ARTIFACT_SUFFIXES``). The abstract regeneration precheck
@@ -1204,9 +1206,10 @@ def check_theme_grounding(base_name: str, logger=None) -> Verdict:
     theme must be a reasonable interpretation of content actually in the source; a
     theme built on fabricated subject matter -> FAIL. This is the theme counterpart
     of the faithfulness judge (which is source-ENTAILMENT and wrong for interpretive
-    content). Fails closed (no source / no key / judge error -> ERROR). Disabled by
-    default (a PASS no-op) until its gold-set calibration clears
-    (`config.THEME_JUDGE_ENABLED`)."""
+    content). Fails closed (no source / no key / judge error -> ERROR). Runs when
+    `config.THEME_JUDGE_ENABLED` is True (armed 2026-07-15 after its gold-set
+    calibration; config.py holds the current value and calibration record). When the
+    flag is False it is a PASS no-op; the unit suite forces it off (root conftest)."""
     if not getattr(config, "THEME_JUDGE_ENABLED", False):
         return Verdict("theme_grounding", Status.PASS,
                        "theme grounding judge disabled (awaiting calibration)")

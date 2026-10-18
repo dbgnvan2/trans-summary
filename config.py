@@ -578,13 +578,12 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   HARD error, not a silent zero, so it blocks — a legitimately-empty artifact
 #   validates as an empty object and does not trip it.
 #   faithfulness (M2, added 2026-07-15): an unentailed claim in a narrative artifact
-#   is a fluent hallucination (U2). Blocks when enabled; a PASS no-op while
-#   FAITHFULNESS_JUDGE_ENABLED is False (awaiting M2.B calibration), so it does not
-#   affect the deterministic gate until turned on.
+#   is a fluent hallucination (U2). Blocks when enabled (armed 2026-07-15, see
+#   FAITHFULNESS_JUDGE_ENABLED below); a PASS no-op while the flag is False.
 #   theme_grounding (2026-07-15): an ungrounded theme (built on fabricated subject
-#   matter) is a hallucination in a published artifact (U2). Blocks when enabled; a
-#   PASS no-op while THEME_JUDGE_ENABLED is False, so it does not affect the gate
-#   until armed.
+#   matter) is a hallucination in a published artifact (U2). Blocks when enabled
+#   (armed 2026-07-15, see THEME_JUDGE_ENABLED below); a PASS no-op while the flag
+#   is False.
 #   source_fidelity (added 2026-09-23): every other check grounds against the
 #   formatted transcript, which is itself model output. It must match the raw
 #   source (word comparison, heading contract, heading timestamp positions).

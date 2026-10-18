@@ -553,7 +553,7 @@ def test_m3c_empty_bowen_is_not_drift(cloned_run):
 
 # --------------------------------------------------------------- M2 faithfulness gate
 def test_m2_faithfulness_disabled_is_noop_pass(real_run, monkeypatch):
-    """Disabled by default -> PASS no-op, no API call, deterministic gate intact."""
+    """Disabled -> PASS no-op, no API call, deterministic gate intact."""
     monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)
     v = rg.check_faithfulness(real_run, logging.getLogger("t"))
     assert v.status is Status.PASS
