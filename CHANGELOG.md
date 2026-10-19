@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Heading timestamps without brackets)
+
+Plan `docs/plan_heading_brackets_2026-10-19.md` (HB0–HB3). The Holt panel run stopped
+at Format: the model wrote all 40 headings `(00:00:19).`, not `([00:00:19]).`, and each
+failed the heading contract. That also kept RS.3 from restoring the one dropped phrase.
+
+- **HB1:** `formatting_pipeline.normalize_heading_brackets` rewrites a `## Section N – …`
+  heading timestamp written `(hh:mm:ss)`, `[hh:mm:ss]` or `([hh:mm:ss])`, with or without
+  the final period, to `([hh:mm:ss]).`. `format_transcript` runs it before
+  `normalize_heading_timestamps` and logs "Added the brackets to N of M heading
+  timestamp(s)". Brackets must pair; two- and four-group times, other lines, the hyphen
+  form and a heading with a second time in its title are left for the validator. On that
+  run's output: 40 headings fixed; the only error left is the one deletion that RS.3
+  restores. learning-qa: added the call-order test HB1.g and paired the brackets.
+
 ## [Unreleased] - 2026-10-19 (Faithfulness flags warn, never block)
 
 Plan `docs/plan_warn_only_2026-10-19.md` (WO0–WO7). The user's decision after the JS6

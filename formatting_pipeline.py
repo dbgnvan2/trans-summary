@@ -332,6 +332,14 @@ def format_transcript(
         if removed:
             logger.info("Removed %d title line(s) before Section 1: %s", len(removed), removed[0])
 
+        formatted_content, bracketed = normalize_heading_brackets(formatted_content)
+        if bracketed:
+            total = sum(1 for line in formatted_content.splitlines()
+                        if line.startswith("## Section"))
+            logger.info(
+                "Added the brackets to %d of %d heading timestamp(s), e.g. Section %d "
+                "%s -> %s.", len(bracketed), total, *bracketed[0])
+
         formatted_content, rewrites = normalize_heading_timestamps(
             formatted_content, raw_transcript)
         if rewrites:
@@ -901,6 +909,47 @@ _RAW_TIME_RE = re.compile(r"(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?(?![\d:])")
 _EXTRA_ZERO_TS_RE = re.compile(
     r"^(## Section (\d+) – .+? \(\[)00:((\d{2}):(\d{2}):(\d{2}))(\]\)\.[ \t]*)$"
 )
+# A heading timestamp without the contract's brackets or final period, e.g.
+# (00:05:20). or [00:05:20] (HB1). Brackets must pair: (ts), [ts] or ([ts]).
+_HHMMSS_SRC = r"\d{2}:\d{2}:\d{2}"
+_LOOSE_HEADING_TS_RE = re.compile(
+    rf"^(## Section (\d+) – .+?) "
+    rf"((?:\(({_HHMMSS_SRC})\)|\[({_HHMMSS_SRC})\]|\(\[({_HHMMSS_SRC})\]\))\.?)[ \t]*$"
+)
+_HHMMSS_RE = re.compile(_HHMMSS_SRC)
+
+
+def normalize_heading_brackets(formatted_text: str) -> tuple:
+    """Write each section heading's timestamp in the contract's ``([hh:mm:ss]).`` form.
+
+    The model has written every heading of a run as ``(00:05:20).``: the prompt's
+    format line uses square brackets both as a placeholder marker and as literal
+    text. Only a ``## Section N – …`` heading ending in an ``hh:mm:ss`` time wrapped
+    in ``(…)``, ``[…]`` or ``([…])``, with or without the final period, is rewritten.
+    Left for the validator to report: unpaired brackets, two- and four-group times
+    (RS.4 handles only ``([00:h:mm:ss]).``), and a heading with another time before
+    the last one (the title would keep a stray timestamp).
+
+    Returns ``(text, rewrites)`` where ``rewrites`` is a list of
+    ``(section_number, old_suffix, new_suffix)``.
+
+    Purpose: Accept a heading whose only fault is the timestamp's brackets.
+    Spec:    docs/plan_heading_brackets_2026-10-19.md#HB1
+    Tests:   tests/test_heading_brackets_hb.py::test_hb1a_bare_paren_timestamp_gets_brackets
+    """
+    rewrites = []
+    lines = formatted_text.split("\n")
+    for idx, line in enumerate(lines):
+        match = _LOOSE_HEADING_TS_RE.match(line)
+        if not match or _HHMMSS_RE.search(match.group(1)):
+            continue
+        ts = match.group(4) or match.group(5) or match.group(6)
+        new_suffix = f"([{ts}])."
+        if match.group(3) == new_suffix:
+            continue
+        lines[idx] = f"{match.group(1)} {new_suffix}"
+        rewrites.append((int(match.group(2)), match.group(3), new_suffix))
+    return "\n".join(lines), rewrites
 
 
 def _raw_timestamp_seconds(raw_text: str) -> Set[int]:

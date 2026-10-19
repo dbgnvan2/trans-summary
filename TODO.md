@@ -6,6 +6,26 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-19 — Format stopped on heading timestamps without brackets
+
+### ✅ Fixed 2026-10-19 (plan HB1, `docs/plan_heading_brackets_2026-10-19.md`)
+- **Every heading failed the contract because the model left off the square brackets.**
+  The Holt panel run wrote all 40 headings as `(00:00:19).` instead of `([00:00:19]).`;
+  10 of the 11 formatted transcripts on disk, and every formatting calibration run, had
+  the brackets. `normalize_heading_brackets` now rewrites `(ts)`, `[ts]` and `([ts])`,
+  with or without the final period, before the formatted file is saved, and logs the count.
+
+### Open
+- **Transcription-tool text inside the transcript.** The Holt panel source (raw line 826)
+  reads `Please forgive my en          ; ISO 639-1 code, or "auto" for detection, but I'm
+  just trying…`. It looks like a settings line with its comment, leaking from the
+  transcription tool (not in this repo) where the speaker's word was. The formatter
+  dropped it; RS.3 puts it back, because it is in the source. Fix belongs in the
+  transcription tool.
+- **The formatting prompt uses square brackets two ways.** `## Section N – [Thematic
+  Heading] ([hh:mm:ss]).` marks a placeholder and a literal with the same brackets. Not
+  changed (HB2): HB1 handles the result in code.
+
 ## 2026-10-19 — Faithfulness flags warn, never block
 
 ### ✅ Fixed 2026-10-19 (plan WO1–WO7, `docs/plan_warn_only_2026-10-19.md`)
