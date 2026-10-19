@@ -6,6 +6,35 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-19 — The faithfulness judge fails not-quite-right content
+
+### ⏸ Open — plan waiting for approval (`docs/plan_judge_severity_2026-10-19.md`, JS0–JS7)
+- **Most faithfulness flags are not quite right, and every flag fails the run.** Review
+  of the 43 flags from 2026-10-18 (`docs/judge_flag_review_2026-10-18.md`): 9 WRONG,
+  34 NOT QUITE RIGHT (17 of them borderline). First drafts passing: 2 of 16; 8 of 16 if
+  only WRONG claims failed. The live Holt run stopped on a real remark placed under
+  "closes by". The plan adds a second step on confirmed flags: WRONG fails, NOT QUITE
+  RIGHT passes with a warning. Needs your decisions JS0.a–e first.
+- **The summary prompt asks for speaker credentials and a preview of content areas**
+  (`prompts/Summary Generation Prompt v1.md` line 17) whether or not the transcript has
+  them; 5 flags in the review came from this. Plan item JS5.
+
+### ⏸ Open (adjacent, found in the review, not fixed)
+- **The "not faithful" warning cuts the flagged-claim list at 300 characters**
+  (`extraction_pipeline.py:1471`, `"; ".join(issues)[:300]`), so claims are lost from the
+  only record of a failed attempt (one of three in the 2026-10-18 run). Plan item JS2.d
+  proposes the fix.
+- **Nothing reads the transcription tool's "incomplete" warning.** The Systems Biology
+  raw transcript says "Cloud transcription incomplete: transcribed 5 of 12 chunks"; the
+  project was summarised and judged from about 40 of its 88 minutes.
+- **The summary prompt says "Weave in the Interpretive Themes"**, and the faithfulness
+  judge then fails that interpretation (8 Holt flags restate interpretive theme 3). The
+  plan makes such sentences warnings.
+- `docs/calibration/2026-10-18_summary_closing/measure_closing.py` saves flagged
+  sentences but not the judge's labels or rationales.
+
+---
+
 ## 2026-10-18 — Structured Summary stopped the Holt run (closing paragraph)
 
 ### ✅ Fixed 2026-10-18 (plan SC1–SC3, `docs/plan_summary_closing_2026-10-18.md`)
@@ -25,7 +54,8 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   The claims are the same kinds under both prompts (framing such as "frames these events
   as amplifiers…"), and two drafts per case can't separate a prompt effect from variance.
   Compare the summary's first-try flag counts in the next end-to-end runs against earlier
-  runs.
+  runs. Classified 2026-10-19 (`docs/judge_flag_review_2026-10-18.md`): most of these
+  body flags are interpretation, not invention; see the 2026-10-19 section above.
 - **"Kerr closes by…" still used for points not made at the end** in 2 of 8 new
   closings (one flagged, one accepted). The instruction "without saying that it comes at
   the end" is followed only some of the time.
