@@ -23,6 +23,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   ("late thirties", 1). The judge did not flag "Marta Bertolaso" in either Roots draft
   in either run.
 - **The abstract, overview and blog prompts were not measured** with the new rule.
+- **WO6 used one draft per slot** (QA gate 2026-10-19, `docs/cycles/2026-10-19_wo-qa-gate.md`):
+  22 → 9 flags is a trend, not a proven fix. Re-run with N≥3 before citing it as proof.
+- **The source-completeness parser has not seen the transcription tool's older
+  headers** (same gate). A new wording outside `config.SOURCE_INCOMPLETE_MARKERS` and
+  the "N of M chunks" pattern would be missed.
 - **The severity step still runs** (up to 3 calls per flag) and now only labels flags
   wrong or not quite right. Keep, or turn off to save cost: your decision.
 - **`theme_grounding` is now the only LLM judge that blocks.** It has no severity step.
