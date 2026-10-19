@@ -24,6 +24,7 @@ import format_review
 import formatting_pipeline
 import pattern_sets
 import pipeline
+import source_completeness
 import transcript_config_check
 import transcript_cost_estimator
 import transcript_initial_validation
@@ -2397,6 +2398,11 @@ class TranscriptProcessorGUI:
 
         decision = release_gate.run_gate(self.base_name, self.logger)
         if decision.decision is not release_gate.Decision.BLOCK:
+            # Warnings are printed on allow too (IT0.c): otherwise they reach only the
+            # run manifest.
+            for v in decision.verdicts:
+                if v.status is release_gate.Status.WARN:
+                    self.log(f"      [WARN] {v.check}: {v.detail}")
             return False
         # Quarantine the previous bundle, write the marker and manifest (G1):
         # returning early must not leave an old ALLOW run's output on disk looking
@@ -2555,6 +2561,69 @@ class TranscriptProcessorGUI:
             names = ", ".join(ARTIFACT_LABELS.get(a, a) for a in reused)
             self.log("  ↺ Reusing existing output from disk: %s", names)
 
+    def _source_completeness_check(self, selected_keys=()):
+        """The run's source file and what its transcription-tool header says.
+
+        Returns ``(path, completeness, error)``. When Format is selected, the file is
+        the selected source, which Format will read. Otherwise it is the project's
+        raw-source copy, the file the formatted transcript was checked against and
+        the one the release gate reads. Each falls back to the other when missing;
+        ``path`` is None when neither exists. ``error`` is set when the file could
+        not be read.
+
+        Purpose: One place for the GUI to find and read the run's source header.
+        Spec:    docs/plan_incomplete_transcript_2026-10-19.md#IT2.d
+        Tests:   tests/test_source_completeness_it.py::test_it2d_falls_back_to_the_raw_source_copy,
+                 ::test_it2d_reads_the_file_the_run_uses
+        """
+        selected = getattr(self, "selected_file", None)
+        copy = (formatting_pipeline.raw_source_copy_path(self.base_name)
+                if getattr(self, "base_name", None) else None)
+        candidates = [selected, copy] if "format" in selected_keys else [copy, selected]
+        path = next((p for p in candidates if p is not None and Path(p).is_file()), None)
+        if path is None:
+            return None, None, None
+        try:
+            return path, source_completeness.read_file(path), None
+        except OSError as e:
+            return path, None, e
+
+    def _source_incomplete_message(self, selected_keys=()):
+        """The incomplete-source message for the Confirm dialog, or None.
+
+        Spec:    docs/plan_incomplete_transcript_2026-10-19.md#IT2.c
+        Tests:   tests/test_source_completeness_it.py::test_it2c_confirm_dialog_names_missing_ranges
+        """
+        path, completeness, _error = self._source_completeness_check(selected_keys)
+        if completeness is None or not completeness.incomplete:
+            return None
+        return source_completeness.incomplete_message(completeness, Path(path).name)
+
+    def _log_source_completeness(self, selected_keys=()):
+        """Log the transcription tool's warnings and, if it reports missing audio, a
+        ⚠️ line, before any stage runs. Never stops the run (IT0.a).
+
+        Purpose: Tell the user before the summary and the judge run on a partial talk.
+        Spec:    docs/plan_incomplete_transcript_2026-10-19.md#IT2.b
+        Tests:   tests/test_source_completeness_it.py::test_it2b_run_log_warns_before_first_stage,
+                 ::test_it2d_missing_source_is_reported_not_fatal, ::test_it2e_all_transcriber_warnings_logged
+        """
+        path, completeness, error = self._source_completeness_check(selected_keys)
+        if path is None:
+            self.log("Could not check whether the source transcript is complete: "
+                     "no source file found.")
+            return
+        name = Path(path).name
+        if error is not None:
+            self.log(f"Could not check whether the source transcript is complete: {error}")
+            return
+        if not completeness.has_header:
+            self.log(f"Source completeness not stated: {name} has no transcription-tool "
+                     "header.")
+            return
+        for level, line in source_completeness.notices(completeness, name):
+            self.log(f"⚠️ {line}" if level == "warning" else line)
+
     def _validate_stage_dependencies(self, selected_keys):
         """Check every selected stage's prerequisite groups.
 
@@ -2646,9 +2715,11 @@ class TranscriptProcessorGUI:
             return
 
         selected_labels = [label for key, label in STAGE_DEFINITIONS if key in selected_keys]
+        incomplete = self._source_incomplete_message(selected_keys)
         confirm_text = (
             "This will run the following selected stage(s):\n\n"
             + "\n".join(f"  • {label}" for label in selected_labels)
+            + (f"\n\n⚠️ {incomplete}" if incomplete else "")
             + "\n\nContinue?"
         )
         if not messagebox.askyesno("Confirm", confirm_text):
@@ -2683,6 +2754,7 @@ class TranscriptProcessorGUI:
         # unchecked prerequisites are reused from disk.
         self.log("\n--- Run plan ---")
         self._log_selective_run_plan(selected_keys)
+        self._log_source_completeness(selected_keys)
 
         # Heads-up (TODO.md "Redundant Emphasis+Bowen double-run"): Core with
         # Bowen/Emphasis included PLUS the standalone Bowen+Emphasis stage runs the

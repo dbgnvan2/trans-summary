@@ -277,13 +277,32 @@ def _raw_source_candidates(base_name: str) -> list:
     return found
 
 
+def _match_raw_source(base_name: str, formatted: str, candidates: list) -> tuple:
+    """``(path, outcome)`` for the raw source the formatted transcript is judged
+    against: the first candidate it matches, else the one with the fewest errors.
+    ``source_fidelity`` and ``source_completeness`` both use it, so they name the
+    same file."""
+    import format_review
+    import formatting_pipeline as fp
+    import pattern_sets
+
+    best = None
+    for path in candidates:
+        raw = pattern_sets.effective_raw(base_name, path.read_text(encoding="utf-8-sig"))
+        outcome = fp.verify_source_fidelity(
+            raw, formatted, approvals=format_review.load_approvals(base_name, raw))
+        if outcome["passed"]:
+            return path, outcome
+        if best is None or len(outcome["errors"]) < len(best[1]["errors"]):
+            best = (path, outcome)
+    return best
+
+
 def check_source_fidelity(base_name: str, logger=None) -> Verdict:
     """FAIL unless the formatted transcript — the text every other check treats as
     ground truth — matches its raw source transcript: word-level comparison,
     heading contract, and heading timestamps. Raw source not found -> ERROR
     (cannot verify -> block)."""
-    import formatting_pipeline as fp
-
     formatted = _load_source_transcript(base_name)
     if not formatted or not formatted.strip():
         return Verdict("source_fidelity", Status.ERROR, "formatted transcript missing or empty")
@@ -305,25 +324,61 @@ def check_source_fidelity(base_name: str, logger=None) -> Verdict:
                        "raw source transcript not found (no project raw-source copy and no "
                        "matching file in source/processed) — cannot verify the formatted "
                        "transcript; re-run format validation")
-    import format_review
-    import pattern_sets
-
-    best = None
-    for path in candidates:
-        raw = pattern_sets.effective_raw(base_name, path.read_text(encoding="utf-8-sig"))
-        outcome = fp.verify_source_fidelity(
-            raw, formatted, approvals=format_review.load_approvals(base_name, raw))
-        if outcome["passed"]:
-            return Verdict("source_fidelity", Status.PASS,
-                           f"formatted transcript matches raw source {path.name} "
-                           f"({outcome['comparison']['mismatch_count']} differing words)")
-        if best is None or len(outcome["errors"]) < len(best[1]["errors"]):
-            best = (path, outcome)
-    path, outcome = best
+    path, outcome = _match_raw_source(base_name, formatted, candidates)
+    if outcome["passed"]:
+        return Verdict("source_fidelity", Status.PASS,
+                       f"formatted transcript matches raw source {path.name} "
+                       f"({outcome['comparison']['mismatch_count']} differing words)")
     return Verdict("source_fidelity", Status.FAIL,
                    f"formatted transcript does not match raw source {path.name}: "
                    f"{outcome['errors'][0]} — re-run formatting",
                    items=outcome["errors"][:20])
+
+
+def check_source_completeness(base_name: str, logger=None) -> Verdict:
+    """WARN when the transcription tool's header says the raw transcript is incomplete.
+
+    Reads the raw source ``source_fidelity`` judges the formatted transcript against.
+    With several candidate files and no formatted transcript to choose between them,
+    it reads them all and warns if any is incomplete. Advisory (not in
+    ``config.GATE_BLOCKING_CHECKS``): the outputs are incomplete, not wrong, so the
+    verdict records the missing time ranges and publication goes on. No raw source
+    -> ERROR, which does not block an advisory check; ``source_fidelity`` blocks on it.
+
+    Purpose: Surface a partly transcribed talk in the gate report (P2).
+    Spec:    docs/plan_incomplete_transcript_2026-10-19.md#IT3
+    Tests:   tests/test_source_completeness_it.py::test_it3a_gate_warns_with_missing_ranges,
+             ::test_it3d_incomplete_source_allows_with_warnings,
+             ::test_it3a_reads_the_source_fidelity_matched
+    """
+    import source_completeness as sc
+
+    candidates = _raw_source_candidates(base_name)
+    if not candidates:
+        return Verdict("source_completeness", Status.ERROR,
+                       "raw source transcript not found — completeness not checked")
+    formatted = _load_source_transcript(base_name)
+    if len(candidates) > 1 and formatted and formatted.strip():
+        candidates = [_match_raw_source(base_name, formatted, candidates)[0]]
+    incomplete, headed = [], 0
+    for path in candidates:
+        c = sc.read_file(path)
+        headed += c.has_header
+        if c.incomplete:
+            incomplete.append((path, c))
+    if incomplete:
+        path, c = incomplete[0]
+        detail = sc.incomplete_message(c, path.name)
+        if len(incomplete) > 1:
+            detail += f" ({len(incomplete)} source files report this.)"
+        return Verdict("source_completeness", Status.WARN, detail,
+                       items=[sc.gate_item(c, p.name) for p, c in incomplete])
+    if headed:
+        return Verdict("source_completeness", Status.PASS,
+                       f"no known incomplete-transcript warning in the transcription "
+                       f"tool's header ({headed} source file(s))")
+    return Verdict("source_completeness", Status.PASS,
+                   "no transcription-tool header; completeness not stated")
 
 
 # --------------------------------------------------------------------------- M4.A
@@ -1340,6 +1395,7 @@ def check_consistency(base_name: str, logger=None) -> Verdict:
 # rest are advisory verdicts recorded in the manifest.
 DEFAULT_CHECKS: list = [
     ("source_fidelity", check_source_fidelity),
+    ("source_completeness", check_source_completeness),
     ("entity_grounding", check_entity_grounding),
     ("artifact_contracts", check_artifact_contracts),
     ("faithfulness", check_faithfulness),

@@ -1,7 +1,11 @@
 # Plan: notice an incomplete source transcript (IT0–IT5) — 2026-10-19
 
-Status: **waiting for approval and for decisions IT0.a–f.** No code changed. The count
-(IT5) is done and reported below.
+Status: **built 2026-10-19.** Approved 2026-10-19 with the recommended answers to
+IT0.a–f (warning, not a stop; dialog + run log + Format log; gate `[WARN]` lines printed
+on allow; IT0.d and IT0.e to TODO; all transcriber warnings in one log line). Every item
+below is done; the build changed two design details, noted where they apply. The IT5
+count was corrected after the build (one BTA folder had been missed; the result is the
+same).
 
 ## Why
 
@@ -38,8 +42,8 @@ first 12 lines of every `.txt`. 60 files have the transcription tool's header
 
 | What | Count |
 |---|---|
-| Project folders scanned | 19: 12 in `KCFC ALL/projects`, 7 in the BTA processed `projects` folder (plus one empty nested `projects/projects`) |
-| Project folders whose raw source was found, with the header | 18. KCFC raws are in `KCFC ALL/2021 videos` (all 12 found). BTA raws are in the project folder, or in `02 Transcripts to be Processed (From TRX)/xPending` for the older Systems Biology `_valid` project. Not found: `Emotional Regression in Society and Cancer … _20260411_170838…` (no raw and no formatted transcript in its folder). |
+| Project folders scanned | 20: 12 in `KCFC ALL/projects`, 8 in the BTA processed `projects` folder (plus one empty nested `projects/projects`). The first count said 7 BTA and 19 in all; a recount during the build found 8. |
+| Project folders whose raw source was found, with the header | 19 (first count: 18). KCFC raws are in `KCFC ALL/2021 videos` (all 12 found). BTA raws are in the project folder, or in `02 Transcripts to be Processed (From TRX)/xPending` for the older Systems Biology `_valid` project. Not found: `Emotional Regression in Society and Cancer … _20260411_170838…` (no raw and no formatted transcript in its folder). |
 | **Raw sources with the "incomplete" warning** | **1 project**: Systems Biology `…_20260718_155038_v-valid-5m` (4 `.txt` copies) |
 | Repo copies of that project | `tests/fixtures/prose_real/Systems Biology … _20260718_155038/` holds its outputs (no raw). It is the partial transcript. |
 
@@ -48,9 +52,9 @@ first 12 lines of every `.txt`. 60 files have the transcription tool's header
 - **Words per minute** (words in the body ÷ the header's Duration). Normal transcripts:
   103–154 wpm. Systems Biology: 52–54 wpm. Three test files: 21–22 wpm
   (`TEST FILE - DAVE G - 2026-07014`, `TEST FILE 2 - DAVE G - 2026-07-14`,
-  `Roots of Bowen TEST - Mike Kerr - 2026-07015`). They hold the first ~15 minutes of a
-  full recording, with the full recording's header (Duration 01:28:40 / 01:31:52) and
-  no warning. They are test files, but a header check can't see them (see IT0.e).
+  `Roots of Bowen TEST - Mike Kerr - 2026-07015`). They hold about 1,900 words each
+  under the full recording's header (Duration 01:28:40 / 01:31:52) and no
+  warning. They are test files, but a header check can't see them (see IT0.e).
 - **Largest gap between timestamps in each formatted transcript:** Systems Biology 29
   minutes (BTA project) and 25 minutes (repo fixture). Every other formatted transcript:
   9 minutes or less.
@@ -91,46 +95,70 @@ where they are: moving them is a refactor outside this task.
 - The header is the lines before the first `-----` separator within the first 20 lines
   (the rule `strip_transcript_metadata_header` already uses), and only when the first
   line is `TRANSCRIPT` (after a byte-order mark, if any). The body is never read, so a
-  speaker who says "transcription incomplete" can't trigger it.
-- The `Warnings:` value is split on `;` into separate warnings, trimmed, empty ones
-  dropped, each kept as written.
+  speaker who says "transcription incomplete" can't trigger it. **Changed after
+  review:** the first non-blank line is used, and any text that
+  `detect_transcript_source_format` treats as a header is read too, so the header is
+  found wherever the source-fidelity check strips one. `Warnings:` is matched after
+  leading spaces.
+- The `Warnings:` value is split into separate warnings, trimmed, empty ones dropped,
+  each kept as written. **Changed in the build:** it is split only at a `;` that follows
+  a period. The tool ends each warning with "." and joins them with "; ", and two real
+  warnings contain "; " themselves ("…by this WhisperX version; skipped." and
+  "…transcribed 5 of 12 chunks; missing time ranges…"). Splitting on every `;` cut them
+  in two. **Changed after review:** it also splits at a `;` followed by a capital
+  letter, because the incomplete warning ends with a time range, not a period, and a
+  warning after it ("…01:36:00; Dropped 6 of 650…") was joined to it.
 - A warning means "incomplete" when it contains a marker from a new
   `config.SOURCE_INCOMPLETE_MARKERS`, at first `("transcription incomplete",)`,
   case-insensitive. It is in config because it is the transcription tool's wording, and
-  that can change.
+  that can change. **Changed after review:** the markers are now
+  `("transcription incomplete", "missing time ranges")`, and a warning saying
+  "transcribed N of M chunks" with N < M counts as incomplete whatever its wording, so a
+  reworded warning ("Cloud transcription was incomplete: …") is not passed.
 - From that warning: `transcribed (\d+) of (\d+) chunks` gives the counts, and each
   `hh:mm:ss-hh:mm:ss` gives a missing range, kept as written.
 - **Malformed:** if the marker is there but the counts or the ranges can't be read, the
   transcript still counts as incomplete. The message quotes the tool's warning as
-  written and says its details could not be read. It is never a pass.
+  written and says its details could not be read. It is never a pass. **Added in the
+  build:** the details are also treated as unreadable when the number of ranges is not
+  the number of missing chunks (the tool lists one range per chunk), so a miscounted
+  warning is quoted rather than summarised.
 
 **Message** (run log and dialog):
 
 > ⚠️ The source transcript is incomplete: the transcription tool transcribed 5 of 12
 > chunks. Missing (approx.): 00:24:00-00:48:00, 00:56:00-01:20:00, 01:28:00-01:36:00.
-> The summary, abstract and other outputs will cover only the transcribed parts.
+> The summary, abstract and other outputs cover only the transcribed parts.
 > Source: `<file name>`.
 
-Ranges that touch are joined for the message (00:24:00-00:32:00, 00:32:00-00:40:00 and
+The ⚠️ is added by the GUI log and dialog; the Format log and the gate detail carry the
+same text without it. Ranges that touch are joined for the message (00:24:00-00:32:00, 00:32:00-00:40:00 and
 00:40:00-00:48:00 become 00:24:00-00:48:00). The gate items keep each range as written.
 There is no "N minutes missing" figure: the tool's last range (01:28:00-01:36:00) runs
 past the header's Duration (01:28:00), so a sum would overstate the gap.
 
 **Which file the GUI checks.** `self.selected_file`, the file the run starts from. If
 it no longer exists, the project's raw-source copy (` - raw-source.txt`, written at
-format validation). If neither exists, a plain line: "Could not check whether the source
+format validation). **Changed after review:** that order holds only when Format is
+selected. Otherwise the later stages reuse the formatted transcript, which was checked
+against the raw-source copy, so the GUI reads the raw-source copy first (the file the
+gate reads) and falls back to the selected file. If neither exists, a plain line: "Could not check whether the source
 transcript is complete: no source file found." The run goes on in every case.
 
 **Gate check `source_completeness` (advisory).**
 
 - Reads `release_gate._raw_source_candidates(base_name)`: the project's raw-source copy,
   or else matching `.txt` files in the project, source and processed folders. These are
-  the same files `source_fidelity` reads.
-- **WARN** if any candidate reports incomplete. Detail: the message. Items: one per
+  the same files `source_fidelity` reads. **Changed after review:** with more than one
+  candidate and a formatted transcript, it reads only the candidate `source_fidelity`
+  matched (both use `release_gate._match_raw_source`), so the two checks name the same
+  file. With no formatted transcript it reads them all.
+- **WARN** if any file read reports incomplete. Detail: the message. Items: one per
   file, with the file name, the chunk counts, the missing ranges as written, and the
   tool's warning text.
-- **PASS** "the transcription tool's header reports no missing audio" when the headers
-  report nothing incomplete. **PASS** "no transcription-tool header; completeness not
+- **PASS** "no known incomplete-transcript warning in the transcription tool's header"
+  when the headers report nothing incomplete (changed after review from "reports no
+  missing audio", which claimed more than the check knows). **PASS** "no transcription-tool header; completeness not
   stated" for a plain transcript. The detail says which.
 - **ERROR** when no raw source is found. It doesn't block: `_is_blocking` blocks only
   checks in `GATE_BLOCKING_CHECKS`. `source_fidelity` already blocks on a missing raw
@@ -147,27 +175,27 @@ Biology raw file.
 
 | ID | Criterion | Test | Status |
 |---|---|---|---|
-| IT1.a | The real Systems Biology header parses as incomplete: 5 of 12 chunks, 7 ranges, first `00:24:00-00:32:00`, last `01:28:00-01:36:00`. The chunked-upload warning is kept as a separate warning. | `test_it1a_real_incomplete_header_is_parsed` | not done |
-| IT1.b | Headers without the marker are complete, and every warning is kept as written. Three real headers: cloud chunked-upload only; the WhisperX line (prompt truncated / HF token missing); "Dropped 6 of 650 segment(s) as suspected hallucination". | `test_it1b_complete_headers_not_flagged` | not done |
-| IT1.c | Malformed: (1) marker with no counts and no ranges, (2) counts with no ranges, (3) ranges written `00:24-00:32`. Each is incomplete; the message quotes the warning as written and says the details could not be read. | `test_it1c_malformed_header_still_flagged` | not done |
-| IT1.d | No header (a plain transcript) → no header, not incomplete. A header after a byte-order mark is still read. | `test_it1d_plain_transcript_and_bom` | not done |
-| IT1.e | Adversarial (P7): "transcription incomplete" in the body below the separator is not flagged. A header whose `Warnings:` line has "truncated" but not the marker is not flagged. | `test_it1e_body_text_and_near_miss_not_flagged` | not done |
-| IT1.f | The message joins touching ranges, names the chunk counts and the source file, and has no minutes-missing figure. | `test_it1f_message_joins_touching_ranges` | not done |
-| IT2.a | `format_transcript` logs the message at warning level when the raw transcript is incomplete, and still formats (returns True). With a complete header it logs no such warning. | `tests/test_formatting_pipeline.py::test_it2a_format_logs_incomplete_source` (uses that file's existing patch pattern) | not done |
-| IT2.b | GUI: `_run_selected_stages` logs the ⚠️ message before the first stage, and every selected stage still runs. | `test_it2b_run_log_warns_before_first_stage` (headless GUI as in `tests/test_ts_gui_run_all.py`, mock runners) | not done |
-| IT2.c | (if IT0.b (1)) The Confirm dialog text contains the message for an incomplete source and is unchanged for a complete one. | `test_it2c_confirm_dialog_names_missing_ranges` (patched `messagebox.askyesno`) | not done |
-| IT2.d | Source file missing → the "Could not check" line, and the run goes on. | `test_it2d_missing_source_is_reported_not_fatal` | not done |
-| IT2.e | (if IT0.f) Every header warning is logged word for word in one plain line. | `test_it2e_all_transcriber_warnings_logged` | not done |
-| IT3.a | Gate check on a project whose raw-source copy has the real header → WARN; items carry the 7 ranges as written and 5 of 12. | `test_it3a_gate_warns_with_missing_ranges` | not done |
-| IT3.b | Complete header → PASS; plain transcript → PASS whose detail says completeness is not stated. | `test_it3b_complete_and_plain_sources_pass` | not done |
-| IT3.c | No raw source → ERROR, and `decide()` does not BLOCK on it. | `test_it3c_missing_source_is_nonblocking_error` | not done |
-| IT3.d | `source_completeness` is in `DEFAULT_CHECKS` and not in `GATE_BLOCKING_CHECKS`; a gate whose only non-PASS is this WARN decides `ALLOW_WITH_WARNINGS`. | `test_it3d_incomplete_source_allows_with_warnings` | not done |
-| IT3.e | The run manifest records the verdict with its ranges. | `test_it3e_manifest_records_missing_ranges` | not done |
-| IT3.f | Malformed header in the raw-source copy → WARN. | `test_it3f_malformed_source_warns` | not done |
-| IT3.g | Dirty state (P8): the same project gives WARN, then PASS after its raw-source copy is replaced by a complete transcript. | `test_it3g_replaced_source_clears_the_warning` | not done |
-| IT3.h | (if IT0.c) On `ALLOW_WITH_WARNINGS`, `_publication_blocked` logs each `[WARN] check: detail` line and returns False. | `tests/test_run_fixes_rf.py::test_it3h_gate_warnings_logged_on_allow` | not done |
-| IT4 | Documents: CHANGELOG entry; TODO.md (the 2026-10-19 adjacent item "Nothing reads the transcription tool's 'incomplete' warning" is closed; IT0.d and IT0.e added if you choose "not now"); `ARCHITECTURE_DESIGN.md:135` check list; the config comment above `GATE_BLOCKING_CHECKS`; `tests/fixtures/prose_real/README.md` says the Systems Biology fixture is the partial transcript; this plan's status. | Review of the diff | not done |
-| IT5 | Count of affected projects. | This plan, section IT5; repeated in CHANGELOG | done (1 of 18 projects with a raw source) |
+| IT1.a | The real Systems Biology header parses as incomplete: 5 of 12 chunks, 7 ranges, first `00:24:00-00:32:00`, last `01:28:00-01:36:00`. The chunked-upload warning is kept as a separate warning. | `test_it1a_real_incomplete_header_is_parsed` (after review, also a warning that follows the incomplete one) | done |
+| IT1.b | Headers without the marker are complete, and every warning is kept as written. Three real headers: cloud chunked-upload only; the WhisperX line (prompt truncated / HF token missing); "Dropped 6 of 650 segment(s) as suspected hallucination". | `test_it1b_complete_headers_not_flagged` | done |
+| IT1.c | Malformed: (1) marker with no counts and no ranges, (2) counts with no ranges, (3) ranges written `00:24-00:32`. Each is incomplete; the message quotes the warning as written and says the details could not be read. | `test_it1c_malformed_header_still_flagged`; added: `test_it1c_range_count_mismatch_is_unreadable`; added after review: `test_it1c_reworded_warning_still_flagged` | done |
+| IT1.d | No header (a plain transcript) → no header, not incomplete. A header after a byte-order mark is still read. | `test_it1d_plain_transcript_and_bom`; added after review: `test_it1d_header_found_wherever_the_fidelity_check_finds_it` (leading blank line, indented `Warnings:`, a line above `TRANSCRIPT`) | done |
+| IT1.e | Adversarial (P7): "transcription incomplete" in the body below the separator is not flagged. A header whose `Warnings:` line has "truncated" but not the marker is not flagged. | `test_it1e_body_text_and_near_miss_not_flagged` (after review, also "transcribed 12 of 12 chunks" is not flagged) | done |
+| IT1.f | The message joins touching ranges, names the chunk counts and the source file, and has no minutes-missing figure. | `test_it1f_message_joins_touching_ranges`; added: `test_it1f_notices_levels` | done |
+| IT2.a | `format_transcript` logs the message at warning level when the raw transcript is incomplete, and still formats (returns True). With a complete header it logs no such warning. | `tests/test_formatting_pipeline.py::test_it2a_format_logs_incomplete_source` (uses that file's existing patch pattern; after review, also a pattern set that changes the header text does not hide the warning) | done |
+| IT2.b | GUI: `_run_selected_stages` logs the ⚠️ message before the first stage, and every selected stage still runs. | `test_it2b_run_log_warns_before_first_stage` (headless GUI as in `tests/test_ts_gui_run_all.py`, mock runners) | done |
+| IT2.c | (if IT0.b (1)) The Confirm dialog text contains the message for an incomplete source and is unchanged for a complete one. | `test_it2c_confirm_dialog_names_missing_ranges` (patched `messagebox.askyesno`) | done |
+| IT2.d | Source file missing → the "Could not check" line, and the run goes on. | `test_it2d_missing_source_is_reported_not_fatal`; added: `test_it2d_falls_back_to_the_raw_source_copy`; added after review: `test_it2d_reads_the_file_the_run_uses` (the selected file with Format, the raw-source copy without) | done |
+| IT2.e | (if IT0.f) Every header warning is logged word for word in one plain line. | `test_it2e_all_transcriber_warnings_logged`; added: `test_it2e_plain_source_says_not_stated` | done |
+| IT3.a | Gate check on a project whose raw-source copy has the real header → WARN; items carry the 7 ranges as written and 5 of 12. | `test_it3a_gate_warns_with_missing_ranges`; added after review: `test_it3a_reads_the_source_fidelity_matched` (replaces `test_it3_any_incomplete_candidate_warns`: with several candidates, the file `source_fidelity` matched decides; with no formatted transcript, any incomplete file warns) | done |
+| IT3.b | Complete header → PASS; plain transcript → PASS whose detail says completeness is not stated. | `test_it3b_complete_and_plain_sources_pass` | done |
+| IT3.c | No raw source → ERROR, and `decide()` does not BLOCK on it. | `test_it3c_missing_source_is_nonblocking_error` | done |
+| IT3.d | `source_completeness` is in `DEFAULT_CHECKS` and not in `GATE_BLOCKING_CHECKS`; a gate whose only non-PASS is this WARN decides `ALLOW_WITH_WARNINGS`. | `test_it3d_incomplete_source_allows_with_warnings` | done |
+| IT3.e | The run manifest records the verdict with its ranges. | `test_it3e_manifest_records_missing_ranges` | done |
+| IT3.f | Malformed header in the raw-source copy → WARN. | `test_it3f_malformed_source_warns` | done |
+| IT3.g | Dirty state (P8): the same project gives WARN, then PASS after its raw-source copy is replaced by a complete transcript. | `test_it3g_replaced_source_clears_the_warning` | done |
+| IT3.h | (if IT0.c) On `ALLOW_WITH_WARNINGS`, `_publication_blocked` logs each `[WARN] check: detail` line and returns False. | `tests/test_run_fixes_rf.py::test_it3h_gate_warnings_logged_on_allow` | done |
+| IT4 | Documents: CHANGELOG entry; TODO.md (the 2026-10-19 adjacent item "Nothing reads the transcription tool's 'incomplete' warning" is closed; IT0.d and IT0.e added if you choose "not now"); `ARCHITECTURE_DESIGN.md:135` check list; the config comment above `GATE_BLOCKING_CHECKS`; `tests/fixtures/prose_real/README.md` says the Systems Biology fixture is the partial transcript; this plan's status. | Review of the diff | done |
+| IT5 | Count of affected projects. | This plan, section IT5; repeated in CHANGELOG | done (1 of 19 projects with a raw source) |
 
 Existing tests that must still pass unchanged: `tests/test_validation_logic.py` (header
 detection and stripping), `tests/test_validator_gating_r15.py` (it reads the
@@ -194,9 +222,22 @@ is the fixture.
    files and the gate check on the 7 BTA projects with `config.PROJECTS_DIR` pointed at
    the drive. Expected: exactly one WARN (Systems Biology `_20260718_155038_v-valid-5m`).
    The script stays in the session's scratch folder; the result goes in the CHANGELOG.
+   **Result (2026-10-19):** the parser flagged 4 of the 60 headed files, all copies of
+   Systems Biology `_20260718_155038_v-valid-5m`. The gate check on all 21 project
+   folders (both sets, the nested one included): 1 WARN (that project), 16 PASS,
+   4 non-blocking ERROR (`Beautiful Boy Review`, `Monika Baege…`, `Emotional
+   Regression…`, the empty nested `projects`: no raw source where the gate looks; the
+   same lookup `source_fidelity` uses). No file on the drive changed. Re-run after the
+   review fixes: the same counts; the KCFC projects now read 1 source file each (the one
+   `source_fidelity` matched) instead of 2.
 6. Documents (IT4).
 7. learning-qa review of the diff, fix its findings, commit to main. No push unless you
-   say so.
+   say so. **Done:** 7 findings. Fixed: the GUI and the gate read the same file
+   (IT2.d); more wordings caught and the PASS text says only what is known (IT1.c,
+   IT3.b); header found wherever the fidelity check finds one (IT1.d); a warning after
+   the incomplete one kept apart (IT1.a); completeness reads the file fidelity matched
+   (IT3.a); Format reads the header before the pattern set (IT2.a). Not fixed, recorded
+   below and in TODO: the CLI prints no gate warnings.
 
 ## Files shared with the judge-severity work
 
@@ -222,13 +263,14 @@ pieces of work update.
 - Whether the dialog line and the log line are noticed. That is your judgement on the
   first real run.
 - That the transcription tool always uses this wording. Its code is not on this Mac. A
-  changed wording passes as complete unless it still contains a marker. The markers are
-  in config, and IT0.e's second signal would cover a changed wording.
+  changed wording passes as complete unless it still contains a marker or a
+  "transcribed N of M chunks" count with N < M. The markers are in config, and IT0.e's
+  second signal would cover a changed wording.
 
 ## Adjacent issues found, not fixed
 
-- The GUI prints the gate's `[WARN]` lines only when publication is blocked. IT0.c fixes
-  this if you approve it.
+- The GUI printed the gate's `[WARN]` lines only when publication was blocked. Fixed by
+  IT0.c (IT3.h).
 - `format_transcript` sends the 7-line header, `Warnings:` included, to the formatting
   model as part of the raw transcript. `strip_transcript_metadata_header` is used only
   in the word comparisons (`formatting_pipeline.py:872`, `:1055`). No formatted
@@ -236,10 +278,18 @@ pieces of work update.
 - `detect_transcript_source_format` needs all six header labels in the first 12 lines.
   A header missing one (for example, no `Speakers:` line) is treated as a plain
   transcript, and `strip_transcript_metadata_header` then leaves the header in the text
-  it compares. All 60 real headers have all six. The new parser does not depend on that
-  function.
+  it compares. 3 of the 60 real headed files have no `Warnings:` line, so the detector
+  calls them plain (corrected in the build; the first draft said all 60 have all six).
+  The new parser uses that function only as a second way to find a header; a header
+  whose first line is `TRANSCRIPT` is read without it, so those 3 files are read.
+- Found in review: `release_gate.main` (the command-line gate) prints only
+  `publish_decision=`. Its WARN verdicts, `source_completeness` among them, reach only
+  the run manifest. IT0.c fixed this for the GUI only.
 - Calibration runs that used the Systems Biology fixture (for example SC1.d,
   `docs/calibration_summary_closing_2026-10-18.md`) measured a 40-minute transcript.
   They still test the prompts, because the judge compares against the same partial
   text, but their reports don't say the transcript is partial. IT4 adds the note to the
   fixture README only.
+- Four BTA project folders have no raw source where the gate looks (live check above).
+  `source_fidelity` blocks them for the same reason. Added to TODO.
+- `TODO.md` lists all of these under "2026-10-19 — Incomplete source transcripts".

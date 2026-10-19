@@ -603,10 +603,21 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   topic_term_faithfulness (added 2026-09-23) is NOT blocking: it WARNs (author
 #   decision 3a, 2026-10-09). Measured on real runs 2026-10-12
 #   (docs/calibration_topic_term_2026-10-12.md); making it blocking is still open.
+#   source_completeness (added 2026-10-19, plan IT, author decision IT0.a) is NOT
+#   blocking: a transcript the transcription tool reports as incomplete gives outputs
+#   that cover only the transcribed parts. They are incomplete, not wrong, so it WARNs
+#   (with the missing time ranges) and the run and publication go on.
 GATE_BLOCKING_CHECKS = {"source_fidelity", "entity_grounding", "artifact_contracts",
                         "faithfulness", "theme_grounding", "verbatim_quotes",
                         "consistency", "topics_grounding", "summary_coverage"}
 GATE_ERROR_BLOCKS = True
+# Wording in the transcription tool's header "Warnings:" line that means part of the
+# recording was not transcribed (source_completeness.py, plan IT1). Matched without
+# regard to case. It is the tool's wording, so it lives here: if the tool changes it,
+# add the new wording rather than editing code. "missing time ranges" also catches a
+# reworded warning that still lists the ranges; a warning saying "transcribed N of M
+# chunks" with N < M counts as incomplete whatever its wording.
+SOURCE_INCOMPLETE_MARKERS = ("transcription incomplete", "missing time ranges")
 # Artifacts whose proper names must be grounded in the source for the BLOCKING
 # entity check (M4.C). Scoped to NARRATIVE PROSE artifacts — the abstract (the
 # original, calibrated 0-false-positive scope) plus the other prose outputs

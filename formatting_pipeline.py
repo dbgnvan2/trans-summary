@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 
 
 import config
+import source_completeness
 import transcript_utils
 from transcript_utils import (
     CURLY_QUOTE_MAP,
@@ -258,6 +259,8 @@ def format_transcript(
 
         logger.info(f"Loading raw transcript: {raw_filename}")
         raw_transcript = load_raw_transcript(raw_filename)
+        # Read before the pattern set is applied, as the release gate does (IT2.a).
+        completeness = source_completeness.read_header(raw_transcript)
 
         # Apply the project's pattern set (group-level fixes) to the raw text
         # before formatting; what was applied is recorded in the project.
@@ -274,6 +277,10 @@ def format_transcript(
             "Detected transcript source format: %s",
             detect_transcript_source_format(raw_transcript),
         )
+        # Say so when the transcription tool reports missing audio: every later stage
+        # sees only the formatted text (plan IT2.a; a warning, not a stop).
+        for level, line in source_completeness.notices(completeness, raw_filename):
+            getattr(logger, level)("%s", line)
 
         # Construct full prompt to check context budget before API call.
         # This guard must compare against model context capacity, not the

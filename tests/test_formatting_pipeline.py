@@ -122,5 +122,55 @@ class TestFormattingPipeline(unittest.TestCase):
         )
         self.assertIs(checked_logger, logger)
 
+    def _format_with_raw(self, raw_text, after_pattern_set=None):
+        import pattern_sets
+        logger = MagicMock()
+        applied = (after_pattern_set, None) if after_pattern_set is not None else (raw_text, None)
+        with patch.object(config, "SOURCE_DIR", Path("/tmp")), \
+             patch.object(pattern_sets, "apply_to_raw_for_project", return_value=applied), \
+             patch.object(formatting_pipeline, "load_prompt", return_value="Prompt"), \
+             patch.object(formatting_pipeline, "load_raw_transcript", return_value=raw_text), \
+             patch.object(formatting_pipeline, "check_token_budget", return_value=True), \
+             patch.object(formatting_pipeline, "format_transcript_with_claude", return_value="Formatted output"), \
+             patch.object(formatting_pipeline, "save_formatted_transcript", return_value=Path("/tmp/out.md")):
+            ok = formatting_pipeline.format_transcript("Sample_validated.txt", logger=logger)
+        warnings = [c.args[0] % c.args[1:] if len(c.args) > 1 else c.args[0]
+                    for c in logger.warning.call_args_list]
+        infos = [c.args[0] % c.args[1:] if len(c.args) > 1 else c.args[0]
+                 for c in logger.info.call_args_list]
+        return ok, warnings, infos
+
+    def test_it2a_format_logs_incomplete_source(self):
+        """Spec: docs/plan_incomplete_transcript_2026-10-19.md#IT2.a"""
+        header = ("TRANSCRIPT\n==========\nSource file:  Talk.mp3\nDate:         2026-07-18\n"
+                  "Duration:     01:28:00\nSpeakers:     Unknown\nWarnings:     {}\n\n"
+                  "--------------------------------------------------\n\n[00:00:00]\n\nOkay.\n")
+        chunked = "Cloud transcription used chunked upload (12 part(s), 480s each)."
+        # The real Systems Biology warning, word for word.
+        incomplete = (chunked + "; Cloud transcription incomplete: transcribed 5 of 12 chunks; "
+                      "missing time ranges (approx.): 00:24:00-00:32:00, 00:32:00-00:40:00, "
+                      "00:40:00-00:48:00, 00:56:00-01:04:00, 01:04:00-01:12:00, "
+                      "01:12:00-01:20:00, 01:28:00-01:36:00")
+
+        ok, warnings, infos = self._format_with_raw(header.format(incomplete))
+        self.assertTrue(ok)  # a warning, not a stop
+        incomplete = [w for w in warnings if w.startswith("The source transcript is incomplete")]
+        self.assertEqual(len(incomplete), 1)
+        self.assertIn("00:56:00-01:20:00", incomplete[0])
+        self.assertIn("Sample_validated.txt", incomplete[0])
+        self.assertTrue(any(i.startswith("Transcription tool warnings") for i in infos))
+
+        ok, warnings, infos = self._format_with_raw(header.format(chunked))
+        self.assertTrue(ok)
+        self.assertFalse(any("incomplete" in w for w in warnings))
+        self.assertTrue(any(i.startswith("Transcription tool warnings") for i in infos))
+
+        # The header is read before the pattern set changes the text, as the gate
+        # reads the file as written: a pattern set cannot hide the warning.
+        ok, warnings, _ = self._format_with_raw(header.format(incomplete),
+                                                after_pattern_set="[00:00:00]\n\nOkay.\n")
+        self.assertTrue(ok)
+        self.assertTrue(any(w.startswith("The source transcript is incomplete") for w in warnings))
+
 if __name__ == '__main__':
     unittest.main()

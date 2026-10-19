@@ -2,6 +2,55 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Incomplete source transcript notice)
+
+Plan `docs/plan_incomplete_transcript_2026-10-19.md` (IT1–IT5). The Systems Biology raw
+transcript's header says "Cloud transcription incomplete: transcribed 5 of 12 chunks",
+nothing read it, and about 40 of the 88 minutes were summarised and judged.
+
+- **IT1, header reader** (`source_completeness.py`): reads the transcription tool's
+  `Warnings:` line and finds the incomplete warning (wording in
+  `config.SOURCE_INCOMPLETE_MARKERS`: "transcription incomplete" or "missing time
+  ranges"; a warning saying "transcribed N of M chunks" with N < M also counts). It takes
+  the chunk counts and missing ranges from the tool's own text. When they don't add up
+  (one range per missing chunk), it quotes the warning instead. Warnings are split after
+  a period or before a capital letter, because a real warning contains "; skipped." and
+  the incomplete warning ends with a time range. It finds the header wherever the
+  source-fidelity check does (a leading blank line, an indented `Warnings:` line). Only
+  the header is read; the body is never searched.
+- **IT0.a, warning, not a stop:** an incomplete transcript is reported, never blocks.
+- **IT2, the user is told before the run** (`ts_gui.py`, `formatting_pipeline.py`): the
+  Confirm dialog and the top of the run log name the missing time ranges; the Format
+  stage logs them (read before the pattern set changes the text); every
+  transcription-tool warning is logged in one line (IT0.f). The GUI reads the selected
+  file when Format is selected, and otherwise the project's raw-source copy, which is
+  the file the formatted transcript was checked against. A missing source file, or one
+  without the tool's header, is said in the log, not hidden.
+- **IT3, release gate** (`release_gate.check_source_completeness`, advisory): WARN with
+  the missing ranges in the detail and in the run manifest's items; PASS when the header
+  has no known incomplete-transcript warning, or when there is no header ("completeness
+  not stated"); non-blocking ERROR when no raw source is found. It reads the raw source
+  that `source_fidelity` matched (the two now share `_match_raw_source`), so both
+  checks name the same file. The GUI now prints every gate `[WARN]`
+  line when the gate allows with warnings (IT0.c), not only on a block.
+- **IT5, count:** of 20 project folders on CrucialX9 (12 KCFC, 8 BTA, plus one empty
+  nested `projects`), 19 have a raw source with the tool's header, and **1 carries the
+  warning**: Systems Biology `…_20260718_155038_v-valid-5m`. A read-only live check of
+  the new gate step on all 21 folders: 1 WARN (that project), 16 PASS, 4 non-blocking
+  ERROR (raw source not where the gate looks; see TODO). No file on the drive changed.
+  Re-run after the review fixes: the same result.
+- **Tests:** `tests/test_source_completeness_it.py` (real headers word for word: parsing,
+  complete and plain headers, malformed and miscounted warnings, body text and near
+  misses, reworded warnings, header variants, the gate verdicts and manifest, the file
+  the gate and the GUI read, the GUI dialog and run log),
+  `tests/test_formatting_pipeline.py::test_it2a_format_logs_incomplete_source`,
+  `tests/test_run_fixes_rf.py::test_it3h_gate_warnings_logged_on_allow`.
+- **Docs:** `ARCHITECTURE_DESIGN.md` §4.3 lists the check; config comment above
+  `GATE_BLOCKING_CHECKS`; `tests/fixtures/prose_real/README.md` says the Systems Biology
+  fixture is the partial transcript; TODO.md closes the 2026-10-19 item and adds IT0.d
+  (published pages don't say a talk is partial) and IT0.e (a truncated transcript whose
+  header doesn't say so) as deferred.
+
 ## [Unreleased] - 2026-10-18 (Summary closing guard, best-draft tie-break, last-try wording)
 
 Plan `docs/plan_summary_closing_2026-10-18.md` (SC1–SC3). The 2026-10-18 Holt run stopped

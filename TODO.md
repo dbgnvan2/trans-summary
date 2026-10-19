@@ -24,14 +24,74 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   (`extraction_pipeline.py:1471`, `"; ".join(issues)[:300]`), so claims are lost from the
   only record of a failed attempt (one of three in the 2026-10-18 run). Plan item JS2.d
   proposes the fix.
-- **Nothing reads the transcription tool's "incomplete" warning.** The Systems Biology
-  raw transcript says "Cloud transcription incomplete: transcribed 5 of 12 chunks"; the
-  project was summarised and judged from about 40 of its 88 minutes.
+- ~~**Nothing reads the transcription tool's "incomplete" warning.**~~ Fixed 2026-10-19;
+  see "Incomplete source transcripts" below.
 - **The summary prompt says "Weave in the Interpretive Themes"**, and the faithfulness
   judge then fails that interpretation (8 Holt flags restate interpretive theme 3). The
   plan makes such sentences warnings.
 - `docs/calibration/2026-10-18_summary_closing/measure_closing.py` saves flagged
   sentences but not the judge's labels or rationales.
+
+---
+
+## 2026-10-19 — Incomplete source transcripts
+
+### ✅ Fixed 2026-10-19 (plan IT1–IT5, `docs/plan_incomplete_transcript_2026-10-19.md`)
+- ~~**Nothing reads the transcription tool's "incomplete" warning.**~~ The Systems
+  Biology raw transcript says "Cloud transcription incomplete: transcribed 5 of 12
+  chunks", and the project was summarised and judged from about 40 of its 88 minutes.
+  The header is now read (`source_completeness.py`). An incomplete transcript is a
+  warning, not a stop (IT0.a). The GUI names the missing time ranges in the Confirm
+  dialog and at the top of the run log, the Format stage logs them, and the release
+  gate's advisory `source_completeness` check WARNs with them in the run manifest.
+  The GUI now prints gate `[WARN]` lines on `ALLOW_WITH_WARNINGS` too (IT0.c). Every
+  transcription-tool warning is logged in one line (IT0.f). Scan of CrucialX9: 1 of the
+  19 projects with a raw source carries the warning (Systems Biology
+  `…_20260718_155038_v-valid-5m`). The GUI and the gate read the same source file (the
+  raw-source copy unless Format runs). Tests: `tests/test_source_completeness_it.py`,
+  `tests/test_formatting_pipeline.py::test_it2a_*`, `tests/test_run_fixes_rf.py::test_it3h_*`.
+
+### ⏸ Open (deferred by decision, 2026-10-19)
+- **Published pages don't say a talk was transcribed in part** (IT0.d). The webpage,
+  PDF, abstract and summary of a partial talk read as if they cover the whole talk.
+  Needs its own wording and a template change.
+- **A truncated transcript whose header doesn't say so passes as complete** (IT0.e).
+  Words per minute (body words ÷ the header's Duration) separates them on the 60 real
+  headed files: normal 103–154 wpm, Systems Biology 52–54 wpm, and three test files
+  21–22 wpm (`TEST FILE - DAVE G - 2026-07014`, `TEST FILE 2 - DAVE G - 2026-07-14`,
+  `Roots of Bowen TEST - Mike Kerr - 2026-07015`: about 1,900 words each under a header
+  Duration of 88–92 minutes). A threshold would need measuring first.
+
+### ⏸ Open (adjacent, found in the IT plan, not fixed)
+- **A complete Systems Biology transcript exists**:
+  `BTA … 02 Transcripts to be Processed (From TRX)/xPending/Systems Biology … 2021-06-25_valid_validated.txt`
+  (WhisperX, Duration 01:32:08, 115 wpm, no incomplete warning). It is the source of the
+  older `…_valid` project. Re-running Systems Biology from it would give outputs that
+  cover the whole talk. Not code.
+- **`format_transcript` sends the 7-line header, `Warnings:` included, to the formatting
+  model** as part of the raw transcript (`formatting_pipeline.py`, the `RAW TRANSCRIPT:`
+  prompt). `strip_transcript_metadata_header` is used only for the word comparison and
+  the word timings.
+- **`detect_transcript_source_format` needs all six header labels in the first 12
+  lines.** A header without one (e.g. no `Speakers:` line) is treated as a plain
+  transcript, and `strip_transcript_metadata_header` then leaves the header in the text
+  it compares. 3 of the 60 real headed files have no `Warnings:` line
+  (`2021 Webcast Sep Part 1 - Michael Kerr - 2021-09-` and its `_validated` copy,
+  `Sept 2021-2_20260710_090831`), so the detector calls them plain. `source_completeness`
+  also reads a header whose first non-blank line is `TRANSCRIPT`, so it reads them as
+  headed with no warnings.
+- **Calibration reports that used the Systems Biology fixture** (e.g.
+  `docs/calibration_summary_closing_2026-10-18.md`) don't say it is a 40-minute partial
+  transcript. The fixture README now does.
+- **Four BTA project folders have no raw source where the gate looks.** `Beautiful Boy
+  Review` and `Monika Baege…` keep their raw in the folder under another name;
+  `Emotional Regression…` has no `.txt` at all; the nested `projects/projects` is empty.
+  None has the ` - raw-source.txt` copy (they predate it). `source_fidelity` (blocking) ERRORs on them and
+  `source_completeness` reports "not checked". A re-run of Format writes the copy.
+- **The command-line gate prints no warnings** (found in the IT review).
+  `release_gate.main` prints only `publish_decision=`; its WARN verdicts,
+  `source_completeness` among them, reach only the run manifest. IT0.c fixed this for
+  the GUI only.
 
 ---
 
