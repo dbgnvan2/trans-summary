@@ -35,6 +35,7 @@ End with the speaker's own conclusion, open questions or future directions, if t
 *   Chronological narrative flow.
 *   No citations (e.g. "Section 1 says...").
 *   No bullet points.
+*   No outside facts: state only what the transcript and the recording title give. Do not spell out an abbreviation the transcript does not spell out, and do not add a first name, age, place, occupation, affiliation or family fact (such as that someone has died) that the transcript does not state, even if you know it.
 *   **Length:** Aim for about {target_word_count} words total ({min_words}-{max_words}). Include specific details, examples, and evidence from the transcript.
 
 Input data:

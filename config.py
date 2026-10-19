@@ -577,9 +577,11 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   its schema is producer/consumer format drift (P19). U4 requires drift to be a
 #   HARD error, not a silent zero, so it blocks — a legitimately-empty artifact
 #   validates as an empty object and does not trip it.
-#   faithfulness (M2, added 2026-07-15): an unentailed claim in a narrative artifact
-#   is a fluent hallucination (U2). Blocks when enabled (armed 2026-07-15, see
-#   FAITHFULNESS_JUDGE_ENABLED below); a PASS no-op while the flag is False.
+#   faithfulness (M2, added 2026-07-15) is NOT blocking since 2026-10-19 (user
+#   decision, docs/plan_warn_only_2026-10-19.md#WO2): a flagged claim in a narrative
+#   artifact is a WARN with each artifact's % score and the claims listed, and a judge
+#   ERROR is reported as unverified; publication goes on. It blocked from 2026-07-15
+#   to 2026-10-19. A PASS no-op while FAITHFULNESS_JUDGE_ENABLED is False.
 #   theme_grounding (2026-07-15): an ungrounded theme (built on fabricated subject
 #   matter) is a hallucination in a published artifact (U2). Blocks when enabled
 #   (armed 2026-07-15, see THEME_JUDGE_ENABLED below); a PASS no-op while the flag
@@ -608,7 +610,7 @@ BUNDLE_DEFAULT_FORMAT = "pdf"
 #   that cover only the transcribed parts. They are incomplete, not wrong, so it WARNs
 #   (with the missing time ranges) and the run and publication go on.
 GATE_BLOCKING_CHECKS = {"source_fidelity", "entity_grounding", "artifact_contracts",
-                        "faithfulness", "theme_grounding", "verbatim_quotes",
+                        "theme_grounding", "verbatim_quotes",
                         "consistency", "topics_grounding", "summary_coverage"}
 GATE_ERROR_BLOCKS = True
 # Wording in the transcription tool's header "Warnings:" line that means part of the
@@ -729,7 +731,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-19"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label; TE evidence allowlist; JS severity step
+JUDGE_LOGIC_VERSION = "2026-10-19b"  # WO: cached verdicts carry the claim count; judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label; TE evidence allowlist; JS severity step
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",

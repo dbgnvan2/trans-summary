@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Faithfulness flags warn, never block)
+
+Plan `docs/plan_warn_only_2026-10-19.md` (WO0–WO7). The user's decision after the JS6
+calibration: "Warn only, never block." Supersedes the NQ plan
+(`docs/plan_severity_downgrade_2026-10-19.md`, not built).
+
+- **WO1, no outside facts:** the summary, abstract, overview and blog prompts forbid
+  spelling out an abbreviation the transcript does not spell out, and adding a first
+  name, age, place, occupation, affiliation or family fact it does not state.
+- **WO2, warn only:** `faithfulness` is out of `config.GATE_BLOCKING_CHECKS`. A flagged
+  claim (wrong or not quite right) is a WARN; a judge ERROR does not block. The entity
+  check and `theme_grounding` still block.
+- **WO3, % score:** the verdict gives each artifact's score, "summary 90% (27 of 30
+  claims supported)". `claims_judged` is stored with a cached PASS;
+  `JUDGE_LOGIC_VERSION` is "2026-10-19b".
+- **WO4, generation:** still revises flagged claims; when no attempt is clean it keeps
+  the best draft and the stage succeeds, unless the draft has a name the entity check
+  blocks on. The abstract's name check now covers the abstract only.
+- **WO5, warnings in the run log:** `run_gate` logs every non-blocking verdict that is
+  not a PASS, with each flagged claim, for every caller (GUI, html_generator,
+  packaging, bundle export, CLI). An advisory ERROR is tagged UNVERIFIED.
+- **WO6, live check** (12 summary drafts, $1.83): 22 → 9 flags, 93% → 97% of claims
+  supported, outside-fact hits 10 → 4. Results in
+  `docs/calibration/2026-10-19_outside_facts/`.
+
 ## [Unreleased] - 2026-10-19 (Faithfulness flags fail only on WRONG content)
 
 Plan `docs/plan_judge_severity_2026-10-19.md` (JS1–JS7), from the review

@@ -89,6 +89,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**Rounds of tuning a check that did not need to block (2026-10-19, WO).**
+- Issue: after the severity step (JS), a further plan (NQ) proposed $8.5–11.5 of calibration to make the step downgrade minor flags. The user asked why it was taking so long. Shown what the flags were, they chose to have faithfulness warn and never block.
+- Root cause: each round (confirmation CF, speaker rule SA, severity JS, then NQ) took "a faithfulness flag blocks" as fixed and worked to make the block accurate. Nobody asked whether a block was needed. The entity check already blocks invented names, and the hand labels showed 17 of 29 flags were wording or order and 1 was badly wrong.
+- What would have caught it: showing the user, with the first hand-labelled sample, what the check was blocking, and asking "block or warn?" before building a classifier to decide.
+- Fix: WO (`docs/plan_warn_only_2026-10-19.md`): flags warn with a % score and the claims listed; generation still revises them; the prompts forbid outside facts.
+- Rule: before making a check accurate enough to block on, show the user a sample of what it blocks and ask whether it should block at all.
+
 **The severity step passed every ship test and changed no draft outcome (2026-10-19, JS).**
 - Issue: the JS severity step was built so that runs fail only on WRONG content. In the JS6 calibration it downgraded 0 of 12 NOT QUITE RIGHT flags in fresh summary drafts and 3 of 90 in the review set; 9 of 12 drafts failed both before and after.
 - Root cause (P33, checked along one axis): the ship rules (b, c, d) tested only that no WRONG claim is downgraded. None tested that NOT QUITE RIGHT flags are downgraded, which was the point of the change. The policy line "If you are unsure, answer WRONG" makes the first vote WRONG in nearly every case (22 of 22 draft judgements), and a first WRONG vote is final.

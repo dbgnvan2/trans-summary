@@ -463,7 +463,11 @@ def test_sl2_failed_later_attempt_keeps_the_best_draft(monkeypatch, advisory):
     """SL review: when a later faithfulness attempt fails outright (every retry outside
     the length band), the best earlier draft is written, as on exhausted attempts."""
     import extraction_pipeline as ep
+    import release_gate as rg
     monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 3)
+    # WO4: no name in the kept draft (entity check stubbed), so the stage goes on.
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status.PASS, "stub"))
     drafts = iter(["draft one", "draft two"])
 
     def generate(feedback):
@@ -477,7 +481,7 @@ def test_sl2_failed_later_attempt_keeps_the_best_draft(monkeypatch, advisory):
                                      written.append, precheck=lambda *a: ("fail", next(issues)),
                                      advisory=advisory)
     assert written[-1] == "draft one"
-    assert ok is advisory
+    assert ok is True  # WO4: was ``advisory`` before 2026-10-19
 
 
 def test_sl2_first_attempt_failure_still_raises(monkeypatch):

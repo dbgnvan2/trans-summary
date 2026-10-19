@@ -214,9 +214,11 @@ def test_r15d_blocking_checks_and_judges_armed():
                 pass
     assert shipped["FAITHFULNESS_JUDGE_ENABLED"] is True
     assert shipped["THEME_JUDGE_ENABLED"] is True
-    assert {"entity_grounding", "artifact_contracts", "faithfulness", "theme_grounding",
+    assert {"entity_grounding", "artifact_contracts", "theme_grounding",
             "consistency", "verbatim_quotes", "source_fidelity", "topics_grounding",
             "summary_coverage"} <= shipped["GATE_BLOCKING_CHECKS"]
+    # WO2 (user decision 2026-10-19): faithfulness warns and never blocks.
+    assert "faithfulness" not in shipped["GATE_BLOCKING_CHECKS"]
     names = {n for n, _fn in rg.DEFAULT_CHECKS}
     assert shipped["GATE_BLOCKING_CHECKS"] <= names
 

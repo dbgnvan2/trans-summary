@@ -15,6 +15,7 @@ Third person, present tense
 No citations, quotations, or section numbers
 No percentages or proportions: do not say how much of the talk any part took
 No evaluation of content quality
+No outside facts: state only what the transcript and the recording title give. Do not spell out an abbreviation the transcript does not spell out, and do not add a first name, age, place, occupation, affiliation or family fact (such as that someone has died) that the transcript does not state, even if you know it.
 No bullet points or lists
 Preserve technical terminology from input
 Hard length limit: the abstract must be under {hard_max_words} words

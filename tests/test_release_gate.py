@@ -409,10 +409,10 @@ def test_faithfulness_source_includes_recording_metadata(tmp_path, monkeypatch):
     assert "Spoken words about family systems" in captured["source"]  # transcript kept
 
 
-def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, monkeypatch):
-    """The BLOCKER message should read 'faithfulness: check failed in
-    <artifact> — regenerate and try again', not the cryptic
-    'N of M artifact(s) contain unentailed claims'."""
+def test_wo2_flag_message_names_artifact_and_says_it_is_a_warning(tmp_path, monkeypatch):
+    """The message names the artifact with a clean name and says publication goes on
+    (WO2: faithfulness warns and never blocks; until 2026-10-19 it read 'check failed
+    in <artifact> — regenerate and try again')."""
     import faithfulness_judge as fj
     base = "Sample Talk - Jane Doe - 2021-05-10"
     proj = tmp_path / base
@@ -438,9 +438,8 @@ def test_faithfulness_fail_message_names_artifact_and_is_actionable(tmp_path, mo
 
     v = rg.check_faithfulness(base)
     art = suffix.strip(" -").removesuffix(".md")
-    assert v.status is Status.FAIL
-    assert f"check failed in {art}" in v.detail
-    assert "regenerate and try again" in v.detail.lower()
+    assert v.status is Status.WARN
+    assert f"1 wrong claim(s) flagged in {art} (a warning; publication goes on)" in v.detail
     assert ".md" not in v.detail  # clean artifact name
 
 
@@ -561,8 +560,9 @@ def test_m2_faithfulness_disabled_is_noop_pass(real_run, monkeypatch):
     assert "FAITHFULNESS_JUDGE_ENABLED" in v.detail and "calibration" not in v.detail
 
 
-def test_m2_faithfulness_fail_blocks(cloned_run, monkeypatch):
-    """When enabled, an unentailed-claim artifact -> FAIL -> BLOCK (U2)."""
+def test_wo2_m2_faithfulness_flag_warns_and_publishes(cloned_run, monkeypatch):
+    """When enabled, an unentailed-claim artifact -> WARN -> ALLOW_WITH_WARNINGS
+    (WO2, user decision 2026-10-19; it was FAIL -> BLOCK under U2)."""
     import faithfulness_judge as fjudge
     import transcript_utils
     base, proj = cloned_run
@@ -575,10 +575,11 @@ def test_m2_faithfulness_fail_blocks(cloned_run, monkeypatch):
         claims=[fjudge.ClaimVerdict("A fabricated sentence.", fjudge.UNSUPPORTED)])
     monkeypatch.setattr(fjudge, "judge_artifact", lambda *a, **k: bad)
     v = rg.check_faithfulness(base, logging.getLogger("t"))
-    assert v.status is Status.FAIL
+    assert v.status is Status.WARN
+    assert any("A fabricated sentence." in it.get("unfaithful", []) for it in v.items)
     d = rg.run_gate(base, logging.getLogger("t"),
                     checks=[("faithfulness", rg.check_faithfulness)])
-    assert d.decision is Decision.BLOCK
+    assert d.decision is Decision.ALLOW_WITH_WARNINGS
 
 
 def test_m2_faithfulness_no_narrative_artifact_is_error(tmp_path, monkeypatch):
@@ -761,9 +762,10 @@ def test_m7_clean_rerun_clears_stale_block_marker(cloned_run):
     assert not marker.exists()
 
 
-def test_r8d_zero_claims_artifact_blocks(tmp_path, monkeypatch):
+def test_r8d_zero_claims_artifact_is_unverified(tmp_path, monkeypatch):
     """Plan R8: a non-empty prose artifact with no extractable claims makes the
-    faithfulness check ERROR, which BLOCKs publication (nothing was verified)."""
+    faithfulness check ERROR (nothing was verified). Since WO2 (2026-10-19) it is
+    reported as unverified and does not block."""
     base = "Sample Talk - Jane Doe - 2021-05-10"
     proj = tmp_path / base
     proj.mkdir(parents=True)
@@ -783,4 +785,4 @@ def test_r8d_zero_claims_artifact_blocks(tmp_path, monkeypatch):
     v = rg.check_faithfulness(base, suffixes=[config.SUFFIX_BLOG])
     assert v.status is Status.ERROR
     assert "0 claims extracted" in str(v.items)
-    assert rg.decide([v]).decision is rg.Decision.BLOCK
+    assert rg.decide([v]).decision is rg.Decision.ALLOW_WITH_WARNINGS

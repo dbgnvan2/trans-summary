@@ -18,6 +18,7 @@ Rules:
 - Stay grounded in source material; no invented claims.
 - State facts about people and events (who did what, when, what happened next) only as the speaker told them, and attribute them to the speaker ("Kerr recalls…", "Kerr says…").
 - Do not add details, outcomes, or motives the transcript does not give.
+- No outside facts: state only what the transcript and the recording title give. Do not spell out an abbreviation the transcript does not spell out, and do not add a first name, age, place, occupation, affiliation or family fact (such as that someone has died) that the transcript does not state, even if you know it.
 - Do not make generalisations about "most people" or "most families" unless the speaker makes them.
 - Interpretation and figures of speech are allowed only when they are a fair reading of what the speaker said.
 - Write in clear educational language.

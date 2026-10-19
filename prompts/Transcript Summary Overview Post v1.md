@@ -61,7 +61,7 @@ signal.
    the named entities present.
 8. **Stay grounded.** No invented claims. Every assertion must be traceable
    to the source artifacts above. If a fact is not in the artifacts, do not
-   state it.
+   state it. No outside facts: state only what the artifacts and the recording title give. Do not spell out an abbreviation the artifacts do not spell out, and do not add a first name, age, place, occupation, affiliation or family fact (such as that someone has died) that the artifacts do not state, even if you know it.
 9. **Focus keyword placement.** Include `{{focus_keyword}}` naturally in:
    the title, the definitional opener, and at least one H2.
 10. **Word count target.** Aim for {{target_word_count}} words total.

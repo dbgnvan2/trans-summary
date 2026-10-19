@@ -9,10 +9,15 @@ import config
 import extraction_pipeline as ep
 
 
-def _loop(monkeypatch, verdicts, drafts, advisory=False):
+def _loop(monkeypatch, verdicts, drafts, advisory=False, entity="PASS"):
     """Run ``_generate_until_faithful`` with three tries. ``drafts`` are the texts of
     tries 1..3 (try 1 generated, later ones revised); ``verdicts`` are the precheck
     results of the drafts that get judged, in order."""
+    # WO4: a kept draft fails its stage only on a name the gate's entity check
+    # rejects. There is no source here, so that check is stubbed.
+    import release_gate as rg
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status(entity), "stub"))
     monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 3)
     texts, seq, written, judged = iter(drafts), iter(verdicts), [], []
     logger = MagicMock()
@@ -37,7 +42,7 @@ def test_sc2a_tie_keeps_the_later_draft(monkeypatch):
     ok, written, judged, _ = _loop(
         monkeypatch, [("fail", ["Claim A."]), ("fail", ["Claim B."]), ("fail", ["Claim C."])],
         ["draft one", "draft two", "draft three"])
-    assert ok is False
+    assert ok is True  # WO4: flags warn, the stage goes on
     assert judged == ["draft one", "draft two", "draft three"]
     assert written[-1] == "draft three"
 
@@ -48,7 +53,7 @@ def test_sc2b_fewer_claims_beat_a_later_draft(monkeypatch):
         monkeypatch, [("fail", ["Claim A."]), ("fail", ["Claim B.", "Claim C."]),
                       ("fail", ["Claim D.", "Claim E."])],
         ["draft one", "draft two", "draft three"])
-    assert ok is False
+    assert ok is True  # WO4
     assert written[-1] == "draft one"
 
 
@@ -58,7 +63,7 @@ def test_sc2c_unjudged_draft_never_kept_on_a_tie(monkeypatch):
     ok, written, judged, _ = _loop(
         monkeypatch, [("fail", ["Claim A."]), ("fail", ["Claim B."])],
         ["draft one", "draft two", "It still says Claim B."])
-    assert ok is False
+    assert ok is True  # WO4
     assert judged == ["draft one", "draft two"]
     assert written[-1] == "draft two"
 
@@ -96,7 +101,7 @@ def test_sc2f_partial_draft_never_beats_a_judged_draft(monkeypatch):
     ok, written, _, _ = _loop(
         monkeypatch, [("fail", ["Claim A."]), ("partial", [NAME]), ("fail", ["B.", "C."])],
         ["draft one", "draft two", "draft three"])
-    assert ok is False and written[-1] == "draft one"
+    assert ok is True and written[-1] == "draft one"
     # A judged draft beats an earlier partial one, even with more claims.
     ok, written, _, _ = _loop(
         monkeypatch, [("partial", [NAME]), ("fail", ["Claim A.", "Claim B."]),
@@ -106,8 +111,8 @@ def test_sc2f_partial_draft_never_beats_a_judged_draft(monkeypatch):
     # Among partial drafts only, a tie keeps the later one.
     ok, written, _, _ = _loop(
         monkeypatch, [("partial", [NAME]), ("partial", [NAME]), ("partial", [NAME])],
-        ["draft one", "draft two", "draft three"])
-    assert ok is False and written[-1] == "draft three"
+        ["draft one", "draft two", "draft three"], entity="FAIL")
+    assert ok is False and written[-1] == "draft three"  # the kept draft has a name
 
 
 # --- SC3: the last try's warning does not promise another try -----------------------
@@ -116,7 +121,7 @@ def test_sc3a_last_try_does_not_say_it_will_revise(monkeypatch):
     ok, _, _, logger = _loop(
         monkeypatch, [("fail", ["Claim A."]), ("fail", ["Claim B."]), ("fail", ["Claim C."])],
         ["draft one", "draft two", "draft three"])
-    assert ok is False
+    assert ok is True  # WO4
     tries = [w for w in _warnings(logger) if "not faithful" in w]
     assert len(tries) == 3
     assert all("revising the flagged sentences" in w for w in tries[:2])

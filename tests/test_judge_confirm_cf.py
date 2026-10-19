@@ -169,7 +169,7 @@ def test_cf2_fail_keeps_overturned_of_other_artifacts(tmp_path, monkeypatch):
             patch.object(release_gate, "_judge_cached", side_effect=[passed, failed]):
         v = release_gate.check_faithfulness(
             base, None, suffixes=[config.SUFFIX_ABSTRACT_GEN, config.SUFFIX_SUMMARY_GEN])
-    assert v.status is release_gate.Status.FAIL
+    assert v.status is release_gate.Status.WARN  # WO2: a flag warns
     assert any(it.get("overturned") == _OVER for it in v.items)
 
 

@@ -193,7 +193,7 @@ Biology raw file.
 | IT3.e | The run manifest records the verdict with its ranges. | `test_it3e_manifest_records_missing_ranges` | done |
 | IT3.f | Malformed header in the raw-source copy → WARN. | `test_it3f_malformed_source_warns` | done |
 | IT3.g | Dirty state (P8): the same project gives WARN, then PASS after its raw-source copy is replaced by a complete transcript. | `test_it3g_replaced_source_clears_the_warning` | done |
-| IT3.h | (if IT0.c) On `ALLOW_WITH_WARNINGS`, `_publication_blocked` logs each `[WARN] check: detail` line and returns False. | `tests/test_run_fixes_rf.py::test_it3h_gate_warnings_logged_on_allow` | done |
+| IT3.h | (if IT0.c) On `ALLOW_WITH_WARNINGS`, `_publication_blocked` logs each `[WARN] check: detail` line and returns False. Since WO5 (`docs/plan_warn_only_2026-10-19.md`) `run_gate` logs the lines through the GUI's logger. | `tests/test_run_fixes_rf.py::test_it3h_gate_warnings_logged_on_allow` | done |
 | IT4 | Documents: CHANGELOG entry; TODO.md (the 2026-10-19 adjacent item "Nothing reads the transcription tool's 'incomplete' warning" is closed; IT0.d and IT0.e added if you choose "not now"); `ARCHITECTURE_DESIGN.md:135` check list; the config comment above `GATE_BLOCKING_CHECKS`; `tests/fixtures/prose_real/README.md` says the Systems Biology fixture is the partial transcript; this plan's status. | Review of the diff | done |
 | IT5 | Count of affected projects. | This plan, section IT5; repeated in CHANGELOG | done (1 of 19 projects with a raw source) |
 

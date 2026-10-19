@@ -4,6 +4,8 @@ Plan: `docs/plan_judge_severity_2026-10-19.md` (JS6). The severity step runs on 
 faithfulness flag that confirmation keeps, and decides WRONG (fails) or NOT QUITE RIGHT
 (passes with a warning). This report measures it before it ships.
 
+Follow-up the same day: the user decided faithfulness flags warn and never block (`docs/plan_warn_only_2026-10-19.md`), after this report showed most flags were minor.
+
 ## Settings
 
 - Judge `claude-sonnet-5-5`, default effort, `FAITHFULNESS_CONFIRM_MODE` majority of 3,

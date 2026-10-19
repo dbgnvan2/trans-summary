@@ -1,6 +1,6 @@
 # Plan: the severity step downgrades NOT QUITE RIGHT flags (NQ0–NQ8) — 2026-10-19
 
-Status: **draft, waiting for approval (NQ0).** No code changed.
+Status: **superseded 2026-10-19, not built.** The user decided that faithfulness flags warn and never block (`docs/plan_warn_only_2026-10-19.md`), so the severity step no longer needs to be accurate enough to block on. Kept for the record.
 
 Builds on `docs/plan_judge_severity_2026-10-19.md` (JS) and its calibration
 `docs/calibration_judge_severity_2026-10-19.md` (JS6). Closes, if it passes, the two

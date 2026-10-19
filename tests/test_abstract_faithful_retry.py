@@ -33,7 +33,16 @@ def _setup(monkeypatch, tmp_path, base="Talk Title - Some Author - 2025-01-01"):
     monkeypatch.setattr(ep, "_revise_flagged",
                         lambda what, draft, claims, **k: ep.abstract_pipeline.generate_abstract(
                             None, None, feedback_claims=claims))
+    # WO4: a kept draft fails the stage only on a name the gate's entity check
+    # rejects. There is no source here, so that check is stubbed (to PASS by default).
+    _entity(monkeypatch, rg.Status.PASS)
     return base, proj
+
+
+def _entity(monkeypatch, status):
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", status, f"entity {status.value}",
+        [{"names": ["Ann Example"]}] if status is rg.Status.FAIL else []))
 
 
 def _log():
@@ -66,9 +75,9 @@ def test_retries_then_passes_feeding_issues_back(monkeypatch, tmp_path):
     assert calls == [None, ["claim X is unsupported"]]
 
 
-def test_r11a_all_attempts_fail_returns_false_and_keeps_least_bad_draft(monkeypatch, tmp_path):
-    """Plan R11: an abstract that never passes faithfulness fails the stage; the
-    least-bad draft is still saved for editing."""
+def test_wo4_abstract_kept_with_flags_stage_succeeds(monkeypatch, tmp_path):
+    """WO4 (2026-10-19): an abstract that never passes faithfulness keeps the least-bad
+    draft and the stage goes on with a warning. Under plan R11 it failed the stage."""
     base, proj = _setup(monkeypatch, tmp_path)
     texts = iter(["draft-1", "draft-2-best", "draft-3"])
     monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
@@ -77,9 +86,23 @@ def test_r11a_all_attempts_fail_returns_false_and_keeps_least_bad_draft(monkeypa
     seq = iter([("fail", ["a", "b", "c"]), ("fail", ["a"]), ("fail", ["a", "b"])])
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
 
-    assert ep.generate_structured_abstract(base, logger=_log()) is False
+    assert ep.generate_structured_abstract(base, logger=_log()) is True
     saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
     assert saved == "draft-2-best"  # kept the draft with the fewest issues
+
+
+def test_wo4_abstract_kept_with_name_stage_fails(monkeypatch, tmp_path, caplog):
+    """WO4: a name the entity check rejects still blocks publication, so a kept
+    abstract with one still fails the stage."""
+    base, proj = _setup(monkeypatch, tmp_path)
+    _entity(monkeypatch, rg.Status.FAIL)
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", lambda *a, **k: "draft")
+    monkeypatch.setattr(ep, "_abstract_gate_precheck",
+                        lambda b, logger=None: ("fail", ["the name 'Ann Example' does not "
+                                                         "appear in the source"]))
+    with caplog.at_level(logging.ERROR, logger="test_abstract_retry"):
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    assert "BLOCK" in caplog.records[-1].getMessage()
 
 
 def test_r11b_unavailable_check_generates_once_and_succeeds(monkeypatch, tmp_path):
@@ -130,7 +153,7 @@ def test_gate_precheck_classifies_pass_fail_unavailable(monkeypatch):
     monkeypatch.setattr(rg, "check_faithfulness",
                         lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.PASS, ""))
     monkeypatch.setattr(rg, "check_entity_grounding",
-                        lambda b, l=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
+                        lambda b, l=None, suffixes=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
     assert ep._abstract_gate_precheck("b")[0] == "pass"
 
     # fail -> issues include the specific unfaithful claim
@@ -162,7 +185,7 @@ def test_aq4_failed_later_attempt_keeps_the_best_draft(monkeypatch, tmp_path):
     seq = iter([("fail", ["a"]), ("fail", ["a", "b"])])
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
 
-    assert ep.generate_structured_abstract(base, logger=_log()) is False
+    assert ep.generate_structured_abstract(base, logger=_log()) is True  # WO4
     saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
     assert saved == "draft-1-best"
 
@@ -180,8 +203,8 @@ def test_aq4_final_message_names_the_failed_attempt(monkeypatch, tmp_path, caplo
             raise ValueError("Response text too long: 265 words (expected <= 249)")
     monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", generate)
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: ("fail", ["a"]))
-    with caplog.at_level(logging.ERROR):
-        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    with caplog.at_level(logging.WARNING):
+        assert ep.generate_structured_abstract(base, logger=_log()) is True  # WO4
     final = caplog.records[-1].getMessage()
     assert "attempt 2/3 could not be generated" in final and "too long" in final
     assert "after 3 attempt" not in final
@@ -245,7 +268,7 @@ def test_sc2d_abstract_tie_keeps_the_later_draft(monkeypatch, tmp_path):
                             lambda *a, **k: next(texts))
         seq = iter([("fail", [f"issue {i}" for i in range(n)]) for n in counts])
         monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
-        assert ep.generate_structured_abstract(base, logger=_log()) is False
+        assert ep.generate_structured_abstract(base, logger=_log()) is True  # WO4
         saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
         assert saved == expected, counts
 
@@ -258,7 +281,7 @@ def test_sc3b_abstract_last_try_wording(monkeypatch, tmp_path, caplog):
     seq = iter([("fail", ["issue a"]), ("fail", ["issue b"]), ("fail", ["issue c"])])
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
     with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
-        assert ep.generate_structured_abstract(base, logger=_log()) is False
+        assert ep.generate_structured_abstract(base, logger=_log()) is True  # WO4
     tries = [r.getMessage() for r in caplog.records if "not faithful" in r.getMessage()]
     assert len(tries) == 3
     assert all("revising the flagged sentences" in t for t in tries[:2])
@@ -276,11 +299,31 @@ def test_js2c_abstract_nqr_only_passes(monkeypatch, caplog):
                               "first_label": "unsupported"}]}])
     monkeypatch.setattr(rg, "check_faithfulness", lambda b, l=None, suffixes=None: warn)
     monkeypatch.setattr(rg, "check_entity_grounding",
-                        lambda b, l=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
+                        lambda b, l=None, suffixes=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
     with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
         assert ep._abstract_gate_precheck("b", _log()) == ("pass", [])
     assert any("Claim Y." in r.getMessage() and "[N2]" in r.getMessage()
                for r in caplog.records)
+
+
+def test_wo4_abstract_precheck_names_scoped_to_abstract(monkeypatch):
+    """Adversarial: a name not in the source that is in the summary, not the abstract,
+    is not fed back to the abstract (it cannot remove it). Before WO4 this cost only
+    attempts; since WO4 the kept abstract would pass with another artifact's name
+    counted as its flag."""
+    monkeypatch.setattr(rg, "check_faithfulness", lambda b, l=None, suffixes=None:
+                        rg.Verdict("faithfulness", rg.Status.PASS, ""))
+    seen = []
+
+    def names(b, l=None, suffixes=None):
+        seen.append(suffixes)
+        if suffixes == [config.SUFFIX_ABSTRACT_GEN]:
+            return rg.Verdict("entity_grounding", rg.Status.PASS, "")
+        return rg.Verdict("entity_grounding", rg.Status.FAIL, "1 name",
+                          [{"names": ["Ann Example"]}])
+    monkeypatch.setattr(rg, "check_entity_grounding", names)
+    assert ep._abstract_gate_precheck("b") == ("pass", [])
+    assert seen == [[config.SUFFIX_ABSTRACT_GEN]]
 
 
 def test_js2d_abstract_warning_lists_every_issue(monkeypatch, tmp_path, caplog):
@@ -291,6 +334,6 @@ def test_js2d_abstract_warning_lists_every_issue(monkeypatch, tmp_path, caplog):
     issues = [f"Issue {i} " + "word " * 40 + "end." for i in range(3)]
     monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: ("fail", issues))
     with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
-        assert ep.generate_structured_abstract(base, logger=_log()) is False
+        assert ep.generate_structured_abstract(base, logger=_log()) is True  # WO4
     text = " ".join(r.getMessage() for r in caplog.records)
     assert all(i in text for i in issues)

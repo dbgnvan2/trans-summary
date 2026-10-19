@@ -358,10 +358,9 @@ def _nqr_result():
 def test_js2b_gate_warns_on_nqr_only(tmp_path, monkeypatch):
     _, v = _gate(tmp_path, monkeypatch, _nqr_result())
     assert v.status is release_gate.Status.WARN
-    assert "1 claim(s) not quite right" in v.detail
+    assert "1 not quite right claim(s) flagged" in v.detail
     assert v.items[0]["not_quite_right"] == [
         {"claim": B, "type": "N3", "evidence": GOOD, "first_label": "unsupported"}]
-    assert "faithfulness" in config.GATE_BLOCKING_CHECKS
     decision = release_gate.decide([v])
     assert decision.decision is release_gate.Decision.ALLOW_WITH_WARNINGS
     assert decision.allowed
@@ -372,10 +371,10 @@ def test_js2b_gate_fail_still_lists_nqr(tmp_path, monkeypatch):
     r.status = fj.FAIL
     r.claims.append(fj.ClaimVerdict(C, "unsupported", severity=fj.WRONG, severity_type="W4"))
     _, v = _gate(tmp_path, monkeypatch, r)
-    assert v.status is release_gate.Status.FAIL
+    assert v.status is release_gate.Status.WARN  # WO2: a WRONG claim warns too
     assert v.items[0]["unfaithful"] == [C]
     assert v.items[0]["not_quite_right"][0]["claim"] == B
-    assert release_gate.decide([v]).decision is release_gate.Decision.BLOCK
+    assert release_gate.decide([v]).decision is release_gate.Decision.ALLOW_WITH_WARNINGS
 
 
 def test_js2b_fail_items_record_why_each_claim_failed(tmp_path, monkeypatch):

@@ -85,6 +85,9 @@ class FaithfulnessResult:
     # First-pass flags a fresh judgement did not confirm (CF): kept for the record
     # so an overturned flag is visible, never silently dropped (P2).
     overturned: list = field(default_factory=list)
+    # How many claims were judged (WO3): the denominator of the gate's % score. A
+    # cached PASS keeps only its flagged claims, so the count is stored separately.
+    judged: int = 0
 
     @property
     def unfaithful(self) -> list:
@@ -118,6 +121,7 @@ class FaithfulnessResult:
             "unfaithful": [full(c) for c in self.unfaithful],
             "not_quite_right": [full(c) for c in self.not_quite_right],
             "overturned": list(self.overturned),
+            "claims_judged": self.judged,
         }
 
 
@@ -1171,7 +1175,8 @@ def judge_artifact(artifact_text: str, source: str, client, *,
     except Exception as e:  # noqa: BLE001 — judge failure must fail closed, not pass
         log.error("Faithfulness judge failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"judge error: {type(e).__name__}: {e}")
-    result = FaithfulnessResult(PASS, "", claims=verdicts, overturned=overturned)
+    result = FaithfulnessResult(PASS, "", claims=verdicts, overturned=overturned,
+                                judged=len(verdicts))
     unfaithful, minor = result.unfaithful, result.not_quite_right
     note = (f"; {len(overturned)} first-pass flag(s) not confirmed: "
             f"{[o['claim'][:80] for o in overturned]}" if overturned else "")

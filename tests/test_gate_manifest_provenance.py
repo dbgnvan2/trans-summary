@@ -15,7 +15,9 @@ def test_m9_manifest_stamps_code_revision_and_gate_policy(tmp_path, monkeypatch)
     prov = rg.build_manifest("b", decision, "2026-07-18T00:00:00")["provenance"]
     assert "code_revision" in prov and isinstance(prov["code_revision"], str)
     assert "gate_policy" in prov
-    assert "faithfulness" in prov["gate_policy"]["blocking_checks"]
+    assert "entity_grounding" in prov["gate_policy"]["blocking_checks"]
+    # WO2 (2026-10-19): faithfulness warns and never blocks.
+    assert "faithfulness" not in prov["gate_policy"]["blocking_checks"]
     assert prov["gate_policy"]["error_blocks"] is True
 
 

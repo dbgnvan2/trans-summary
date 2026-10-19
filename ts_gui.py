@@ -2398,11 +2398,8 @@ class TranscriptProcessorGUI:
 
         decision = release_gate.run_gate(self.base_name, self.logger)
         if decision.decision is not release_gate.Decision.BLOCK:
-            # Warnings are printed on allow too (IT0.c): otherwise they reach only the
-            # run manifest.
-            for v in decision.verdicts:
-                if v.status is release_gate.Status.WARN:
-                    self.log(f"      [WARN] {v.check}: {v.detail}")
+            # run_gate has already logged the warnings, with the flagged claims, through
+            # self.logger (IT0.c, WO5).
             return False
         # Quarantine the previous bundle, write the marker and manifest (G1):
         # returning early must not leave an old ALLOW run's output on disk looking
@@ -2411,9 +2408,6 @@ class TranscriptProcessorGUI:
         self.log(f"  - ❌ Release gate BLOCKED publication — skipping {what}.")
         for v in decision.blockers:
             self.log(f"      [BLOCKER {v.status.value}] {v.check}: {v.detail}")
-        for v in decision.verdicts:
-            if v.status is release_gate.Status.WARN:
-                self.log(f"      [WARN] {v.check}: {v.detail}")
         return True
 
     def _run_stage_simple_web(self):

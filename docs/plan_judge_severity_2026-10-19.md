@@ -1,6 +1,6 @@
 # Plan: faithfulness flags fail only on WRONG content (JS0–JS7) — 2026-10-19
 
-Status: **built 2026-10-19; JS6 passed, armed (`majority3`).** The user approved the
+Status: **built 2026-10-19; JS6 passed, armed (`majority3`). Since WO (same day, `docs/plan_warn_only_2026-10-19.md`) no faithfulness flag blocks: the step only labels flags in the warning and picks which claims generation revises.** The user approved the
 plan with every JS0 recommendation (see "JS0 — decisions", answers recorded there).
 JS6 (`docs/calibration_judge_severity_2026-10-19.md`): b, c and d pass, no WRONG claim
 was downgraded in any part. The step downgrades few NOT QUITE RIGHT flags (0 of 12 in

@@ -303,33 +303,37 @@ def test_rfe2_simple_web_block_writes_nothing_and_logs_blockers():
 
 
 def test_it3h_gate_warnings_logged_on_allow():
-    """On ALLOW_WITH_WARNINGS the GUI prints every WARN verdict, not only on BLOCK.
+    """On ALLOW_WITH_WARNINGS the GUI log shows every WARN verdict, not only on BLOCK.
+    Since WO5 run_gate logs the lines through the GUI's logger, so the real run_gate
+    runs here with stub checks.
 
-    Spec: docs/plan_incomplete_transcript_2026-10-19.md#IT3.h (decision IT0.c)
+    Spec: docs/plan_incomplete_transcript_2026-10-19.md#IT3.h (decision IT0.c),
+          docs/plan_warn_only_2026-10-19.md#WO5
     """
     logs = []
     gui = _gui(logs)
+    gui.logger = ts_gui.GuiLoggerAdapter(gui)
     warn = release_gate.Verdict(
         "source_completeness", release_gate.Status.WARN,
         "The source transcript is incomplete: the transcription tool transcribed 5 of 12 chunks.")
     other = release_gate.Verdict("required_artifacts", release_gate.Status.WARN, "missing key-terms.md")
     ok = release_gate.Verdict("entity_grounding", release_gate.Status.PASS, "all names grounded")
-    allow = release_gate.GateDecision(release_gate.Decision.ALLOW_WITH_WARNINGS,
-                                      [ok, warn, other], [])
-    with patch("release_gate.run_gate", return_value=allow), \
+
+    def checks(*verdicts):
+        return [(v.check, lambda base_name, logger=None, v=v: v) for v in verdicts]
+    with patch("release_gate.DEFAULT_CHECKS", checks(ok, warn, other)), \
          patch("release_gate.record_decision") as record:
         assert gui._publication_blocked("webpage/PDF") is False
     record.assert_not_called()
-    assert any(line.strip().startswith("[WARN] source_completeness: The source transcript is incomplete")
+    assert any("[WARN] source_completeness: The source transcript is incomplete" in line
                for line in logs)
     assert any("[WARN] required_artifacts" in line for line in logs)
     assert not any("entity_grounding" in line for line in logs)
-    # A clean ALLOW prints no gate lines.
+    # A clean ALLOW prints no warning lines.
     logs.clear()
-    with patch("release_gate.run_gate",
-               return_value=release_gate.GateDecision(release_gate.Decision.ALLOW, [ok], [])):
+    with patch("release_gate.DEFAULT_CHECKS", checks(ok)):
         assert gui._publication_blocked("webpage/PDF") is False
-    assert logs == []
+    assert not any("[WARN]" in line for line in logs)
 
 
 def test_rfe2_simple_web_generator_failure_reported():
@@ -841,17 +845,21 @@ def test_rfj2_summary_regenerates_with_feedback(tmp_path, monkeypatch):
     assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "draft 2"
 
 
-def test_rfj2_summary_all_fail_keeps_best_and_fails(tmp_path, monkeypatch):
+def test_rfj2_summary_all_fail_keeps_best_and_warns(tmp_path, monkeypatch):
+    """Since WO4 (2026-10-19) the stage warns and goes on when only flagged claims
+    remain; it failed before."""
     # Claims are whole sentences: a one-letter claim ("a") occurs inside "draft 2", so
     # the echo check would reject that draft unjudged (RS.6 review).
     base, proj, feedbacks = _summary_project(
         tmp_path, monkeypatch, [("fail", ["Claim A.", "Claim B."]), ("fail", ["Claim C."]),
                                 ("fail", ["Claim D.", "Claim E.", "Claim F."])])
     logger = MagicMock()
-    assert ep.generate_structured_summary(base, logger=logger, model="m") is False
+    monkeypatch.setattr(release_gate, "check_entity_grounding", lambda *a, **k: release_gate.Verdict(
+        "entity_grounding", release_gate.Status.PASS, "stub"))
+    assert ep.generate_structured_summary(base, logger=logger, model="m") is True
     assert len(feedbacks) == config.GENERATION_FAITHFULNESS_ATTEMPTS
     assert (proj / f"{base}{config.SUFFIX_SUMMARY_GEN}").read_text(encoding="utf-8") == "draft 2"
-    assert logger.error.called
+    assert "Faithfulness flags are warnings" in logger.warning.call_args.args[0]
 
 
 def test_rfj2_unavailable_judge_keeps_draft(tmp_path, monkeypatch):

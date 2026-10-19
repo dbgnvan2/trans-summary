@@ -1045,6 +1045,7 @@ def _disk_cached_verdict(disk_key: str, fjudge):
             claims=[fjudge.ClaimVerdict(**c) for c in
                     disk.get("unfaithful", []) + disk.get("not_quite_right", [])],
             overturned=disk.get("overturned", []),
+            judged=int(disk.get("claims_judged") or 0),
         )
     return None
 
@@ -1128,20 +1129,99 @@ def _not_quite_right_records(result) -> list:
              "first_label": c.label} for c in getattr(result, "not_quite_right", [])]
 
 
+def _score_record(art: str, result) -> dict:
+    """The % score of one judged artifact: claims judged, claims flagged (a confirmed
+    flag, WRONG or NOT QUITE RIGHT) and the share not flagged. ``score_pct`` is None
+    when no claim count is known.
+
+    Spec:  docs/plan_warn_only_2026-10-19.md#WO3
+    Tests: tests/test_faithfulness_warn_only_wo.py::test_wo3_score_in_detail_and_items
+    """
+    judged = int(getattr(result, "judged", 0) or 0)
+    flagged = len(getattr(result, "unfaithful", [])) + len(getattr(result, "not_quite_right", []))
+    known = judged > 0 and judged >= flagged
+    supported = judged - flagged if known else None
+    return {"artifact": art, "claims_judged": judged, "flagged": flagged,
+            "supported": supported,
+            "score_pct": round(100 * supported / judged) if known else None}
+
+
+def _score_text(scores: list) -> str:
+    """"summary 90% (27 of 30 claims supported); abstract 100% (8 of 8 ...)"."""
+    parts = []
+    for s in scores:
+        name = s["artifact"].removesuffix(".md")
+        if s["score_pct"] is not None:
+            parts.append(f"{name} {s['score_pct']}% ({s['supported']} of "
+                         f"{s['claims_judged']} claims supported)")
+        elif s["flagged"]:
+            parts.append(f"{name}: {s['flagged']} claim(s) flagged, claim count not known")
+        else:
+            parts.append(f"{name}: no claims to check")
+    return "; ".join(parts)
+
+
+def flagged_claim_lines(v: Verdict) -> list:
+    """One line per flagged claim in a faithfulness verdict, for the run log: the
+    claims are listed as warnings, not only counted (WO5, P2).
+
+    Spec:  docs/plan_warn_only_2026-10-19.md#WO5
+    Tests: tests/test_faithfulness_warn_only_wo.py::test_wo5_gui_lists_flagged_claims_on_allow
+    """
+    lines = []
+    for item in (v.items or []):
+        if not isinstance(item, dict):
+            continue
+        art = str(item.get("artifact", "")).removesuffix(".md")
+        for c in item.get("wrong", []) or []:
+            lines.append(f"[{art}] wrong: {c.get('claim', '')}")
+        for c in item.get("not_quite_right", []) or []:
+            lines.append(f"[{art}] not quite right: {c.get('claim', '')}")
+    return lines
+
+
+def verdict_warning_lines(decision: "GateDecision") -> list:
+    """The run-log lines for every verdict that is not a PASS and does not block: a
+    WARN, or a FAIL/ERROR from a check that does not block (e.g. faithfulness since
+    2026-10-19), each followed by its flagged claims. An ERROR is tagged UNVERIFIED
+    (review M8). ``run_gate`` logs these lines for every caller.
+
+    Spec:  docs/plan_warn_only_2026-10-19.md#WO5
+    Tests: tests/test_faithfulness_warn_only_wo.py::test_wo5_gui_lists_flagged_claims_on_allow
+    """
+    lines = []
+    for v in decision.verdicts:
+        if v.status is Status.PASS or v in decision.blockers:
+            continue
+        tag = {Status.WARN: "WARN", Status.ERROR: "UNVERIFIED, not blocking"}.get(
+            v.status, f"{v.status.value}, not blocking")
+        lines.append(f"[{tag}] {v.check}: {v.detail}")
+        lines.extend(f"  - {line}" for line in flagged_claim_lines(v))
+    return lines
+
+
 def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = None) -> Verdict:
     """Claim-level semantic faithfulness of the NARRATIVE artifacts (M2). Each
-    artifact's claims must be entailed by the source; a contradicted/unsupported
-    claim -> FAIL (fluent hallucination). The judge fails closed: no source / no
-    API key / judge error -> ERROR (blocks). Runs when
-    `config.FAITHFULNESS_JUDGE_ENABLED` is True (armed 2026-07-15 after the M2.B
-    gold-set calibration; config.py holds the current value and calibration record).
-    When the flag is False it is a PASS no-op, so the deterministic gate is
-    unaffected; the unit suite forces it off (root conftest).
+    artifact's claims are judged against the source, and the detail gives each
+    artifact's score: the % of its claims not flagged. A flagged claim (WRONG or NOT
+    QUITE RIGHT) is a WARN, listed in full, and publication goes on: the user decided
+    on 2026-10-19 that faithfulness warns and never blocks (``faithfulness`` is not in
+    ``config.GATE_BLOCKING_CHECKS``). No source / no API key / judge error -> ERROR,
+    which is reported as "could not verify" and does not block either. Runs when
+    `config.FAITHFULNESS_JUDGE_ENABLED` is True; when it is False it is a PASS no-op.
+    The unit suite forces it off (root conftest).
 
     ``suffixes`` limits which artifacts are judged (default: all of
     ``config.FAITHFULNESS_ARTIFACT_SUFFIXES``). The abstract regeneration precheck
     passes the abstract suffix ONLY, so a sibling artifact's unfaithful claim isn't
-    blamed on the abstract (review M2); the publish gate always judges the full set."""
+    blamed on the abstract (review M2); the publish gate always judges the full set.
+    The flagged claims stay in ``items`` under "unfaithful", which generation reads to
+    revise them.
+
+    Spec:  docs/plan_warn_only_2026-10-19.md#WO2, #WO3
+    Tests: tests/test_faithfulness_warn_only_wo.py::test_wo2_wrong_claim_warns_and_gate_allows,
+           tests/test_faithfulness_warn_only_wo.py::test_wo3_score_in_detail_and_items
+    """
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         return Verdict("faithfulness", Status.PASS,
                        "faithfulness judge disabled (FAITHFULNESS_JUDGE_ENABLED is False)")
@@ -1159,12 +1239,12 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
     if not api_key:
         return Verdict("faithfulness", Status.ERROR,
                        "no Anthropic API key (env or shared keys file) — cannot run "
-                       "faithfulness judge (fail closed)")
+                       "faithfulness judge")
     from transcript_utils import get_anthropic_client
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors, overturned, minor = [], [], [], []
+    fails, errors, overturned, minor, scores = [], [], [], [], []
     judged = 0
     for suffix in (suffixes if suffixes is not None else config.FAITHFULNESS_ARTIFACT_SUFFIXES):
         path = proj / f"{base_name}{suffix}"
@@ -1177,6 +1257,10 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         if getattr(result, "overturned", None):
             overturned.append({"artifact": art, "overturned": result.overturned})
         nqr = _not_quite_right_records(result)
+        if result.status == fjudge.ERROR:
+            errors.append({"artifact": art, "detail": result.detail})
+            continue
+        scores.append(_score_record(art, result))
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
                           "unfaithful": [c.claim for c in result.unfaithful],
@@ -1185,8 +1269,6 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
                           "wrong": _wrong_records(result),
                           "not_quite_right": nqr,
                           "overturned": getattr(result, "overturned", [])})
-        elif result.status == fjudge.ERROR:
-            errors.append({"artifact": art, "detail": result.detail})
         elif nqr:
             minor.append({"artifact": art, "not_quite_right": nqr})
     if judged == 0:
@@ -1194,37 +1276,36 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         # present cannot silently clear the faithfulness gate (P7 pass-on-empty).
         return Verdict("faithfulness", Status.ERROR,
                        "no narrative artifact present to verify faithfulness")
-    if fails:
-        # include any co-occurring ERRORs in items so the manifest isn't lossy.
-        # Actionable message naming the artifact(s) — rendered as
-        # "faithfulness: check failed in <artifact> — regenerate and try again".
-        arts = ", ".join(f["artifact"].removesuffix(".md") for f in fails)
-        failed = {f["artifact"] for f in fails}
-        return Verdict("faithfulness", Status.FAIL,
-                       f"check failed in {arts} — regenerate and try again",
-                       items=fails + errors + minor
-                       + [o for o in overturned if o["artifact"] not in failed])
+    # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
+    # A flagged artifact's record already holds its own overturned flags.
+    flagged_arts = {f["artifact"] for f in fails}
+    extra_over = [o for o in overturned if o["artifact"] not in flagged_arts]
+    n_over = sum(len(o["overturned"]) for o in overturned)
+    n_wrong = sum(len(f["unfaithful"]) for f in fails)
+    n_minor = (sum(len(f["not_quite_right"]) for f in fails)
+               + sum(len(m["not_quite_right"]) for m in minor))
+    kinds = " and ".join(k for k in (f"{n_wrong} wrong" if n_wrong else "",
+                                     f"{n_minor} not quite right" if n_minor else "") if k)
+    tail = ((f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
+            + _speaker_note_suffix(transcript))
+    score_txt = _score_text(scores)
+    items = fails + errors + minor + extra_over + scores
     if errors:
         return Verdict("faithfulness", Status.ERROR,
-                       f"{len(errors)} of {judged} artifact(s) could not be verified",
-                       items=errors + minor + overturned)
-    # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
-    n_over = sum(len(o["overturned"]) for o in overturned)
-    if minor:
-        # JS2.b: only NOT QUITE RIGHT claims -> WARN (publishable, listed).
-        n_minor = sum(len(m["not_quite_right"]) for m in minor)
-        arts = ", ".join(m["artifact"].removesuffix(".md") for m in minor)
+                       f"{len(errors)} of {judged} artifact(s) could not be verified"
+                       + (f"; {kinds} claim(s) flagged" if kinds else "")
+                       + (f"; {score_txt}" if score_txt else "") + tail,
+                       items=items)
+    if kinds:
+        arts = ", ".join(sorted({f["artifact"].removesuffix(".md") for f in fails}
+                                | {m["artifact"].removesuffix(".md") for m in minor}))
         return Verdict("faithfulness", Status.WARN,
-                       f"no wrong claims; {n_minor} claim(s) not quite right in {arts} "
-                       f"(a warning, not a fault; {judged} artifact(s) judged)"
-                       + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
-                       + _speaker_note_suffix(transcript),
-                       items=minor + overturned)
+                       f"{kinds} claim(s) flagged in {arts} (a warning; publication goes "
+                       f"on): {score_txt}{tail}",
+                       items=items)
     return Verdict("faithfulness", Status.PASS,
-                   f"all narrative claims entailed by source ({judged} artifact(s) judged)"
-                   + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
-                   + _speaker_note_suffix(transcript),
-                   items=overturned)
+                   f"all narrative claims entailed by source: {score_txt}{tail}",
+                   items=extra_over + scores)
 
 
 # --------------------------------------------------------------------------- topics / key terms
@@ -1546,12 +1627,12 @@ def run_gate(base_name: str, logger=None, checks: Optional[list] = None) -> Gate
             n_err, n_warn)
         for v in decision.blockers:
             logger.error("  BLOCKER [%s] %s: %s", v.status.value, v.check, v.detail)
-        # Surface a NON-blocking "could-not-verify" (ERROR in an advisory check) so an
-        # unattended operator can distinguish ALLOW_WITH_WARNINGS-with-an-ERROR from a
-        # clean ALLOW — otherwise it ships silently (review M8).
-        for v in verdicts:
-            if v.status == Status.ERROR and not _is_blocking(v):
-                logger.warning("  UNVERIFIED [%s] %s: %s", v.status.value, v.check, v.detail)
+        # Every verdict that is not a PASS and does not block, with its flagged claims:
+        # a non-blocking "could-not-verify" (ERROR, review M8) and the faithfulness
+        # warnings (WO5). Logged here so every caller (GUI, html_generator, packaging,
+        # bundle export, CLI) prints them, not only the run manifest.
+        for line in verdict_warning_lines(decision):
+            logger.warning("  %s", line)
     return decision
 
 

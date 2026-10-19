@@ -524,6 +524,11 @@ def _loop(monkeypatch, verdicts, generate, revise, advisory=False):
     from unittest.mock import MagicMock
 
     import extraction_pipeline as ep
+    # WO4: a kept draft fails its stage only on a name the gate's entity check
+    # rejects. There is no source here, so that check is stubbed.
+    import release_gate as rg
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status.PASS, "stub"))
     monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 3)
     seq, written, judged = iter(verdicts), [], []
 
@@ -599,9 +604,11 @@ def test_rs6c_revision_repeating_a_claim_is_rejected(monkeypatch):
 
 
 def test_rs6e_all_tries_fail_still_blocks_or_warns(monkeypatch):
+    """Since WO4 (2026-10-19) a kept draft with only flagged claims warns in both
+    modes; it used to fail the stage when not advisory."""
     verdicts = [("fail", ["claim A.", "claim B."]), ("fail", ["claim A."]),
                 ("fail", ["claim A.", "claim C."])]
-    for advisory, expected in ((False, False), (True, True)):
+    for advisory, expected in ((False, True), (True, True)):
         drafts = iter(["draft two", "draft three"])
         ok, written, _ = _loop(monkeypatch, verdicts, lambda feedback: "draft one",
                                lambda draft, claims: next(drafts), advisory=advisory)
@@ -670,7 +677,7 @@ def test_rs6g_unjudged_echo_draft_is_never_kept(monkeypatch):
     ok, written, judged = _loop(
         monkeypatch, [("fail", ["claim a.", "claim b.", "claim c."]), ("fail", ["claim x.", "claim y."])],
         lambda feedback: "draft one", lambda draft, claims: next(drafts))
-    assert ok is False
+    assert ok is True  # WO4
     assert judged == ["draft one", "draft three"]
     assert written[-1] == "draft three"  # judged, 2 claims; not the unjudged echo
 

@@ -1415,6 +1415,21 @@ def _note_length(what: str, text: str, min_words: int, max_words: int, logger) -
                        what.capitalize(), words, wanted)
 
 
+def _entity_blocks_after_retries(base_name: str, suffix: str, logger=None):
+    """The gate's entity check on a kept draft, when it would block publication (a
+    name not in the source, or the check could not run), else None. Faithfulness
+    flags never block (user decision 2026-10-19), but the entity check still does, so
+    a kept draft with a rejected name still fails its stage.
+
+    Spec:  docs/plan_warn_only_2026-10-19.md#WO4
+    Tests: tests/test_faithfulness_warn_only_wo.py::test_wo4_summary_kept_with_flags_stage_succeeds,
+           tests/test_faithfulness_warn_only_wo.py::test_wo4_summary_kept_with_name_stage_fails
+    """
+    import release_gate as rg
+    entity = rg.check_entity_grounding(base_name, logger, suffixes=[suffix])
+    return entity if rg._is_blocking(entity) else None
+
+
 def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                              generate, write, precheck=None, advisory=False,
                              revise=None) -> bool:
@@ -1423,14 +1438,16 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
     fixes the flagged sentences of the previous draft (RS.6); without it, it
     regenerates with the claims as feedback. If every attempt fails, keep the draft
     with the fewest rejected claims (on a tie the later one, which has had more of its
-    flagged sentences fixed, SC2), log loudly and return False (as the abstract,
-    plan R11).
+    flagged sentences fixed, SC2) and warn: faithfulness flags never fail the stage
+    (WO4). It returns False only when the kept draft has a name the gate's entity check
+    rejects, which still blocks publication.
 
     Purpose: Catch unfaithful summary/blog claims at generation, not at publish.
     Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2,
              docs/plan_run_safe_2026-10-14.md#RS.6,
              docs/plan_summary_closing_2026-10-18.md#SC2, #SC3
-    Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_fails,
+    Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_warns,
+             tests/test_faithfulness_warn_only_wo.py::test_wo4_summary_kept_with_flags_stage_succeeds,
              tests/test_run_safe_rs.py::test_rs6a_second_try_revises_previous_draft,
              tests/test_summary_closing_sc.py::test_sc2a_tie_keeps_the_later_draft,
              tests/test_summary_closing_sc.py::test_sc3a_last_try_does_not_say_it_will_revise
@@ -1495,10 +1512,17 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                        "the claims above before publishing it.", what.capitalize(),
                        best_count, attempts)
         return True
-    logger.error("⚠️ Could not produce a fully faithful %s after %d attempt(s); kept the "
-                 "best draft (%d unsupported claim(s)). The release gate will BLOCK "
-                 "publication until it is regenerated or edited.", what, attempts, best_count)
-    return False
+    blocking = _entity_blocks_after_retries(base_name, suffix, logger)
+    if blocking is not None:
+        logger.error("⚠️ Could not produce a %s free of rejected names after %d attempt(s); "
+                     "kept the best draft (%d flagged item(s)). The release gate will BLOCK "
+                     "publication until it is regenerated or edited: %s",
+                     what, attempts, best_count, blocking.detail)
+        return False
+    logger.warning("⚠️ %s still has %d flagged claim(s) after %d attempt(s); kept the best "
+                   "draft. Faithfulness flags are warnings: the run goes on, and the release "
+                   "gate lists them with the %% score.", what.capitalize(), best_count, attempts)
+    return True
 
 
 def _abstract_gate_precheck(base_name: str, logger=None):
@@ -1519,19 +1543,20 @@ def _abstract_gate_precheck(base_name: str, logger=None):
     # claim in a sibling artifact (summary/overview/blog, already on disk) would be
     # blamed on the abstract, burning regeneration attempts on a claim the abstract
     # cannot remove and emitting a misleading BLOCK message (review M2). The full
-    # multi-artifact faithfulness sweep stays at the publish gate.
+    # multi-artifact faithfulness sweep stays at the publish gate. The entity check is
+    # scoped the same way: a name in the summary is not the abstract's to remove (WO4).
     faith = rg.check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
     _warn_not_quite_right(faith, "abstract", logger)  # JS2.c
-    entity = rg.check_entity_grounding(base_name, logger)
+    entity = rg.check_entity_grounding(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
     if rg.Status.ERROR in (faith.status, entity.status):
         return "unavailable", []
-    if rg.Status.FAIL in (faith.status, entity.status):
-        issues = []
-        for item in (faith.items or []):
-            issues.extend(item.get("unfaithful", []))
+    # Faithfulness flags arrive as a WARN since WO2; the flagged claims are in items.
+    issues = [c for item in (faith.items or []) for c in item.get("unfaithful", [])]
+    if entity.status is rg.Status.FAIL:
         for item in (entity.items or []):
             issues.extend(f"the name '{n}' does not appear in the source"
                           for n in item.get("names", []))
+    if issues:
         return "fail", issues
     return "pass", []
 
@@ -1691,18 +1716,21 @@ def generate_structured_abstract(
             output_path.write_text(best_text, encoding="utf-8")
         if generation_error:
             attempt, e = generation_error
-            logger.error("⚠️ Abstract attempt %d/%d could not be generated (%s); kept the "
-                         "best earlier draft (%s unresolved issue(s)). The release gate will "
-                         "BLOCK publication until it is regenerated or edited.",
-                         attempt, max_attempts, e, best_issue_count)
+            cause = f"attempt {attempt}/{max_attempts} could not be generated ({e})"
         else:
-            logger.error("⚠️ Could not produce a fully faithful abstract after %d attempt(s); "
-                         "kept the best draft (%s unresolved issue(s)). The release gate will "
-                         "BLOCK publication until it is regenerated or edited.",
-                         max_attempts, best_issue_count)
-        # The stage failed its purpose; report it as failed so Run Selected stops
-        # here rather than showing green (author decision, plan R11).
-        return False
+            cause = f"no fully faithful abstract after {max_attempts} attempt(s)"
+        # WO4: faithfulness flags warn and the run goes on; a name the gate's entity
+        # check rejects still blocks, so that case still fails the stage (plan R11).
+        blocking = _entity_blocks_after_retries(base_name, config.SUFFIX_ABSTRACT_GEN, logger)
+        if blocking is not None:
+            logger.error("⚠️ Abstract: %s; kept the best draft (%s unresolved issue(s)). "
+                         "The release gate will BLOCK publication until it is regenerated "
+                         "or edited: %s", cause, best_issue_count, blocking.detail)
+            return False
+        logger.warning("⚠️ Abstract: %s; kept the best draft (%s flagged claim(s)). "
+                       "Faithfulness flags are warnings: the run goes on, and the release "
+                       "gate lists them with the %% score.", cause, best_issue_count)
+        return True
     except Exception as e:
         logger.error("Error generating structured abstract: %s",
                      e, exc_info=True)

@@ -6,6 +6,31 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-19 — Faithfulness flags warn, never block
+
+### ✅ Fixed 2026-10-19 (plan WO1–WO7, `docs/plan_warn_only_2026-10-19.md`)
+- **A faithfulness flag blocked publication.** The user's decision: warn only, never
+  block. `faithfulness` is out of `config.GATE_BLOCKING_CHECKS`; the gate gives each
+  artifact's % of supported claims and lists the flagged claims as warnings, in the run
+  log of every caller (WO2, WO3, WO5). Generation still revises flagged claims, then
+  keeps the best draft and goes on (WO4).
+- **The prose prompts allowed outside facts.** The summary, abstract, overview and blog
+  prompts now forbid them (WO1). On the 12 JS6 summary drafts: 22 → 9 flags, 93% → 97%
+  of claims supported, outside-fact hits 10 → 4 (WO6).
+
+### ⏸ Open — found by WO6 and the WO review
+- **Outside facts are fewer, not gone.** New drafts still have "Marta" (3) and an age
+  ("late thirties", 1). The judge did not flag "Marta Bertolaso" in either Roots draft
+  in either run.
+- **The abstract, overview and blog prompts were not measured** with the new rule.
+- **The severity step still runs** (up to 3 calls per flag) and now only labels flags
+  wrong or not quite right. Keep, or turn off to save cost: your decision.
+- **`theme_grounding` is now the only LLM judge that blocks.** It has no severity step.
+- Adjacent, not fixed: `_abstract_gate_precheck` returns "unavailable" on a judge ERROR
+  even when the name check found names; the summary path returns "partial".
+- Adjacent, not fixed: on BLOCK the GUI log shows each blocker twice (`run_gate` logs
+  it through the GUI's logger, then `_publication_blocked` prints it again).
+
 ## 2026-10-19 — The faithfulness judge fails not-quite-right content
 
 ### ✅ Fixed 2026-10-19 (plan JS1–JS7, `docs/plan_judge_severity_2026-10-19.md`)
@@ -18,14 +43,17 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **The "not faithful" warning cut the flagged-claim list at 300 characters.** Fixed
   (JS2.d): every claim is listed.
 
-### ⏸ Open — found by the JS6 calibration
-- **The severity step downgrades few NOT QUITE RIGHT flags.** 0 of 12 in fresh drafts
+### Found by the JS6 calibration (both closed by WO, above)
+- ~~**The severity step downgrades few NOT QUITE RIGHT flags.**~~ Superseded 2026-10-19:
+  flags no longer block (WO), so the NQ plan was dropped, not built.
+  Was: 0 of 12 in fresh drafts
   (drafts failing: 9 of 12 before and after), 3 of 90 in the review set. The judge's
   first vote is WRONG in most cases, and a first WRONG vote is final; the prompt says
   "If you are unsure, answer WRONG". Options in the report: drop that line, let a
   second vote check a first WRONG vote, or both. Each needs the JS6 b, c and d checks
   again. Your decision.
-- **The summary stage still adds facts from outside the transcript.** In the 12 drafts:
+- ~~**The summary stage still adds facts from outside the transcript.**~~ Addressed by
+  WO1 (no-outside-facts rule in every prose prompt); WO6: 10 → 4 hits. Was: in the 12 drafts:
   an age ("late thirties"), "late grandmother", "Kansas City Family Center" for KCFC
   (twice, once as the speaker's affiliation), the first name "Marta"; and remarks
   credited to the wrong person (2). These are WRONG under the policy, and 6 of the 9
@@ -745,7 +773,9 @@ Flagged during the bundle-export + selective-re-run work (see CHANGELOG
 
 ## M2 faithfulness judge — ARMED (2026-07-15), follow-ups
 
-**ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, Hard BLOCK, prose only). Calibrated
+**ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, prose only). Hard BLOCK until
+2026-10-19; since then its flags warn and never block (WO,
+`docs/plan_warn_only_2026-10-19.md`). Calibrated
 on REAL full artifacts after an isolated-gold calibration was caught as a P10 gap
 (LEARNINGS.md). Re-run the calibration any time with:
 ```
