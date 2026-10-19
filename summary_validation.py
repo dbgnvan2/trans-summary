@@ -684,7 +684,9 @@ def generate_review_checklist(summary_input) -> str:
             "- [ ] Topics covered in chronological order",
             "- [ ] Transitions between topics",
             f"- [ ] Q&A section included: {summary_input.qa.include}",
-            "- [ ] Closes with conclusion",
+            # SC1.c: not every talk states a conclusion (plan_summary_closing_2026-10-18).
+            "- [ ] Closes with the speaker's conclusion, or the main point if the talk "
+            "states none",
             "",
             "## Constraints",
             "",

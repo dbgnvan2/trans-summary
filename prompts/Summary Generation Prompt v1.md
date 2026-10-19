@@ -28,7 +28,7 @@ Write a comprehensive narrative synthesis covering all topics.
 If included: Summarize key questions and interaction types. Highlight 1-2 notable exchanges or insights.
 
 ### Closing Paragraph (~{closing_words} words)
-State the conclusion, open questions, and future directions.
+End with the speaker's own conclusion, open questions or future directions, if the speaker gives them near the end of the talk. If the talk ends without them (it stops at a break, in the middle of a discussion, or with thanks and goodbyes), close by restating the main point the speaker makes in the talk, without saying that it comes at the end. In both cases, add no conclusion, open question or future direction of your own, and do not say that the talk has no conclusion. The `closing` fields in the JSON come from a phrase search and are often empty or wrong; take the closing from the transcript.
 
 **Constraints:**
 *   Third person, present tense.

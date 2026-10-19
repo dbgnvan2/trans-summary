@@ -1288,8 +1288,13 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     Returns ("pass", []), ("fail", issues), ("unavailable", []) when the judge is
     off or errored (the gate then verifies at publish), or ("missing", []) when
     the artifact is not where the gate will look (a path bug, never a pass).
+    ("partial", issues) when a check errored but the other found issues: the draft
+    fails, but its count is not a full one, so it never beats a judged draft as the
+    best draft (SC2 review).
 
-    Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2
+    Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2,
+           docs/plan_summary_closing_2026-10-18.md#SC2
+    Tests: tests/test_summary_closing_sc.py::test_sc2e_judge_error_with_names_is_partial
     """
     import release_gate as rg
     if not (config.PROJECTS_DIR / base_name / f"{base_name}{suffix}").exists():
@@ -1303,22 +1308,24 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
     for item in (faith.items or []):
         issues.extend(item.get("unfaithful", []))
+    errored = rg.Status.ERROR in (faith.status, entity.status)
     if issues:
-        return "fail", issues
-    if rg.Status.ERROR in (faith.status, entity.status):
+        return ("partial" if errored else "fail"), issues
+    if errored:
         return "unavailable", []
     return "pass", []
 
 
 def _blog_precheck(base_name: str, suffix: str, logger=None):
-    """Generation-time blog check: the gate's two-stage blog test (RF.N.1)."""
+    """Generation-time blog check: the gate's two-stage blog test (RF.N.1).
+    A judge error with name hits is "partial", as in ``_faithfulness_precheck``."""
     import release_gate as rg
     status, ungrounded, _detail = rg.blog_ungrounded_claims(base_name, logger)
     if status == "missing":
         return "missing", []
     if status == "error":
         # Only name hits are known to be wrong; unassessed claims are not fed back.
-        return ("fail", ungrounded) if ungrounded else ("unavailable", [])
+        return ("partial", ungrounded) if ungrounded else ("unavailable", [])
     return ("fail", ungrounded) if status == "warn" else ("pass", [])
 
 
@@ -1398,17 +1405,21 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
     config.GENERATION_FAITHFULNESS_ATTEMPTS. With ``revise(draft, claims)`` a retry
     fixes the flagged sentences of the previous draft (RS.6); without it, it
     regenerates with the claims as feedback. If every attempt fails, keep the draft
-    with the fewest rejected claims, log loudly and return False (as the abstract,
+    with the fewest rejected claims (on a tie the later one, which has had more of its
+    flagged sentences fixed, SC2), log loudly and return False (as the abstract,
     plan R11).
 
     Purpose: Catch unfaithful summary/blog claims at generation, not at publish.
     Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2,
-             docs/plan_run_safe_2026-10-14.md#RS.6
+             docs/plan_run_safe_2026-10-14.md#RS.6,
+             docs/plan_summary_closing_2026-10-18.md#SC2, #SC3
     Tests:   tests/test_run_fixes_rf.py::test_rfj2_summary_all_fail_keeps_best_and_fails,
-             tests/test_run_safe_rs.py::test_rs6a_second_try_revises_previous_draft
+             tests/test_run_safe_rs.py::test_rs6a_second_try_revises_previous_draft,
+             tests/test_summary_closing_sc.py::test_sc2a_tie_keeps_the_later_draft,
+             tests/test_summary_closing_sc.py::test_sc3a_last_try_does_not_say_it_will_revise
     """
     attempts = max(1, int(config.GENERATION_FAITHFULNESS_ATTEMPTS))
-    feedback, best_text, best_count, last_text = None, None, None, None
+    feedback, best_text, best_rank, last_text = None, None, None, None
     for attempt in range(1, attempts + 1):
         try:
             if revise is not None and feedback and last_text is not None:
@@ -1445,16 +1456,21 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                            "%s — the release gate will verify it at publish.", what)
             return True
         # Only a judged draft can be kept: an echo-rejected one was never judged, so
-        # its count is not its real one (RS.6 review).
-        if not unjudged and (best_text is None or len(issues) < best_count):
-            best_text, best_count = text, len(issues)
+        # its count is not its real one (RS.6 review). A "partial" one (a check
+        # errored) ranks after every fully judged draft. On a tie the later draft
+        # wins (SC2).
+        rank = (status == "partial", len(issues))
+        if not unjudged and (best_rank is None or rank <= best_rank):
+            best_text, best_rank = text, rank
         feedback = issues
         logger.warning("%s attempt %d/%d not faithful (%d claim(s)); %s. Claims: %s",
                        what.capitalize(), attempt, attempts, len(issues),
-                       "revising the flagged sentences" if revise is not None
+                       "no attempts left" if attempt == attempts  # SC3
+                       else "revising the flagged sentences" if revise is not None
                        else "regenerating with corrective feedback",
                        "; ".join(issues)[:300])
     write(best_text)
+    best_count = best_rank[1]
     if advisory:
         # RF.N: a warning, not a failure — the run continues.
         logger.warning("⚠️ %s still has %d claim(s) not grounded in the source after %d "
@@ -1508,6 +1524,13 @@ def generate_structured_abstract(
     """
     Generate an abstract using the structured pipeline.
     Note: Uses Sonnet for detailed content generation (was AUX_MODEL/Haiku).
+
+    Purpose: Generate the abstract, revising flagged sentences until it passes the
+             gate's faithfulness and name checks; if no try passes, keep the draft
+             with the fewest issues (on a tie the later one) and fail.
+    Spec:    docs/plan_summary_closing_2026-10-18.md#SC2, #SC3
+    Tests:   tests/test_abstract_faithful_retry.py::test_sc2d_abstract_tie_keeps_the_later_draft,
+             tests/test_abstract_faithful_retry.py::test_sc3b_abstract_last_try_wording
     """
     model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     if logger is None:
@@ -1634,13 +1657,16 @@ def generate_structured_abstract(
                                "(judge off or no key); keeping abstract — the release gate "
                                "will verify it at publish. Saved to %s", output_path)
                 return True
-            # status == "fail": remember the least-bad draft, feed the issues back.
-            if best_text is None or len(issues) < best_issue_count:
+            # status == "fail": remember the least-bad draft (on a tie the later one,
+            # SC2), feed the issues back.
+            if best_text is None or len(issues) <= best_issue_count:
                 best_text, best_issue_count = abstract_text, len(issues)
             feedback = issues
-            logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); "
-                           "revising the flagged sentences. Issues: %s",
-                           attempt, max_attempts, len(issues), "; ".join(issues)[:300])
+            logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); %s. "
+                           "Issues: %s", attempt, max_attempts, len(issues),
+                           "no attempts left" if attempt == max_attempts  # SC3
+                           else "revising the flagged sentences",
+                           "; ".join(issues)[:300])
 
         # All attempts failed — keep the least-bad draft; honest, loud status.
         if best_text is not None:

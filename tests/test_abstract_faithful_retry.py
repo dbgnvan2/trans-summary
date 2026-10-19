@@ -232,3 +232,35 @@ def test_rs1h_abstract_stage_log_names_a_kept_length_miss(monkeypatch, tmp_path,
     with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
         assert ep.generate_structured_abstract(base, logger=_log()) is True
     assert any("265 words" in r.getMessage() for r in caplog.records)
+
+
+def test_sc2d_abstract_tie_keeps_the_later_draft(monkeypatch, tmp_path):
+    """SC2 (docs/plan_summary_closing_2026-10-18.md): on a tie in flagged issues the
+    later draft is kept, as in the summary loop; fewer issues still win."""
+    for counts, expected in (((1, 1, 1), "draft-3"), ((2, 1, 1), "draft-3"),
+                             ((1, 2, 2), "draft-1")):
+        base, proj = _setup(monkeypatch, tmp_path / "-".join(map(str, counts)))
+        texts = iter(["draft-1", "draft-2", "draft-3"])
+        monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
+                            lambda *a, **k: next(texts))
+        seq = iter([("fail", [f"issue {i}" for i in range(n)]) for n in counts])
+        monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+        saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
+        assert saved == expected, counts
+
+
+def test_sc3b_abstract_last_try_wording(monkeypatch, tmp_path, caplog):
+    """SC3: the last try's warning says no attempts are left, not that it is revising."""
+    base, _ = _setup(monkeypatch, tmp_path)
+    texts = iter(["draft-1", "draft-2", "draft-3"])
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", lambda *a, **k: next(texts))
+    seq = iter([("fail", ["issue a"]), ("fail", ["issue b"]), ("fail", ["issue c"])])
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
+    with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    tries = [r.getMessage() for r in caplog.records if "not faithful" in r.getMessage()]
+    assert len(tries) == 3
+    assert all("revising the flagged sentences" in t for t in tries[:2])
+    assert "attempt 3/3" in tries[2] and "no attempts left" in tries[2]
+    assert "revising" not in tries[2]

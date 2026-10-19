@@ -1,0 +1,325 @@
+{
+  "started": "2026-10-18T20:27:01",
+  "model": "claude-sonnet-4-6",
+  "judge_model": "claude-sonnet-5-5",
+  "old_prompt_commit": "714a344",
+  "drafts": [
+    {
+      "case": "holt",
+      "ending": "recording stops one paragraph into a panel discussion",
+      "prompt": "old",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "A later appendix surgery in 2000 triggers a second severe episode, with intensified hallucinations and suicidality, managed through a day program rather than inpatient care.",
+        "Kerr acknowledges he cannot fully explain the mechanism but notes that people can emerge from anesthesia in frankly psychotic states, and frames these biological events as amplifiers of an already chronically stressed system rather than independent causes, reinforcing the feedback loop between relational anxiety and biological vulnerability.",
+        "Kerr closes without a formal conclusion, noting that a systems framework will likely require more than his lifetime to fully integrate these ideas."
+      ],
+      "words": 844,
+      "closing": "Kerr closes without a formal conclusion, noting that a systems framework will likely require more than his lifetime to fully integrate these ideas. He expresses hope that interdisciplinary dialogue will eventually bring them together, leaving open questions about the relative weight of biological and relational variables in severe psychiatric illness.",
+      "closing_issues": [
+        "Kerr closes without a formal conclusion, noting that a systems framework will likely require more than his lifetime to fully integrate these ideas."
+      ],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "holt",
+      "ending": "recording stops one paragraph into a panel discussion",
+      "prompt": "old",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Kerr acknowledges the biological reality while framing these events as amplifiers of an already-stressed system rather than independent causes\u2014noting that he has observed anesthesia producing acute psychosis in other patients.",
+        "The exchange reinforces the presentation's core argument that biological and relational stressors interact rather than operate separately.",
+        "The case raises unresolved questions about how biological vulnerability, multigenerational emotional process, and individual agency interact across a lifetime of psychiatric illness."
+      ],
+      "words": 846,
+      "closing": "Kerr closes without a formal conclusion, noting that Bowen himself wanted his theory kept open to new knowledge rather than treated as settled assumption. The case raises unresolved questions about how biological vulnerability, multigenerational emotional process, and individual agency interact across a lifetime of psychiatric illness.",
+      "closing_issues": [
+        "The case raises unresolved questions about how biological vulnerability, multigenerational emotional process, and individual agency interact across a lifetime of psychiatric illness."
+      ],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "holt",
+      "ending": "recording stops one paragraph into a panel discussion",
+      "prompt": "new",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "In the children's home, Joe describes feeling invisible\u2014not remembered by peers or staff, told by his house mother Christine that his parents did not love him, and watching his brother Jack rebel repeatedly while he remained compliant.",
+        "Kerr notes that anesthesia can precipitate psychosis and frames these medical events as amplifiers of an already chronically stressed system rather than independent causes.",
+        "Kerr acknowledges the observation, confirms he has seen patients emerge from anesthesia in psychotic states, and reiterates that biological stressors interact with an already-stressed system rather than acting as isolated causes.",
+        "The exchange reinforces the conference's interdisciplinary framing and the presenter's argument that biological and relational variables must be held together."
+      ],
+      "words": 858,
+      "closing": "Joe's own counsel to others with psychiatric diagnoses captures the talk's central tension: know the facts honestly, understand how the family system has shaped you, learn to nurture yourself and those around you, and above everything else, do not accept the diagnosis as a death sentence, because recovery is a process that took him twenty years.",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "holt",
+      "ending": "recording stops one paragraph into a panel discussion",
+      "prompt": "new",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Joe Holt's family history is presented through a complex genogram spanning two generations.",
+        "His house mother Christine told him his parents did not love him, and when he returned to the home as an adult, staff did not remember him.",
+        "A later appendix surgery with anesthetics produced a second severe episode, which Kerr frames not as an independent cause but as a biological amplifier of an already chronically anxious system.",
+        "He frames these events as amplifiers rather than primary causes, consistent with his systems argument."
+      ],
+      "words": 810,
+      "closing": "Kerr closes by emphasizing that emotional programming within the multigenerational relationship system is more important than diagnosis or genetics in explaining what happens to individuals like Joe, and that people and families exist on a continuum of interdependence that shapes symptom development and recovery alike.",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "sep_part1",
+      "ending": "Part 1 stops mid-sentence",
+      "prompt": "old",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "He mentions that the upcoming Bowen Theory Academy conference will feature a speaker who champions the view that meaningful parallels exist between systems thinking in physics and in human emotional process, signaling that this theme will receive fuller treatment in future sessions."
+      ],
+      "words": 720,
+      "closing": "The session ends without a formal conclusion, leaving open how Chris will respond to the email reframe and whether the shift from individual blame to systemic thinking will translate into the action move Kerr identifies as essential for genuine differentiation of self.",
+      "closing_issues": [],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "sep_part1",
+      "ending": "Part 1 stops mid-sentence",
+      "prompt": "old",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Michael Kerr, a prominent Bowen theory clinician and educator, opens the first webcast of the 2021 academic year by grounding the session in a live clinical case that prompted him to examine a broader question: what must a person actually accomplish to gain traction in a relationship system and improve their level of differentiation of self?",
+        "He previews three interrelated content areas\u2014the stepfather-stepdaughter-mother triangle, the systemic rather than individual nature of triangular tension, and the coaching strategy he employed through a follow-up email intervention.",
+        "Future sessions will test whether insight into triangular co-creation, combined with deliberate behavioral moves, can produce measurable change in differentiation of self."
+      ],
+      "words": 756,
+      "closing": "The session ends without a formal conclusion, leaving open the question of whether Chris can translate this systemic reframe into sustained action. Future sessions will test whether insight into triangular co-creation, combined with deliberate behavioral moves, can produce measurable change in differentiation of self.",
+      "closing_issues": [
+        "Future sessions will test whether insight into triangular co-creation, combined with deliberate behavioral moves, can produce measurable change in differentiation of self."
+      ],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "sep_part1",
+      "ending": "Part 1 stops mid-sentence",
+      "prompt": "new",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "His mother, who lives abroad and remains in close contact with him, made the referral to Kerr after Chris told her the situation at home had become untenable.",
+        "Both spouses acknowledged that their busy schedules left little time to sit down and work through the conflict together.",
+        "Kerr's email to Chris closes with the observation that the ability to think about the triangle and act accordingly can have an amazing impact \u2014 underscoring that seeing the system clearly, and then moving from that seeing, is the essential double requirement Bowen theory places on anyone seeking real change."
+      ],
+      "words": 765,
+      "closing": "Kerr's email to Chris closes with the observation that the ability to think about the triangle and act accordingly can have an amazing impact \u2014 underscoring that seeing the system clearly, and then moving from that seeing, is the essential double requirement Bowen theory places on anyone seeking real change.",
+      "closing_issues": [
+        "Kerr's email to Chris closes with the observation that the ability to think about the triangle and act accordingly can have an amazing impact \u2014 underscoring that seeing the system clearly, and then moving from that seeing, is the essential double requirement Bowen theory places on anyone seeking real change."
+      ],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "sep_part1",
+      "ending": "Part 1 stops mid-sentence",
+      "prompt": "new",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "The central tension involves Chris's sixteen-year-old stepdaughter, Sage, from his first marriage."
+      ],
+      "words": 732,
+      "closing": "Kerr emphasizes that seeing the situation as a triangle \u2014 with no one person elevated to a position of causality \u2014 and acting on that insight can have an amazing impact, representing a foundational step that Bowen theory makes possible through a change in perspective followed by deliberate, differentiated action.",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "societal",
+      "ending": "speaker gives a closing point (identity as the key issue), then goodbyes",
+      "prompt": "old",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Dr. Kerr is explicit that no single event caused the deterioration \u2014 rather, the cluster unmasked a self-deficit accumulating since at least 2004, with hormonal symptoms traceable to age fifteen."
+      ],
+      "words": 752,
+      "closing": "The session closes without a formal conclusion, with Dr. Kerr expressing regret that Linda could not participate live in the discussion. Open questions remain about the family as an emotional system and the mechanisms by which experiential faith supports differentiation. Future sessions are implied but unspecified.",
+      "closing_issues": [],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "societal",
+      "ending": "speaker gives a closing point (identity as the key issue), then goodbyes",
+      "prompt": "old",
+      "k": 2,
+      "stage_ok": true,
+      "status": "pass",
+      "issues": [],
+      "words": 779,
+      "closing": "Kerr closes without a formal conclusion, expressing gratitude for Linda's candor and noting the privilege of hearing people describe themselves directly. Open questions about the family as an emotional system \u2014 including the husband's own 2010 spiritual experience \u2014 remain for future exploration.",
+      "closing_issues": [],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "societal",
+      "ending": "speaker gives a closing point (identity as the key issue), then goodbyes",
+      "prompt": "new",
+      "k": 1,
+      "stage_ok": true,
+      "status": "pass",
+      "issues": [],
+      "words": 772,
+      "closing": "Kerr observes that the interviewee's case illustrates how identity, not nutrition or stress management, was the primary driver of her physical decline, and that her willingness to look honestly at herself \u2014 rather than deny what was being revealed \u2014 was the central choice that made everything else possible.",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "societal",
+      "ending": "speaker gives a closing point (identity as the key issue), then goodbyes",
+      "prompt": "new",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Dr. Michael Kerr, psychiatrist and longtime exponent of Bowen family systems theory, presents a recorded Skype interview with a woman living in France who experienced a stage-one uterine cancer diagnosis alongside a cluster of major life stressors."
+      ],
+      "words": 756,
+      "closing": "Kerr observes that the interviewee is \"unquestionably functioning on a higher level\" and that this is something she has accomplished herself. He frames the privilege of clinical work as hearing people describe who they really are, uninterpreted \u2014 and learning from that in return.",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "systems_biology",
+      "ending": "ends in Q&A with no closing statement",
+      "prompt": "old",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "He proposes that chronic anxiety, as understood in Bowen theory, is precisely the variable that explains individual variability in cancer risk and progression \u2014 why similar exposures produce different outcomes across people and families.",
+        "A cancer registry study Kerr cites found that patients who genuinely believed in their chosen treatment course \u2014 whether conventional or unconventional \u2014 fared better than those who were ambivalent or passive.",
+        "Kerr leaves open the question of how fully Bowen theory can be integrated with systems biology's emerging frameworks.",
+        "The multi-scale parallel \u2014 from cell to organism to family to society \u2014 is named but not yet theorized, pointing toward future work that could formalize these connections."
+      ],
+      "words": 716,
+      "closing": "Kerr leaves open the question of how fully Bowen theory can be integrated with systems biology's emerging frameworks. The multi-scale parallel \u2014 from cell to organism to family to society \u2014 is named but not yet theorized, pointing toward future work that could formalize these connections.",
+      "closing_issues": [
+        "Kerr leaves open the question of how fully Bowen theory can be integrated with systems biology's emerging frameworks.",
+        "The multi-scale parallel \u2014 from cell to organism to family to society \u2014 is named but not yet theorized, pointing toward future work that could formalize these connections."
+      ],
+      "meta_claim": false,
+      "closing_heading_found": true
+    },
+    {
+      "case": "systems_biology",
+      "ending": "ends in Q&A with no closing statement",
+      "prompt": "old",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Patient variability surfaces repeatedly as the explanatory gap that cell-focused models cannot close.",
+        "A cancer registry study Kerr cites found that patients who held firm confidence in their chosen treatment course \u2014 regardless of which course \u2014 showed better outcomes than those who were ambivalent or deferential.",
+        "Kerr closes without a formal conclusion, leaving open the question of how fully Bowen theory and systems biology can be integrated."
+      ],
+      "words": 771,
+      "closing": "Kerr closes without a formal conclusion, leaving open the question of how fully Bowen theory and systems biology can be integrated. The convergence he describes is framed as generative and ongoing, with a paper in progress and the expectation that future research will continue drawing these frameworks closer together.",
+      "closing_issues": [
+        "Kerr closes without a formal conclusion, leaving open the question of how fully Bowen theory and systems biology can be integrated."
+      ],
+      "meta_claim": true,
+      "closing_heading_found": true
+    },
+    {
+      "case": "systems_biology",
+      "ending": "ends in Q&A with no closing statement",
+      "prompt": "new",
+      "k": 1,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+        "Cynthia offers the lecture's sharpest conceptual synthesis, noting that the description of single cells trapped in self-promotion rather than cooperation is a precise description of societal regression \u2014 naming the multi-scale isomorphism that Kerr had assembled but not fully articulated.",
+        "Janice Norton raises the clinical reality of variability in patient adaptation to cancer diagnosis, and Kerr responds with a cancer-registry study finding that patients who held confident, self-directed beliefs about their treatment \u2014 regardless of which course they chose \u2014 showed better outcomes than those who mixed approaches or ceded all agency.",
+        "Kerr closes by underscoring the importance of patient agency in cancer treatment, citing a surgeon's advice that patients either fully trust a chosen physician or become their own informed decision-maker \u2014 but that mixing the two approaches is associated with worse outcomes."
+      ],
+      "words": 651,
+      "closing": "",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": false
+    },
+    {
+      "case": "systems_biology",
+      "ending": "ends in Q&A with no closing statement",
+      "prompt": "new",
+      "k": 2,
+      "stage_ok": false,
+      "status": "fail",
+      "issues": [
+        "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+        "Janice Norton raises the considerable variability in patients' ability to adapt to a cancer diagnosis, prompting Kerr to cite a cancer-registry study finding that patients who genuinely believed in their chosen course of treatment \u2014 and held to it \u2014 showed better long-term outcomes than those who deferred entirely to medical authority or mixed strategies."
+      ],
+      "words": 699,
+      "closing": "",
+      "closing_issues": [],
+      "meta_claim": false,
+      "closing_heading_found": false
+    }
+  ],
+  "stage": {
+    "case": "holt",
+    "ok": true,
+    "tries": [
+      {
+        "status": "fail",
+        "issues": [
+          "His clearest positive memory is of an unidentified man who held him in the night during a brief foster placement\u2014a moment he describes as the best memory from those years.",
+          "Kerr acknowledges the observation directly, noting that he has seen people emerge from anesthesia in psychotic states and that individuals with already-stressed systems are likely more biologically vulnerable to such events\u2014framing medical stressors as amplifiers of existing system anxiety rather than independent causes."
+        ],
+        "words": 846,
+        "closing": "Kerr closes by noting that Murray Bowen insisted his theory remain open to new knowledge rather than harden into unexamined assumption, and that the radical conceptual shift the theory offers is seeing Joe's long trajectory as reflecting changes in functional level of differentiation\u2014emotional process\u2014rather than the natural history of a disease.",
+        "closing_issues": [],
+        "meta_claim": false,
+        "closing_heading_found": true
+      },
+      {
+        "status": "pass",
+        "issues": [],
+        "words": 851,
+        "closing": "Kerr closes by noting that Murray Bowen insisted his theory remain open to new knowledge rather than harden into unexamined assumption, and that the radical conceptual shift the theory offers is seeing Joe's long trajectory as reflecting changes in functional level of differentiation\u2014emotional process\u2014rather than the natural history of a disease.",
+        "closing_issues": [],
+        "meta_claim": false,
+        "closing_heading_found": true
+      }
+    ],
+    "kept_closing": "Kerr closes by noting that Murray Bowen insisted his theory remain open to new knowledge rather than harden into unexamined assumption, and that the radical conceptual shift the theory offers is seeing Joe's long trajectory as reflecting changes in functional level of differentiation\u2014emotional process\u2014rather than the natural history of a disease."
+  },
+  "cost_usd": 1.7708
+}

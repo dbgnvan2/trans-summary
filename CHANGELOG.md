@@ -2,6 +2,52 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-18 (Summary closing guard, best-draft tie-break, last-try wording)
+
+Plan `docs/plan_summary_closing_2026-10-18.md` (SC1–SC3). The 2026-10-18 Holt run stopped
+at Structured Summary: the prompt asked every talk for a conclusion, open questions and
+future directions, the recording has none, and the invented closing was flagged on all
+three tries.
+
+- **SC1, summary closing** (`prompts/Summary Generation Prompt v1.md`): the closing gives
+  the speaker's own conclusion, open questions or future directions only if the speaker
+  gives them near the end. Otherwise it restates the speaker's main point, without saying
+  that it comes at the end. It adds nothing of its own and doesn't say the talk has no
+  conclusion. It also tells the model that the JSON `closing` fields come from a phrase
+  search and are often wrong: they found a conclusion in 0 of 19 real transcripts. The
+  review checklist line now reads "Closes with the speaker's conclusion, or the main
+  point if the talk states none" (`summary_validation.generate_review_checklist`).
+- **SC1.d live check** (`docs/calibration_summary_closing_2026-10-18.md`; script and
+  `results.json` in `docs/calibration/2026-10-18_summary_closing/`; $1.77): old vs new
+  prompt, two first drafts each on four real transcripts.
+  - Closing flags: 6 → 2.
+  - "No conclusion" sentences: 7 of 8 → 0 of 8.
+  - The Holt stage passed on try 2.
+  - Societal Emotional Process: the speaker's closing point appeared in 1 of 2 new
+    closings, and in 0 of 2 old ones.
+  - Body flags went 12 → 17, the same kinds of claims under both prompts. Not separable
+    from variance at this sample size; watched in TODO.
+  - The script refuses a `--scratch` folder inside the repo, the real projects folder or a
+    case's parent folder (learning-qa review). Added after the run; it does not change
+    what is measured.
+- **SC2, tie-break:** when every try fails faithfulness, the kept draft is the one with
+  the fewest flagged claims, and on a tie now the later one (it has had more of its
+  flagged sentences fixed). This applies in `_generate_until_faithful` (summary, blog,
+  overview) and in the abstract loop. A draft rejected unjudged is still never kept.
+  Review fix (learning-qa): when the judge errors but the name check finds names, the
+  summary and blog prechecks now return "partial" instead of "fail". The draft still
+  fails and its names are fed back, but it never beats a fully judged draft, because its
+  count holds only the names. Strict `<` already let such a draft win with a lower count.
+- **SC3, log wording:** the last try's warning says "no attempts left" instead of
+  "revising the flagged sentences", in both loops.
+- Tests: `tests/test_summary_closing_sc.py` (SC1.a–c, SC2.a–c, SC2.e–f, SC3.a);
+  `tests/test_abstract_faithful_retry.py::test_sc2d_abstract_tie_keeps_the_later_draft`,
+  `::test_sc3b_abstract_last_try_wording`.
+- The judge is unchanged, so `JUDGE_LOGIC_VERSION` is unchanged and no re-calibration
+  was needed. README, ARCHITECTURE_DESIGN, DOCUMENT_REFERENCE and PROMPT_REGISTRY don't
+  describe the closing instruction, the tie rule or the log wording, so they needed no
+  change.
+
 ## [Unreleased] - 2026-10-17 (Format thinking ratio re-derived at "medium")
 
 Per `docs/calibration_formatting_model_2026-10-11.md`, "Thinking ratio at medium".

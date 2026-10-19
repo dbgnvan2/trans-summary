@@ -8,13 +8,50 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-18 — Structured Summary stopped the Holt run (closing paragraph)
 
-### ⏸ Open (plan proposed, waiting for approval)
-- **The summary prompt asks every talk for a conclusion, open questions and future
-  directions.** A talk that has none (the Holt recording stops one paragraph into a panel
-  discussion) gets invented ones, the faithfulness check flags them on every try, and
-  the run stops. In the same run, a tie between drafts kept the earlier, worse draft, and
-  the last-try warning said it was "revising". Plan SC1–SC3:
-  `docs/plan_summary_closing_2026-10-18.md`.
+### ✅ Fixed 2026-10-18 (plan SC1–SC3, `docs/plan_summary_closing_2026-10-18.md`)
+- ~~**The summary prompt asks every talk for a conclusion, open questions and future
+  directions.**~~ The closing now asks only for what the speaker gives near the end. A
+  talk without one closes on the speaker's main point, with nothing added and no "the
+  talk has no conclusion" (SC1). Live check on four real transcripts
+  (`docs/calibration_summary_closing_2026-10-18.md`): closing flags 6 → 2, "no
+  conclusion" sentences 7 of 8 → 0 of 8, Holt stage passed on try 2. On a tie in flagged
+  claims, the summary/blog/overview loop and the abstract loop now keep the later draft
+  (SC2). The last try's warning says "no attempts left" (SC3).
+  Tests: `tests/test_summary_closing_sc.py`,
+  `tests/test_abstract_faithful_retry.py::test_sc2d_*`, `::test_sc3b_*`.
+
+### ⏸ Open (from the SC1.d live check)
+- **Body flags in summary first drafts: 12 old prompt vs 17 new** (mostly Holt, 4 vs 8).
+  The claims are the same kinds under both prompts (framing such as "frames these events
+  as amplifiers…"), and two drafts per case can't separate a prompt effect from variance.
+  Compare the summary's first-try flag counts in the next end-to-end runs against earlier
+  runs.
+- **"Kerr closes by…" still used for points not made at the end** in 2 of 8 new
+  closings (one flagged, one accepted). The instruction "without saying that it comes at
+  the end" is followed only some of the time.
+- **Summaries are sometimes written with no headings** (both new Systems Biology drafts,
+  and the saved old-prompt Systems Biology summary). Nothing downstream checks for them;
+  noted in case a later step comes to rely on "### Closing Paragraph".
+
+### ⏸ Open (adjacent, found in the SC plan, not fixed)
+- **`summary_pipeline.extract_closing_content` finds no conclusion in 0 of 19 real
+  transcripts.** Its open-question and future-direction values are mostly unrelated
+  phrases ("next person in the queue"), and all three are still sent to the model in the
+  JSON. The prompt now tells the model not to rely on them. Same class as "Abstract
+  conclusion detection has narrow phrase recall" below. `summary_validation` adds its
+  "Closing: conclusion" coverage item only when one was found, so today it never appears.
+- **A summary that fails faithfulness stops the whole run** (`ts_gui.py:2725`, RF.J.2),
+  although the release gate would block publication anyway. Letting the run continue
+  is a design decision.
+- **The final error line shows "❌ ⚠️"**: the GUI adds ❌ to error lines and the
+  message starts with ⚠️. Cosmetic.
+- **`_generate_until_faithful`'s final error says "after N attempt(s)" with the configured
+  N** even when a generation error ended the loop early. The abstract loop names the
+  failed try instead (`generation_error`), so the two loops differ (P5; learning-qa,
+  SC review).
+- **`tests/test_bowen_references_integration.py` calls `setup_logging` at import**,
+  before conftest redirects `LOGS_DIR`, so each suite run leaves a log file in the real
+  `logs/` (161 so far; P28/P34; learning-qa, SC review).
 
 ---
 
@@ -237,7 +274,11 @@ pass. Systems Biology: blocked.
 - **Meta-claims about the talk get flagged:** "The talk states no explicit
   conclusion" (overview, Why Families) and "though no explicit closing conclusion is
   stated" (abstract, Systems Biology). The prompts ask for a conclusion; when there is
-  none the model says so, and the judge flags it. Retries fixed it here.
+  none the model says so, and the judge flags it. Retries fixed it here. *Summary part
+  fixed 2026-10-18 (SC1: 0 of 8 new closings say it, was 7 of 8). The abstract prompt
+  has said "do not say that the talk has no conclusion" since cbbf54e (E2E1, 2026-10-13),
+  after this item was logged; no run since has been checked for it. The overview case is
+  still open.*
 - **Init Val holds "abit" -> "a bit"** as not a mishearing fix (Why Families).
 - **Header validation is slow and noisy:** 2–6 minutes per talk; 13–20 warnings per
   talk that a heading "contains problematic terms" such as "anxiety",
