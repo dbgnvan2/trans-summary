@@ -8,22 +8,37 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ## 2026-10-19 — The faithfulness judge fails not-quite-right content
 
-### ⏸ Open — plan waiting for approval (`docs/plan_judge_severity_2026-10-19.md`, JS0–JS7)
-- **Most faithfulness flags are not quite right, and every flag fails the run.** Review
-  of the 43 flags from 2026-10-18 (`docs/judge_flag_review_2026-10-18.md`): 9 WRONG,
-  34 NOT QUITE RIGHT (17 of them borderline). First drafts passing: 2 of 16; 8 of 16 if
-  only WRONG claims failed. The live Holt run stopped on a real remark placed under
-  "closes by". The plan adds a second step on confirmed flags: WRONG fails, NOT QUITE
-  RIGHT passes with a warning. Needs your decisions JS0.a–e first.
-- **The summary prompt asks for speaker credentials and a preview of content areas**
-  (`prompts/Summary Generation Prompt v1.md` line 17) whether or not the transcript has
-  them; 5 flags in the review came from this. Plan item JS5.
+### ✅ Fixed 2026-10-19 (plan JS1–JS7, `docs/plan_judge_severity_2026-10-19.md`)
+- **Every confirmed faithfulness flag failed the run.** A severity step now judges each
+  confirmed flag: WRONG fails, NOT QUITE RIGHT passes with a warning naming the claim.
+  Calibrated live (`docs/calibration_judge_severity_2026-10-19.md`): no WRONG claim was
+  downgraded in any part (gold, injected, 12 fresh drafts, gate regression).
+- **The summary prompt asked for speaker credentials and a preview of content areas**
+  whether or not the transcript had them. Fixed (JS5).
+- **The "not faithful" warning cut the flagged-claim list at 300 characters.** Fixed
+  (JS2.d): every claim is listed.
+
+### ⏸ Open — found by the JS6 calibration
+- **The severity step downgrades few NOT QUITE RIGHT flags.** 0 of 12 in fresh drafts
+  (drafts failing: 9 of 12 before and after), 3 of 90 in the review set. The judge's
+  first vote is WRONG in most cases, and a first WRONG vote is final; the prompt says
+  "If you are unsure, answer WRONG". Options in the report: drop that line, let a
+  second vote check a first WRONG vote, or both. Each needs the JS6 b, c and d checks
+  again. Your decision.
+- **The summary stage still adds facts from outside the transcript.** In the 12 drafts:
+  an age ("late thirties"), "late grandmother", "Kansas City Family Center" for KCFC
+  (twice, once as the speaker's affiliation), the first name "Marta"; and remarks
+  credited to the wrong person (2). These are WRONG under the policy, and 6 of the 9
+  failing drafts contain one; a 7th fails on a link the speaker never made (W4). The JS5 wording forbids an added role; nothing covers
+  expanding an abbreviation or adding an age.
+- The F4 evidence rule turns gold k5 ("The practical stakes are significant.") back to
+  WRONG in the one run that downgraded it: a vague claim shares no word with any quote.
 
 ### ⏸ Open (adjacent, found in the review, not fixed)
-- **The "not faithful" warning cuts the flagged-claim list at 300 characters**
-  (`extraction_pipeline.py:1471`, `"; ".join(issues)[:300]`), so claims are lost from the
-  only record of a failed attempt (one of three in the 2026-10-18 run). Plan item JS2.d
-  proposes the fix.
+- **The theme-grounding judge (blocking) and the key-terms judge have no severity
+  step**, so the user's rule is not applied there.
+- **Gold claims have no preceding sentence**, so `judge_recalibration --severity` sends
+  no context, while the gate sends the sentence before each claim.
 - ~~**Nothing reads the transcription tool's "incomplete" warning.**~~ Fixed 2026-10-19;
   see "Incomplete source transcripts" below.
 - **The summary prompt says "Weave in the Interpretive Themes"**, and the faithfulness

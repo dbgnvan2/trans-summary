@@ -44,12 +44,29 @@ PASS = "PASS"
 FAIL = "FAIL"
 ERROR = "ERROR"
 
+# Severity of a confirmed flag (JS, docs/plan_judge_severity_2026-10-19.md).
+WRONG = "wrong"
+NOT_QUITE_RIGHT = "not_quite_right"
+_SEVERITY_TYPES = {WRONG: {"W1", "W2", "W3", "W4"}, NOT_QUITE_RIGHT: {"N1", "N2", "N3"}}
+
 
 @dataclass
 class ClaimVerdict:
     claim: str
     label: str
     rationale: str = ""
+    # JS: for a confirmed flag, the severity step's answer (WRONG / NOT_QUITE_RIGHT),
+    # its type (W1-W4, N1-N3), the source words it rests on, every vote, and why a
+    # flag stayed WRONG when the step could not decide (error, evidence not found).
+    # Empty when the step did not run (mode "off", or the claim was not flagged).
+    severity: str = ""
+    severity_type: str = ""
+    evidence: str = ""
+    severity_votes: list = field(default_factory=list)
+    severity_note: str = ""
+    # True when a severity vote failed (API or parse error), so the claim is WRONG by
+    # default, not by a decision. The gate does not cache such a FAIL (P1).
+    severity_undecided: bool = False
 
     @property
     def faithful(self) -> bool:
@@ -71,16 +88,35 @@ class FaithfulnessResult:
 
     @property
     def unfaithful(self) -> list:
-        return [c for c in self.claims if not c.faithful]
+        """Claims that fail: not entailed, and not judged NOT QUITE RIGHT (JS)."""
+        return [c for c in self.claims
+                if not c.faithful and c.severity != NOT_QUITE_RIGHT]
+
+    @property
+    def not_quite_right(self) -> list:
+        """Flagged claims the severity step judged NOT QUITE RIGHT: they pass with a
+        warning and are listed, never dropped (JS2.a, P2)."""
+        return [c for c in self.claims
+                if not c.faithful and c.severity == NOT_QUITE_RIGHT]
+
+    @property
+    def undecided(self) -> list:
+        """Failing claims that are WRONG only because the severity step could not
+        decide (a vote failed). A FAIL made only of these is transient (P1)."""
+        return [c for c in self.unfaithful if c.severity_undecided]
 
     def to_dict(self) -> dict:
+        def full(c):
+            return {"claim": c.claim, "label": c.label, "rationale": c.rationale,
+                    "severity": c.severity, "severity_type": c.severity_type,
+                    "evidence": c.evidence, "severity_votes": list(c.severity_votes),
+                    "severity_note": c.severity_note,
+                    "severity_undecided": c.severity_undecided}
         return {
             "status": self.status,
             "detail": self.detail,
-            "unfaithful": [
-                {"claim": c.claim, "label": c.label, "rationale": c.rationale}
-                for c in self.unfaithful
-            ],
+            "unfaithful": [full(c) for c in self.unfaithful],
+            "not_quite_right": [full(c) for c in self.not_quite_right],
             "overturned": list(self.overturned),
         }
 
@@ -860,13 +896,241 @@ def judge_claims_confirmed(claims: list, source: str, client, *,
     return verdicts, overturned
 
 
+# --------------------------------------------------------------------------- severity (JS)
+@dataclass
+class SeverityVote:
+    severity: str
+    type: str
+    evidence: str
+
+
+@dataclass
+class SeverityVerdict:
+    claim: str
+    severity: str
+    type: str = ""
+    evidence: str = ""
+    votes: list = field(default_factory=list)
+    note: str = ""
+    undecided: bool = False  # a vote failed; WRONG by default (JS1.d)
+
+
+def severity_instructions() -> str:
+    """The severity prompt (policy text), read from its prompt file at call time.
+
+    Purpose: Keep the WRONG / NOT QUITE RIGHT policy in a prompt file, not in code.
+    Spec:    docs/plan_judge_severity_2026-10-19.md#JS4.a
+    Tests:   tests/test_judge_severity_js.py::test_js4a_prompt_file_loaded_and_registered
+    """
+    path = config.PROMPTS_DIR / config.PROMPT_FAITHFULNESS_SEVERITY_FILENAME
+    return path.read_text(encoding="utf-8").strip()
+
+
+def build_severity_prompt(claims: list, contexts: list, source: str) -> list:
+    """Severity prompt content: [instructions + SOURCE] as the cached prefix, then the
+    numbered claims, each with the summary sentence before it (context only)."""
+    lines = []
+    for i, (claim, ctx) in enumerate(zip(claims, contexts), start=1):
+        lines.append(f"{i}. {claim}")
+        if ctx:
+            lines.append(f"   (sentence before it: {ctx})")
+    tail = f"=== CLAIMS ({len(claims)}) ===\n" + "\n".join(lines) + "\n"
+    return _cached_judge_content(severity_instructions(), source, tail)
+
+
+# One severity object as the judge writes it, read without trusting the evidence's
+# quoting (a quote copied from the source may hold unescaped double quotes).
+_SEVERITY_OBJECT_RE = re.compile(
+    r'\{\s*"index"\s*:\s*(\d+)\s*,\s*"severity"\s*:\s*"([^"]*)"\s*,'
+    r'\s*"type"\s*:\s*"([^"]*)"\s*,\s*"evidence"\s*:\s*"(.*?)"\s*\}(?=\s*(?:,\s*\{|\]|$))',
+    re.DOTALL)
+
+
+def _severity_objects(text: str) -> list:
+    """The severity reply's objects: a JSON array (fenced or bare), or, when that
+    does not parse (unescaped quotes, one bare object), the objects read one by one.
+    Raises ValueError when neither works."""
+    try:
+        return _extract_json_array(text)
+    except ValueError:
+        objs = [{"index": int(m.group(1)), "severity": m.group(2), "type": m.group(3),
+                 "evidence": m.group(4)} for m in _SEVERITY_OBJECT_RE.finditer(text)]
+        if objs:
+            return objs
+        raise
+
+
+def _parse_severity_response(text: str, claims: list) -> list:
+    """Map the severity reply onto the claims by 1-based index. Every claim needs a
+    known severity and a type of that severity (W1-W4 for wrong, N1-N3 for not quite
+    right); otherwise, or on a repeated index, raise ValueError (the caller keeps the
+    flag WRONG — fail closed)."""
+    by_index = {}
+    for obj in _severity_objects(text):
+        if not isinstance(obj, dict) or "index" not in obj:
+            continue
+        try:
+            idx = int(obj["index"])
+        except (TypeError, ValueError):
+            continue
+        if idx in by_index:
+            raise ValueError(f"severity reply has more than one answer for claim {idx}")
+        sev = str(obj.get("severity", "")).strip().lower()
+        typ = str(obj.get("type", "")).strip().upper()
+        if sev not in _SEVERITY_TYPES or typ not in _SEVERITY_TYPES[sev]:
+            raise ValueError(f"severity reply for claim {idx} is not valid: "
+                             f"severity={sev!r}, type={typ!r}")
+        by_index[idx] = SeverityVote(sev, typ, str(obj.get("evidence", "")).strip())
+    missing = [i for i in range(1, len(claims) + 1) if i not in by_index]
+    if missing:
+        raise ValueError(f"severity reply has no answer for claim(s) {missing}")
+    return [by_index[i] for i in range(1, len(claims) + 1)]
+
+
+def _folded_words(text: str) -> list:
+    return re.findall(r"[a-z0-9]+", (text or "").lower())
+
+
+def _evidence_in_source(evidence: str, source: str, claim: str = "") -> bool:
+    """Is a NOT QUITE RIGHT vote's quote really in the source, and about the claim
+    (P6, P7)? Case and punctuation are folded. A quote may be split by "...": every
+    part of at least config.FAITHFULNESS_SEVERITY_EVIDENCE_PART_MIN_WORDS words must
+    occur in the source, and at least one part must have
+    config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_WORDS words. With ``claim``, the quote
+    must also share at least config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_SHARED_WORDS
+    significant words with the claim, so a real but unrelated quote does not count.
+
+    Purpose: A downgrade must rest on words the source contains, not on a claim to.
+    Spec:    docs/plan_judge_severity_2026-10-19.md#JS1.c
+    Tests:   tests/test_judge_severity_js.py::test_js1c_invented_evidence_counts_as_wrong,
+             tests/test_judge_severity_js.py::test_js1c_evidence_with_invented_short_part,
+             tests/test_judge_severity_js.py::test_js1c_unrelated_real_quote_does_not_count
+    """
+    min_words = max(1, int(config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_WORDS))
+    part_min = max(1, int(config.FAITHFULNESS_SEVERITY_EVIDENCE_PART_MIN_WORDS))
+    haystack = " " + " ".join(_folded_words(source)) + " "
+    parts = [_folded_words(p) for p in re.split(r"\.\.\.|…|\[\.\.\.\]", evidence or "")]
+    checked = [p for p in parts if len(p) >= part_min]
+    if not any(len(p) >= min_words for p in checked):
+        return False
+    if not all(f" {' '.join(p)} " in haystack for p in checked):
+        return False
+    if claim:
+        shared = _significant_words(evidence) & _significant_words(claim)
+        return len(shared) >= int(config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_SHARED_WORDS)
+    return True
+
+
+def judge_severity(claims: list, contexts: list, source: str, client, *,
+                   model: Optional[str] = None, logger=None) -> list:
+    """One severity vote for each claim, in ONE batched call. Returns a list of
+    ``SeverityVote``. Raises on API/parse failure (the caller keeps the flag WRONG)."""
+    from transcript_utils import call_claude_with_retry
+
+    model = model or config.FAITHFULNESS_JUDGE_MODEL
+    prompt = build_severity_prompt(claims, contexts, source)
+    log = logger or logging.getLogger("faithfulness_judge")
+
+    def _call():
+        return transcript_utils.response_text(call_claude_with_retry(
+            client=client,
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=config.FAITHFULNESS_JUDGE_MAX_TOKENS,
+            temperature=config.TEMP_STRICT,
+            effort=config.JUDGE_EFFORT,
+            min_length=1,
+            logger=log,
+            timeout=config.TIMEOUT_DEFAULT,
+        ))
+    return call_and_parse(_call, lambda text: _parse_severity_response(text, claims), log,
+                          "Severity check")
+
+
+def classify_severity(claims: list, source: str, client, *, contexts: Optional[list] = None,
+                      model: Optional[str] = None, logger=None) -> list:
+    """Decide, for each confirmed flag, whether the claim is WRONG or only NOT QUITE
+    RIGHT. A first WRONG vote is final. A first NOT QUITE RIGHT vote gets a second;
+    two downgrade the claim, a split goes to a third vote. A NOT QUITE RIGHT vote
+    counts only when its evidence is in the source; otherwise it counts as WRONG. An
+    API or parse error keeps the claims of that round WRONG, with the reason noted.
+    Mode "off" returns every claim WRONG without a call. Returns ``SeverityVerdict``s
+    in claim order.
+
+    Purpose: Fail a run only on WRONG content (user rule 2026-10-18).
+    Spec:    docs/plan_judge_severity_2026-10-19.md#JS1.a, #JS1.b, #JS1.d, #JS1.e
+    Tests:   tests/test_judge_severity_js.py::test_js1b_wrong_first_vote_is_final,
+             tests/test_judge_severity_js.py::test_js1b_split_goes_to_third_vote,
+             tests/test_judge_severity_js.py::test_js1d_api_error_keeps_wrong
+    """
+    mode = config.FAITHFULNESS_SEVERITY_MODE
+    if mode not in config.FAITHFULNESS_SEVERITY_MODES:
+        raise ValueError(f"unknown FAITHFULNESS_SEVERITY_MODE {mode!r}")
+    if mode == "off" or not claims:
+        return [SeverityVerdict(c, WRONG, note="severity check off") for c in claims]
+    log = logger or logging.getLogger("faithfulness_judge")
+    contexts = list(contexts) if contexts is not None else [None] * len(claims)
+    votes = {i: [] for i in range(len(claims))}
+    errors = {}
+
+    def _round(idxs: list, n: int):
+        try:
+            got = judge_severity([claims[i] for i in idxs], [contexts[i] for i in idxs],
+                                 source, client, model=model, logger=log)
+        except Exception as e:  # noqa: BLE001 — undecided: the flag stays WRONG
+            log.warning("Severity check vote %d failed (%s: %s); %d flag(s) stay WRONG.",
+                        n, type(e).__name__, e, len(idxs))
+            for i in idxs:
+                errors[i] = f"severity vote {n} failed: {type(e).__name__}: {e}"
+            return
+        for i, v in zip(idxs, got):
+            found = (v.severity == NOT_QUITE_RIGHT
+                     and _evidence_in_source(v.evidence, source, claims[i]))
+            votes[i].append({"severity": v.severity, "type": v.type, "evidence": v.evidence,
+                             "evidence_found": found})
+
+    def _nqr(vote: dict) -> bool:
+        return vote["severity"] == NOT_QUITE_RIGHT and vote["evidence_found"]
+
+    _round(list(range(len(claims))), 1)
+    second = [i for i in votes if i not in errors and _nqr(votes[i][-1])]
+    if second:
+        _round(second, 2)
+    third = [i for i in second if i not in errors and not _nqr(votes[i][-1])]
+    if third:
+        _round(third, 3)
+
+    out = []
+    for i, claim in enumerate(claims):
+        vs = votes[i]
+        good = [v for v in vs if _nqr(v)]
+        if i not in errors and len(good) >= 2:
+            out.append(SeverityVerdict(claim, NOT_QUITE_RIGHT, good[0]["type"],
+                                       good[0]["evidence"], vs))
+            continue
+        bad = next((v for v in vs if v["severity"] == WRONG), None)
+        unfound = [v for v in vs if v["severity"] == NOT_QUITE_RIGHT and not v["evidence_found"]]
+        note = errors.get(i, "")
+        if unfound:
+            note = "; ".join(x for x in (note, f"{len(unfound)} not-quite-right vote(s) "
+                                               "quoted words not found in the source") if x)
+        out.append(SeverityVerdict(claim, WRONG, bad["type"] if bad else "",
+                                   bad["evidence"] if bad else "", vs, note,
+                                   undecided=i in errors))
+    return out
+
+
 def judge_artifact(artifact_text: str, source: str, client, *,
                    model: Optional[str] = None, logger=None) -> FaithfulnessResult:
     """Judge one narrative artifact for faithfulness against the source (M2.A).
 
     * No claims to judge -> PASS (nothing asserted).
     * Every claim entailed -> PASS.
-    * Any contradicted/unsupported claim -> FAIL, naming the offending sentence(s).
+    * Any contradicted/unsupported claim that the severity step judges WRONG -> FAIL,
+      naming the offending sentence(s). Flags it judges NOT QUITE RIGHT do not fail:
+      the result is PASS with them in ``not_quite_right`` (JS2.a,
+      docs/plan_judge_severity_2026-10-19.md; tests/test_judge_severity_js.py::
+      test_js2a_only_nqr_flags_pass_with_record). With the step off, every flag fails.
     * Any judge exception (API error/timeout) or unparseable response -> ERROR
       (fail closed, M2.C) — never silently PASS on a judge failure (P1/P14).
     * A non-empty artifact that yields zero claims -> ERROR (plan R8); an empty or
@@ -891,22 +1155,42 @@ def judge_artifact(artifact_text: str, source: str, client, *,
         # flag is then confirmed by fresh judgements before it counts (CF).
         verdicts, overturned = judge_claims_confirmed(
             claims, source, client, model=model, logger=log)
+        # JS: each confirmed flag is asked "WRONG or NOT QUITE RIGHT?"; only WRONG fails.
+        flagged = [i for i, v in enumerate(verdicts) if not v.faithful]
+        if flagged and config.FAITHFULNESS_SEVERITY_MODE != "off":
+            severities = classify_severity(
+                [verdicts[i].claim for i in flagged], source, client,
+                contexts=[claims[i - 1] if i > 0 else None for i in flagged],
+                model=model, logger=log)
+            for i, sv in zip(flagged, severities):
+                v = verdicts[i]
+                verdicts[i] = ClaimVerdict(v.claim, v.label, v.rationale, severity=sv.severity,
+                                           severity_type=sv.type, evidence=sv.evidence,
+                                           severity_votes=sv.votes, severity_note=sv.note,
+                                           severity_undecided=sv.undecided)
     except Exception as e:  # noqa: BLE001 — judge failure must fail closed, not pass
         log.error("Faithfulness judge failed (fail-closed ERROR): %s", e, exc_info=True)
         return FaithfulnessResult(ERROR, f"judge error: {type(e).__name__}: {e}")
-    unfaithful = [v for v in verdicts if not v.faithful]
+    result = FaithfulnessResult(PASS, "", claims=verdicts, overturned=overturned)
+    unfaithful, minor = result.unfaithful, result.not_quite_right
     note = (f"; {len(overturned)} first-pass flag(s) not confirmed: "
             f"{[o['claim'][:80] for o in overturned]}" if overturned else "")
+    if minor:
+        note += (f"; {len(minor)} claim(s) not quite right (a warning, not a fault): "
+                 f"{[f'[{c.severity_type}] ' + c.claim[:80] for c in minor]}")
+    if result.undecided:
+        note += (f"; {len(result.undecided)} claim(s) kept WRONG because the severity "
+                 "check could not decide (a vote failed)")
     if unfaithful:
         first = unfaithful[0]
-        return FaithfulnessResult(
-            FAIL,
-            f"{len(unfaithful)} of {len(verdicts)} claim(s) not entailed by source; "
-            f"first: [{first.label}] {first.claim[:120]!r}{note}",
-            claims=verdicts, overturned=overturned,
-        )
-    return FaithfulnessResult(PASS, f"all {len(verdicts)} claim(s) entailed{note}",
-                              claims=verdicts, overturned=overturned)
+        kind = f"{first.label}/{first.severity_type}" if first.severity_type else first.label
+        result.status = FAIL
+        result.detail = (f"{len(unfaithful)} of {len(verdicts)} claim(s) not entailed by "
+                         f"source; first: [{kind}] {first.claim[:120]!r}{note}")
+        return result
+    result.detail = (f"no wrong claims in {len(verdicts)}{note}" if minor
+                     else f"all {len(verdicts)} claim(s) entailed{note}")
+    return result
 
 
 # --------------------------------------------------------------------------- M2.B calibration

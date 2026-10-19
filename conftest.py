@@ -84,6 +84,10 @@ def _faithfulness_judge_offline(monkeypatch):
                                 lambda: None, raising=False)
         except Exception:
             pass
+        # JS: tests that mock the judge's first pass must not reach a severity call
+        # (it would call the mocked client). Severity tests opt in with their own
+        # monkeypatch, which runs after this one.
+        monkeypatch.setattr(config, "FAITHFULNESS_SEVERITY_MODE", "off", raising=False)
 
 
 def _live_api_enabled(config: pytest.Config) -> bool:

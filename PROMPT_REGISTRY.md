@@ -1,6 +1,6 @@
 # Prompt Registry
 
-Last updated: 2026-02-10
+Last updated: 2026-10-19
 
 This registry maps prompt markdown files to the code paths that load them at runtime.
 
@@ -18,6 +18,7 @@ This registry maps prompt markdown files to the code paths that load them at run
 | `prompts/bowen_reference_filter_v1.md` | `PROMPT_BOWEN_FILTER_FILENAME` | `extraction_pipeline.py` |
 | `prompts/Summary Generation Prompt v1.md` | `PROMPT_STRUCTURED_SUMMARY_FILENAME` | `summary_pipeline.py` |
 | `prompts/Abstract Generation Prompt v1.md` | `PROMPT_STRUCTURED_ABSTRACT_FILENAME` | `abstract_pipeline.py` |
+| `prompts/Faithfulness Severity Prompt v1.md` | `PROMPT_FAITHFULNESS_SEVERITY_FILENAME` | `faithfulness_judge.py` (`severity_instructions`; WRONG vs NOT QUITE RIGHT for confirmed flags, JS) |
 | `prompts/Validation Coverage Prompt v1.md` | `PROMPT_VALIDATION_COVERAGE_FILENAME` | `summary_validation.py`, `abstract_validation.py` |
 | `prompts/abstract_quality_assessment_prompt_v2.md` | `PROMPT_ABSTRACT_VALIDATION_FILENAME` | `validation_pipeline.py` (legacy abstract validation path) |
 | `prompts/transcript_error_detection_prompt.md` | direct path | `transcript_initial_validation.py` |

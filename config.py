@@ -701,6 +701,24 @@ FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-5-5"
 # (Kerr 2026-09-13: 5 of 10 fresh checks failed on supported sentences).
 FAITHFULNESS_CONFIRM_MODE = "majority3"
 FAITHFULNESS_CONFIRM_MODES = ("majority3", "off")
+# A confirmed flag fails the run only when the claim is WRONG (JS,
+# docs/plan_judge_severity_2026-10-19.md; user rule 2026-10-18: "The only fail is if
+# something WRONG vs. not quite right"). "majority3" = each confirmed flag is asked
+# "WRONG or NOT QUITE RIGHT?" (prompt file below); a first WRONG vote ends it, a
+# downgrade needs two NOT QUITE RIGHT votes, each quoting words that are in the source.
+# A NOT QUITE RIGHT claim passes with a warning. "off" = every confirmed flag fails.
+FAITHFULNESS_SEVERITY_MODE = "majority3"
+FAITHFULNESS_SEVERITY_MODES = ("majority3", "off")
+PROMPT_FAITHFULNESS_SEVERITY_FILENAME = "Faithfulness Severity Prompt v1.md"
+# A NOT QUITE RIGHT vote counts only if its evidence quote has a run of at least this
+# many words that occurs in the source (after case and punctuation are folded)...
+FAITHFULNESS_SEVERITY_EVIDENCE_MIN_WORDS = 4
+# ...every "..."-separated part of at least this many words occurs in the source too
+# (a real 4-word run with an invented tail does not count; learning-qa F4)...
+FAITHFULNESS_SEVERITY_EVIDENCE_PART_MIN_WORDS = 2
+# ...and the quote shares at least this many significant words with the claim (a real
+# but unrelated quote, such as "and I think that", does not count).
+FAITHFULNESS_SEVERITY_EVIDENCE_MIN_SHARED_WORDS = 1
 FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # Version tag folded into the persisted judge-verdict cache key (release_gate H2) so a
 # change to the judge's EXTRACTION/PARSING code that touches neither the prompt text nor
@@ -711,7 +729,7 @@ FAITHFULNESS_JUDGE_MAX_TOKENS = 4096
 # against, so a pre-chunk PASS must not be served post-chunk).
 # 2026-10-09: merge of main's claim-bearing headings with R6-R8 (scaffolding names,
 # theme evidence, zero-claims ERROR).
-JUDGE_LOGIC_VERSION = "2026-10-13b"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label; TE evidence allowlist
+JUDGE_LOGIC_VERSION = "2026-10-19"  # judges on claude-sonnet-5-5 (JC.6); parse retry; Q6 + FX prompt examples; SA speaker rule; TM theme meta label; TE evidence allowlist; JS severity step
 # Headings skipped by claim extraction (document scaffolding, not claims).
 FAITHFULNESS_GENERIC_HEADINGS = [
     "abstract", "summary", "overview", "introduction", "conclusion", "conclusions",

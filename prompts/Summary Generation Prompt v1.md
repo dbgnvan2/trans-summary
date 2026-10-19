@@ -14,7 +14,7 @@ Write between {min_words} and {max_words} words. Aim for the target.
 Follow this structure (aim for the word counts shown):
 
 ### Opening Paragraph (~{opening_words} words)
-Identify speaker with credentials, event context, stated purpose, and preview of content areas.
+Identify the speaker by the name the transcript or recording title gives. Give credentials or a role only if the transcript states them; do not add them from other knowledge. Give the event context and the purpose the speaker states. You may say what the talk covers, but say the speaker previews or outlines it only if the speaker does.
 
 ### Body Section (~{body_words} words - the main content)
 Write a comprehensive narrative synthesis covering all topics.

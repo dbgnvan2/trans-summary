@@ -1,0 +1,1055 @@
+{
+ "labels": {
+  "NOT QUITE RIGHT": 17,
+  "WRONG": 12
+ },
+ "unlabelled_judged_claims": [],
+ "injected_c": [
+  {
+   "where": "c run 1",
+   "claim": "Kerr adds that it was his father who told him, years later, ",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 1",
+   "claim": "Kerr cites a 1998 Georgetown study of 400 families, which fo",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 1",
+   "claim": "Kerr says that when family members poke him, he reacts witho",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 1",
+   "claim": "Kerr announces that he will publish a third book, on societa",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 2",
+   "claim": "Kerr adds that it was his father who told him, years later, ",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 2",
+   "claim": "Kerr cites a 1998 Georgetown study of 400 families, which fo",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 2",
+   "claim": "Kerr says that when family members poke him, he reacts witho",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 2",
+   "claim": "Kerr announces that he will publish a third book, on societa",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 3",
+   "claim": "Kerr adds that it was his father who told him, years later, ",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 3",
+   "claim": "Kerr cites a 1998 Georgetown study of 400 families, which fo",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 3",
+   "claim": "Kerr says that when family members poke him, he reacts witho",
+   "severity": "wrong"
+  },
+  {
+   "where": "c run 3",
+   "claim": "Kerr announces that he will publish a third book, on societa",
+   "severity": "wrong"
+  }
+ ],
+ "wrong_labelled_downgraded": [],
+ "nqr_downgraded_appearances": "2 of 22",
+ "nqr_downgraded_claims": "2 of 17",
+ "nqr_downgraded_ids": [
+  "E6",
+  "E7"
+ ],
+ "rows": [
+  {
+   "id": "D1",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #1",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D2",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #1",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D3",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #1",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D4",
+   "label": "WRONG",
+   "borderline": false,
+   "type": "W4",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #1",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D5",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #2",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D6",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D7",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #2",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D8",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #2",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D9",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N3",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W3"
+   ],
+   "appearances": [
+    {
+     "where": "Where Roots Bowen Theory Reside in the B #2",
+     "severity": "wrong",
+     "type": "W3",
+     "votes": [
+      [
+       "wrong",
+       "W3",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D10",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Jan Societal Regression - M #1",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D11",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N2",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Jan Societal Regression - M #2",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D12",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N3",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Feb - KCFC - 2021-02-xx #1",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D13",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W3",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W3"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Feb - KCFC - 2021-02-xx #1",
+     "severity": "wrong",
+     "type": "W3",
+     "votes": [
+      [
+       "wrong",
+       "W3",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D14",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webinar Mar - KCFC - 2021-03-xx #2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D15",
+   "label": "WRONG",
+   "borderline": false,
+   "type": "W3",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W3"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webinar Mar - KCFC - 2021-03-xx #2",
+     "severity": "wrong",
+     "type": "W3",
+     "votes": [
+      [
+       "wrong",
+       "W3",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D16",
+   "label": "WRONG",
+   "borderline": false,
+   "type": "W1",
+   "judged": 0,
+   "downgraded": 0,
+   "judge_types": [],
+   "appearances": []
+  },
+  {
+   "id": "D17",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webinar April - KCFC - 2021-04-xx #1",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D18",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webinar April - KCFC - 2021-04-xx #1",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D19",
+   "label": "WRONG",
+   "borderline": false,
+   "type": "W1",
+   "judged": 2,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webinar April - KCFC - 2021-04-xx #1",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "2021 Webinar April - KCFC - 2021-04-xx #2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D20",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Jun - KCFC - 2021-06-xx #2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D21",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N1",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W1"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Jun - KCFC - 2021-06-xx #2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "D22",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W4",
+   "judged": 1,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "2021 Webcast Jun - KCFC - 2021-06-xx #2",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C1",
+   "label": "NOT QUITE RIGHT",
+   "borderline": true,
+   "type": "N2",
+   "judged": 3,
+   "downgraded": 0,
+   "judge_types": [
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "c run 1",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 2",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 3",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C2",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N2",
+   "judged": 3,
+   "downgraded": 0,
+   "judge_types": [
+    "W1",
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "c run 1",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 3",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C3",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N2",
+   "judged": 2,
+   "downgraded": 0,
+   "judge_types": [
+    "W1",
+    "W4"
+   ],
+   "appearances": [
+    {
+     "where": "c run 1",
+     "severity": "wrong",
+     "type": "W4",
+     "votes": [
+      [
+       "wrong",
+       "W4",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 2",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "C4",
+   "label": "WRONG",
+   "borderline": false,
+   "type": "W2",
+   "judged": 3,
+   "downgraded": 0,
+   "judge_types": [
+    "W1",
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "c run 1",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 2",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "c run 3",
+     "severity": "wrong",
+     "type": "W1",
+     "votes": [
+      [
+       "wrong",
+       "W1",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "E5",
+   "label": "WRONG",
+   "borderline": true,
+   "type": "W2",
+   "judged": 2,
+   "downgraded": 0,
+   "judge_types": [
+    "W2"
+   ],
+   "appearances": [
+    {
+     "where": "e check 2",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    },
+    {
+     "where": "e check 4",
+     "severity": "wrong",
+     "type": "W2",
+     "votes": [
+      [
+       "wrong",
+       "W2",
+       false
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "E6",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N3",
+   "judged": 1,
+   "downgraded": 1,
+   "judge_types": [
+    "N3"
+   ],
+   "appearances": [
+    {
+     "where": "e check 10",
+     "severity": "not_quite_right",
+     "type": "N3",
+     "votes": [
+      [
+       "not_quite_right",
+       "N3",
+       true
+      ],
+      [
+       "not_quite_right",
+       "N3",
+       true
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "id": "E7",
+   "label": "NOT QUITE RIGHT",
+   "borderline": false,
+   "type": "N3",
+   "judged": 1,
+   "downgraded": 1,
+   "judge_types": [
+    "N3"
+   ],
+   "appearances": [
+    {
+     "where": "e check 10",
+     "severity": "not_quite_right",
+     "type": "N3",
+     "votes": [
+      [
+       "not_quite_right",
+       "N3",
+       true
+      ],
+      [
+       "not_quite_right",
+       "N3",
+       true
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "drafts": [
+  {
+   "draft": "Where Roots Bowen Theory Reside in the B #1",
+   "flags": 4,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "Where Roots Bowen Theory Reside in the B #2",
+   "flags": 5,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Jan Societal Regression - M #1",
+   "flags": 1,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Jan Societal Regression - M #2",
+   "flags": 1,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Feb - KCFC - 2021-02-xx #1",
+   "flags": 2,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Feb - KCFC - 2021-02-xx #2",
+   "flags": 0,
+   "old": "PASS",
+   "new": "PASS",
+   "error": null
+  },
+  {
+   "draft": "2021 Webinar Mar - KCFC - 2021-03-xx #1",
+   "flags": 0,
+   "old": "PASS",
+   "new": "PASS",
+   "error": null
+  },
+  {
+   "draft": "2021 Webinar Mar - KCFC - 2021-03-xx #2",
+   "flags": 2,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webinar April - KCFC - 2021-04-xx #1",
+   "flags": 3,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webinar April - KCFC - 2021-04-xx #2",
+   "flags": 1,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Jun - KCFC - 2021-06-xx #1",
+   "flags": 0,
+   "old": "PASS",
+   "new": "PASS",
+   "error": null
+  },
+  {
+   "draft": "2021 Webcast Jun - KCFC - 2021-06-xx #2",
+   "flags": 3,
+   "old": "FAIL",
+   "new": "FAIL",
+   "error": null
+  }
+ ],
+ "drafts_failing_old": 9,
+ "drafts_failing_new": 9,
+ "e_runs": [
+  {
+   "check": 1,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 2,
+   "old": "FAIL",
+   "new": "Status.FAIL"
+  },
+  {
+   "check": 3,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 4,
+   "old": "FAIL",
+   "new": "Status.FAIL"
+  },
+  {
+   "check": 5,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 6,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 7,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 8,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 9,
+   "old": "Status.PASS",
+   "new": "Status.PASS"
+  },
+  {
+   "check": 10,
+   "old": "FAIL",
+   "new": "Status.WARN"
+  }
+ ],
+ "f_confusion_policy_vs_judged": {
+  "not_quite_right -> not_quite_right": 3,
+  "not_quite_right -> wrong": 87,
+  "wrong -> wrong": 39
+ },
+ "f_policy_wrong_downgraded": []
+}

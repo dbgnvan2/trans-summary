@@ -218,3 +218,27 @@ def test_run_themes_raises_on_zero_parse(monkeypatch):
     monkeypatch.setattr(ac, "codec", _CodecFactory())
     with pytest.raises(ValueError):
         jdm._run_themes(None, "test-model")
+
+
+def test_js6_severity_downgrade_of_gold_wrong_is_drift(monkeypatch):
+    """learning-qa F6: the monitor re-checks the severity step on flagged gold claims;
+    a gold WRONG case it downgrades is drift, even with recall and precision at 1.0.
+    Spec: docs/plan_judge_severity_2026-10-19.md#JS6"""
+    import config
+    import faithfulness_judge as fj
+    monkeypatch.setattr(config, "FAITHFULNESS_SEVERITY_MODE", "majority3")
+    gold = json.loads((FIX / "faithfulness_gold" / "gold.json").read_text(encoding="utf-8"))
+    flagged = [c for c in gold["cases"] if c["id"] in ("c1", "k5")]  # gold WRONG, gold NQR
+    rows = [(c["id"], c["label"], c["label"], c["claim"][:55]) for c in flagged]
+
+    def downgrade_all(claims, source, client, *, contexts=None, model=None, logger=None):
+        return [fj.SeverityVerdict(c, fj.NOT_QUITE_RIGHT, "N2", "ev") for c in claims]
+    monkeypatch.setattr(fj, "classify_severity", downgrade_all)
+    assert jdm._run_faithfulness_severity(None, "m", rows) == ["c1"]
+    r = _result("faithfulness", [("contradicted", "contradicted")], danger="contradicted",
+                is_danger=fj.is_unfaithful)
+    r["wrong_downgraded"] = ["c1"]
+    assert jdm._drifted(r)
+    assert "gold WRONG claims judged only not quite right (1): c1" in jdm._render([r], "m")
+    monkeypatch.setattr(config, "FAITHFULNESS_SEVERITY_MODE", "off")
+    assert jdm._run_faithfulness_severity(None, "m", rows) == []

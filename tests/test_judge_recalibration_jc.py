@@ -154,3 +154,57 @@ def test_fx_injected_fabrication_uses_gate_metadata(monkeypatch):
     monkeypatch.setattr(fj, "judge_artifact", fake)
     assert jr.injected_fabrication(client=None, model="m")["caught"] is True
     assert "Presenter: Mike Kerr" in seen[0].split("\n\n")[0]
+
+
+def test_js6b_severity_reports_wrong_downgrades(monkeypatch):
+    """JS6.b: with --severity, flagged gold claims go through the severity step; a gold
+    WRONG case it downgrades is listed and fails the run's bars.
+    Spec: docs/plan_judge_severity_2026-10-19.md#JS6"""
+    import faithfulness_judge as fj
+
+    def confirmed(claims, source, client, *, model=None, logger=None):
+        # flag every claim, so each gold case reaches the severity step
+        return [fj.ClaimVerdict(c, "unsupported") for c in claims], []
+
+    def downgrade_all(claims, source, client, *, contexts=None, model=None, logger=None):
+        return [fj.SeverityVerdict(c, fj.NOT_QUITE_RIGHT, "N2", "ev") for c in claims]
+    monkeypatch.setattr(fj, "judge_claims_confirmed", confirmed)
+    monkeypatch.setattr(fj, "classify_severity", downgrade_all)
+    out = jr.faithfulness_gold(client=None, model="m", severity=True)
+    gold = json.loads(jr.FAITH_GOLD.read_text(encoding="utf-8"))
+    wrong = {c["id"] for c in gold["cases"] if c.get("severity") == "wrong"}
+    sv = out["severity"]
+    assert sv["judged"] == len(gold["cases"])
+    assert set(sv["wrong_downgraded"]) == wrong
+    assert set(sv["nqr_downgraded"]) == set(sv["nqr_flagged"]) == {"k5", "k6"}
+    assert all(p == fj.NOT_QUITE_RIGHT for p in sv["entailed_flagged"].values())
+    run = _run()
+    run["faithfulness"]["severity"] = sv
+    assert not jr.passes_bars(run)
+    run["faithfulness"]["severity"] = {**sv, "wrong_downgraded": []}
+    assert jr.passes_bars(run)
+
+
+def test_js6b_severity_off_by_default(monkeypatch):
+    """Without --severity the gold run makes no severity call (today's behaviour)."""
+    import faithfulness_judge as fj
+
+    def confirmed(claims, source, client, *, model=None, logger=None):
+        return [fj.ClaimVerdict(c, "unsupported") for c in claims], []
+
+    def boom(*a, **k):
+        raise AssertionError("severity step called without --severity")
+    monkeypatch.setattr(fj, "judge_claims_confirmed", confirmed)
+    monkeypatch.setattr(fj, "classify_severity", boom)
+    out = jr.faithfulness_gold(client=None, model="m")
+    assert "severity" not in out and all("severity_pred" not in r for r in out["rows"])
+
+
+def test_js6b_metadata_records_severity_prompt():
+    import hashlib
+
+    import faithfulness_judge as fj
+    meta = jr.run_metadata()
+    assert meta["severity_mode"] == config.FAITHFULNESS_SEVERITY_MODE
+    assert meta["severity_prompt_sha"] == hashlib.sha256(
+        fj.severity_instructions().encode()).hexdigest()[:12]

@@ -1281,6 +1281,17 @@ def generate_structured_summary(
         return False
 
 
+def _warn_not_quite_right(faith, what: str, logger) -> None:
+    """Name the claims the severity step judged NOT QUITE RIGHT. They pass and are not
+    revised (decision JS0.d), but they are listed in full, never dropped (P2).
+
+    Spec:  docs/plan_judge_severity_2026-10-19.md#JS2.c
+    Tests: tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr
+    """
+    import release_gate as rg
+    rg.log_not_quite_right(faith, what, logger)
+
+
 def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     """Run the release gate's faithfulness AND entity-grounding checks on ONE
     artifact (``suffix``), as the abstract precheck does (both block at publish).
@@ -1292,9 +1303,14 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     fails, but its count is not a full one, so it never beats a judged draft as the
     best draft (SC2 review).
 
+    Claims the severity step judged NOT QUITE RIGHT are not issues: they are logged
+    as a warning and the draft passes (JS2.c).
+
     Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2,
-           docs/plan_summary_closing_2026-10-18.md#SC2
-    Tests: tests/test_summary_closing_sc.py::test_sc2e_judge_error_with_names_is_partial
+           docs/plan_summary_closing_2026-10-18.md#SC2,
+           docs/plan_judge_severity_2026-10-19.md#JS2.c
+    Tests: tests/test_summary_closing_sc.py::test_sc2e_judge_error_with_names_is_partial,
+           tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr
     """
     import release_gate as rg
     if not (config.PROJECTS_DIR / base_name / f"{base_name}{suffix}").exists():
@@ -1306,6 +1322,7 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
         # A disabled judge returns PASS ("judge disabled"); that is not a verdict.
         return ("fail", issues) if issues else ("unavailable", [])
     faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
+    _warn_not_quite_right(faith, suffix.strip(" -").removesuffix(".md"), logger)
     for item in (faith.items or []):
         issues.extend(item.get("unfaithful", []))
     errored = rg.Status.ERROR in (faith.status, entity.status)
@@ -1468,7 +1485,7 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                        "no attempts left" if attempt == attempts  # SC3
                        else "revising the flagged sentences" if revise is not None
                        else "regenerating with corrective feedback",
-                       "; ".join(issues)[:300])
+                       "; ".join(issues))  # JS2.d: every claim, in full
     write(best_text)
     best_count = best_rank[1]
     if advisory:
@@ -1504,6 +1521,7 @@ def _abstract_gate_precheck(base_name: str, logger=None):
     # cannot remove and emitting a misleading BLOCK message (review M2). The full
     # multi-artifact faithfulness sweep stays at the publish gate.
     faith = rg.check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
+    _warn_not_quite_right(faith, "abstract", logger)  # JS2.c
     entity = rg.check_entity_grounding(base_name, logger)
     if rg.Status.ERROR in (faith.status, entity.status):
         return "unavailable", []
@@ -1666,7 +1684,7 @@ def generate_structured_abstract(
                            "Issues: %s", attempt, max_attempts, len(issues),
                            "no attempts left" if attempt == max_attempts  # SC3
                            else "revising the flagged sentences",
-                           "; ".join(issues)[:300])
+                           "; ".join(issues))  # JS2.d: every claim, in full
 
         # All attempts failed — keep the least-bad draft; honest, loud status.
         if best_text is not None:

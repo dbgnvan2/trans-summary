@@ -1,0 +1,43 @@
+{
+ "by_part": {
+  "gold": {
+   "judged": 70,
+   "nqr_before": 1,
+   "nqr_after": 0,
+   "needs_third_vote": 0
+  },
+  "c": {
+   "judged": 23,
+   "nqr_before": 0,
+   "nqr_after": 0,
+   "needs_third_vote": 0
+  },
+  "d": {
+   "judged": 22,
+   "nqr_before": 0,
+   "nqr_after": 0,
+   "needs_third_vote": 0
+  },
+  "e": {
+   "judged": 4,
+   "nqr_before": 2,
+   "nqr_after": 2,
+   "needs_third_vote": 0
+  },
+  "f": {
+   "judged": 129,
+   "nqr_before": 3,
+   "nqr_after": 3,
+   "needs_third_vote": 0
+  }
+ },
+ "changed": [
+  {
+   "where": "gold run 2",
+   "id": "k5",
+   "claim": "The practical stakes are significant.",
+   "before": "not_quite_right",
+   "after": "wrong"
+  }
+ ]
+}

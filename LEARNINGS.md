@@ -89,6 +89,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**The severity step passed every ship test and changed no draft outcome (2026-10-19, JS).**
+- Issue: the JS severity step was built so that runs fail only on WRONG content. In the JS6 calibration it downgraded 0 of 12 NOT QUITE RIGHT flags in fresh summary drafts and 3 of 90 in the review set; 9 of 12 drafts failed both before and after.
+- Root cause (P33, checked along one axis): the ship rules (b, c, d) tested only that no WRONG claim is downgraded. None tested that NOT QUITE RIGHT flags are downgraded, which was the point of the change. The policy line "If you are unsure, answer WRONG" makes the first vote WRONG in nearly every case (22 of 22 draft judgements), and a first WRONG vote is final.
+- What would have caught it: a pass rule for the intended effect written into the plan, e.g. "at least half of the hand-labelled NOT QUITE RIGHT draft flags are downgraded". The hand labels and the f-NQR set were already there to measure it.
+- Fix: none to the step yet. It ships because it is safe, and the report (`docs/calibration_judge_severity_2026-10-19.md`) states the small effect. Loosening the policy is an open decision in `TODO.md` (2026-10-19).
+- Rule: a change that relaxes a gate needs a pass rule for the intended effect as well as for safety. A safety-only test passes a change that does nothing.
+
 **The name check read every generated heading as an invented name (2026-10-15, HN).**
 - Issue: in runs 9 and 10 the entity check flagged "Closing Advice", "Final Reflections", "Multigenerational Roots" and five other overview/blog headings, and "On June" (from "On June 25, 2021"), as names absent from the source; each cost a faithfulness revision.
 - Root cause (P7, wrong proxy): the check treated "Title-Case and not in the source" as "a name". Review F2 extended it to headings, where every word is capitalised and the model chooses its own words, so absence from the source says nothing about whether a span is a name. The date came from the filename metadata, which holds "2021-06-25", not "June".

@@ -68,6 +68,37 @@ def _run_faithfulness(client, model):
     return pairs, rows
 
 
+def _run_faithfulness_severity(client, model, rows) -> list:
+    """The severity step on every gold claim the faithfulness judge flagged (``rows``
+    from ``_run_faithfulness``). Returns the ids of gold cases labelled WRONG that the
+    step downgraded to NOT QUITE RIGHT: each one is drift, because the gate would then
+    publish a wrong claim with only a warning. Empty with the step off.
+
+    Purpose: Re-check the step that now decides FAIL vs WARN (learning-qa F6, P20).
+    Spec:    docs/plan_judge_severity_2026-10-19.md#JS6
+    Tests:   tests/test_judge_drift_monitor.py::test_js6_severity_downgrade_of_gold_wrong_is_drift
+    """
+    if config.FAITHFULNESS_SEVERITY_MODE == "off":
+        return []
+    gold, _raw = _load("faithfulness_gold")
+    cases = {c["id"]: c for c in gold["cases"]}
+    flagged = defaultdict(list)
+    for _id, _truth, pred, _sample in rows:
+        if fj.is_unfaithful(pred):
+            flagged[cases[_id]["source"]].append(cases[_id])
+    if not flagged:
+        return []
+    import judge_recalibration
+    sources = judge_recalibration.gold_sources(gold)
+    downgraded = []
+    for sid, group in flagged.items():
+        verdicts = fj.classify_severity([c["claim"] for c in group], sources[sid], client,
+                                        model=model)
+        downgraded += [c["id"] for c, v in zip(group, verdicts)
+                       if v.severity == fj.NOT_QUITE_RIGHT and c.get("severity") == fj.WRONG]
+    return downgraded
+
+
 def _run_themes(client, model):
     import artifact_contracts as ac
 
@@ -130,10 +161,12 @@ def _theme_metrics(pairs):
 # load-bearing (must-NOT-pass) class; `metrics` keyed to it.
 # ---------------------------------------------------------------------------
 
-def _judge_result(name, pairs, rows, metrics, recall_bar, precision_bar, danger_label, is_danger):
+def _judge_result(name, pairs, rows, metrics, recall_bar, precision_bar, danger_label, is_danger,
+                  wrong_downgraded=None):
     return {"name": name, "pairs": pairs, "rows": rows, "metrics": metrics,
             "recall_bar": recall_bar, "precision_bar": precision_bar,
-            "danger_label": danger_label, "is_danger": is_danger}
+            "danger_label": danger_label, "is_danger": is_danger,
+            "wrong_downgraded": list(wrong_downgraded or [])}
 
 
 def evaluate(client, model_override: str | None = None) -> list:
@@ -146,6 +179,7 @@ def evaluate(client, model_override: str | None = None) -> list:
     t_model = model_override or config.THEME_JUDGE_MODEL
     k_model = model_override or config.KEY_TERMS_JUDGE_MODEL
     f_pairs, f_rows = _run_faithfulness(client, f_model)
+    f_down = _run_faithfulness_severity(client, f_model, f_rows)
     t_pairs, t_rows = _run_themes(client, t_model)
     k_pairs, k_rows = _run_key_terms(client, k_model)
     # Fail closed: a judge whose gold set has NO danger-class examples cannot be
@@ -164,7 +198,7 @@ def evaluate(client, model_override: str | None = None) -> list:
                       fj.binary_faithfulness_metrics(f_pairs),
                       config.FAITHFULNESS_MIN_RECALL_UNFAITHFUL,
                       config.FAITHFULNESS_MIN_PRECISION_UNFAITHFUL,
-                      "unfaithful", fj.is_unfaithful),
+                      "unfaithful", fj.is_unfaithful, wrong_downgraded=f_down),
         _judge_result("theme", t_pairs, t_rows,
                       _theme_metrics(t_pairs),
                       config.THEME_JUDGE_MIN_RECALL_UNGROUNDED,
@@ -180,7 +214,9 @@ def evaluate(client, model_override: str | None = None) -> list:
 
 def _drifted(r: dict) -> bool:
     return (r["metrics"]["recall"] < r["recall_bar"]
-            or r["metrics"]["precision"] < r["precision_bar"])
+            or r["metrics"]["precision"] < r["precision_bar"]
+            # JS: a gold WRONG claim the severity step downgraded would pass the gate
+            or bool(r.get("wrong_downgraded")))
 
 
 def _render(results: list, model: str) -> str:
@@ -196,6 +232,10 @@ def _render(results: list, model: str) -> str:
             f"n={len(r['pairs'])} tp={m['tp']} fp={m['fp']} fn={m['fn']} tn={m['tn']}  "
             f"{'DRIFT' if d else 'ok'}"
         )
+    for r in results:
+        if r.get("wrong_downgraded"):
+            lines.append(f"  [{r['name']}] gold WRONG claims judged only not quite right "
+                         f"({len(r['wrong_downgraded'])}): {', '.join(r['wrong_downgraded'])}")
     # Surface the missed false-negatives (a drifted judge waving through the danger class).
     for r in results:
         if not r["metrics"]["fn"]:

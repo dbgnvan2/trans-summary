@@ -9,6 +9,10 @@ cost taken from logs/token_usage.csv.
     .venv/bin/python judge_recalibration.py --model claude-sonnet-5-5 --effort medium \
         --repeats 3 --prose-real --out docs/calibration/sonnet55_medium.json
 
+With --severity, every gold claim the judge flags also goes through the severity step
+(WRONG / NOT QUITE RIGHT), and a run fails its bars if a gold case labelled WRONG is
+downgraded (docs/plan_judge_severity_2026-10-19.md#JS6).
+
 Spec:  docs/plan_judge_recalibration_sonnet55_2026-10-10.md#JC.0
 Tests: tests/test_judge_recalibration_jc.py
 """
@@ -64,7 +68,14 @@ def gold_sources(gold: dict) -> dict:
             for k, v in gold["sources"].items()}
 
 
-def faithfulness_gold(client, model: str) -> dict:
+def faithfulness_gold(client, model: str, severity: bool = False) -> dict:
+    """Gold-set metrics for the faithfulness judge. With ``severity``, each flagged
+    claim also goes through the severity step and the result lists the gold WRONG
+    cases it downgraded (must be none) and the NOT QUITE RIGHT cases it downgraded.
+
+    Spec:  docs/plan_judge_severity_2026-10-19.md#JS6 (part b)
+    Tests: tests/test_judge_recalibration_jc.py::test_js6b_severity_reports_wrong_downgrades
+    """
     gold = json.loads(FAITH_GOLD.read_text(encoding="utf-8"))
     sources = gold_sources(gold)
     by_source = defaultdict(list)
@@ -74,12 +85,37 @@ def faithfulness_gold(client, model: str) -> dict:
     for sid, group in by_source.items():
         verdicts, _ = fj.judge_claims_confirmed([c["claim"] for c in group], sources[sid], client,
                                                 model=model)
-        for case, v in zip(group, verdicts):
+        flagged = [k for k, v in enumerate(verdicts) if fj.is_unfaithful(v.label)]
+        sev = {}
+        if severity and flagged:
+            got = fj.classify_severity([group[k]["claim"] for k in flagged], sources[sid], client,
+                                       model=model)
+            sev = dict(zip(flagged, got))
+        for k, (case, v) in enumerate(zip(group, verdicts)):
             pairs.append((case["label"], v.label))
-            rows.append({"id": case["id"], "truth": case["label"], "pred": v.label,
-                         "miss": fj.is_unfaithful(case["label"]) != fj.is_unfaithful(v.label),
-                         "rationale": v.rationale, "claim": case["claim"]})
-    return {"metrics": fj.binary_faithfulness_metrics(pairs), "rows": rows}
+            row = {"id": case["id"], "truth": case["label"], "pred": v.label,
+                   "miss": fj.is_unfaithful(case["label"]) != fj.is_unfaithful(v.label),
+                   "rationale": v.rationale, "claim": case["claim"]}
+            if k in sev:
+                row.update({"severity_truth": case.get("severity", ""),
+                            "severity_pred": sev[k].severity, "severity_type": sev[k].type,
+                            "severity_evidence": sev[k].evidence,
+                            "severity_votes": sev[k].votes, "severity_note": sev[k].note})
+            rows.append(row)
+    out = {"metrics": fj.binary_faithfulness_metrics(pairs), "rows": rows}
+    if severity:
+        judged = [r for r in rows if "severity_pred" in r]
+        down = [r for r in judged if r["severity_pred"] == fj.NOT_QUITE_RIGHT]
+        out["severity"] = {
+            "judged": len(judged),
+            "wrong_downgraded": [r["id"] for r in down if r["severity_truth"] == fj.WRONG],
+            "nqr_downgraded": [r["id"] for r in down if r["severity_truth"] == fj.NOT_QUITE_RIGHT],
+            "nqr_flagged": [r["id"] for r in judged if r["severity_truth"] == fj.NOT_QUITE_RIGHT],
+            # gold-entailed claims the judge flagged anyway: what the step made of them
+            "entailed_flagged": {r["id"]: r["severity_pred"] for r in judged
+                                 if not fj.is_unfaithful(r["truth"])},
+        }
+    return out
 
 
 def real_abstracts(client, model: str) -> list:
@@ -172,7 +208,18 @@ def run_metadata() -> dict:
         "judge_logic_version": config.JUDGE_LOGIC_VERSION,
         "faithfulness_cache_version": release_gate._judge_logic_version(fj._JUDGE_INSTRUCTIONS),
         "confirm_mode": config.FAITHFULNESS_CONFIRM_MODE,
+        # JS: the severity step's mode and prompt (WRONG / NOT QUITE RIGHT).
+        "severity_mode": config.FAITHFULNESS_SEVERITY_MODE,
+        "severity_prompt_sha": _severity_prompt_sha(),
     }
+
+
+def _severity_prompt_sha() -> str:
+    import hashlib
+    try:
+        return hashlib.sha256(fj.severity_instructions().encode()).hexdigest()[:12]
+    except OSError:
+        return "missing"
 
 
 def passes_bars(run: dict) -> bool:
@@ -182,7 +229,9 @@ def passes_bars(run: dict) -> bool:
             and t["recall"] >= config.THEME_JUDGE_MIN_RECALL_UNGROUNDED
             and t["precision"] >= config.THEME_JUDGE_MIN_PRECISION_UNGROUNDED
             and all(a["ok"] for a in run["real_abstracts"])
-            and run["injected"]["caught"])
+            and run["injected"]["caught"]
+            # JS6.b: no gold case labelled WRONG may be downgraded
+            and not run["faithfulness"].get("severity", {}).get("wrong_downgraded"))
 
 
 def flips(runs: list) -> list:
@@ -242,6 +291,8 @@ def main(argv=None) -> int:
     ap.add_argument("--effort", default=None, choices=[None, *config.settings.EFFORT_CHOICES])
     ap.add_argument("--repeats", type=int, default=1)
     ap.add_argument("--prose-real", action="store_true")
+    ap.add_argument("--severity", action="store_true",
+                    help="run the severity step on flagged gold claims (JS6.b)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args(argv)
 
@@ -250,6 +301,9 @@ def main(argv=None) -> int:
     if not key:
         print("No Anthropic API key found.", file=sys.stderr)
         return 2
+    if args.severity and config.FAITHFULNESS_SEVERITY_MODE == "off":
+        print("--severity needs FAITHFULNESS_SEVERITY_MODE other than 'off'.", file=sys.stderr)
+        return 2
     client = get_anthropic_client(key)
     config.JUDGE_EFFORT = args.effort  # the judges send config.JUDGE_EFFORT
 
@@ -257,7 +311,7 @@ def main(argv=None) -> int:
     retries = _ParseRetryCounter()
     runs = []
     for i in range(args.repeats):
-        run = {"faithfulness": faithfulness_gold(client, args.model),
+        run = {"faithfulness": faithfulness_gold(client, args.model, severity=args.severity),
                "real_abstracts": real_abstracts(client, args.model),
                "injected": injected_fabrication(client, args.model),
                "themes": theme_gold(client, args.model)}
@@ -272,6 +326,12 @@ def main(argv=None) -> int:
         for r in run["faithfulness"]["rows"]:
             if r["miss"]:
                 print(f"   MISS {r['id']:5} truth={r['truth']:12} pred={r['pred']:12} {r['claim'][:70]}")
+        sv = run["faithfulness"].get("severity")
+        if sv:
+            print(f"   severity: {sv['judged']} flagged claim(s) judged; WRONG downgraded "
+                  f"{sv['wrong_downgraded'] or 'none'}; NOT QUITE RIGHT downgraded "
+                  f"{len(sv['nqr_downgraded'])} of {len(sv['nqr_flagged'])}; entailed but flagged "
+                  f"{sv['entailed_flagged'] or 'none'}")
         for r in run["themes"]["rows"]:
             if r["truth"] != r["pred"]:
                 print(f"   THEME MISS truth={r['truth']:10} pred={r['pred']:10} {r['name'][:60]}")

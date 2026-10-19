@@ -26,7 +26,10 @@ longer silently publishes wrong/fabricated/unverifiable content.
   claim-level LLM entailment check on prose artifacts (abstract/summary/overview; the
   blog has its own advisory check) catches fluent hallucinations the lexical checks miss
   (it FAILs the real `Luciano Malorni` fabrication). Policy: Hard BLOCK on a flag that a
-  fresh judgement confirms (majority of 3, 2026-10-11); model pinned to the calibrated
+  fresh judgement confirms (majority of 3, 2026-10-11) and a severity step keeps WRONG
+  (2026-10-19); a confirmed flag judged only NOT QUITE RIGHT is a WARN, not a block
+  (`docs/calibration_judge_severity_2026-10-19.md`: no WRONG claim downgraded, but few
+  NOT QUITE RIGHT flags downgraded either); model pinned to the calibrated
   `claude-sonnet-5-5`; key resolves from env or the shared `~/.config/llm/keys.json`. For a transcript
   without speaker labels the judge is told so, and accepts grounded content attributed
   to a participant in the conversation (the interviewer, the presenter) when the source

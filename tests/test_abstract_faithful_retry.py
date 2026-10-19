@@ -264,3 +264,33 @@ def test_sc3b_abstract_last_try_wording(monkeypatch, tmp_path, caplog):
     assert all("revising the flagged sentences" in t for t in tries[:2])
     assert "attempt 3/3" in tries[2] and "no attempts left" in tries[2]
     assert "revising" not in tries[2]
+
+
+def test_js2c_abstract_nqr_only_passes(monkeypatch, caplog):
+    """JS2.c (docs/plan_judge_severity_2026-10-19.md): an abstract whose only flags the
+    severity step judged NOT QUITE RIGHT passes the generation precheck, and the claims
+    are named in a warning, not dropped."""
+    warn = rg.Verdict("faithfulness", rg.Status.WARN, "w", items=[
+        {"artifact": "abstract-generated.md",
+         "not_quite_right": [{"claim": "Claim Y.", "type": "N2", "evidence": "e",
+                              "first_label": "unsupported"}]}])
+    monkeypatch.setattr(rg, "check_faithfulness", lambda b, l=None, suffixes=None: warn)
+    monkeypatch.setattr(rg, "check_entity_grounding",
+                        lambda b, l=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
+    with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
+        assert ep._abstract_gate_precheck("b", _log()) == ("pass", [])
+    assert any("Claim Y." in r.getMessage() and "[N2]" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_js2d_abstract_warning_lists_every_issue(monkeypatch, tmp_path, caplog):
+    """JS2.d: the abstract loop's warning names every issue in full (was cut at 300)."""
+    base, _ = _setup(monkeypatch, tmp_path)
+    monkeypatch.setattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", lambda *a, **k: "draft")
+    issues = [f"Issue {i} " + "word " * 40 + "end." for i in range(3)]
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: ("fail", issues))
+    with caplog.at_level(logging.WARNING, logger="test_abstract_retry"):
+        assert ep.generate_structured_abstract(base, logger=_log()) is False
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert all(i in text for i in issues)

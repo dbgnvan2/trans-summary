@@ -466,7 +466,7 @@ def _judge_blog_grounding_cached(fjudge, claims: list, source: str, client, logg
     return labels
 
 
-def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
+def blog_ungrounded_claims(base_name: str, logger=None, minor: Optional[list] = None) -> tuple:
     """Two-stage blog check (RF.N.1). Returns ``(status, ungrounded, detail)``:
     "pass", "warn" (ungrounded claims/names listed), "missing" (no blog), or
     "error" (could not verify; ``ungrounded`` then holds only the name hits, which
@@ -478,6 +478,9 @@ def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
        interpretation of real content but rejects fabricated specifics. A claim is
        ungrounded only if both reject it ("N1 wins"). A CONTRADICTED claim is never
        overridden. With THEME_JUDGE_ENABLED off there is no second stage.
+
+    Claims the severity step judged NOT QUITE RIGHT are not ungrounded: they are
+    logged by name and, when ``minor`` is a list, appended to it (JS2.e).
 
     Purpose: Judge the interpretive blog as interpretation, not as a fact sheet.
     Spec:    docs/plan_run_fixes_2026-10-09.md#RF.N.1
@@ -534,10 +537,18 @@ def blog_ungrounded_claims(base_name: str, logger=None) -> tuple:
                     logger.warning("Blog grounding judge failed: %s", e)
                 return "error", names, (f"claims not verified: grounding judge "
                                         f"{type(e).__name__}{excused_note}")
+    # JS2.e: claims the severity step judged NOT QUITE RIGHT are named, not dropped.
+    nqr = log_not_quite_right(faith, "blog", logger)
+    if minor is not None:
+        minor.extend(nqr)
     note = (f"; {accepted_as_interpretation} claim(s) accepted as interpretation"
-            if accepted_as_interpretation else "") + excused_note
+            if accepted_as_interpretation else "") + (
+            f"; {len(nqr)} claim(s) not quite right (a warning, not a fault)"
+            if nqr else "") + excused_note
     if ungrounded:
         return "warn", ungrounded, f"{len(ungrounded)} blog claim(s) not grounded in the source{note}"
+    if nqr:
+        return "pass", [], f"no wrong blog claims{note}"
     return "pass", [], f"all blog claims entailed or grounded{note}"
 
 
@@ -545,7 +556,12 @@ def check_blog_faithfulness(base_name: str, logger=None) -> Verdict:
     """ADVISORY: the blog's claims (RF.N). Ungrounded claims or no blog -> WARN;
     could not verify -> ERROR (reported as UNVERIFIED). Never a publication blocker:
     not in GATE_BLOCKING_CHECKS (author decision 2026-10-10)."""
-    status, ungrounded, detail = blog_ungrounded_claims(base_name, logger)
+    minor: list = []
+    status, ungrounded, detail = blog_ungrounded_claims(base_name, logger, minor=minor)
+    if status == "pass" and minor:
+        # JS2.e: NOT QUITE RIGHT claims only -> WARN naming them, as check_faithfulness.
+        return Verdict("blog_faithfulness", Status.WARN, detail,
+                       items=[{"artifact": "blog", "not_quite_right": minor}])
     if status == "pass":
         return Verdict("blog_faithfulness", Status.PASS, detail)
     if status == "error":
@@ -880,6 +896,10 @@ def _judge_input_functions() -> list:
         fjudge._cached_judge_content,
         fjudge._clean_claim_line, fjudge._mark_question_answers, fjudge._claim_body,
         fjudge.instructions_for,
+        # JS: the severity step decides which confirmed flags fail.
+        fjudge.classify_severity, fjudge.judge_severity, fjudge.build_severity_prompt,
+        fjudge._parse_severity_response, fjudge._severity_objects,
+        fjudge._evidence_in_source, fjudge._folded_words,
         av._strip_scaffolding, av._strip_front_matter, av._strip_fenced_block,
         av.scaffolding_name_spans, av.find_ungrounded_names,
         # HN: which heading runs count as names (re-emitted to the judge as claims).
@@ -903,7 +923,8 @@ def _judge_input_patterns() -> list:
     patterns = [av._NAME_SPAN, av._INLINE_BOLD_LABEL, av._YAML_LINE,
                 fjudge._SENTENCE_SPLIT, fjudge._NAME_SHAPE, fjudge._SCAFFOLDING_LABEL_RE,
                 tu._BOLD_THEME_RE, tu._H3_THEME_RE, tu._LIST_THEME_RE, tu._THEME_FIELD_RE,
-                tu._LINE_START_LABEL_RE, fjudge._QA_MARK, fjudge._QA_INSERT_AT]
+                tu._LINE_START_LABEL_RE, fjudge._QA_MARK, fjudge._QA_INSERT_AT,
+                fjudge._SEVERITY_OBJECT_RE]
     # SA: the label threshold and the note text change what the judge is told.
     patterns += [str(config.SPEAKER_LABEL_MIN_TURNS), config.UNLABELED_SPEAKERS_NOTE]
     # HN: the name check's vocabularies decide which heading runs are re-emitted.
@@ -925,6 +946,15 @@ def _name_list_digest() -> str:
         except OSError:
             h.update(f"{path}: missing".encode("utf-8"))
     return h.hexdigest()
+
+
+def _severity_prompt_text(fjudge) -> str:
+    """The severity prompt for the cache key; a missing file keys as "missing" (the
+    step then keeps every flag WRONG, so nothing laxer can be cached)."""
+    try:
+        return fjudge.severity_instructions()
+    except OSError:
+        return "severity prompt missing"
 
 
 def _judge_logic_version(instructions: str) -> str:
@@ -949,6 +979,17 @@ def _judge_logic_version(instructions: str) -> str:
         # future tune serves a stale verdict (H2 fail-open) unless the developer
         # remembers to bump JUDGE_LOGIC_VERSION by hand (P6/P4).
         str(config.FAITHFULNESS_CONFIRM_MODE),  # CF: confirmed vs first-pass verdicts
+        # JS3.a: the severity step decides which flags fail, so its mode, policy text
+        # and evidence threshold re-key the cache (its code is in _judge_input_functions).
+        str(config.FAITHFULNESS_SEVERITY_MODE),
+        _severity_prompt_text(fjudge),
+        str(config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_WORDS),
+        str(config.FAITHFULNESS_SEVERITY_EVIDENCE_PART_MIN_WORDS),
+        str(config.FAITHFULNESS_SEVERITY_EVIDENCE_MIN_SHARED_WORDS),
+        # Which claims fail (FaithfulnessResult.unfaithful) and which severity types
+        # are valid are code and a module constant, not config (learning-qa F5).
+        inspect.getsource(fjudge.FaithfulnessResult),
+        repr(sorted((k, sorted(v)) for k, v in fjudge._SEVERITY_TYPES.items())),
         str(config.FAITHFULNESS_JUDGE_MIN_CHUNK_SOURCE_WORDS),
         str(config.FAITHFULNESS_JUDGE_ROUTE_MIN_OVERLAP),
         str(config.VALIDATION_CHUNK_SIZE),
@@ -1000,7 +1041,9 @@ def _disk_cached_verdict(disk_key: str, fjudge):
         return fjudge.FaithfulnessResult(
             status=disk["status"],
             detail=disk.get("detail", ""),
-            claims=[fjudge.ClaimVerdict(**c) for c in disk.get("unfaithful", [])],
+            # JS3.b: a PASS with NOT QUITE RIGHT claims is replayed with them.
+            claims=[fjudge.ClaimVerdict(**c) for c in
+                    disk.get("unfaithful", []) + disk.get("not_quite_right", [])],
             overturned=disk.get("overturned", []),
         )
     return None
@@ -1033,10 +1076,56 @@ def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
     result = _judge_flag_aware(
         disk_key, fjudge,
         lambda: fjudge.judge_artifact(artifact_text, source, client, logger=logger), logger)
+    failing = list(getattr(result, "unfaithful", []))
+    if (result.status == fjudge.FAIL and failing
+            and all(getattr(c, "severity_undecided", False) for c in failing)):
+        # Every failing claim is WRONG only because a severity vote failed: transient
+        # (P1). Not cached in memory and no flagged marker, so the next run asks again.
+        if logger:
+            logger.warning("Faithfulness FAIL rests only on severity votes that failed; "
+                           "not cached, re-judged next run.")
+        return result
     if result.status != fjudge.ERROR:  # never cache a transient failure (P1)
         _FAITHFULNESS_CACHE[mem_key] = result
         _persist_judge_outcome(disk_key, result.status == fjudge.PASS, result.to_dict(), logger)
     return result
+
+
+def _wrong_records(result) -> list:
+    """The failing claims of a judge result, as report items: the claim, its first-pass
+    label, the severity type (W1-W4) and evidence, why it stayed WRONG when the step
+    could not decide, and whether it was undecided (learning-qa F2)."""
+    return [{"claim": c.claim, "label": getattr(c, "label", ""),
+             "type": getattr(c, "severity_type", ""), "evidence": getattr(c, "evidence", ""),
+             "note": getattr(c, "severity_note", ""),
+             "undecided": getattr(c, "severity_undecided", False)}
+            for c in getattr(result, "unfaithful", [])]
+
+
+def log_not_quite_right(faith, what: str, logger) -> list:
+    """Name, in one warning, the claims of a faithfulness verdict that the severity
+    step judged NOT QUITE RIGHT. They pass and are not revised (decision JS0.d), but
+    they are listed in full, never dropped (P2). Returns the records.
+
+    Spec:  docs/plan_judge_severity_2026-10-19.md#JS2.c
+    Tests: tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr,
+           tests/test_judge_severity_js.py::test_js2e_blog_nqr_named_and_warned
+    """
+    minor = [c for item in (faith.items or []) if isinstance(item, dict)
+             for c in item.get("not_quite_right", [])]
+    if minor and logger:
+        logger.warning("%d claim(s) in the %s are not quite right (a warning, not a fault; "
+                       "kept as written): %s", len(minor), what,
+                       "; ".join(f"[{c.get('type') or '?'}] {c.get('claim', '')}"
+                                 for c in minor))
+    return minor
+
+
+def _not_quite_right_records(result) -> list:
+    """The NOT QUITE RIGHT claims of a judge result, as report items: the claim, its
+    type (N1-N3), the source words it rests on, and the first-pass label (JS2.b)."""
+    return [{"claim": c.claim, "type": c.severity_type, "evidence": c.evidence,
+             "first_label": c.label} for c in getattr(result, "not_quite_right", [])]
 
 
 def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = None) -> Verdict:
@@ -1075,7 +1164,7 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors, overturned = [], [], []
+    fails, errors, overturned, minor = [], [], [], []
     judged = 0
     for suffix in (suffixes if suffixes is not None else config.FAITHFULNESS_ARTIFACT_SUFFIXES):
         path = proj / f"{base_name}{suffix}"
@@ -1087,14 +1176,19 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         art = suffix.strip(" -")
         if getattr(result, "overturned", None):
             overturned.append({"artifact": art, "overturned": result.overturned})
+        nqr = _not_quite_right_records(result)
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
                           "unfaithful": [c.claim for c in result.unfaithful],
                           "contradicted": [c.claim for c in result.unfaithful
                                            if getattr(c, "label", None) == fjudge.CONTRADICTED],
+                          "wrong": _wrong_records(result),
+                          "not_quite_right": nqr,
                           "overturned": getattr(result, "overturned", [])})
         elif result.status == fjudge.ERROR:
             errors.append({"artifact": art, "detail": result.detail})
+        elif nqr:
+            minor.append({"artifact": art, "not_quite_right": nqr})
     if judged == 0:
         # "nothing to judge" is NOT "all faithful": a run with no narrative artifact
         # present cannot silently clear the faithfulness gate (P7 pass-on-empty).
@@ -1108,13 +1202,24 @@ def check_faithfulness(base_name: str, logger=None, suffixes: Optional[list] = N
         failed = {f["artifact"] for f in fails}
         return Verdict("faithfulness", Status.FAIL,
                        f"check failed in {arts} — regenerate and try again",
-                       items=fails + errors + [o for o in overturned if o["artifact"] not in failed])
+                       items=fails + errors + minor
+                       + [o for o in overturned if o["artifact"] not in failed])
     if errors:
         return Verdict("faithfulness", Status.ERROR,
                        f"{len(errors)} of {judged} artifact(s) could not be verified",
-                       items=errors + overturned)
+                       items=errors + minor + overturned)
     # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
     n_over = sum(len(o["overturned"]) for o in overturned)
+    if minor:
+        # JS2.b: only NOT QUITE RIGHT claims -> WARN (publishable, listed).
+        n_minor = sum(len(m["not_quite_right"]) for m in minor)
+        arts = ", ".join(m["artifact"].removesuffix(".md") for m in minor)
+        return Verdict("faithfulness", Status.WARN,
+                       f"no wrong claims; {n_minor} claim(s) not quite right in {arts} "
+                       f"(a warning, not a fault; {judged} artifact(s) judged)"
+                       + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
+                       + _speaker_note_suffix(transcript),
+                       items=minor + overturned)
     return Verdict("faithfulness", Status.PASS,
                    f"all narrative claims entailed by source ({judged} artifact(s) judged)"
                    + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
@@ -1179,7 +1284,7 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
 
     client = get_anthropic_client(api_key)
     proj = config.PROJECTS_DIR / base_name
-    fails, errors, overturned = [], [], []
+    fails, errors, overturned, minor = [], [], [], []
     judged = 0
     for suffix in config.TOPIC_TERM_FAITHFULNESS_SUFFIXES:
         path = proj / f"{base_name}{suffix}"
@@ -1194,25 +1299,40 @@ def check_topic_term_faithfulness(base_name: str, logger=None) -> Verdict:
         result = _judge_cached(fjudge, claims_text, transcript, client, logger)
         if getattr(result, "overturned", None):
             overturned.append({"artifact": art, "overturned": result.overturned})
+        nqr = _not_quite_right_records(result)
         if result.status == fjudge.FAIL:
             fails.append({"artifact": art, "detail": result.detail,
                           "unfaithful": [c.claim for c in result.unfaithful],
+                          "wrong": _wrong_records(result),
+                          "not_quite_right": nqr,
                           "overturned": getattr(result, "overturned", [])})
         elif result.status == fjudge.ERROR:
             errors.append({"artifact": art, "detail": result.detail})
+        elif nqr:
+            minor.append({"artifact": art, "not_quite_right": nqr})
     if fails:
         arts = ", ".join(f["artifact"] for f in fails)
         failed = {f["artifact"] for f in fails}
         return Verdict("topic_term_faithfulness", Status.FAIL,
                        f"check failed in {arts} — regenerate and try again",
-                       items=fails + errors + [o for o in overturned if o["artifact"] not in failed])
+                       items=fails + errors + minor
+                       + [o for o in overturned if o["artifact"] not in failed])
     if errors or judged == 0:
         return Verdict("topic_term_faithfulness", Status.ERROR,
                        "topics/key-terms could not be verified" if errors
                        else "no topics or key-terms artifact present to verify",
-                       items=errors + overturned)
+                       items=errors + minor + overturned)
     # CF.2: first-pass flags that were not confirmed are recorded, not dropped (P2).
     n_over = sum(len(o["overturned"]) for o in overturned)
+    if minor:
+        # JS2.e: only NOT QUITE RIGHT claims -> WARN, listed (this check is advisory).
+        n_minor = sum(len(m["not_quite_right"]) for m in minor)
+        return Verdict("topic_term_faithfulness", Status.WARN,
+                       f"no wrong claims; {n_minor} topic/key-term claim(s) not quite right "
+                       f"({judged} artifact(s) judged)"
+                       + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")
+                       + _speaker_note_suffix(transcript),
+                       items=minor + overturned)
     return Verdict("topic_term_faithfulness", Status.PASS,
                    f"all topic/key-term claims entailed by source ({judged} artifact(s) judged)"
                    + (f"; {n_over} first-pass flag(s) not confirmed" if n_over else "")

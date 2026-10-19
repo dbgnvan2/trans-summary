@@ -2,6 +2,47 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Faithfulness flags fail only on WRONG content)
+
+Plan `docs/plan_judge_severity_2026-10-19.md` (JS1–JS7), from the review
+`docs/judge_flag_review_2026-10-18.md`: of 43 flags, 9 were WRONG and 34 NOT QUITE RIGHT,
+and every flag failed the run. The user's rule: fail only on WRONG content.
+
+- **JS1, severity step** (`faithfulness_judge.classify_severity`): runs on each flag that
+  confirmation keeps. A first WRONG vote is final; a first NOT QUITE RIGHT vote gets a
+  second; two NOT QUITE RIGHT votes downgrade; a split goes to a third vote. A NOT QUITE
+  RIGHT vote counts only if its quote is in the source and shares a significant word
+  with the claim (`_evidence_in_source`; thresholds in config). A failed vote keeps the
+  claim WRONG and marks it `severity_undecided`. Policy (W1–W4, N1–N3) in
+  `prompts/Faithfulness Severity Prompt v1.md`. `config.FAITHFULNESS_SEVERITY_MODE =
+  "majority3"`; `"off"` restores the earlier behaviour.
+- **JS2, gate and generation:** only WRONG claims fail `faithfulness` and
+  `topic_term_faithfulness`. Only NOT QUITE RIGHT → WARN listing each claim with type
+  and evidence → ALLOW_WITH_WARNINGS. FAIL items gain a `wrong` list (claim, type,
+  evidence, `undecided`). The advisory blog check WARNs with the NOT QUITE RIGHT claims
+  named. Generation prechecks revise only for WRONG claims and log the others by name
+  (JS0.d: such drafts pass without revision). JS2.d: the "not faithful" warning lists
+  every claim (the 300-character cut is gone).
+- **JS3, cache:** `JUDGE_LOGIC_VERSION = "2026-10-19"`; the cache key also hashes the
+  severity prompt, mode, thresholds, the evidence check, `FaithfulnessResult` and the
+  severity types. A FAIL that rests only on failed severity votes is not cached and leaves
+  no "flagged" marker (P1).
+- **Calibration tools:** `judge_recalibration.py --severity` judges flagged gold claims
+  and fails the bars if a gold WRONG case is downgraded; `gold.json` has severity labels
+  (JS0.c); `judge_drift_monitor.py` reports a downgraded gold WRONG case as drift.
+- **JS5, summary prompt:** names the speaker as the transcript or title does; credentials
+  or a role only if the transcript states them; a preview only if the speaker gives one.
+- **JS6, live calibration** (`docs/calibration_judge_severity_2026-10-19.md`, $4.50): gold
+  recall 0.92/0.96/0.92, precision 1.00 ×3; no gold WRONG case, injected WRONG claim
+  (12 of 12) or hand-labelled WRONG flag (0 of 12) downgraded; part e no new FAIL. The
+  step downgraded 0 of 12 NOT QUITE RIGHT flags in 12 fresh drafts (9 of 12 drafts fail
+  before and after) and 3 of 90 in the review set: the judge's votes are mostly WRONG.
+  Shipped as safe; loosening it is a separate decision.
+- learning-qa findings fixed (F1–F6, listed in the plan).
+
+Docs: plan, calibration report, PROMPT_REGISTRY, ARCHITECTURE_DESIGN 4.3, PROJECT_STATUS,
+TODO, LEARNINGS.
+
 ## [Unreleased] - 2026-10-19 (Incomplete source transcript notice)
 
 Plan `docs/plan_incomplete_transcript_2026-10-19.md` (IT1–IT5). The Systems Biology raw

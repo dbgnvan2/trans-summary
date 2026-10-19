@@ -1,0 +1,338 @@
+{
+ "labelled_before_reading_results": true,
+ "policy": "prompts/Faithfulness Severity Prompt v1.md (JS0.a)",
+ "labels": [
+  {
+   "id": "D1",
+   "claim": "Kerr draws an explicit parallel: Bowen theory may currently occupy the Aristarchus-to-Copernicus phase — correct, partially validated, but not yet dominant.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "source_quotes": [
+    "What will the course of Bowen Family Systems Theory be like? I suspect it will not take 2000 years to dominate the public consciousness, as did heliocentrism"
+   ],
+   "note": "The parallel is explicit; the 'Aristarchus-to-Copernicus phase' placement is the writer's mapping, hedged with 'may'. Could be W4."
+  },
+  {
+   "id": "D2",
+   "claim": "Resistance signals paradigm-level threat, not error.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "source_quotes": [
+    "So there's a lot of resistance. He thought he'd get in a lot of trouble if he pushed his ideas too hard."
+   ],
+   "note": "An editorial lesson from the heliocentrism story; no new fact. Could be W4 (Kerr never states it)."
+  },
+  {
+   "id": "D3",
+   "claim": "Kerr extends the logic: family regression under stress follows the same pattern, and a paper wasp colony he describes split into two nests only after sustained internal conflict made the original homeostasis untenable — regression as both symptom and trigger for reorganization.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "source_quotes": [
+    "that there were two warring factions, you remember this one, on the nest, which you could call, I think, a regressive phenomenon. And then they split.",
+    "regression can motivate a call for action"
+   ],
+   "note": "Facts in the source (Q&A, not right after the cancer passage)."
+  },
+  {
+   "id": "D4",
+   "claim": "Kent Berridge's research at Michigan then establishes that wanting (dopamine-driven motivation) and liking (opioid- and endocannabinoid-driven pleasure) are produced by distinct, dissociable brain subsystems — a finding Kerr connects to clinical observations about compulsive togetherness-seeking and the gap between stated and pursued goals.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": false,
+   "source_quotes": [
+    "That's where Bowen theory comes in."
+   ],
+   "note": "Kerr never connects wanting/liking to clinical observations about compulsive togetherness-seeking or stated vs pursued goals; the claim credits him with it."
+  },
+  {
+   "id": "D5",
+   "claim": "Kerr's point is structural: correct ideas can face organized institutional resistance for centuries, and Bowen theory may currently occupy the Aristarchus-to-Copernicus phase — valid but not yet dominant.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "source_quotes": [
+    "What will the course of Bowen Family Systems Theory be like? I suspect it will not take 2000 years to dominate the public consciousness, as did heliocentrism",
+    "religion was very much tied up in this as well"
+   ],
+   "note": "As D1."
+  },
+  {
+   "id": "D6",
+   "claim": "Kerr draws an explicit parallel to Bowen's individuality and togetherness life forces, noting that when cells are freed from multicellular coordination they reacquire ancestral proliferative and mobile properties — a regression to earlier autonomous operating modes that he links to the regression Bowen described in families under sustained stress.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "source_quotes": [
+    "I think that's a very sharp parallel with individuality and togetherness.",
+    "And I would take it out to the family level as well, of course."
+   ],
+   "note": "Supported; 'families under sustained stress' is framing."
+  },
+  {
+   "id": "D7",
+   "claim": "Kerr notes that advertising targets wanting rather than liking, and that barriers can intensify wanting while reducing liking — observations with direct implications for understanding compulsive togetherness-seeking and overfunctioning.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "source_quotes": [
+    "The focus of advertising is to stimulate not your enjoyment of an item, but your desire to have it.",
+    "We sometimes want it more while liking it less."
+   ],
+   "note": "Both observations are Kerr's; the 'implications for togetherness-seeking and overfunctioning' clause is the writer's, not credited to Kerr. Could be W4 (overfunctioning is not in the talk)."
+  },
+  {
+   "id": "D8",
+   "claim": "Moving the electrode millimeters in any direction eliminated the effect.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "source_quotes": [
+    "When they moved the electrode a few millimeters one way or the other, the effect did not occur."
+   ],
+   "note": "'any direction' for 'one way or the other'."
+  },
+  {
+   "id": "D9",
+   "claim": "He frames this as an open question for Bowen theorists, suggesting that the neural and biological evidence reviewed points toward answers that extend well beyond the boundaries of the human species.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "source_quotes": [
+    "A question for Bowen theorists.",
+    "I think we can safely say that the answers extend beyond the boundaries of our species"
+   ],
+   "note": "The species remark ends the first presentation, not the closing question."
+  },
+  {
+   "id": "D10",
+   "claim": "Kerr also presents the systems biology work of Italian philosopher of science Marta Bertoloso, whose book *Philosophy of Cancer* he finds strikingly parallel to Bowen theory.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "source_quotes": [
+    "And I was trying to think about how Maria Bertoloso would say that."
+   ],
+   "note": "'Marta' is not in the source; Kerr gives no first name and a participant says 'Maria'. True in the world, W1 by the approved policy."
+  },
+  {
+   "id": "D11",
+   "claim": "Bertoloso's central claim—that genes are \"only like the keys on a piano; although they are essential, it is the context that makes the music\"—resonates with Bowen's shift from intrapsychic traits to functioning position within a relationship system.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "source_quotes": [
+    "Genes are only like the keys on a piano. Although they are essential, it is the context that makes the music.",
+    "He switched from character traits to functioning position."
+   ],
+   "note": "'central claim' for 'my favorite quote'; the link to Bowen's shift is the writer's."
+  },
+  {
+   "id": "D12",
+   "claim": "An email update confirms the daughter is enrolled, working at a bar, making friends, and functioning off psychiatric medications, which she reports had dulled her feelings and correlated with increased self-harm.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": true,
+   "source_quotes": [
+    "She's settled in at school, enjoying her classes and working at a bar",
+    "She seems to be functioning better off the medications."
+   ],
+   "note": "All facts real; the medication content is from an earlier session, not the email. Could be W2 (the email does not say it)."
+  },
+  {
+   "id": "D13",
+   "claim": "Kate Beam and Carolyn Jacobs explore whether the mother must ultimately choose herself over the daughter and accept the consequences of that choice—a formulation Kerr affirms from personal experience.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": true,
+   "source_quotes": [
+    "In the end, with this kind of symbiosis that sometimes comes down to the mother choosing herself over the daughter",
+    "Um yeah so i was looking at the triangle with the mother and her parents"
+   ],
+   "note": "The formulation is Carolyn Jacobs's; Kate Beam asked about the grandparents' triangle. Kate's question is related (whether the mother should back away), hence borderline."
+  },
+  {
+   "id": "D14",
+   "claim": "The speaker, presenting at a Kansas City Family Center webinar in March 2021, shares a single-session clinical case to explore a central question: what threats generate anxiety in close relationships?",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "source_quotes": [
+    "Presenter: KCFC"
+   ],
+   "note": "'Kansas City Family Center' is not in the source (the metadata says KCFC). Rest supported: 'this is a person that I have seen just once'."
+  },
+  {
+   "id": "D15",
+   "claim": "He suggests that people who have not been heavily trained in the individual model may actually find systems thinking more accessible.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "source_quotes": [
+    "people who haven't been trained up in a disciplined way in the individual model"
+   ],
+   "note": "Randy (a labelled participant) said it, not the presenter."
+  },
+  {
+   "id": "D16",
+   "claim": "The client is a Vermont-based counseling psychologist in her late thirties, the younger of two daughters with a sister thirteen years her senior.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": false,
+   "source_quotes": [
+    "The younger of two girls, this sister is 13 years older."
+   ],
+   "note": "No age is given anywhere ('late thirties' absent)."
+  },
+  {
+   "id": "D17",
+   "claim": "She lives with her partner, Sam, in her late grandmother's house.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "source_quotes": [
+    "And they're currently living in her grandmother's house."
+   ],
+   "note": "'late' (the grandmother has died) is not in the source. One word."
+  },
+  {
+   "id": "D18",
+   "claim": "Her self-summary is precise: \"I'm anxious and he's anxious too, and his anxiety clearly affects mine.\" A significant early detail is that she was born without a stomach and with a very short esophagus, requiring multiple surgeries across her first five years—a medical history that almost certainly intensified the family projection process, with her father taking primary responsibility for her care while her mother remained more emotionally reserved and practically oriented.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "source_quotes": [
+    "One of the important details that probably accentuated the family projection process for her was she was a person born with no stomach and a very short esophagus.",
+    "She's practical-minded, not feeling-oriented.",
+    "she describes her as reserved"
+   ],
+   "note": "'almost certainly' for 'probably'; otherwise supported."
+  },
+  {
+   "id": "D19",
+   "claim": "The client is a Vermont-based counseling psychologist in her late thirties, the younger of two daughters with a sister thirteen years her senior.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": false,
+   "source_quotes": [
+    "The younger of two girls, this sister is 13 years older."
+   ],
+   "note": "As D16."
+  },
+  {
+   "id": "D20",
+   "claim": "In a June 2021 webcast, a speaker associated with the Kansas City Family Center delivers a lecture-format presentation drawing on PowerPoint slides to explore convergences between systems biology and Bowen Family Systems Theory.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "source_quotes": [
+    "Presenter: KCFC"
+   ],
+   "note": "As D14; 'presenting from PowerPoint' is in the source."
+  },
+  {
+   "id": "D21",
+   "claim": "Philosopher Karl Popper argued that developmental processes have goal-directedness shaped by environment, making genes followers rather than leaders.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": true,
+   "source_quotes": [
+    "Coral Popper, another philosopher of science",
+    "He claimed that the developmental processes have a goal-directedness if allowed in the environment in which they exist."
+   ],
+   "note": "'Karl' corrects the transcript's 'Coral' (same philosopher of science). Could be W1 by the letter."
+  },
+  {
+   "id": "D22",
+   "claim": "The speaker draws explicit parallels throughout: the identified patient in a family corresponds to the tissue niche where cancer emerges; multi-generational transmission of chronic anxiety corresponds to the systemic perturbation that prevents tissue regeneration; and the non-reductionist, bidirectional causal model Noble diagrams—with arrows flowing both up and down from genes through organism—maps onto Bowen theory's insistence that the family system must be added at the top of that chain.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": true,
+   "source_quotes": [
+    "looking at that individual in the context of the family in this recent history and also as you know multi-generationally. So there's a tremendous number of parallels here.",
+    "has this diagram of the reductionist causal chain"
+   ],
+   "note": "Kerr parallels the niche with the family context, not the identified patient; the perturbation-to-multigenerational mapping is the writer's; both presented as his explicit parallels. Could be N2."
+  },
+  {
+   "id": "C1",
+   "claim": "His mother, convinced Billy was fragile, had protected him intensely, and this protection—rooted in the mother's anxiety rather than Billy's actual condition—became the crucible in which Billy's illness developed.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "source_quotes": [
+    "When he was born, my mother thought he was a fragile china doll who needed much protection."
+   ],
+   "note": "Kerr tells it as the projection process; 'the crucible in which the illness developed' is the writer's causal framing. Could be W4 (Kerr stresses not blaming the mother)."
+  },
+  {
+   "id": "C2",
+   "claim": "This process is not malicious; it feels like love and protection to those generating it.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "source_quotes": [
+    "Sometimes one child becomes the focus of the family's worry, protection, and emotional intensity."
+   ],
+   "note": "Interpretive gloss; no new fact."
+  },
+  {
+   "id": "C3",
+   "claim": "This connection operates at every scale: the individual body, the nuclear family, the multigenerational system, and society itself.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "source_quotes": [
+    "I think chronic anxiety can generate chronic inflammation",
+    "In Bowen's theory, societal regression describes what happens when chronic anxiety spreads through an entire society."
+   ],
+   "note": "Connects topics the talk covers."
+  },
+  {
+   "id": "C4",
+   "claim": "When Kerr considered leaving psychiatry to return home and care for his mother and brother, Bowen corrected him sharply: healing requires staying in the system that generates the wound.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "source_quotes": [
+    "She wanted me, in her heart of hearts, to finish my training, come home, move in with her and my schizophrenic brother, and spend the rest of our lives playing this out. That wasn't for me."
+   ],
+   "note": "Reversed: his mother wanted him home, he did not; Bowen faulted him for leaving the system. 'leaving psychiatry' is absent."
+  },
+  {
+   "id": "E5",
+   "claim": "Michael Kerr, a long-time student and successor of Murray Bowen, presents a webinar on Bowen theory, drawing on his personal and clinical experience to explore family relationships and social systems.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": true,
+   "source_quotes": [
+    "This conversation is not simply about a psychological theory."
+   ],
+   "note": "'presents a webinar': the source is a conversation with an interviewer and listeners. Student/successor are supported ('fill his shoes'). Could be N3 (talk described loosely)."
+  },
+  {
+   "id": "E6",
+   "claim": "Kerr begins by contrasting Bowen's systems thinking with Freudian thinking.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "source_quotes": [
+    "The family requires understanding by using systems thinking, which was different from Freudian thinking."
+   ],
+   "note": "Early (00:01:23), after the Billy opening."
+  },
+  {
+   "id": "E7",
+   "claim": "He ends with societal regression.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "source_quotes": [
+    "## Section 22 – Societal Regression Defined"
+   ],
+   "note": "Last main topic; the talk ends with the takeaway, thanks and Billy."
+  }
+ ]
+}

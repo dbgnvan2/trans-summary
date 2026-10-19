@@ -1,7 +1,11 @@
 # Plan: faithfulness flags fail only on WRONG content (JS0–JS7) — 2026-10-19
 
-Status: **proposed, waiting for approval.** No code, prompt or config has changed. The
-decisions in JS0 are needed before building.
+Status: **built 2026-10-19; JS6 passed, armed (`majority3`).** The user approved the
+plan with every JS0 recommendation (see "JS0 — decisions", answers recorded there).
+JS6 (`docs/calibration_judge_severity_2026-10-19.md`): b, c and d pass, no WRONG claim
+was downgraded in any part. The step downgrades few NOT QUITE RIGHT flags (0 of 12 in
+the held-out drafts; drafts failing 9 of 12 before and after), because the judge's own
+votes are mostly WRONG. Loosening it is a separate decision (see the report).
 
 ## Why
 
@@ -123,7 +127,15 @@ tests are offline with a mocked client, as in `tests/test_judge_confirm_cf.py`.
 | JS6 | Live calibration, not in CI: below. Report `docs/calibration_judge_severity_<date>.md`, results under `docs/calibration/<date>_judge_severity/`. | Script + report |
 | JS7 | Documents updated in the same commit as the code (below). | Review of the diff |
 
-### JS0 — decisions needed
+### JS0 — decisions
+
+**Answered 2026-10-19:** "Approve … with the recommended JS0 decisions: policy text as
+drafted, credentials stay WRONG with the JS5 prompt fix, gold labels as proposed (k4
+WRONG, k5 and k6 NOT QUITE RIGHT), NQR-only drafts pass without revision, JS2.d log fix
+approved, contradicted flags…" (the message was cut at 300 characters; the reply button it
+came from ends "go through the step", JS0.e as recommended). So: a yes, b keep WRONG +
+JS5, c as proposed, d no revision + JS2.d yes, e yes.
+
 
 - **JS0.a Policy text.** Approve, or edit, the definitions and the draft text above,
   including "If you are unsure, answer WRONG".
@@ -183,6 +195,60 @@ and `PROJECT_STATUS.md` where they describe the faithfulness verdicts; `PROMPT_R
 the calibration report; the memory note on the judge (m2) with the new version, mode and
 how to re-calibrate; `tests/fixtures/faithfulness_gold/gold.json` gains the severity
 labels (JS0.c) with a note in its `_doc`.
+
+## Deviations while building (2026-10-19)
+
+- **Policy text, W2 and N3.** The prompt file drops the quoted words in W2 ("may", "can
+  contribute") and in N3 ("closes by"). "can contribute" is the wording of review claim
+  R25 and "closes by" that of L5; both claims are in the development set, so quoting them
+  would fit the prompt to measured claims (JS4.b). N3 now reads "for example, says the
+  speaker closes with something said earlier". The meaning is unchanged.
+- **JS6.a and b in one run.** `judge_recalibration.py --repeats 3 --severity`: the
+  finding step's metrics and the severity outcomes come from the same three runs.
+- **JS6.d, one judge run per draft.** The step runs only on confirmed flags, so the old
+  outcome (any confirmed flag fails) and the new one (only a WRONG flag fails) are read
+  from the same run. Two separate runs would differ by judge noise, not by the change.
+- **JS6.d talks.** Why Families Repeat has no `topics.md` (neither the fixture nor the
+  project folder), and the summary stage needs one, so it cannot make drafts of that
+  talk. A fifth KCFC talk, 2021 Webcast Jun, takes its place. Why Families is used in
+  JS6.c (the injected claims go into its real summary) and JS6.e.
+- **JS6.e files.** The Kerr 2026-09-13 files CF.6 judged were overwritten after
+  2026-10-11: none of the three hashes in `docs/calibration/2026-10-11_confirm/cf6_r2.json`
+  matches the project folder or the fixture now. The current project files are used; the
+  results file records their hashes.
+
+### learning-qa review fixes (2026-10-19)
+
+The review found no path that lets a WRONG claim pass. It found six problems, all fixed
+in the same change:
+
+- **F1 (P1).** A FAIL that rests only on failed severity votes is transient: the claims
+  are marked `severity_undecided`, and the gate neither caches that FAIL in memory nor
+  leaves a "flagged" marker on disk, so the next run asks again. A FAIL with a WRONG
+  decision keeps the D2 behaviour. The verdict detail says how many claims stayed WRONG
+  because a vote failed.
+- **F2 (P6).** Gate FAIL items gain a `wrong` list: claim, first-pass label, type,
+  evidence, note and `undecided`, so a severity timeout is told apart from a W1 vote.
+  `unfaithful` stays a list of strings for existing readers.
+- **F3 (P2).** NOT QUITE RIGHT blog claims are logged by name
+  (`release_gate.log_not_quite_right`, also used by the generation prechecks), and the
+  advisory blog check returns WARN listing them instead of a PASS that only counted them.
+- **F4 (P7).** The evidence check is stricter: every "..."-separated part of at least
+  `FAITHFULNESS_SEVERITY_EVIDENCE_PART_MIN_WORDS` (2) words must be in the source, not
+  only the parts of 4+ words, and the quote must share at least
+  `FAITHFULNESS_SEVERITY_EVIDENCE_MIN_SHARED_WORDS` (1) significant word with the claim.
+  The JS6 runs had started with the earlier rule; the stricter rule can only turn a
+  downgrade back into WRONG, so it cannot break a JS6 pass criterion. The report
+  re-scores the recorded votes under the new rule.
+- **F5 (P8).** The cache key also hashes `FaithfulnessResult` (which claims fail), the
+  severity types and the two new thresholds.
+- **F6 (P20).** `judge_drift_monitor.py` runs the severity step on flagged gold claims; a
+  gold WRONG case judged only NOT QUITE RIGHT is drift.
+
+Adjacent issues found, not fixed: the theme-grounding judge (blocking) and the key-terms
+judge do not have the severity step, so the user's rule is not applied there; gold claims
+have no preceding sentence, so `judge_recalibration --severity` sends no context, while
+the gate sends the sentence before each claim.
 
 ## Order
 
