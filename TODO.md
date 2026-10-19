@@ -6,6 +6,18 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-18 — Structured Summary stopped the Holt run (closing paragraph)
+
+### ⏸ Open (plan proposed, waiting for approval)
+- **The summary prompt asks every talk for a conclusion, open questions and future
+  directions.** A talk that has none (the Holt recording stops one paragraph into a panel
+  discussion) gets invented ones, the faithfulness check flags them on every try, and
+  the run stops. In the same run, a tie between drafts kept the earlier, worse draft, and
+  the last-try warning said it was "revising". Plan SC1–SC3:
+  `docs/plan_summary_closing_2026-10-18.md`.
+
+---
+
 ## 2026-10-17 — Format at "medium" thinking (commit cc87ae1), follow-ups
 
 ### ✅ Fixed 2026-10-17
