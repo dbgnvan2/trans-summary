@@ -257,13 +257,16 @@ Tests: `python3 -m pytest tests/test_remove_flagged_rm.py tests/test_ts_gui_run_
 - **RM4.c.** `transcript_process.main` step 4 runs `transcript_summarize.py` without
   `--generate-structured`, so on that path nothing is removed. The list is therefore also
   printed by the two scripts that can remove sentences, `transcript_summarize.py` and
-  `transcript_overview.py`, and on `transcript_process.main`'s summary-failure exit
-  (learning-qa F2). `transcript_process.main` is interactive, so its test checks the
-  source.
+  `transcript_overview.py` (learning-qa F2). Under `transcript_process.main` they do not
+  print it (`removal_record.LISTED_BY_PARENT_ENV`); `transcript_process.main` prints it
+  once, in a `finally` right after step 4 (cold sweep). `transcript_process.main` is
+  interactive, so its test checks the source.
 - **The removal step cannot fail a stage.** An error in it is logged and the draft is kept
   as it is; the coverage items for the guard are built inside that step. If saving the
   cleaned draft fails after the record is written, the draft is saved again as it was,
-  the entry is cleared, and the stage goes on (learning-qa F5).
+  the flags are recorded as kept, and the stage goes on (learning-qa F5; changed by the
+  cold sweep, which found that clearing the entry undid F3). If that re-save also
+  fails, the stage fails.
 - **A flag removed in one place and kept in another** (a section's only text, a bold label,
   a heading, a coverage item) is listed as kept: "removed in part; one copy kept: …"
   (learning-qa F1). A coverage keyword in a bullet's bold label counts for that bullet's
@@ -271,4 +274,32 @@ Tests: `python3 -m pytest tests/test_remove_flagged_rm.py tests/test_ts_gui_run_
   removal (learning-qa F4).
 - **Review.** learning-qa ran on the diff before the commit and found 5 issues (F1–F5);
   all are fixed here, with the tests named above. The fixes were not re-reviewed.
+
+## Cold sweep (2026-10-19, Mac mini1)
+
+Three reviewers with no context from the writing session (learning-qa, correctness,
+security) swept `28d37dd..8388592`; learning-qa and a correctness reviewer then swept the
+fixes. Fixed on branch `fix/rm-cold-sweep-2026-10-19` (commits 11ef191, 347400b, b1a8b78),
+each with a test that fails without it:
+
+| Finding | Fix | Test |
+|---|---|---|
+| Two flags on one sentence cut it twice: an unflagged neighbour deleted, or every removal refused | one span per sentence; one Removed entry naming both reasons | `test_rm1i_claim_and_name_flag_same_sentence_cut_once`, `test_rm1a_fq_tagged_and_plain_copy_section_not_emptied`, `test_rm4a_two_reasons_listed` |
+| The deletion check compared claims only, so a lost short sentence passed | every body sentence is checked | `test_rm1g_short_unflagged_sentence_lost_rejected` |
+| `_EMPTY_LINE` backtracked exponentially on a run of list markers (a hang) | one marker per repetition | `test_rm1b_marker_run_line_does_not_backtrack` (child process with a timeout) |
+| A split after "U.S.", "Ph.D.", "Sen.", "et al.", a month, or before a number left a fragment | such a split is uncertain: a claim there is kept ("sentence boundary uncertain"); a name takes the whole sentence. List: `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` | `test_rm1a_unsure_sentence_boundary_kept`, `test_rm1a_unsure_boundary_more_abbreviations`, `test_rm1a_unsure_copy_kept_other_copy_removed`, `test_rm1i_name_in_unsure_split_takes_whole_sentence` |
+| A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "still in the front matter's FAQ answers" | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
+| Older than the sweep: a bold lead sentence ("**Kerr says X.** …") was dropped with the line, unrecorded | bold text that ends like a sentence is not a label | `test_rm1b_bold_lead_sentence_not_dropped` |
+| RM2.e: the guard skipped required items already at low keyword confidence, which the gate decides with an LLM check | such an item keeps the claim sentences ("could not place required item"); a name sentence still goes, and a claim in it is not listed as kept | `test_rm2e_item_already_low_keeps_claims_not_names`, `test_rm1i_claim_and_name_same_sentence_unplaced_item_not_kept` |
+| F5: a failed save cleared the record (list said "none"); a failed re-save returned success over a possibly truncated file | flags recorded as kept; a failed re-save fails the stage | `test_rm3b_artifact_save_fails_stage_goes_on`, `test_rm3b_partial_save_restores_kept_draft`, `test_rm3b_both_saves_fail_stage_fails` |
+| The catch around removal had no test | — | `test_rm2_removal_error_stage_goes_on` |
+| "Every flagged sentence removed" when only names were flagged, or the judge errored | message built from the flags (`_all_removed_message`) | `test_rm2_names_only_message`, `test_rm2_partial_check_message_says_not_checked` |
+| An unreadable record listed as "none this run"; the GUI passed no logger | says the record could not be read | `test_rm4a_unreadable_record_not_reported_as_none` |
+| The CLI list printed twice, then (first fix) lost on a Ctrl-C after step 4 | `transcript_process` prints it once, in a `finally` after step 4; the scripts it runs do not | `test_rm4c_process_cli_prints_list_on_both_exits`, `test_rm4c_list_printed_once_under_transcript_process` |
+| The kept reason for a body copy that could not be located said "heading, label or front matter" | "not found as a whole sentence" | `test_rm1a_body_copy_not_located_reason` |
+
+**Trade-off for Dave (RM2.e):** a summary with any required coverage item at low keyword
+confidence (including an item with no keywords) now keeps all its flagged claim sentences,
+since the code cannot tell which sentence the gate's LLM check relies on. Names are still
+removed. How often this happens was not measured (no project data on Mini1).
 

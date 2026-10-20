@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Removal: cold-sweep fixes)
+
+Cold review of the RM change on Mac mini1 (`docs/plan_remove_flagged_2026-10-19.md`,
+"Cold sweep"). A sentence named by two flags is cut once; the deletion check covers short
+sentences; a regex that could hang on a run of list markers is fixed; a split after an
+abbreviation or before a number is not removed as a fragment (names take the whole
+sentence); FAQ copies that cannot be edited and a bold lead sentence are no longer lost
+unreported; the coverage guard keeps claims when a required item is already at low
+confidence; a failed save keeps the record and a failed re-save fails the stage; the
+end-of-run messages and list say what happened, once.
+
 ## [Unreleased] - 2026-10-19 (Remove sentences still flagged after revision)
 
 Plan `docs/plan_remove_flagged_2026-10-19.md` (RM0–RM9), user decisions D1 off, D2 yes,

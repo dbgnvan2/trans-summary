@@ -24,6 +24,17 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - Adjacent, not fixed: the abstract has its own copy of the generation loop
   (`generate_structured_abstract`) instead of `_generate_until_faithful`, so removal is
   wired into both.
+- **Decide (cold sweep, RM2.e):** a summary with a required coverage item already at low
+  keyword confidence now keeps every flagged claim sentence (names still go). Measure how
+  often on real runs; if often, protect only the sentences in that item's section.
+- Adjacent, not fixed (cold sweep): `faithfulness_judge._split_sentences` splits after
+  "U.S.", "Ph.D.", "Sen." and months, so the judge also reads those as two claims.
+  Removal now treats such splits as uncertain; the judge's own splitter is unchanged.
+- Low, not fixed (cold sweep): removing "A." from "A. Note: it ends." moves a strip-prefix
+  label to the line start, so the deletion check refuses it ("a sentence was lost"). It
+  fails safe: the flag is kept with the reason.
+- Not fixed (cold sweep): the judge-disabled case returns "fail" with names only; the
+  message now says "no claim was flagged", which does not say the judge was off.
 
 ## 2026-10-19 — Format stopped on heading timestamps without brackets
 

@@ -89,6 +89,14 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**A warm review passed fixes that a cold one broke (2026-10-19, RM cold sweep).**
+- Issue: the RM change shipped with an in-session learning-qa pass and 5 fixes (F1–F5), not re-reviewed. A cold sweep on another machine found 17 more, including a double cut that deleted an unflagged sentence, a regex that could hang the run, and F5 clearing the record that F3 had added. The first round of cold fixes then needed a third round: the uncertain-split rule missed most abbreviations and made a kept name fail the stage, and silencing a child script lost the list on Ctrl-C.
+- Root cause: P26/P27. Each fix was checked against its own finding only. Interactions (F3 vs F5; a claim rule applied to name flags; a print moved from child to parent) were not checked, and some tests could not fail (a fake writer that raised before writing; a timing assert after a call that hangs).
+- What would have caught it: re-sweeping every fix commit with a reviewer that did not write it, and a mutation check per fix (remove the fix, see the test fail).
+- Fix: commits 11ef191, 347400b, b1a8b78 on `fix/rm-cold-sweep-2026-10-19`; every new test was run against the code before its fix.
+- Rule: a fix is unreviewed code. For each fix, ask which other rule or exit path it changes, and prove its test fails without it. A test of a possible hang runs in a child process with a timeout.
+- Miss rate (csdp calibration): cold sweep 17 findings on a range the warm pass had swept; re-sweep of the cold fixes 9 more.
+
 **Rounds of tuning a check that did not need to block (2026-10-19, WO).**
 - Issue: after the severity step (JS), a further plan (NQ) proposed $8.5–11.5 of calibration to make the step downgrade minor flags. The user asked why it was taking so long. Shown what the flags were, they chose to have faithfulness warn and never block.
 - Root cause: each round (confirmation CF, speaker rule SA, severity JS, then NQ) took "a faithfulness flag blocks" as fixed and worked to make the block accurate. Nobody asked whether a block was needed. The entity check already blocks invented names, and the hand labels showed 17 of 29 flags were wording or order and 1 was badly wrong.
