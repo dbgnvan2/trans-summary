@@ -331,21 +331,22 @@ def test_rm1i_name_left_in_label_listed_as_kept():
 def test_rm1b_marker_run_line_does_not_backtrack():
     """Security review: a line left as a long run of list markers plus text made
     _EMPTY_LINE backtrack exponentially (22 dashes took 0.6 s; each one doubles it).
-    The match runs in a child process with a timeout, so a regression fails, not hangs."""
+    The match runs in a child process with a timeout, so a regression fails, not hangs.
+    The removal runs there too: since RM1.b.1 it also matches _MARKED_LABEL on the line."""
     import subprocess
     import sys
     probe = ("import flagged_removal as fr\n"
              "assert fr._EMPTY_LINE.match('-' * 60 + ' text') is None\n"
-             "assert fr._EMPTY_LINE.match('*' * 60 + ' text') is None\n")
+             "assert fr._EMPTY_LINE.match('*' * 60 + ' text') is None\n"
+             "flag = 'The speaker said ten things in the opening part.'\n"
+             "text = '### Body\\n\\n' + '-' * 40 + ' ' + flag + ' The speaker also said more.\\n'\n"
+             "removed = fr.remove_flagged_sentences(text, [flag], max_share=0.9)[1]\n"
+             "assert [r.sentence for r in removed] == [flag]\n")
     try:
         subprocess.run([sys.executable, "-c", probe], cwd=REPO, check=True, timeout=20)
     except subprocess.TimeoutExpired:
-        pytest.fail("_EMPTY_LINE backtracks on a run of list markers")
+        pytest.fail("a removal regex backtracks on a run of list markers")
     assert fr._EMPTY_LINE.match("- **Label:**") is not None
-    flag = "The speaker said ten things in the opening part."
-    text = "### Body\n\n" + "-" * 40 + " " + flag + " The speaker also said more here.\n"
-    out, removed, _ = _remove(text, [flag])
-    assert [r.sentence for r in removed] == [flag]
 
 
 def test_rm1i_claim_and_name_flag_same_sentence_cut_once():
@@ -702,7 +703,8 @@ def test_rm1g1_dropped_line_sentence_counted_once():
 def test_rm1g1_label_claim_goes_with_its_line(label):
     """RM1.g: extract_claims reads a capitalised bold label ("Kerr Agreed") as a claim of
     its own. Removing the line's only sentence removes the line and the label with it;
-    that is not a loss. After "1. " the label is part of the sentence removed."""
+    that is not a loss. After "1. " the judge reads the label with the sentence; the cut
+    leaves the label, and the line left with only it goes (RM1.b.1)."""
     text = f"{OPENING}{label} Zed Example spoke at length about the move.\n\n{REST.lstrip()}"
     out, removed, kept = _remove(text, [ZED])
     assert kept == [] and len(removed) == 1 and "Zed Example" not in out
@@ -771,6 +773,270 @@ def test_rm1i2_split_part_without_name_has_own_reason():
          "same sentence as name 'Zed Example' (uncertain split)")]
     assert kept == [] and "Smith" not in out
     assert rr._why({"reason": removed[1].reason}) == removed[1].reason  # the list's text
+
+
+# --- Bold label after a list or quote marker (2026-10-20): RM1.b.1, RM1.b.2, RM1.g.2,
+# --- RM1.g.3
+
+LABEL = "**Kerr Agreed:**"
+ZED_SENTENCE = "Zed Example spoke at length about the move."
+SECONDS = ["Then the family moved to the city in the spring.",
+           "2020 was a hard year for the whole family."]
+QUESTION = "### What did Kerr say?\n\n"
+AFTER = "\n\nKerr adds a long example about his own family.\n"
+
+
+@pytest.mark.parametrize("second", SECONDS)
+@pytest.mark.parametrize("lead", ["1. ", "1) ", "- 1. ", "> ", "> - ", "+ ", "• ", "- "])
+def test_rm1b1_name_sentence_after_marked_label_takes_own_span(lead, second):
+    """TODO 2026-10-20: after "1. " or "> " the sentence's span started inside the bold
+    label, so the cut left "1. **" and the deletion check refused; after "+ " it took the
+    marker and the label too. The span starts after the label, which stays with its
+    markers. "• " and "- " lines were already right (guards)."""
+    text = f"{OPENING}{lead}{LABEL} {ZED_SENTENCE} {second}{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert out == f"{OPENING}{lead}{LABEL} {second}{AFTER}"
+
+
+@pytest.mark.parametrize("lead", ["1. ", "> ", "• ", "+ "])
+def test_rm1b1_marked_label_under_question_heading(lead):
+    """Under a question heading the judge reads the label with the first sentence on
+    each of these lines ("• Kerr Agreed: Zed ..."), and after the cut with the next one,
+    which is the same sentence, not a new claim (RM1.g.2)."""
+    text = f"{QUESTION}{lead}{LABEL} {ZED_SENTENCE} {SECONDS[0]}{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert out == f"{QUESTION}{lead}{LABEL} {SECONDS[0]}{AFTER}"
+
+
+@pytest.mark.parametrize("lead", ["1. ", "1) ", "- 1. ", "> ", "> - ", "+ "])
+def test_rm1b1_last_sentence_after_marked_label_line_goes(lead):
+    """The line's only sentence: the line goes with its markers and label. The record
+    holds the words cut, without the label (it held "Kerr Agreed: Zed ...")."""
+    text = f"{OPENING}{lead}{LABEL} {ZED_SENTENCE}{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert out == f"{OPENING}{REST.lstrip()}"
+
+
+@pytest.mark.parametrize("lead", ["1. ", "> ", "+ "])
+def test_rm1b1_claim_flag_after_marked_label(lead):
+    """A claim flag is the judge's reading, label included ("Kerr Agreed: Zed ..."). It
+    still finds the sentence, and the cut leaves the label. The flag is also listed as
+    kept (learning-qa): the label stays and is now read with the next sentence, which no
+    judge has seen with it. When the line goes, the label goes too and nothing is kept."""
+    text = f"{OPENING}{lead}{LABEL} {ZED_SENTENCE} {SECONDS[0]}{AFTER}"
+    claim = next(c for c in fj.extract_claims(text) if ZED_SENTENCE in c)
+    assert claim != ZED_SENTENCE  # the judge reads the label with it
+    out, removed, kept = _remove(text, [claim])
+    assert [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert kept == [fr.Kept(claim, fr.LABEL_LEFT)]
+    assert out == f"{OPENING}{lead}{LABEL} {SECONDS[0]}{AFTER}"
+    text = f"{OPENING}{lead}{LABEL} {ZED_SENTENCE}{AFTER}"
+    claim = next(c for c in fj.extract_claims(text) if ZED_SENTENCE in c)
+    out, removed, kept = _remove(text, [claim])
+    assert kept == [] and out == f"{OPENING}{REST.lstrip()}"
+
+
+def test_rm1b1_faq_copy_of_sentence_after_marked_label_removed():
+    """RM1.e: the FAQ answer holds the sentence without the label, so the copy is found
+    by the words cut, not by the judge's reading with the label."""
+    sentence = "Kerr recommends reading the collected papers of Murray Bowen."
+    text = OVERVIEW.replace(f"\n{sentence} He says", f"\n1. {LABEL} {sentence} He says")
+    claim = next(c for c in fj.extract_claims(text) if sentence in c)
+    out, removed, kept = _remove(text, [fr.Flag(claim)], max_share=0.5)
+    assert f"1. {LABEL} He says watching the system can settle people." in out
+    assert [p["q"] for p in _front_matter(out)["faq"]] == ["Who is Michael Kerr?"]
+    assert [(r.sentence, r.in_front_matter) for r in removed] == [(sentence, True)]
+    assert kept == [fr.Kept(claim, fr.LABEL_LEFT)]
+
+
+def test_rm1e_faq_copy_left_listed_for_each_flag():
+    """learning-qa: two labelled copies of one sentence, each flagged with its own label.
+    The FAQ answer is unquoted, so its copy stays; both flags say so, not only one, and
+    say that their labels stay (re-check R4)."""
+    sentence = "Kerr recommends reading the collected papers of Murray Bowen."
+    text = OVERVIEW.replace(f'a: "{sentence}"', f"a: {sentence}").replace(
+        f"\n{sentence} He says watching the system can settle people.",
+        f"\n1. **Kerr Agreed:** {sentence} He says watching the system can settle people."
+        f"\n2. **Kerr Denied:** {sentence} Then he left the room before the end.")
+    flags = [c for c in fj.extract_claims(text) if sentence in c and c != sentence]
+    assert len(flags) == 2
+    out, removed, kept = _remove(text, flags, max_share=0.5)
+    assert [r.sentence for r in removed] == [sentence, sentence]
+    faq = f"{fr.IN_FAQ}; {fr.LABEL_STAYS}"
+    assert kept == [fr.Kept(flags[0], faq), fr.Kept(flags[1], faq)]
+
+
+@pytest.mark.parametrize("lead", ["1. ", "+ "])
+def test_rm1b1_number_inside_bold_label(lead):
+    """learning-qa re-check R1: the judge reads "**2) Key point:**" as "Key point:" (the
+    number is part of the line's lead), so the deletion check reads it that way too. The
+    first fix refused all four. 813dd3c removed the one-sentence lines, cut the label with
+    the sentence on "+ " lines, and left a stray "**" on the "1. " line."""
+    line = f"{lead}**2) Key point:** {ZED_SENTENCE}"
+    out, removed, kept = _remove(f"{OPENING}{line} {SECONDS[0]}{AFTER}", [ZED])
+    assert kept == [] and out == f"{OPENING}{lead}**2) Key point:** {SECONDS[0]}{AFTER}"
+    out, removed, kept = _remove(f"{OPENING}{line}{AFTER}", [ZED])
+    assert kept == [] and out == f"{OPENING}{REST.lstrip()}"
+
+
+@pytest.mark.parametrize("lead", ["+ ", "1. ", "- ", ""])
+def test_rm1g_dash_after_label_is_its_own_token(lead):
+    """learning-qa re-check R2: "**Kerr Agreed**—Zed ..." with no space. The cut joins the
+    dash to the next word ("**Kerr Agreed**—Then"); a dash is its own token, so that is
+    still only a deletion. At 813dd3c "+ " lines lost the label instead, and the others
+    were refused."""
+    out, removed, kept = _remove(
+        f"{OPENING}{lead}**Kerr Agreed**—{ZED_SENTENCE} {SECONDS[0]}{AFTER}", [ZED])
+    assert kept == [] and out == f"{OPENING}{lead}**Kerr Agreed**—{SECONDS[0]}{AFTER}"
+
+
+def test_rm1b1_abbreviation_in_bold_is_not_a_label():
+    """learning-qa: the judge reads on past "**Dr.**", so it is part of the sentence, not
+    a label. Cutting the sentence after it would leave "1. **Dr.** Then ..."; the
+    removal is refused instead, as at 813dd3c (a bold run that opens a sentence)."""
+    text = f"{OPENING}1. **Dr.** {ZED_SENTENCE} {SECONDS[0]}{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert [k.reason.split(":")[0] for k in kept] == ["deletion check failed"]
+
+
+def test_rm1b1_marked_label_regex_does_not_backtrack():
+    """The markers before a label are matched one per repetition, as in _EMPTY_LINE
+    (cold sweep): a long run of markers with no label must not hang. The match runs in
+    a child process with a timeout, so a regression fails, not hangs."""
+    import subprocess
+    import sys
+    probe = ("import flagged_removal as fr\n"
+             "for run in ('1. ' * 60, '*' * 60, '> ' * 60, '1.' * 60, '- ' * 60):\n"
+             "    assert fr._MARKED_LABEL.match(run + '**x text') is None\n")
+    try:
+        subprocess.run([sys.executable, "-c", probe], cwd=REPO, check=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        pytest.fail("_MARKED_LABEL backtracks on a run of list markers")
+    assert fr._MARKED_LABEL.match("> - 1. **Kerr Agreed:** text")["rest"] == "text"
+
+
+def test_rm1b2_name_only_in_marked_label_kept():
+    """A name only in the label of a line with more sentences: cutting the sentence after
+    the label would not remove the name, so the line is left and the name kept with the
+    label reason, as on a "- **Label:**" line (RM1.i). Before, the removal was refused,
+    and with it every other removal in the text."""
+    labelled = ("1. **Zed Example:** He spoke at length about the move. "
+                "Then the family moved to the city in the spring.")
+    other = "Kerr mentions Zed Example again in a later part of the talk."
+    text = f"{OPENING}{labelled}\n\n{other}{REST}"
+    out, removed, kept = _remove(text, [ZED])
+    assert labelled in out and other not in out
+    assert [r.sentence for r in removed] == [other]
+    assert kept == [fr.Kept(ZED, "removed in part; one copy kept: " + fr.IN_SCAFFOLDING)]
+    text = f"{OPENING}{labelled}{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == [] and kept == [fr.Kept(ZED, fr.IN_SCAFFOLDING)]
+
+
+def test_rm1b2_name_in_label_of_one_sentence_line_goes():
+    """With one sentence the line goes, label and name with it, as before. The record
+    holds the sentence without the label (it held "Zed Example: He spoke ...")."""
+    text = f"{OPENING}1. **Zed Example:** He spoke at length about the move.{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and out == f"{OPENING}{REST.lstrip()}"
+    assert [(r.sentence, r.reason) for r in removed] == [
+        ("He spoke at length about the move.", "name 'Zed Example'")]
+
+
+def test_rm1g2_label_read_with_next_sentence_passes():
+    """After the cut the judge reads the label with the next sentence ("Kerr Agreed: Then
+    ..."); without the label it is the same sentence. A sentence lost or a label changed
+    next to it is still reported (P7)."""
+    third = "Kerr adds a long example about his own family."
+    before = f"{OPENING}1. {LABEL} {ZED_SENTENCE} {SECONDS[0]} {third}\n"
+    cut = {f"Kerr Agreed: {ZED_SENTENCE}"}
+    after = f"{OPENING}1. {LABEL} {SECONDS[0]} {third}\n"
+    assert fr.deletion_problems(before, after, cut) == []
+    lost = fr.deletion_problems(before, f"{OPENING}1. {LABEL} {third}\n", cut)
+    assert any("not flagged" in p and SECONDS[0][:30] in p for p in lost)
+    changed = fr.deletion_problems(
+        before, f"{OPENING}1. **Kerr Denied:** {SECONDS[0]} {third}\n", cut)
+    assert "text was added or changed, not only deleted" in changed
+
+
+def test_rm1g2_label_only_sentence_compared_as_is():
+    """P7: a label is taken off only the first sentence of its own line. A sentence that
+    is only a label ("Key point.") is compared as it is, so a lost label-only line does
+    not cancel against a line the cut left with only its label."""
+    before = f"{OPENING}1. **Key point.**\n2. **Other point:** Then he left.\n{REST.lstrip()}"
+    after = f"{OPENING}2. **Other point:**\n{REST.lstrip()}"
+    problems = fr.deletion_problems(before, after, {"Other point: Then he left."})
+    assert problems == ["a sentence was lost that was not flagged: 'Key point.'"]
+
+
+@pytest.mark.parametrize("lead,label,problem", [
+    ("1. ", "**Key point:**", "a bold label was lost: 'Key point:'"),
+    ("1. ", "**Not true:**", "a bold label was lost: 'Not true:'"),
+    ("&gt; ", "**Key point:**", "a claim was added or changed"),
+])
+def test_rm1g2_deleted_label_still_caught(lead, label, problem):
+    """learning-qa (P7): a bold label deleted while its sentence stays is a change ("Not
+    true:" turns the meaning round). The label is read off only its own line's first
+    sentence, and a bold label goes only with its line."""
+    sentence = "the family moved to the city in the spring of that year."
+    before = f"{OPENING}{lead}{label} {sentence}\n"
+    after = f"{OPENING}{lead}{sentence}\n"
+    assert problem in fr.deletion_problems(before, after, set())
+
+
+def test_rm1g2_label_prefix_lost_on_other_line_caught():
+    """learning-qa (P7): a bold "Kerr Agreed:" on one line does not let a plain "Kerr
+    Agreed: " go from another line's sentence, even one with the same words."""
+    labelled = f"1. {LABEL} {ZED_SENTENCE} {SECONDS[0]}"
+    plain = "the family moved to the city in 2020."
+    before = f"{OPENING}{labelled}\n\nKerr Agreed: {plain}\n"
+    after = f"{OPENING}{labelled}\n\n{plain}\n"
+    assert "a claim was added or changed" in fr.deletion_problems(before, after, set())
+    # One claim per labelled line: a plain copy of that line's reading is not its own.
+    before = f"{OPENING}{labelled}\n\nKerr Agreed: {ZED_SENTENCE}\n"
+    after = f"{OPENING}{labelled}\n\n{ZED_SENTENCE}\n"
+    assert "a claim was added or changed" in fr.deletion_problems(before, after, set())
+
+
+@pytest.mark.parametrize("lead", ["+ ", "1. ", "1. - "])
+def test_rm1g3_label_makes_short_sentence_a_claim(lead):
+    """D2: "Then he left." is too short to be a claim. Read with the label after the cut
+    ("Key point: Then he left.") it is one, but it was a sentence before, so it is not an
+    added claim. Before RM1.b.1, "+ " and "1. - " lines lost the marker and label here."""
+    text = f"{OPENING}{lead}**Key point:** {ZED_SENTENCE} Then he left.{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and out == f"{OPENING}{lead}**Key point:** Then he left.{AFTER}"
+
+
+def test_rm1g3_question_tag_moves_to_next_sentence():
+    """F6: removing the first sentence under a question heading moves the question tag
+    onto the next sentence, which then reads as a claim. It was a sentence before."""
+    text = f"{QUESTION}{ZED_SENTENCE} Then he left.{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and out == f"{QUESTION}Then he left.{AFTER}"
+
+
+def test_rm1g3_name_sentence_on_skip_label_line_removed():
+    """The judge skips a line that starts with "Status:". The plain label is part of the
+    first sentence, so it goes with it, and the judge then reads "2020 was a hard year."
+    as a claim. It was a sentence before, so it is not added. Before D2 the removal was
+    refused and the name kept (TODO.md, "stricter since RM1.i.1")."""
+    line = f"Status: {ZED_SENTENCE} 2020 was a hard year."
+    out, removed, kept = _remove(f"{OPENING}{line}{AFTER}", [ZED])
+    assert kept == [] and out == f"{OPENING}2020 was a hard year.{AFTER}"
+    assert [r.sentence for r in removed] == [f"Status: {ZED_SENTENCE}"]
+
+
+def test_rm1g3_new_claim_that_was_no_sentence_still_refused():
+    """P7: a claim that was not a sentence before is still an added claim. Deleting
+    "May." joins two sentences into one the judge never read."""
+    before = f"{OPENING}Kerr met the family in May. Then he left.\n"
+    after = f"{OPENING}Kerr met the family in Then he left.\n"
+    assert "a claim was added or changed" in fr.deletion_problems(before, after, set())
 
 
 # --- RM2: wiring into generation ----------------------------------------------------
