@@ -25,6 +25,7 @@ FAITHFULNESS = "faithfulness"
 NOT_FOUND = "not found as a whole sentence"
 IN_SCAFFOLDING = "only in a heading, a label or the front matter"
 A_HEADING = "a heading (headings are not edited)"
+UNSURE_BOUNDARY = "sentence boundary uncertain (an abbreviation or a number at the split)"
 
 _MARKERS = ("**", "__")
 _LINE_LEAD = re.compile(r"^\s*(?:[-*>]+\s*)*")       # as _clean_claim_line strips it
@@ -33,12 +34,17 @@ _LABEL_PREFIX = re.compile(r"^([A-Za-z][^:\n]{0,40}):\s*")
 _BOLD_ONLY = re.compile(r"^\*\*[^*\n]+\*\*\s*$")
 # A line with nothing left but a list marker and/or a bold label.
 _EMPTY_LINE = re.compile(
-    r"^\s*(?:[-*+>•]+\s*|\d+[.)]\s*)*(?:(?:\*\*|__)[^*_\n]*(?:\*\*|__)\s*)?[:.—–-]?\s*$")
+    r"^\s*(?:[-*+>•]\s*|\d+[.)]\s*)*(?:(?:\*\*|__)[^*_\n]*(?:\*\*|__)\s*)?[:.—–-]?\s*$")
 _FAQ_ANSWER = re.compile(
     r'^(?P<lead>\s*(?:-\s+)?a:\s*)"(?P<value>(?:[^"\\]|\\.)*)"(?P<trail>\s*)$')
 _FAQ_QUESTION = re.compile(r"^\s*-\s+q:\s*")
 _TOKEN = re.compile(r'[^\s"]+|"')
 _YAML_KEY = re.compile(r"^\s*(?:-\s+)?([A-Za-z_][\w-]*):", re.MULTILINE)
+# A split the judge's splitter makes but may not be a sentence end: after a dotted
+# abbreviation ("U.S.", "Ph.D.") or a month ("Jan."), or before a number.
+_DOUBTFUL_END = re.compile(
+    r"(?:\b(?:[A-Za-z]\.){2,}|\b(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.)$")
+_DOUBTFUL_START = re.compile(r"^\d")
 
 
 class Flag(str):
@@ -85,6 +91,7 @@ class _Sentence:
     start: int   # span in the raw line, bold markers around it included
     end: int
     text: str    # as extract_claims reads it
+    doubtful: bool = False  # a boundary with a neighbour may not be a sentence end
 
 
 @dataclass
@@ -150,7 +157,11 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
         while (first >= 2 and raw[first - 2:first] in _MARKERS
                and raw[last:last + 2] == raw[first - 2:first]):
             first, last = first - 2, last + 2
-        out.append(_Sentence(index, first, last, text))
+        sentence = _Sentence(index, first, last, text)
+        if out and (_DOUBTFUL_END.search(out[-1].text) or _DOUBTFUL_START.match(text)):
+            # Removing either side would leave a fragment ("He trained with the U.S.").
+            out[-1].doubtful = sentence.doubtful = True
+        out.append(sentence)
         cursor = at + len(text)
     return out
 
@@ -171,7 +182,8 @@ def _build(lines: list, targets: list) -> tuple:
     """(new lines, indexes of lines dropped) after cutting the targets."""
     spans: dict = {}
     for t in targets:
-        spans.setdefault(t.sentence.line, []).append((t.sentence.start, t.sentence.end))
+        # Two flags can name one sentence (a claim and a name in it): cut it once.
+        spans.setdefault(t.sentence.line, set()).add((t.sentence.start, t.sentence.end))
     new, dropped = list(lines), set()
     for i, line_spans in spans.items():
         cut = _cut(lines[i], line_spans)
@@ -253,6 +265,14 @@ def _tokens(text: str) -> list:
     return _TOKEN.findall(text)
 
 
+def _body_sentences(text: str) -> list:
+    """Every sentence of the body, short ones included, as removal reads them."""
+    strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
+    lines = _split(text)[2].split("\n")
+    return [s.text for i, line in enumerate(lines)
+            for s in _line_sentences(line, i, strip_prefixes)]
+
+
 def _is_subsequence(short: list, long: list) -> bool:
     it = iter(long)
     return all(any(x == y for y in it) for x in short)
@@ -280,6 +300,12 @@ def deletion_problems(before: str, after: str, removed: set, dropped_lines=()) -
         for claim in (Counter(was) - Counter(now)):
             if claim not in removed and not any(claim in d for d in dropped_text):
                 problems.append(f"a claim was lost that was not flagged: {claim[:80]!r}")
+        # Sentences too short to be claims are checked too: only removed ones may go.
+        lost = Counter(_body_sentences(before)) - Counter(_body_sentences(after))
+        for sentence in lost:
+            if (sentence not in removed and fj._claim_body(sentence) not in removed
+                    and not any(sentence in d for d in dropped_text)):
+                problems.append(f"a sentence was lost that was not flagged: {sentence[:80]!r}")
     _, head_before, body_before = _split(before)
     _, head_after, body_after = _split(after)
     if ([ln.strip() for ln in body_before.split("\n") if _is_heading(ln)]
@@ -333,6 +359,7 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                                                 or _BOLD_ONLY.match(ln.strip()))])
 
     targets, kept, seen = [], [], set()
+    partly = {}  # flag -> why one of its sentences was kept while others go
     for flag in flags:
         if flag in seen:
             continue
@@ -345,8 +372,13 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             claim = fj._claim_body(flag)
             hits = [s for s in sentences if s.text == claim]
             reason = FAITHFULNESS
-        if hits:
-            targets.extend(_Target(s, flag, reason) for s in hits)
+        sure = [s for s in hits if not s.doubtful]
+        if sure:
+            targets.extend(_Target(s, flag, reason) for s in sure)
+            if len(sure) < len(hits):
+                partly[flag] = UNSURE_BOUNDARY
+        elif hits:
+            kept.append(Kept(flag, UNSURE_BOUNDARY))
         elif getattr(flag, "kind", "claim") != "name" and fj._claim_body(flag) in headings:
             kept.append(Kept(flag, A_HEADING))
         elif (flag.name if getattr(flag, "kind", "") == "name"
@@ -354,8 +386,6 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             kept.append(Kept(flag, IN_SCAFFOLDING))
         else:
             kept.append(Kept(flag, NOT_FOUND))
-
-    partly = {}  # flag -> why one of its sentences was kept while others go
 
     def _keep(target, reason):
         targets.remove(target)
@@ -403,6 +433,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
 
     removed_text = {t.sentence.text for t in targets}
     new_head, in_head, left_in_head = _edit_front_matter(head, removed_text)
+    # An answer the FAQ edit cannot read (unquoted, single-quoted, folded) keeps its copy.
+    left_in_head |= {s for s in removed_text - in_head if s in new_head}
     new_text = lead + new_head + new_body
     problems = deletion_problems(text, new_text, removed_text,
                                  [lines[i] for i in dropped])
@@ -425,7 +457,9 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         else:
             still = fj._claim_body(flag) in left_claims or flag in partly
         if still:
-            why = partly.get(flag, IN_SCAFFOLDING)
+            what = (flag.name if getattr(flag, "kind", "claim") == "name"
+                    else fj._claim_body(flag))
+            why = partly.get(flag) or (IN_SCAFFOLDING if what in scaffolding else NOT_FOUND)
             kept.append(Kept(flag, f"removed in part; one copy kept: {why}"))
 
     cut = {(t.sentence.line, t.sentence.start) for t in targets}
@@ -439,9 +473,12 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             n += step
         return ""
 
-    removed = []
+    removed, listed_at = [], set()
     for t in sorted(targets, key=lambda t: order[(t.sentence.line, t.sentence.start)]):
         n = order[(t.sentence.line, t.sentence.start)]
+        if n in listed_at:  # named by a second flag: one entry for one removal
+            continue
+        listed_at.add(n)
         removed.append(Removed(t.sentence.text, _neighbour(n, -1), _neighbour(n, 1), t.reason,
                                dict(getattr(t.flag, "record", {}) or {}),
                                t.sentence.text in in_head))

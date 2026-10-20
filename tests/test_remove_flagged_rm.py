@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 import yaml
 
 import config
@@ -321,6 +323,108 @@ def test_rm1i_name_left_in_label_listed_as_kept():
     assert "**Ann Example:**" in out
     assert kept == [fr.Kept(flag, "removed in part; one copy kept: "
                                   "only in a heading, a label or the front matter")]
+
+
+# --- Cold sweep 2026-10-19 (Mini1): removal text fixes --------------------------------
+
+def test_rm1b_marker_run_line_does_not_backtrack():
+    """Security review: a line left as a long run of list markers plus text made
+    _EMPTY_LINE backtrack exponentially (22 dashes took 0.6 s; each one doubles it)."""
+    import time
+    start = time.monotonic()
+    assert fr._EMPTY_LINE.match("-" * 60 + " text") is None
+    assert fr._EMPTY_LINE.match("*" * 60 + " text") is None
+    assert fr._EMPTY_LINE.match("- **Label:**") is not None
+    flag = "The speaker said ten things in the opening part."
+    text = "### Body\n\n" + "-" * 40 + " " + flag + " The speaker also said more here.\n"
+    out, removed, _ = _remove(text, [flag])
+    assert [r.sentence for r in removed] == [flag]
+    assert time.monotonic() - start < 1.0
+
+
+def test_rm1i_claim_and_name_flag_same_sentence_cut_once():
+    """Correctness review #1: a claim flag and a name flag on one sentence cut it twice,
+    which deleted the unflagged short sentence after it or refused every removal."""
+    claim = "Malorni studied the cells in 1975 at the institute."
+    name = fr.Flag("the name 'Malorni' does not appear in the source",
+                   kind="name", name="Malorni")
+    for after in ("He was sure of it.", "Kerr describes the family system in detail here."):
+        text = ("### Body\n\nKerr opens the talk with a story about his family. "
+                f"{claim} {after}\n")
+        out, removed, kept = _remove(text, [claim, name])
+        assert [r.sentence for r in removed] == [claim]
+        assert after in out and claim not in out
+        assert kept == []
+
+
+def test_rm1a_fq_tagged_and_plain_copy_section_not_emptied():
+    """Correctness review #1, case B: the same sentence flagged with and without its FQ
+    tag was cut twice and took the section's other sentence with it."""
+    text = ("## Is moving away the same as differentiation?\n\n"
+            "Michael Kerr says distance is never differentiation of self. "
+            "Kerr adds a detail about his own family here.\n")
+    tagged = fj.extract_claims(text)[0]
+    plain = fj._claim_body(tagged)
+    out, removed, kept = _remove(text, [tagged, plain])
+    assert "Kerr adds a detail about his own family here." in out
+    assert [r.sentence for r in removed] == [plain] and kept == []
+
+
+def test_rm1g_short_unflagged_sentence_lost_rejected():
+    """Correctness review #1: the check compared claims only, so losing a sentence too
+    short to be a claim passed."""
+    before = "### Body\n\nKerr tells a long story about the family. He was sure. It ends.\n"
+    after = "### Body\n\nKerr tells a long story about the family. It ends.\n"
+    problems = fr.deletion_problems(before, after, set())
+    assert any("a sentence was lost that was not flagged: 'He was sure.'" in p
+               for p in problems)
+
+
+def test_rm1a_unsure_sentence_boundary_kept():
+    """Correctness review #2: "U.S." and "Jan." split a sentence in two; removing one
+    half left a fragment. Such sentences are kept, with the reason."""
+    cases = [("He trained with the U.S. Army for many years before that.",
+              "Army for many years before that."),
+             ("He trained with the U.S. Army for many years before that.",
+              "He trained with the U.S."),
+             ("The meeting was held in Jan. 1975 he moved to the clinic.",
+              "The meeting was held in Jan.")]
+    for line, flag in cases:
+        text = f"### Body\n\nKerr opens with a long story about the family. {line}\n"
+        out, removed, kept = _remove(text, [flag])
+        assert out == text and removed == []
+        assert kept == [fr.Kept(flag, fr.UNSURE_BOUNDARY)]
+
+
+@pytest.mark.parametrize("answer", [
+    "a: 'Michael Kerr is a long-time student of Murray Bowen. {flag}'",
+    "a: Michael Kerr is a long-time student of Murray Bowen. {flag}",
+    "a: >-\n      Michael Kerr is a long-time student of Murray Bowen. {flag}",
+])
+def test_rm1e_unreadable_faq_answer_listed_as_kept(answer):
+    """learning-qa #1 / correctness review #4: an FAQ answer that is not one
+    double-quoted line kept the removed sentence, and nothing said so."""
+    flag = "Bowen theory has been part of his life for more than 60 years."
+    old = ('a: "Michael Kerr is a long-time student of Murray Bowen. Bowen theory has been '
+           'part of his life for more than 60 years."')
+    assert OVERVIEW.count(old) == 1
+    text = OVERVIEW.replace(old, answer.format(flag=flag))
+    out, removed, kept = _remove(text, [flag], max_share=0.5)
+    assert [r.sentence for r in removed] == [flag]
+    assert kept == [fr.Kept(flag, "removed from the body; still in the front matter's "
+                                  "FAQ answers")]
+
+
+def test_rm1a_body_copy_not_located_reason():
+    """Correctness review #5: a copy left because it could not be located in the body
+    was reported as being in a heading, a label or the front matter."""
+    flag = "Dr. Bowen says the family moves as one emotional unit."
+    text = ("### A\n\n" + flag + " Kerr adds a long example about his own family.\n\n"
+            "### B\n\nKerr opens the second part with a story. "
+            "Dr.  Bowen says the family moves as one emotional unit.\n")
+    out, removed, kept = _remove(text, [flag])
+    assert [r.sentence for r in removed] == [flag]
+    assert kept == [fr.Kept(flag, "removed in part; one copy kept: " + fr.NOT_FOUND)]
 
 
 # --- RM2: wiring into generation ----------------------------------------------------
