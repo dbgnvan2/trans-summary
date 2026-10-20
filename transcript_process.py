@@ -23,6 +23,7 @@ from typing import Optional, Tuple
 
 import analyze_token_usage
 import config
+import removal_record
 
 # Script paths (in same directory as this script)
 SCRIPT_DIR = Path(__file__).parent
@@ -316,6 +317,7 @@ def main():
 
         if not success:
             print("\n❌ Summary generation failed.")
+            removal_record.print_run_removals(base_name, start_time)
             return 1
 
     # Step 5: Generate Webpages & PDF
@@ -362,6 +364,9 @@ def main():
     print(f"📊 Lenses: {project_dir / f'{base_name}{config.SUFFIX_LENSES}'}")
     print(f"📝 Blog: {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
     print(f"📦 Package:   {project_dir / f'{base_name}.zip'}")
+
+    # Sentences removed from the summary, overview or abstract this run (RM4.c).
+    removal_record.print_run_removals(base_name, start_time)
 
     # Display Token Usage Report
     print("\n" + analyze_token_usage.generate_usage_report(since_timestamp=start_time))

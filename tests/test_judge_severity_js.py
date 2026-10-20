@@ -388,10 +388,11 @@ def test_js2b_fail_items_record_why_each_claim_failed(tmp_path, monkeypatch):
                         severity_undecided=True)])
     _, v = _gate(tmp_path, monkeypatch, r)
     assert v.items[0]["unfaithful"] == [C, B]  # existing readers keep plain strings
+    # "rationale" since RM2.h: a removed sentence's record says why it was flagged.
     assert v.items[0]["wrong"] == [
-        {"claim": C, "label": "unsupported", "type": "W4", "evidence": "absent", "note": "",
-         "undecided": False},
-        {"claim": B, "label": "unsupported", "type": "", "evidence": "",
+        {"claim": C, "label": "unsupported", "rationale": "", "type": "W4",
+         "evidence": "absent", "note": "", "undecided": False},
+        {"claim": B, "label": "unsupported", "rationale": "", "type": "", "evidence": "",
          "note": "severity vote 1 failed: TimeoutError: t", "undecided": True}]
 
 

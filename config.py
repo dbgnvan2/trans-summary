@@ -519,6 +519,7 @@ SUFFIX_RUN_MANIFEST = " - run-manifest.json"
 SUFFIX_FORMAT_VALIDATION = " - format-validation.json"
 SUFFIX_RAW_SOURCE = " - raw-source.txt"
 SUFFIX_INIT_VAL_HELD = " - init-val-held.json"
+SUFFIX_REMOVED_SENTENCES = " - removed-sentences.json"  # RM3
 SUFFIX_PATTERN_SET = " - pattern-set.json"
 SUFFIX_FORMAT_REVIEW = " - format-review.json"
 SUFFIX_PUBLISH_BLOCKED = " - PUBLISH-BLOCKED.txt"
@@ -703,13 +704,16 @@ FAITHFULNESS_JUDGE_MODEL = "claude-sonnet-5-5"
 # (Kerr 2026-09-13: 5 of 10 fresh checks failed on supported sentences).
 FAITHFULNESS_CONFIRM_MODE = "majority3"
 FAITHFULNESS_CONFIRM_MODES = ("majority3", "off")
-# A confirmed flag fails the run only when the claim is WRONG (JS,
-# docs/plan_judge_severity_2026-10-19.md; user rule 2026-10-18: "The only fail is if
-# something WRONG vs. not quite right"). "majority3" = each confirmed flag is asked
-# "WRONG or NOT QUITE RIGHT?" (prompt file below); a first WRONG vote ends it, a
-# downgrade needs two NOT QUITE RIGHT votes, each quoting words that are in the source.
-# A NOT QUITE RIGHT claim passes with a warning. "off" = every confirmed flag fails.
-FAITHFULNESS_SEVERITY_MODE = "majority3"
+# Severity step (JS, docs/plan_judge_severity_2026-10-19.md). "majority3" = each
+# confirmed flag is asked "WRONG or NOT QUITE RIGHT?" (prompt file below); a first
+# WRONG vote ends it, a downgrade needs two NOT QUITE RIGHT votes, each quoting words
+# that are in the source; generation revises and removes WRONG claims only. "off" =
+# every confirmed flag counts as wrong. No flag blocks publication either way (WO,
+# docs/plan_warn_only_2026-10-19.md).
+# "off" since 2026-10-19 (decision D1, docs/plan_remove_flagged_2026-10-19.md): every
+# confirmed flag left after the last revision is removed, and the step downgraded
+# almost none (0-2 of 12-17 NOT QUITE RIGHT flags in its calibrations).
+FAITHFULNESS_SEVERITY_MODE = "off"
 FAITHFULNESS_SEVERITY_MODES = ("majority3", "off")
 PROMPT_FAITHFULNESS_SEVERITY_FILENAME = "Faithfulness Severity Prompt v1.md"
 # A NOT QUITE RIGHT vote counts only if its evidence quote has a run of at least this
@@ -1206,6 +1210,15 @@ ABSTRACT_MAX_ATTEMPTS = 3
 # Summary and blog: judge each draft's faithfulness and regenerate with the
 # rejected claims as feedback, up to this many attempts (RF.J).
 GENERATION_FAITHFULNESS_ATTEMPTS = 3
+# RM (docs/plan_remove_flagged_2026-10-19.md): a sentence still flagged after the last
+# attempt is removed from the kept draft (code deletes it; no LLM call), recorded in
+# SUFFIX_REMOVED_SENTENCES and listed at the end of the run. False = keep the flagged
+# draft with a warning, as before. The blog is never changed (decision D3).
+FAITHFULNESS_REMOVE_FLAGGED = True
+FAITHFULNESS_REMOVE_ARTIFACTS = ("summary", "overview", "abstract")
+# Remove nothing when the removals would take more than this share of the body's
+# words (D5). The WO6 replay's largest was 9.2% (RM0).
+FAITHFULNESS_REMOVE_MAX_SHARE = 0.25
 
 
 def summary_word_bounds(target_word_count: int) -> tuple[int, int]:

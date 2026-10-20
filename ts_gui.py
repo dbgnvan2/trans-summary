@@ -24,6 +24,7 @@ import format_review
 import formatting_pipeline
 import pattern_sets
 import pipeline
+import removal_record
 import source_completeness
 import transcript_config_check
 import transcript_cost_estimator
@@ -67,6 +68,10 @@ DRIFT_HELP_TEXT = (
 # Spec: docs/spec_stage_selection_2026-07-12.md#SS.5
 # Fixed pipeline execution order for the 13 selectable stages. Also drives
 # checkbox layout in setup_ui() and the run order in _run_selected_stages().
+# Stages that write the summary, abstract or overview, from which flagged sentences
+# may be removed (RM4.b).
+_REMOVAL_STAGES = {"structured_summary", "gen_abstract", "overview"}
+
 STAGE_DEFINITIONS = [
     ("init_val", "0. Init Val"),
     ("format", "1. Format"),
@@ -2722,6 +2727,23 @@ class TranscriptProcessorGUI:
         self.log("▶ STARTING SELECTED STAGES EXECUTION...")
         self.run_task_in_thread(self._run_selected_stages, selected_keys)
 
+    def _log_removed_sentences(self, selected_keys, start_time):
+        """Log the sentences this run removed from the summary, overview or abstract
+        (RM4.b), when the run included a stage that writes one of them. Reading the
+        record can fail; that is logged and the run's result is unchanged.
+
+        Spec:  docs/plan_remove_flagged_2026-10-19.md#RM4.b
+        Tests: tests/test_ts_gui_run_all.py::test_rm4b_list_before_token_report_on_complete_fail_pause
+        """
+        if not (set(selected_keys) & _REMOVAL_STAGES) or not self.base_name:
+            return
+        try:
+            text = removal_record.format_run_removals(self.base_name, start_time)
+        except Exception as e:  # noqa: BLE001 — the list is a report; never fail the run
+            self.log("⚠️ Could not read the removed-sentences record: %s", e)
+            return
+        self.log("\n" + text)
+
     def _run_selected_stages(self, selected_keys, resumed_from=None):
         """Run every selected stage in STAGE_DEFINITIONS order, halting on first failure.
 
@@ -2774,7 +2796,12 @@ class TranscriptProcessorGUI:
         ):
             self.set_status(f"Step {idx}/{len(selected_labels)}: {label}…", "blue")
             self.log("\n--- %s ---", label)
-            if not self.stage_runners[key]():
+            try:
+                ok = self.stage_runners[key]()
+            except Exception:
+                self._log_removed_sentences(selected_keys, start_time)  # RM4.b
+                raise
+            if not ok:
                 if key == "format" and getattr(self, "_paused_for_review", False):
                     # Not a failure: Format is waiting for the operator's review.
                     # Remember the rest of the run so it can resume (RF.L).
@@ -2785,13 +2812,16 @@ class TranscriptProcessorGUI:
                     self.set_final_status(f"⏸ Paused at {label}: review the differences", "orange")
                     self.log("⏸ Run paused at %s: differences need your review. When the "
                              "review makes Format pass, you will be asked to continue.", label)
+                    self._log_removed_sentences(selected_keys, start_time)
                     self.log("\n--- Token Usage Report (so far) ---")
                     self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
                     return "WAITING_FOR_USER"
                 self.set_final_status(f"❌ Failed at: {label}", "red")
                 self.log("❌ %s failed. Halting run.", label)
+                self._log_removed_sentences(selected_keys, start_time)
                 return False
 
+        self._log_removed_sentences(selected_keys, start_time)
         self.log("\n--- Token Usage Report ---")
         self.log(analyze_token_usage.generate_usage_report(since_timestamp=start_time))
 

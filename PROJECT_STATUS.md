@@ -17,7 +17,10 @@ longer silently publishes wrong/fabricated/unverifiable content.
   on BLOCK, quarantines stale bundles, writes a run-manifest JSON, and the CLI exits
   nonzero on BLOCK. Elected hard blockers: fabricated entity, schema-contract drift
   and the others in `config.GATE_BLOCKING_CHECKS`; ERROR blocks by default (fail-closed).
-  Faithfulness blocked from 2026-07-15 to 2026-10-19 and now warns.
+  Faithfulness blocked from 2026-07-15 to 2026-10-19 and now warns. Since 2026-10-19
+  the sentences still flagged after the last revision are removed from the summary,
+  overview and abstract, recorded in `<base> - removed-sentences.json` and listed at
+  the end of the run (`docs/plan_remove_flagged_2026-10-19.md`); the severity step is off.
 - **Schema contracts** (`artifact_contracts.py` + `schemas/`, M3): every structured
   boundary (bowen, emphasis, key-terms, topics, themes, abstract-input) is
   schema-validated on both sides; producer/consumer format drift (P19) is a hard,
@@ -29,9 +32,11 @@ longer silently publishes wrong/fabricated/unverifiable content.
   (it flags the real `Luciano Malorni` fabrication, which the entity check also
   blocks). Policy since 2026-10-19 (user decision, `docs/plan_warn_only_2026-10-19.md`):
   warn, never block. A flag that a fresh judgement confirms (majority of 3) is a WARN
-  that gives each artifact's % of claims supported and lists each claim, marked wrong
-  or not quite right by the severity step (`docs/calibration_judge_severity_2026-10-19.md`);
-  generation revises the wrong ones and keeps the best draft. Model pinned to the calibrated
+  that gives each artifact's % of claims supported and lists each claim. The severity
+  step (wrong vs not quite right, `docs/calibration_judge_severity_2026-10-19.md`) is off
+  since 2026-10-19, so every confirmed flag counts as wrong. Generation revises the
+  flagged claims, keeps the best draft, and removes the sentences still flagged from the
+  summary, overview and abstract (`docs/plan_remove_flagged_2026-10-19.md`). Model pinned to the calibrated
   `claude-sonnet-5-5`; key resolves from env or the shared `~/.config/llm/keys.json`. For a transcript
   without speaker labels the judge is told so, and accepts grounded content attributed
   to a participant in the conversation (the interviewer, the presenter) when the source

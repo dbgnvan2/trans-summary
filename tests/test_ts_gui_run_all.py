@@ -1023,3 +1023,66 @@ def test_run_plan_logs_regenerate_vs_generate(tmp_path, monkeypatch):
     assert "REGENERATE" in logged        # bowen_emphasis outputs exist
     assert "will generate" in logged     # topics absent
     assert "Reusing existing output" in logged and "YAML" in logged
+
+
+# ===========================================================================
+# RM4.b -- the GUI logs this run's removed sentences when the run completes,
+# fails or pauses, before the token report, and only for a run that included a
+# stage that writes the summary, overview or abstract.
+# ===========================================================================
+
+def test_rm4b_list_before_token_report_on_complete_fail_pause():
+    def logged(gui):
+        return [str(c.args[0]) for c in gui.log.call_args_list]
+
+    def run(selected, runners=None):
+        gui = _status_gui()
+        gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+        gui.stage_runners.update(runners or {})
+        with patch.object(gui, "_run_cost_estimation", return_value=True), \
+             patch("ts_gui.removal_record.format_run_removals", return_value="LIST") as fmt, \
+             patch("ts_gui.analyze_token_usage.generate_usage_report", return_value="report"):
+            result = gui._run_selected_stages(selected)
+        return result, logged(gui), fmt
+
+    # Complete: the list comes before the token report, for this project and run.
+    ok, lines, fmt = run({"format", "structured_summary"})
+    assert ok is True
+    assert lines.index("\nLIST") < lines.index("\n--- Token Usage Report ---")
+    assert fmt.call_args.args[0] == BASE_NAME
+
+    # Failed: the list is still logged after the halt message.
+    ok, lines, _ = run({"structured_summary", "gen_abstract"},
+                       {"gen_abstract": MagicMock(return_value=False)})
+    assert ok is False
+    assert lines.index("❌ %s failed. Halting run.") < lines.index("\nLIST")
+
+    # Paused for Format review: the list comes before the token report so far.
+    gui = _status_gui()
+
+    def pause():
+        gui._paused_for_review = True
+        return False
+    gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+    gui.stage_runners["format"] = MagicMock(side_effect=pause)
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch("ts_gui.removal_record.format_run_removals", return_value="LIST"), \
+         patch("ts_gui.analyze_token_usage.generate_usage_report", return_value="report"):
+        assert gui._run_selected_stages({"format", "overview"}) == "WAITING_FOR_USER"
+    lines = logged(gui)
+    assert lines.index("\nLIST") < lines.index("\n--- Token Usage Report (so far) ---")
+
+    # A run with no stage that removes sentences logs no list.
+    ok, lines, fmt = run({"format", "yaml"})
+    assert ok is True and "\nLIST" not in lines
+    fmt.assert_not_called()
+
+    # A stage that raises: the list is logged before the error goes up (learning-qa F2).
+    gui = _status_gui()
+    gui.stage_runners = {key: MagicMock(return_value=True) for key, _ in ts_gui.STAGE_DEFINITIONS}
+    gui.stage_runners["gen_abstract"] = MagicMock(side_effect=RuntimeError("boom"))
+    with patch.object(gui, "_run_cost_estimation", return_value=True), \
+         patch("ts_gui.removal_record.format_run_removals", return_value="LIST"), \
+         pytest.raises(RuntimeError):
+        gui._run_selected_stages({"structured_summary", "gen_abstract"})
+    assert "\nLIST" in logged(gui)

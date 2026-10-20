@@ -22,10 +22,12 @@ Spec:    docs/implementation_plan_2026-05-13.md
 """
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import config
 import pipeline
+import removal_record
 from transcript_utils import setup_logging
 
 
@@ -123,6 +125,7 @@ def main(argv=None) -> int:
     logger.info("Target audience: %s", args.target_audience)
     logger.info("Model:          %s", model)
 
+    start_time = datetime.now()
     ok = pipeline.summarize_transcript(
         f"{stem}{config.SUFFIX_YAML}",
         model,
@@ -143,6 +146,8 @@ def main(argv=None) -> int:
     if overview_path.exists():
         content = overview_path.read_text(encoding="utf-8")
         print(f"Size: {len(content)} chars, {len(content.split())} words")
+    # Sentences removed from the overview this run (RM4.c).
+    removal_record.print_run_removals(stem, start_time)
     return 0 if ok else 2
 
 

@@ -1094,9 +1094,11 @@ def _judge_cached(fjudge, artifact_text: str, source: str, client, logger):
 
 def _wrong_records(result) -> list:
     """The failing claims of a judge result, as report items: the claim, its first-pass
-    label, the severity type (W1-W4) and evidence, why it stayed WRONG when the step
-    could not decide, and whether it was undecided (learning-qa F2)."""
+    label and reason, the severity type (W1-W4) and evidence, why it stayed WRONG when
+    the step could not decide, and whether it was undecided (learning-qa F2). The
+    reason is kept so a removed sentence's record says why it was flagged (RM2.h)."""
     return [{"claim": c.claim, "label": getattr(c, "label", ""),
+             "rationale": getattr(c, "rationale", ""),
              "type": getattr(c, "severity_type", ""), "evidence": getattr(c, "evidence", ""),
              "note": getattr(c, "severity_note", ""),
              "undecided": getattr(c, "severity_undecided", False)}

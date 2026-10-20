@@ -7,6 +7,8 @@ from pathlib import Path
 
 import abstract_pipeline
 import config
+import flagged_removal
+import removal_record
 import transcript_utils
 import summary_pipeline
 from bowen_attribution import has_bowen_source_attribution as _has_bowen_source_attribution
@@ -1272,6 +1274,7 @@ def generate_structured_summary(
             revise=lambda draft, claims: _revise_flagged(
                 "summary", draft, claims, model=model, system=transcript_system_message,
                 logger=logger, min_words=lo, max_words=hi, word_limits="soft"),
+            guard=_coverage_guard(summary_input),
         )
         logger.info("Generated summary saved to %s", output_path)
         return ok
@@ -1306,31 +1309,52 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     Claims the severity step judged NOT QUITE RIGHT are not issues: they are logged
     as a warning and the draft passes (JS2.c).
 
+    Each issue is a ``flagged_removal.Flag``: the text fed back to the reviser, with
+    the judge's label and reason, or the rejected name, for the removal step (RM2.h).
+
     Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2,
            docs/plan_summary_closing_2026-10-18.md#SC2,
-           docs/plan_judge_severity_2026-10-19.md#JS2.c
+           docs/plan_judge_severity_2026-10-19.md#JS2.c,
+           docs/plan_remove_flagged_2026-10-19.md#RM2.h
     Tests: tests/test_summary_closing_sc.py::test_sc2e_judge_error_with_names_is_partial,
-           tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr
+           tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr,
+           tests/test_remove_flagged_rm.py::test_rm2h_record_has_judge_rationale
     """
     import release_gate as rg
     if not (config.PROJECTS_DIR / base_name / f"{base_name}{suffix}").exists():
         return "missing", []
     entity = rg.check_entity_grounding(base_name, logger, suffixes=[suffix])
-    issues = [f"the name '{n}' does not appear in the source"
-              for item in (entity.items or []) for n in item.get("names", [])]
+    issues = _name_flags(entity)
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         # A disabled judge returns PASS ("judge disabled"); that is not a verdict.
         return ("fail", issues) if issues else ("unavailable", [])
     faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
     _warn_not_quite_right(faith, suffix.strip(" -").removesuffix(".md"), logger)
-    for item in (faith.items or []):
-        issues.extend(item.get("unfaithful", []))
+    issues.extend(_claim_flags(faith))
     errored = rg.Status.ERROR in (faith.status, entity.status)
     if issues:
         return ("partial" if errored else "fail"), issues
     if errored:
         return "unavailable", []
     return "pass", []
+
+
+def _name_flags(entity) -> list:
+    """The entity check's rejected names as precheck issues (RM2.h)."""
+    return [flagged_removal.Flag(f"the name '{n}' does not appear in the source",
+                                 kind="name", name=n)
+            for item in (entity.items or []) for n in item.get("names", [])]
+
+
+def _claim_flags(faith) -> list:
+    """The faithfulness check's flagged claims as precheck issues, each with the
+    judge's record (label, reason, evidence) when the verdict has one (RM2.h)."""
+    out = []
+    for item in (faith.items or []):
+        records = {r.get("claim"): r for r in item.get("wrong", []) if isinstance(r, dict)}
+        out.extend(flagged_removal.Flag(c, record=records.get(c))
+                   for c in item.get("unfaithful", []))
+    return out
 
 
 def _blog_precheck(base_name: str, suffix: str, logger=None):
@@ -1430,17 +1454,118 @@ def _entity_blocks_after_retries(base_name: str, suffix: str, logger=None):
     return entity if rg._is_blocking(entity) else None
 
 
+def _coverage_guard(summary_input):
+    """A ``guard`` for removal from the summary: the required coverage items
+    (``summary_validation.generate_coverage_items``) a removal would leave at low
+    keyword confidence. ``summary_coverage`` blocks publication, so a removed sentence
+    that was in fact fine must not make it fail (RM2.e).
+
+    Spec:  docs/plan_remove_flagged_2026-10-19.md#RM2.e
+    Tests: tests/test_remove_flagged_rm.py::test_rm2e_only_mention_of_required_item_kept
+    """
+    import summary_validation as sv
+    items = []
+
+    def guard(before: str, after: str) -> list:
+        # Built on first use, inside the removal step: an error here keeps the draft
+        # as it is instead of failing the summary stage.
+        if not items:
+            items.extend(i for i in sv.generate_coverage_items(summary_input) if i.required)
+        return [(i.label, i.keywords) for i in items
+                if sv.check_keyword_coverage(before, i)[1] != "low"
+                and sv.check_keyword_coverage(after, i)[1] == "low"]
+    return guard
+
+
+def _remove_still_flagged(what: str, base_name: str, suffix: str, text: str, issues: list,
+                          logger, write, guard=None) -> tuple:
+    """Remove from the kept draft the sentences still flagged after the last attempt,
+    record them, save the result, and log each one. Returns (text, number of flagged
+    items not removed). Nothing changes when removal is off for ``what``, when nothing
+    can be removed, when the record cannot be written, when removal itself fails, or
+    when the result cannot be saved: removal is never a reason for a stage to fail.
+    When flags were left in, the record lists them, so the end-of-run list shows them.
+
+    Purpose: Take a flagged sentence out instead of publishing it with a warning.
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a, #RM2.b, #RM3.b, #RM3.c
+    Tests:   tests/test_remove_flagged_rm.py::test_rm2a_summary_last_attempt_sentence_removed_and_saved,
+             tests/test_remove_flagged_rm.py::test_rm3b_record_write_fails_nothing_removed,
+             tests/test_remove_flagged_rm.py::test_rm3c_refused_removal_recorded_and_listed,
+             tests/test_remove_flagged_rm.py::test_rm3b_artifact_save_fails_stage_goes_on
+    """
+    if (not issues or not config.FAITHFULNESS_REMOVE_FLAGGED
+            or what not in config.FAITHFULNESS_REMOVE_ARTIFACTS):
+        return text, len(issues)
+    label = what.capitalize()
+
+    def record_kept(kept):
+        # Nothing removed: the record still lists the flags left in, so the end-of-run
+        # list does not say "none" when removal was refused (learning-qa F3).
+        try:
+            removal_record.write_entry(base_name, what, suffix, draft_before=text,
+                                       final_text=text, removed=[], kept=kept, logger=logger)
+        except OSError as e:
+            logger.warning("%s: the removed-sentences record could not be written (%s).",
+                           label, e)
+
+    try:
+        new_text, removed, kept = flagged_removal.remove_flagged_sentences(
+            text, issues, max_share=config.FAITHFULNESS_REMOVE_MAX_SHARE, guard=guard)
+    except Exception as e:  # noqa: BLE001 — a removal bug must not fail the stage
+        logger.error("%s: removing the flagged sentences failed (%s); kept the draft as it "
+                     "is.", label, e, exc_info=True)
+        record_kept([flagged_removal.Kept(f, f"removal failed: {e}")
+                     for f in dict.fromkeys(issues)])
+        return text, len(issues)
+    not_removed = "; ".join(f"{str(k.claim)[:120]!r} ({k.reason})" for k in kept)
+    if not removed:
+        logger.warning("%s: none of the %d flagged item(s) could be removed: %s",
+                       label, len(issues), not_removed)
+        record_kept(kept)
+        return text, len(issues)
+    try:
+        path = removal_record.write_entry(base_name, what, suffix, draft_before=text,
+                                          final_text=new_text, removed=removed, kept=kept,
+                                          logger=logger)
+    except OSError as e:
+        logger.warning("%s: the removed-sentences record could not be written (%s); "
+                       "nothing was removed.", label, e)
+        return text, len(issues)
+    try:
+        write(new_text)
+    except Exception as e:  # noqa: BLE001 — a failed save must not fail the stage
+        logger.warning("%s: saving the draft with the sentences removed failed (%s); the "
+                       "removal was not applied.", label, e)
+        removal_record.clear_entry(base_name, what, logger)
+        try:
+            write(text)
+        except Exception as e2:  # noqa: BLE001
+            logger.error("%s: the kept draft could not be saved again either (%s); the "
+                         "file on disk may be incomplete.", label, e2)
+        return text, len(issues)
+    left = len({str(k.claim) for k in kept})
+    logger.warning("⚠️ %s: removed %d sentence(s) still flagged after the last attempt; "
+                   "%d of %d flagged item(s) left in. Record: %s. Removed: %s",
+                   label, len(removed), left, len(issues), path.name,
+                   "; ".join(repr(r.sentence) for r in removed))
+    if kept:
+        logger.warning("%s: not removed: %s", label, not_removed)
+    return new_text, left
+
+
 def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                              generate, write, precheck=None, advisory=False,
-                             revise=None) -> bool:
+                             revise=None, guard=None) -> bool:
     """Generate ``what``, save it, judge it; on rejected claims try again, up to
     config.GENERATION_FAITHFULNESS_ATTEMPTS. With ``revise(draft, claims)`` a retry
     fixes the flagged sentences of the previous draft (RS.6); without it, it
     regenerates with the claims as feedback. If every attempt fails, keep the draft
     with the fewest rejected claims (on a tie the later one, which has had more of its
     flagged sentences fixed, SC2) and warn: faithfulness flags never fail the stage
-    (WO4). It returns False only when the kept draft has a name the gate's entity check
-    rejects, which still blocks publication.
+    (WO4). The sentences still flagged in the kept draft are then removed when
+    config.FAITHFULNESS_REMOVE_ARTIFACTS names ``what`` (RM2; ``guard`` protects the
+    summary's coverage). It returns False only when the kept draft has a name the
+    gate's entity check rejects, which still blocks publication.
 
     Purpose: Catch unfaithful summary/blog claims at generation, not at publish.
     Spec:    docs/plan_run_fixes_2026-10-09.md#RF.J.2,
@@ -1450,10 +1575,12 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
              tests/test_faithfulness_warn_only_wo.py::test_wo4_summary_kept_with_flags_stage_succeeds,
              tests/test_run_safe_rs.py::test_rs6a_second_try_revises_previous_draft,
              tests/test_summary_closing_sc.py::test_sc2a_tie_keeps_the_later_draft,
-             tests/test_summary_closing_sc.py::test_sc3a_last_try_does_not_say_it_will_revise
+             tests/test_summary_closing_sc.py::test_sc3a_last_try_does_not_say_it_will_revise,
+             tests/test_remove_flagged_rm.py::test_rm2a_summary_last_attempt_sentence_removed_and_saved
     """
     attempts = max(1, int(config.GENERATION_FAITHFULNESS_ATTEMPTS))
     feedback, best_text, best_rank, last_text = None, None, None, None
+    best_issues = []
     for attempt in range(1, attempts + 1):
         try:
             if revise is not None and feedback and last_text is not None:
@@ -1466,6 +1593,9 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
             logger.error("%s attempt %d/%d failed (%s); keeping the best earlier draft.",
                          what.capitalize(), attempt, attempts, e)
             break
+        if last_text is None:
+            # A new draft replaces the file, so an earlier removal no longer applies (RM3.c).
+            removal_record.clear_entry(base_name, what, logger)
         write(text)
         last_text = text
         # A draft that echoes the correction instructions or the rejected claims
@@ -1495,7 +1625,7 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
         # wins (SC2).
         rank = (status == "partial", len(issues))
         if not unjudged and (best_rank is None or rank <= best_rank):
-            best_text, best_rank = text, rank
+            best_text, best_rank, best_issues = text, rank, list(issues)
         feedback = issues
         logger.warning("%s attempt %d/%d not faithful (%d claim(s)); %s. Claims: %s",
                        what.capitalize(), attempt, attempts, len(issues),
@@ -1512,6 +1642,8 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                        "the claims above before publishing it.", what.capitalize(),
                        best_count, attempts)
         return True
+    best_text, best_count = _remove_still_flagged(what, base_name, suffix, best_text,
+                                                  best_issues, logger, write, guard)
     blocking = _entity_blocks_after_retries(base_name, suffix, logger)
     if blocking is not None:
         logger.error("⚠️ Could not produce a %s free of rejected names after %d attempt(s); "
@@ -1519,6 +1651,10 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                      "publication until it is regenerated or edited: %s",
                      what, attempts, best_count, blocking.detail)
         return False
+    if best_count == 0:
+        logger.warning("⚠️ %s: every sentence still flagged after %d attempt(s) was removed; "
+                       "they are listed at the end of the run.", what.capitalize(), attempts)
+        return True
     logger.warning("⚠️ %s still has %d flagged claim(s) after %d attempt(s); kept the best "
                    "draft. Faithfulness flags are warnings: the run goes on, and the release "
                    "gate lists them with the %% score.", what.capitalize(), best_count, attempts)
@@ -1551,11 +1687,9 @@ def _abstract_gate_precheck(base_name: str, logger=None):
     if rg.Status.ERROR in (faith.status, entity.status):
         return "unavailable", []
     # Faithfulness flags arrive as a WARN since WO2; the flagged claims are in items.
-    issues = [c for item in (faith.items or []) for c in item.get("unfaithful", [])]
+    issues = _claim_flags(faith)
     if entity.status is rg.Status.FAIL:
-        for item in (entity.items or []):
-            issues.extend(f"the name '{n}' does not appear in the source"
-                          for n in item.get("names", []))
+        issues.extend(_name_flags(entity))
     if issues:
         return "fail", issues
     return "pass", []
@@ -1570,10 +1704,13 @@ def generate_structured_abstract(
 
     Purpose: Generate the abstract, revising flagged sentences until it passes the
              gate's faithfulness and name checks; if no try passes, keep the draft
-             with the fewest issues (on a tie the later one) and fail.
-    Spec:    docs/plan_summary_closing_2026-10-18.md#SC2, #SC3
+             with the fewest issues (on a tie the later one), remove the sentences
+             still flagged (RM2.b), and fail only on a rejected name (WO4).
+    Spec:    docs/plan_summary_closing_2026-10-18.md#SC2, #SC3,
+             docs/plan_remove_flagged_2026-10-19.md#RM2.b
     Tests:   tests/test_abstract_faithful_retry.py::test_sc2d_abstract_tie_keeps_the_later_draft,
-             tests/test_abstract_faithful_retry.py::test_sc3b_abstract_last_try_wording
+             tests/test_abstract_faithful_retry.py::test_sc3b_abstract_last_try_wording,
+             tests/test_remove_flagged_rm.py::test_rm2b_abstract_sentence_removed_and_saved
     """
     model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     if logger is None:
@@ -1660,6 +1797,7 @@ def generate_structured_abstract(
         max_attempts = max(1, int(getattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)))
         feedback = None
         best_text, best_issue_count, last_text = None, None, None
+        best_issues = []
         generation_error = None
         for attempt in range(1, max_attempts + 1):
             logger.info("Generating abstract via API (attempt %d/%d)...", attempt, max_attempts)
@@ -1687,6 +1825,8 @@ def generate_structured_abstract(
                 logger.error("Abstract attempt %d/%d failed: %s", attempt, max_attempts, e)
                 generation_error = (attempt, e)
                 break
+            if last_text is None:
+                removal_record.clear_entry(base_name, "abstract", logger)  # RM3.c
             output_path.write_text(abstract_text, encoding="utf-8")
             last_text = abstract_text
 
@@ -1703,7 +1843,7 @@ def generate_structured_abstract(
             # status == "fail": remember the least-bad draft (on a tie the later one,
             # SC2), feed the issues back.
             if best_text is None or len(issues) <= best_issue_count:
-                best_text, best_issue_count = abstract_text, len(issues)
+                best_text, best_issue_count, best_issues = abstract_text, len(issues), list(issues)
             feedback = issues
             logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); %s. "
                            "Issues: %s", attempt, max_attempts, len(issues),
@@ -1714,6 +1854,10 @@ def generate_structured_abstract(
         # All attempts failed — keep the least-bad draft; honest, loud status.
         if best_text is not None:
             output_path.write_text(best_text, encoding="utf-8")
+            # RM2.b: the sentences still flagged are removed from the kept draft.
+            best_text, best_issue_count = _remove_still_flagged(
+                "abstract", base_name, config.SUFFIX_ABSTRACT_GEN, best_text, best_issues,
+                logger, lambda t: output_path.write_text(t, encoding="utf-8"))
         if generation_error:
             attempt, e = generation_error
             cause = f"attempt {attempt}/{max_attempts} could not be generated ({e})"
@@ -1727,6 +1871,10 @@ def generate_structured_abstract(
                          "The release gate will BLOCK publication until it is regenerated "
                          "or edited: %s", cause, best_issue_count, blocking.detail)
             return False
+        if best_issue_count == 0:
+            logger.warning("⚠️ Abstract: %s; every sentence still flagged was removed. "
+                           "They are listed at the end of the run.", cause)
+            return True
         logger.warning("⚠️ Abstract: %s; kept the best draft (%s flagged claim(s)). "
                        "Faithfulness flags are warnings: the run goes on, and the release "
                        "gate lists them with the %% score.", cause, best_issue_count)

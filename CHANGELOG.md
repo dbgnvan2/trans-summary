@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-19 (Remove sentences still flagged after revision)
+
+Plan `docs/plan_remove_flagged_2026-10-19.md` (RM0–RM9), user decisions D1 off, D2 yes,
+D3 blog left out, D4 yes, D5 25%, D6 by hand.
+
+- **RM1, removal:** new `flagged_removal.py` (pure functions).
+  `remove_flagged_sentences` removes each flagged claim where it is a whole sentence of
+  the body, every occurrence, with a bullet or bold label left empty, and the overview's
+  copy in the front-matter FAQ answers (an emptied answer drops its pair). It keeps,
+  with a reason: a claim not found as a whole sentence, a heading, a section's only
+  text, the summary's only mention of a required coverage item, and every claim when
+  the removals would exceed 25% of the words. `deletion_problems` checks the result:
+  word-level deletions only, the claims left equal the unflagged claims before, headings
+  and front-matter keys unchanged, the front matter still well formed, bold markers
+  paired. If any check fails, the draft is kept as it is.
+- **RM2, wiring:** `_generate_until_faithful` (summary, overview) and the abstract loop
+  remove the sentences still flagged from the kept draft after the last attempt, then
+  run the entity check on the saved file. A name the entity check rejects is removed
+  the same way (D4). The blog is not changed (D3). The judge does not run again.
+  `release_gate._wrong_records` adds the judge's rationale.
+- **RM3, record:** `removal_record.py` writes `<base> - removed-sentences.json` before the
+  artifact: per removed sentence the sentences before and after it, the reason, the
+  judge's label, rationale and evidence; the draft before removal; the saved file's
+  sha256. If the write fails, nothing is removed. A new draft clears its artifact's entry.
+- **RM4, list:** the GUI (complete, failed, paused) and the CLI print the run's removed
+  sentences, with the sentence now after each, before the token report
+  (`removal_record.format_run_removals`).
+- **RM5, config:** `FAITHFULNESS_REMOVE_FLAGGED`, `FAITHFULNESS_REMOVE_ARTIFACTS`,
+  `FAITHFULNESS_REMOVE_MAX_SHARE = 0.25`, `SUFFIX_REMOVED_SENTENCES`;
+  `FAITHFULNESS_SEVERITY_MODE = "off"` (D1).
+- **RM6, tests:** `tests/test_remove_flagged_rm.py` (46 tests) and
+  `tests/test_ts_gui_run_all.py::test_rm4b_list_before_token_report_on_complete_fail_pause`.
+  On the 5 flagged WO6 replay drafts the code removes 8 of the 9 flagged sentences; the
+  ninth is the only sentence under its heading and is kept.
+- **learning-qa (5 findings, all fixed):** a flag removed in one place but kept in
+  another is now listed as kept (F1); `transcript_summarize.py` and
+  `transcript_overview.py`, the scripts that remove sentences, print the list, and so do
+  both exits of `transcript_process.main` and a GUI stage that raises (F2); a refused
+  removal is recorded, so the list shows the flags left in (F3); a coverage keyword in a
+  bold label is protected (F4); a failed save of the cleaned draft no longer fails the
+  stage (F5).
+
 ## [Unreleased] - 2026-10-19 (Heading timestamps without brackets)
 
 Plan `docs/plan_heading_brackets_2026-10-19.md` (HB0–HB3). The Holt panel run stopped

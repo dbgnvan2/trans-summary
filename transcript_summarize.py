@@ -8,8 +8,10 @@ Usage:
 
 import argparse
 import sys
+from datetime import datetime
 
 import config
+import removal_record
 from pipeline import summarize_transcript
 from transcript_utils import parse_filename_metadata
 
@@ -118,6 +120,7 @@ def main():
 
     print(f"Starting transcript summarization for: {resolved_filename}")
 
+    start_time = datetime.now()
     success = summarize_transcript(
         formatted_filename=resolved_filename,
         model=args.model,
@@ -129,6 +132,14 @@ def main():
         skip_blog=args.skip_blog,
         generate_structured=args.generate_structured
     )
+
+    # Sentences removed from the summary or overview this run (RM4.c).
+    try:
+        stem = parse_filename_metadata(resolved_filename)["stem"]
+    except Exception:  # noqa: BLE001 — no project folder name, so no record to read
+        stem = None
+    if stem:
+        removal_record.print_run_removals(stem, start_time)
 
     if success:
         print("\nSummarization completed successfully.")

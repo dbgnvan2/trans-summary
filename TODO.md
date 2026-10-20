@@ -6,6 +6,25 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 
 ---
 
+## 2026-10-19 — Sentences still flagged after revision were published
+
+### ✅ Fixed 2026-10-19 (plan RM1–RM6, `docs/plan_remove_flagged_2026-10-19.md`)
+- **A flagged sentence the revise step could not fix was published with a warning.**
+  After the last attempt, the sentences still flagged in the summary, overview and
+  abstract, and the sentences with a name the entity check rejects, are removed when the
+  removal deletes whole sentences and nothing else, takes out at most 25% of the words,
+  and leaves no section empty and no required coverage item unmentioned. Each removal is
+  recorded first (`<base> - removed-sentences.json`) and listed at the end of the run in
+  the GUI and the CLI. The severity step is off (D1).
+
+### Open
+- **Read the first real run's list** (RM6 human review): did a removal leave a "This …"
+  or "He …" without its referent? If so, that becomes a rule.
+- **No restore command** (D6): a sentence is put back by hand from the record.
+- Adjacent, not fixed: the abstract has its own copy of the generation loop
+  (`generate_structured_abstract`) instead of `_generate_until_faithful`, so removal is
+  wired into both.
+
 ## 2026-10-19 — Format stopped on heading timestamps without brackets
 
 ### ✅ Fixed 2026-10-19 (plan HB1, `docs/plan_heading_brackets_2026-10-19.md`)
@@ -48,8 +67,9 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **The source-completeness parser has not seen the transcription tool's older
   headers** (same gate). A new wording outside `config.SOURCE_INCOMPLETE_MARKERS` and
   the "N of M chunks" pattern would be missed.
-- **The severity step still runs** (up to 3 calls per flag) and now only labels flags
-  wrong or not quite right. Keep, or turn off to save cost: your decision.
+- ~~**The severity step still runs** (up to 3 calls per flag) and now only labels flags
+  wrong or not quite right.~~ Turned off 2026-10-19 (decision D1,
+  `docs/plan_remove_flagged_2026-10-19.md`).
 - **`theme_grounding` is now the only LLM judge that blocks.** It has no severity step.
 - Adjacent, not fixed: `_abstract_gate_precheck` returns "unavailable" on a judge ERROR
   even when the name check found names; the summary path returns "partial".

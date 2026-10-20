@@ -1,7 +1,8 @@
 # Plan: remove sentences still flagged after revision (RM0–RM9)
 
-Status: **proposed 2026-10-19 — waiting for approval of the plan and of D1–D6.**
-No code is written for it yet.
+Status: **built 2026-10-19** (RM1–RM6). Approved 2026-10-19: "build RM1–RM6 with D1 off,
+D2 yes, D3 leave blog out, D4 yes, D5 25%, D6 by hand." See **Built** at the end for each
+ID and where the code differs from the text below.
 
 ## Why
 
@@ -55,6 +56,11 @@ unflagged claims before (RM1.g):
 
 These drafts are first drafts. In a real run the revise step runs first, so fewer
 sentences are left by the time removal runs.
+
+**Correction after the build.** The scratch prototype had no RM1.f rule. The built code
+(`tests/test_remove_flagged_rm.py::test_rm1g_replay_drafts_pass_check`, cap 25%) removes
+8 of the 9 flagged sentences; the ninth is the only sentence under "Closing Paragraph"
+and is kept by RM1.f. The deletion-only check passes on all 5 drafts.
 
 ## RM1 — The removal function
 
@@ -183,3 +189,86 @@ and says whether any removal left the text broken; if so, that becomes a rule he
 | D4 | Also remove sentences with a name the entity check rejects, so the stage stops failing on them? If the name is in a heading or the front matter, the stage still fails as today. | Yes |
 | D5 | Share cap: remove nothing if removals would take more than 25% of the words? | 25% |
 | D6 | Put sentences back by hand from the record for now, with a restore command only if you find you need it? | By hand |
+
+## Built (2026-10-19)
+
+Tests: `python3 -m pytest tests/test_remove_flagged_rm.py tests/test_ts_gui_run_all.py`.
+
+| ID | Status | Proof |
+|---|---|---|
+| RM1.a | done | `flagged_removal.remove_flagged_sentences`; `test_rm1a_flagged_sentence_removed_rest_unchanged`, `test_rm1a_fq_tag_ignored`, `test_rm1a_every_occurrence_removed`, `test_rm1a_last_sentence_of_line_takes_space_before`, `test_rm1a_bold_inside_sentence_removed`, `test_rm1a_partly_removed_flag_listed_as_kept` |
+| RM1.b | done | `test_rm1b_bullet_left_empty_is_removed`, `test_rm1b_paragraph_removed_without_double_blank` |
+| RM1.c | done | `test_rm1c_heading_and_reemitted_name_kept_with_reason`, `test_rm1c_claim_not_found_kept` |
+| RM1.d | done | `test_rm1d_part_of_longer_sentence_not_removed` |
+| RM1.e | done | `test_rm1e_faq_copy_removed_front_matter_parses`, `test_rm1e_empty_answer_drops_pair` |
+| RM1.f | done | `test_rm1f_last_sentence_under_heading_kept` |
+| RM1.g | done | `flagged_removal.deletion_problems`; `test_rm1g_changed_text_rejected_draft_unchanged`, `test_rm1g_replay_drafts_pass_check`, `test_rm1g_check_names_each_problem` |
+| RM1.h | done | `test_rm1h_cap_keeps_draft_and_announces` |
+| RM1.i | done | `test_rm1i_name_sentences_removed`, `test_rm1i_name_in_heading_kept`, `test_rm1i_name_left_in_label_listed_as_kept` |
+| RM2.a | done | `extraction_pipeline._remove_still_flagged`; `test_rm2a_summary_last_attempt_sentence_removed_and_saved`, `test_rm2a_overview_sentence_removed_and_saved` |
+| RM2.b | done | `test_rm2b_abstract_sentence_removed_and_saved` |
+| RM2.c | done | `test_rm2c_blog_not_changed`, `test_rm2c_switch_off_keeps_flagged_draft` |
+| RM2.d | done | `test_rm2d_entity_check_rerun_on_saved_file`, `test_rm2d_name_in_heading_stage_still_fails` |
+| RM2.e | done | `extraction_pipeline._coverage_guard`; `test_rm2e_only_mention_of_required_item_kept`, `test_rm2e_keyword_in_bold_label_kept`, `test_rm2e_unplaced_item_keeps_every_sentence` |
+| RM2.f | done | `test_rm2f_no_judge_call_after_removal` |
+| RM2.g | done | `test_rm2g_passing_draft_untouched_no_record` |
+| RM2.h | done | `test_rm2h_record_has_judge_rationale`; `tests/test_judge_severity_js.py` updated for the added `rationale` key |
+| RM3.a | done, one field differs | `removal_record.write_entry`; `test_rm3a_record_fields` |
+| RM3.b | done | `test_rm3b_record_write_fails_nothing_removed`, `test_rm3b_artifact_save_fails_stage_goes_on` |
+| RM3.c | done, changed | `removal_record.clear_entry`; `test_rm3c_dirty_state_clean_regeneration_clears_entry`, `test_rm3c_refused_removal_recorded_and_listed` |
+| RM4.a | done | `removal_record.format_run_removals`; `test_rm4a_lists_this_run_only`, `test_rm4a_changed_file_not_shown`, `test_rm4a_none_says_so` |
+| RM4.b | done | `ts_gui._log_removed_sentences`; `tests/test_ts_gui_run_all.py::test_rm4b_list_before_token_report_on_complete_fail_pause` (also a stage that raises) |
+| RM4.c | done, wider | `removal_record.print_run_removals`; `test_rm4c_cli_prints_list` (`transcript_summarize`), `test_rm4c_overview_cli_prints_list` (`transcript_overview`), `test_rm4c_process_cli_prints_list_on_both_exits` (source check; `main` is interactive) |
+| RM4.d | done | no restore command; the list ends "To put a sentence back, edit the artifact by hand." |
+| RM5 | done | `config.py`; `test_rm5_config_values` |
+| D1 | done | `config.FAITHFULNESS_SEVERITY_MODE = "off"`; `test_rm5_config_values` |
+| Human review | open | Read the first real run's list for a "This …" or "He …" that lost its referent (`TODO.md`). |
+
+**Where the code differs from the text above:**
+
+- **Signature (RM1).** `remove_flagged_sentences(text, flags, *, max_share, guard=None)`.
+  Each flag is a `flagged_removal.Flag`, a `str` with `kind` ("claim" or "name"), `name`
+  and the judge's `record`; a rejected name is a flag of kind "name" (RM1.i), not a
+  separate `names` argument. `guard` is the summary coverage check (RM2.e).
+- **RM1.f.** A section is left as it is, with its flags kept, when every sentence in it
+  would be removed: "the last sentence" is the one left when the others are removed.
+- **RM1.e front matter.** It is checked by structure, not parsed: each edited `a:` line
+  must still be one double-quoted value, and the keys must be unchanged. PyYAML is a
+  dev-only dependency, so runtime code does not import it; the tests parse the result
+  with `yaml.safe_load`. When the FAQ copy cannot be removed, the body sentence is still
+  removed and the kept reason says "still in the front matter's FAQ answers".
+- **RM2.a log line.** "⚠️ Summary: removed N sentence(s) still flagged after the last
+  attempt; K of M flagged item(s) left in. Record: … Removed: …", then "Summary: not
+  removed: …" with each kept claim and its reason.
+- **RM2.h.** The judge details travel on the `Flag` objects the prechecks return
+  (`extraction_pipeline._claim_flags`, `_name_flags`), not in an extra argument to
+  `_faithfulness_precheck`.
+- **RM3.a.** The entry has no run-start field. RM4.a compares each entry's `removed_at` with
+  the run's start time, which gives the same list.
+- **RM3.c.** The entry is cleared when the stage writes its first new draft, not when the
+  stage starts, so a stage that fails before writing anything keeps the old entry, which
+  still matches the file on disk. When the kept draft has flags but nothing could be
+  removed (cap, deletion check, section rule, not found, or an error), an entry with no
+  removals and the kept flags is written, so the list shows "nothing removed" and the
+  flags left in instead of "none this run" (learning-qa F3).
+- **RM4.a.** The function is `removal_record.format_run_removals`, not in
+  `flagged_removal`, which has no file access. An entry whose file changed is shown as
+  "the file has changed since the removal; see the record."
+- **RM4.c.** `transcript_process.main` step 4 runs `transcript_summarize.py` without
+  `--generate-structured`, so on that path nothing is removed. The list is therefore also
+  printed by the two scripts that can remove sentences, `transcript_summarize.py` and
+  `transcript_overview.py`, and on `transcript_process.main`'s summary-failure exit
+  (learning-qa F2). `transcript_process.main` is interactive, so its test checks the
+  source.
+- **The removal step cannot fail a stage.** An error in it is logged and the draft is kept
+  as it is; the coverage items for the guard are built inside that step. If saving the
+  cleaned draft fails after the record is written, the draft is saved again as it was,
+  the entry is cleared, and the stage goes on (learning-qa F5).
+- **A flag removed in one place and kept in another** (a section's only text, a bold label,
+  a heading, a coverage item) is listed as kept: "removed in part; one copy kept: …"
+  (learning-qa F1). A coverage keyword in a bullet's bold label counts for that bullet's
+  sentence; an item the guard names that no removed sentence mentions keeps every
+  removal (learning-qa F4).
+- **Review.** learning-qa ran on the diff before the commit and found 5 issues (F1–F5);
+  all are fixed here, with the tests named above. The fixes were not re-reviewed.
+
