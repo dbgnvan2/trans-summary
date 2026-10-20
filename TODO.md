@@ -30,9 +30,29 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - Adjacent, not fixed (cold sweep): `faithfulness_judge._split_sentences` splits after
   "U.S.", "Ph.D.", "Sen." and months, so the judge also reads those as two claims.
   Removal now treats such splits as uncertain; the judge's own splitter is unchanged.
-- Low, not fixed (cold sweep): removing "A." from "A. Note: it ends." moves a strip-prefix
-  label to the line start, so the deletion check refuses it ("a sentence was lost"). It
-  fails safe: the flag is kept with the reason.
+- **Open, from the correctness re-review of the cold-sweep fixes** (work in progress
+  parked on Mac mini1 as `git stash` "RM cold sweep open items A/B/C WIP"; its tests for
+  A–C fail without the fixes):
+  - **A.** A removed sentence with one copy in a quoted FAQ answer and another in an
+    unquoted answer, or under another key (`description:`), keeps the second copy with
+    no Kept entry, and its Removed entry says `in_front_matter=True`
+    (`flagged_removal.py`, the `left_in_head` line). Fix: report every copy left in the
+    head with a generic reason ("still in the front matter"), and set `in_front_matter`
+    only when no copy remains.
+  - **B.** A split before a number joins the two sentences into one group, so a name
+    flag also deletes the correct sentence next to it ("Zed spoke … 2020 was a hard
+    year."). Fix: a split before a number marks both sides uncertain (claims kept) but
+    does not join them; the part of an abbreviation split without the name gets its own
+    reason ("same sentence as name 'X' (uncertain split)").
+  - **C.** Not low: when the first sentence of a line is removed, a following
+    "Note: …" (any strip-prefix label, or an enumerator) becomes first on the line,
+    where the splitter strips the label, so the deletion check refuses every removal in
+    the artifact, name removals included, and the entity check can then fail the stage.
+    Fix: strip the leading label and enumerator on both sides in `deletion_problems`
+    (claims and body sentences), and keep a test that a real loss is still caught.
+  - **D.** Verify with a test: when a name flag comes before a claim flag on the same
+    sentence, the Removed record carries the claim's judge record (a probe looked right).
+  - **E.** Latent: assert in `_cut` that spans do not overlap.
 - Not fixed (cold sweep): the judge-disabled case returns "fail" with names only; the
   message now says "no claim was flagged", which does not say the judge was off.
 
