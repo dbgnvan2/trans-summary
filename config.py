@@ -1219,6 +1219,17 @@ FAITHFULNESS_REMOVE_ARTIFACTS = ("summary", "overview", "abstract")
 # Remove nothing when the removals would take more than this share of the body's
 # words (D5). The WO6 replay's largest was 9.2% (RM0).
 FAITHFULNESS_REMOVE_MAX_SHARE = 0.25
+# Abbreviations after which the judge's sentence splitter may cut a sentence in two
+# ("He served with Sen. Smith" -> "He served with Sen." + "Smith ..."). A split after
+# one of these, after a token with two periods ("U.S.", "Ph.D.") or before a number is
+# treated as uncertain: a claim there is kept, a name there takes the whole sentence.
+# Case is ignored. The splitter already joins after Dr., Mr., etc. and single initials.
+FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS = (
+    "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+    "sen", "gov", "rep", "lt", "col", "capt", "sgt", "mt", "ft", "ave", "univ", "corp",
+    "ltd", "fig", "vol", "pp", "al", "approx", "ca", "cf", "ed", "eds", "trans", "mass",
+    "calif",
+)
 
 
 def summary_word_bounds(target_word_count: int) -> tuple[int, int]:

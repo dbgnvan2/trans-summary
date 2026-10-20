@@ -32,18 +32,23 @@ _LINE_LEAD = re.compile(r"^\s*(?:[-*>]+\s*)*")       # as _clean_claim_line stri
 _ENUMERATOR = re.compile(r"^\d+[.)]\s+")
 _LABEL_PREFIX = re.compile(r"^([A-Za-z][^:\n]{0,40}):\s*")
 _BOLD_ONLY = re.compile(r"^\*\*[^*\n]+\*\*\s*$")
-# A line with nothing left but a list marker and/or a bold label.
+# A line with nothing left but a list marker and/or a bold label. Bold text that ends
+# like a sentence ("**Kerr says X.**") is a sentence, not a label: the line stays.
 _EMPTY_LINE = re.compile(
-    r"^\s*(?:[-*+>•]\s*|\d+[.)]\s*)*(?:(?:\*\*|__)[^*_\n]*(?:\*\*|__)\s*)?[:.—–-]?\s*$")
+    r"^\s*(?:[-*+>•]\s*|\d+[.)]\s*)*"
+    r"(?:(?:\*\*|__)(?:[^*_\n]*[^*_\n.!?])?(?:\*\*|__)\s*)?[:.—–-]?\s*$")
 _FAQ_ANSWER = re.compile(
     r'^(?P<lead>\s*(?:-\s+)?a:\s*)"(?P<value>(?:[^"\\]|\\.)*)"(?P<trail>\s*)$')
 _FAQ_QUESTION = re.compile(r"^\s*-\s+q:\s*")
 _TOKEN = re.compile(r'[^\s"]+|"')
 _YAML_KEY = re.compile(r"^\s*(?:-\s+)?([A-Za-z_][\w-]*):", re.MULTILINE)
-# A split the judge's splitter makes but may not be a sentence end: after a dotted
-# abbreviation ("U.S.", "Ph.D.") or a month ("Jan."), or before a number.
+# A split the judge's splitter makes but may not be a sentence end: after a token with
+# two periods ("U.S.", "Ph.D.") or a listed abbreviation ("Sen.", "Jan."), or before a
+# number (config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS).
 _DOUBTFUL_END = re.compile(
-    r"(?:\b(?:[A-Za-z]\.){2,}|\b(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.)$")
+    r"(?:(?<!\S)\S*\.\S*\.|\b(?:"
+    + "|".join(map(re.escape, config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS))
+    + r")\.)$", re.IGNORECASE)
 _DOUBTFUL_START = re.compile(r"^\d")
 
 
@@ -91,6 +96,7 @@ class _Sentence:
     start: int   # span in the raw line, bold markers around it included
     end: int
     text: str    # as extract_claims reads it
+    group: int = 0          # sentences joined by uncertain splits share a group
     doubtful: bool = False  # a boundary with a neighbour may not be a sentence end
 
 
@@ -157,10 +163,11 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
         while (first >= 2 and raw[first - 2:first] in _MARKERS
                and raw[last:last + 2] == raw[first - 2:first]):
             first, last = first - 2, last + 2
-        sentence = _Sentence(index, first, last, text)
+        sentence = _Sentence(index, first, last, text, group=len(out))
         if out and (_DOUBTFUL_END.search(out[-1].text) or _DOUBTFUL_START.match(text)):
             # Removing either side would leave a fragment ("He trained with the U.S.").
             out[-1].doubtful = sentence.doubtful = True
+            sentence.group = out[-1].group
         out.append(sentence)
         cursor = at + len(text)
     return out
@@ -303,8 +310,7 @@ def deletion_problems(before: str, after: str, removed: set, dropped_lines=()) -
         # Sentences too short to be claims are checked too: only removed ones may go.
         lost = Counter(_body_sentences(before)) - Counter(_body_sentences(after))
         for sentence in lost:
-            if (sentence not in removed and fj._claim_body(sentence) not in removed
-                    and not any(sentence in d for d in dropped_text)):
+            if sentence not in removed and not any(sentence in d for d in dropped_text):
                 problems.append(f"a sentence was lost that was not flagged: {sentence[:80]!r}")
     _, head_before, body_before = _split(before)
     _, head_after, body_after = _split(after)
@@ -372,7 +378,12 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             claim = fj._claim_body(flag)
             hits = [s for s in sentences if s.text == claim]
             reason = FAITHFULNESS
-        sure = [s for s in hits if not s.doubtful]
+        if getattr(flag, "kind", "claim") == "name":
+            # A kept name blocks the stage (entity check): take the whole sentence, all
+            # the parts an uncertain split made of it.
+            groups = {(s.line, s.group) for s in hits}
+            hits = [s for s in sentences if (s.line, s.group) in groups]
+        sure = [s for s in hits if not s.doubtful or getattr(flag, "kind", "") == "name"]
         if sure:
             targets.extend(_Target(s, flag, reason) for s in sure)
             if len(sure) < len(hits):
@@ -414,8 +425,12 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                 why = f"only mention of required item '{label}'"
                 if not hit:
                     # Cannot tell which removal drops it: keep every claim sentence. A
-                    # name sentence still goes: the entity check blocks a kept name.
-                    hit = [t for t in targets if getattr(t.flag, "kind", "claim") != "name"]
+                    # name sentence still goes: the entity check blocks a kept name; a
+                    # claim in that sentence goes with it, so it is not listed as kept.
+                    named = {(t.sentence.line, t.sentence.start) for t in targets
+                             if getattr(t.flag, "kind", "claim") == "name"}
+                    hit = [t for t in targets if getattr(t.flag, "kind", "claim") != "name"
+                           and (t.sentence.line, t.sentence.start) not in named]
                     why = f"could not place required item '{label}'"
                 for t in hit:
                     _keep(t, why)
@@ -476,13 +491,19 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             n += step
         return ""
 
+    reasons: dict = {}  # a sentence two flags named is one removal with both reasons
+    for t in sorted(targets, key=lambda t: t.reason != FAITHFULNESS):
+        reasons.setdefault((t.sentence.line, t.sentence.start), []).append(t.reason)
     removed, listed_at = [], set()
-    for t in sorted(targets, key=lambda t: order[(t.sentence.line, t.sentence.start)]):
+    for t in sorted(targets, key=lambda t: (order[(t.sentence.line, t.sentence.start)],
+                                            t.reason != FAITHFULNESS)):
         n = order[(t.sentence.line, t.sentence.start)]
-        if n in listed_at:  # named by a second flag: one entry for one removal
+        if n in listed_at:
             continue
         listed_at.add(n)
-        removed.append(Removed(t.sentence.text, _neighbour(n, -1), _neighbour(n, 1), t.reason,
+        why = list(dict.fromkeys(reasons[(t.sentence.line, t.sentence.start)]))
+        removed.append(Removed(t.sentence.text, _neighbour(n, -1), _neighbour(n, 1),
+                               why[0] + (f" (also {', '.join(why[1:])})" if why[1:] else ""),
                                dict(getattr(t.flag, "record", {}) or {}),
                                t.sentence.text in in_head))
     return new_text, removed, kept

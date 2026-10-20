@@ -330,17 +330,22 @@ def test_rm1i_name_left_in_label_listed_as_kept():
 
 def test_rm1b_marker_run_line_does_not_backtrack():
     """Security review: a line left as a long run of list markers plus text made
-    _EMPTY_LINE backtrack exponentially (22 dashes took 0.6 s; each one doubles it)."""
-    import time
-    start = time.monotonic()
-    assert fr._EMPTY_LINE.match("-" * 60 + " text") is None
-    assert fr._EMPTY_LINE.match("*" * 60 + " text") is None
+    _EMPTY_LINE backtrack exponentially (22 dashes took 0.6 s; each one doubles it).
+    The match runs in a child process with a timeout, so a regression fails, not hangs."""
+    import subprocess
+    import sys
+    probe = ("import flagged_removal as fr\n"
+             "assert fr._EMPTY_LINE.match('-' * 60 + ' text') is None\n"
+             "assert fr._EMPTY_LINE.match('*' * 60 + ' text') is None\n")
+    try:
+        subprocess.run([sys.executable, "-c", probe], cwd=REPO, check=True, timeout=20)
+    except subprocess.TimeoutExpired:
+        pytest.fail("_EMPTY_LINE backtracks on a run of list markers")
     assert fr._EMPTY_LINE.match("- **Label:**") is not None
     flag = "The speaker said ten things in the opening part."
     text = "### Body\n\n" + "-" * 40 + " " + flag + " The speaker also said more here.\n"
     out, removed, _ = _remove(text, [flag])
     assert [r.sentence for r in removed] == [flag]
-    assert time.monotonic() - start < 1.0
 
 
 def test_rm1i_claim_and_name_flag_same_sentence_cut_once():
@@ -379,6 +384,85 @@ def test_rm1g_short_unflagged_sentence_lost_rejected():
     problems = fr.deletion_problems(before, after, set())
     assert any("a sentence was lost that was not flagged: 'He was sure.'" in p
                for p in problems)
+
+
+@pytest.mark.parametrize("line, flag", [
+    ("He served with Sen. Smith on the research into family units.", "He served with Sen."),
+    ("She earned her Ph.D. Then she studied families in the clinic.",
+     "Then she studied families in the clinic."),
+    ("The study by Bowen et al. The results showed a pattern in families.",
+     "The results showed a pattern in families."),
+    ("The meeting was held in Sept. That autumn he moved to the clinic.",
+     "That autumn he moved to the clinic."),
+    ("The family moved in 1959. 20 years later the pattern came back again.",
+     "The family moved in 1959."),
+])
+def test_rm1a_unsure_boundary_more_abbreviations(line, flag):
+    """Re-sweep (learning-qa #2, #7): Ph.D., titles, "et al.", months and a following
+    number were not all treated as uncertain splits."""
+    text = f"### Body\n\nKerr opens with a long story about the family. {line}\n"
+    out, removed, kept = _remove(text, [flag])
+    assert out == text and removed == []
+    assert kept == [fr.Kept(flag, fr.UNSURE_BOUNDARY)]
+
+
+def test_rm1a_unsure_copy_kept_other_copy_removed():
+    """Re-sweep (learning-qa #7): a flag with one sure and one uncertain copy removes
+    the sure one and is listed as kept in part."""
+    flag = "Army for many years before that."
+    text = ("### A\n\nKerr opens with a long story about the family. " + flag +
+            " Kerr adds a long example about his own family.\n\n### B\n\n"
+            "Kerr opens the second part with a story. He trained with the U.S. " + flag + "\n")
+    out, removed, kept = _remove(text, [flag])
+    assert [r.sentence for r in removed] == [flag] and out.count(flag) == 1
+    assert kept == [fr.Kept(flag, "removed in part; one copy kept: " + fr.UNSURE_BOUNDARY)]
+
+
+def test_rm1i_name_in_unsure_split_takes_whole_sentence():
+    """Re-sweep (learning-qa #3): a name in an uncertain split was kept, so the entity
+    check failed the stage. The whole sentence (both parts) is removed."""
+    name = fr.Flag("the name 'Malorni' does not appear in the source",
+                   kind="name", name="Malorni")
+    text = ("### Body\n\nKerr opens with a long story about the family. "
+            "Dr. Malorni worked in the U.S. Army lab for many years. "
+            "Kerr adds a long example about his own family.\n")
+    out, removed, kept = _remove(text, [name])
+    assert "Malorni" not in out and "Army lab" not in out and "U.S." not in out
+    assert "Kerr adds a long example about his own family." in out
+    assert [r.sentence for r in removed] == ["Dr. Malorni worked in the U.S.",
+                                             "Army lab for many years."]
+    assert kept == []
+
+
+def test_rm1i_claim_and_name_same_sentence_unplaced_item_not_kept():
+    """Re-sweep (learning-qa #1): when the guard cannot place an item, a claim whose
+    sentence a name flag removes anyway was listed as kept."""
+    claim = "Malorni studied the cells in 1975 at the institute."
+    name = fr.Flag("the name 'Malorni' does not appear in the source",
+                   kind="name", name="Malorni")
+    text = ("### Body\n\nKerr opens the talk with a story about his family. "
+            f"{claim} Kerr describes the family system in detail here.\n")
+    out, removed, kept = _remove(text, [claim, name], guard=lambda b, a: [("Item X", ["zzz"])])
+    assert claim not in out and kept == []
+    assert removed[0].reason == "faithfulness (also name 'Malorni')"
+
+
+def test_rm4a_two_reasons_listed():
+    """Re-sweep (learning-qa #9): a sentence two flags named listed only the first."""
+    r = {"reason": "faithfulness (also name 'Malorni')", "label": "unsupported",
+         "rationale": "Not in the source."}
+    assert rr._why(r) == "judge: unsupported — Not in the source. (also name 'Malorni')"
+
+
+def test_rm1b_bold_lead_sentence_not_dropped():
+    """Re-sweep (learning-qa #5, older than the sweep): removing the sentence after a
+    bold lead sentence dropped the line, and the bold sentence with it, unrecorded."""
+    flag = "He says the choir will tour next spring."
+    text = ("### Body\n\nKerr opens with a long story about the family.\n\n"
+            "**Kerr says the family is one emotional unit.** " + flag + "\n")
+    out, removed, kept = _remove(text, [flag])
+    assert "**Kerr says the family is one emotional unit.**" in out and flag not in out
+    assert fr._EMPTY_LINE.match("- **Family triangles:**")
 
 
 def test_rm1a_unsure_sentence_boundary_kept():
@@ -831,6 +915,18 @@ def test_rm2_removal_error_stage_goes_on(monkeypatch, tmp_path):
     assert entry["kept"][0]["reason"] == "removal failed: bug in removal"
 
 
+def test_rm2_names_only_message():
+    """Re-sweep (learning-qa #6): the "all removed" message says what was removed."""
+    claim, name = fr.Flag(FLAG), NAME_FLAG
+    msg = ep._all_removed_message
+    assert "every sentence still flagged" in msg("Summary", 3, [claim, name], False)
+    assert "no claim was flagged" in msg("Summary", 3, [name], False)
+    assert "could not run" in msg("Summary", 3, [name], True)
+    assert "every sentence still flagged" in msg("Summary", 3, [claim], True)
+    assert msg("Abstract", 3, [name], False, cause="no fully faithful abstract").startswith(
+        "⚠️ Abstract: no fully faithful abstract; the sentences with the flagged names")
+
+
 def test_rm2_partial_check_message_says_not_checked(monkeypatch, tmp_path):
     """Cold sweep (correctness #6): when the judge errored and only names were flagged,
     removing them must not be reported as every flagged sentence removed."""
@@ -968,15 +1064,16 @@ def test_rm4c_list_printed_once_under_transcript_process(monkeypatch, tmp_path, 
 
 def test_rm4c_process_cli_prints_list_on_both_exits():
     """transcript_process.main is interactive, so its source is checked: the list is
-    printed on the summary-failure exit and before the token report at the end."""
+    printed in a ``finally`` right after step 4, so every later exit (failure, Ctrl-C,
+    a prompt answered no) has shown it, once (re-sweep, learning-qa #4)."""
     import inspect
     import transcript_process
     src = inspect.getsource(transcript_process.main)
     call = "removal_record.print_run_removals(base_name, start_time)"
-    fail = src.index('print("\\n❌ Summary generation failed.")')
-    assert src.index(call, fail) < src.index("return 1", fail)
-    end = src.index("analyze_token_usage.generate_usage_report(since_timestamp=start_time)")
-    assert src.rindex(call, 0, end) > fail
+    step4 = src.index("SUMMARIZE_SCRIPT,")
+    assert src.count(call) == 1
+    assert step4 < src.index("finally:", step4) < src.index(call) < src.index(
+        'print("\\n❌ Summary generation failed.")')
 
 
 # --- RM5: config -----------------------------------------------------------------------

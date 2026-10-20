@@ -312,15 +312,20 @@ def main():
             print("Stopped before summary generation.")
             return 0
 
-        success, _ = run_script(
-            SUMMARIZE_SCRIPT,
-            [str(formatted_file.name)],
-            "STEP 4: Generating Summaries (Archival + Blog)",
-        )
+        try:
+            success, _ = run_script(
+                SUMMARIZE_SCRIPT,
+                [str(formatted_file.name)],
+                "STEP 4: Generating Summaries (Archival + Blog)",
+            )
+        finally:
+            # Sentences removed from the summary, overview or abstract (RM4.c). Printed
+            # here, on every exit from step 4, and not by the script itself, so it is
+            # shown once and not lost to a later Ctrl-C or prompt exit (cold sweep).
+            removal_record.print_run_removals(base_name, start_time)
 
         if not success:
             print("\n❌ Summary generation failed.")
-            removal_record.print_run_removals(base_name, start_time)
             return 1
 
     # Step 5: Generate Webpages & PDF
@@ -367,9 +372,6 @@ def main():
     print(f"📊 Lenses: {project_dir / f'{base_name}{config.SUFFIX_LENSES}'}")
     print(f"📝 Blog: {project_dir / f'{base_name}{config.SUFFIX_BLOG}'}")
     print(f"📦 Package:   {project_dir / f'{base_name}.zip'}")
-
-    # Sentences removed from the summary, overview or abstract this run (RM4.c).
-    removal_record.print_run_removals(base_name, start_time)
 
     # Display Token Usage Report
     print("\n" + analyze_token_usage.generate_usage_report(since_timestamp=start_time))

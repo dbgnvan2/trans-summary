@@ -1560,6 +1560,30 @@ def _remove_still_flagged(what: str, base_name: str, suffix: str, text: str, iss
     return new_text, left
 
 
+def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: bool,
+                         cause: str = "") -> str:
+    """The warning when nothing flagged is left after removal. It says which checks the
+    removed flags came from: with names only, no claim was removed, and when the judge
+    errored ("partial") the draft's faithfulness was not checked at all.
+
+    Purpose: Never report "every flagged sentence removed" for a check that did not run.
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a
+    Tests:   tests/test_remove_flagged_rm.py::test_rm2_partial_check_message_says_not_checked,
+             tests/test_remove_flagged_rm.py::test_rm2_names_only_message
+    """
+    lead = f"⚠️ {label}: " + (f"{cause}; " if cause else "")
+    names_only = bool(flags) and all(getattr(f, "kind", "claim") == "name" for f in flags)
+    if names_only and judge_errored:
+        return (lead + "the sentences with the flagged names were removed, but the "
+                "faithfulness check could not run on this draft; the release gate will "
+                "check it at publish. Removals are listed at the end of the run.")
+    if names_only:
+        return (lead + "the sentences with the flagged names were removed; no claim was "
+                "flagged. Removals are listed at the end of the run.")
+    return (lead + f"every sentence still flagged after {attempts} attempt(s) was removed; "
+            "they are listed at the end of the run.")
+
+
 def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                              generate, write, precheck=None, advisory=False,
                              revise=None, guard=None) -> bool:
@@ -1658,16 +1682,9 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                      "publication until it is regenerated or edited: %s",
                      what, attempts, best_count, blocking.detail)
         return False
-    if best_count == 0 and best_rank[0]:
-        # "partial": the judge errored, so only the names were checked (cold sweep).
-        logger.warning("⚠️ %s: the flagged names were removed, but the faithfulness check "
-                       "could not run on this draft; the release gate will check it at "
-                       "publish. Removals are listed at the end of the run.",
-                       what.capitalize())
-        return True
     if best_count == 0:
-        logger.warning("⚠️ %s: every sentence still flagged after %d attempt(s) was removed; "
-                       "they are listed at the end of the run.", what.capitalize(), attempts)
+        logger.warning("%s", _all_removed_message(what.capitalize(), attempts, best_issues,
+                                                  judge_errored=best_rank[0]))
         return True
     logger.warning("⚠️ %s still has %d flagged claim(s) after %d attempt(s); kept the best "
                    "draft. Faithfulness flags are warnings: the run goes on, and the release "
@@ -1886,8 +1903,8 @@ def generate_structured_abstract(
                          "or edited: %s", cause, best_issue_count, blocking.detail)
             return False
         if best_issue_count == 0:
-            logger.warning("⚠️ Abstract: %s; every sentence still flagged was removed. "
-                           "They are listed at the end of the run.", cause)
+            logger.warning("%s", _all_removed_message("Abstract", max_attempts, best_issues,
+                                                      judge_errored=False, cause=cause))
             return True
         logger.warning("⚠️ Abstract: %s; kept the best draft (%s flagged claim(s)). "
                        "Faithfulness flags are warnings: the run goes on, and the release "

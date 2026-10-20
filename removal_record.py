@@ -106,10 +106,12 @@ def clear_entry(base_name: str, artifact: str, logger=None) -> None:
 
 
 def _why(r: dict) -> str:
-    if r.get("reason") != fr.FAITHFULNESS:
-        return r.get("reason", "")
+    reason = r.get("reason", "")
+    if not reason.startswith(fr.FAITHFULNESS):
+        return reason
+    also = reason[len(fr.FAITHFULNESS):]  # " (also name 'X')" when two flags named it
     detail = " — ".join(x for x in (r.get("label"), r.get("rationale")) if x)
-    return f"judge: {detail}" if detail else "flagged by the faithfulness judge"
+    return (f"judge: {detail}" if detail else "flagged by the faithfulness judge") + also
 
 
 def format_run_removals(base_name: str, since: datetime, logger=None) -> str:
