@@ -1,0 +1,3 @@
+summary {'files': 3, 'claims': 110, 'verbatim': 110} verbatim 100.0%
+abstract {'files': 15, 'claims': 105, 'verbatim': 105} verbatim 100.0%
+overview {'files': 1, 'claims': 68, 'verbatim': 68, 'more_than_once': 15} verbatim 100.0%

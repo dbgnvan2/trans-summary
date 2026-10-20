@@ -1,0 +1,5 @@
+2021 Webcast Jan Societal Regression - M k=1: flagged 1, removed 1, words 797->778, invariant ok
+2021 Webcast Jan Societal Regression - M k=2: flagged 1, removed 1, words 769->739, invariant ok
+2021 Webinar Mar - KCFC - 2021-03-xx k=2: flagged 3, removed 3, words 808->736, invariant ok
+2021 Webinar April - KCFC - 2021-04-xx k=1: flagged 1, removed 1, words 761->717, invariant ok
+2021 Webinar April - KCFC - 2021-04-xx k=2: flagged 3, removed 3, words 765->695, invariant ok
