@@ -303,3 +303,53 @@ confidence (including an item with no keywords) now keeps all its flagged claim 
 since the code cannot tell which sentence the gate's LLM check relies on. Names are still
 removed. How often this happens was not measured (no project data on Mini1).
 
+
+## Follow-up: open items C and B (plan, 2026-10-20)
+
+Status: **plan, not approved.** Dave asked for items C and B from `TODO.md` ("Open, from
+the correctness re-review"), C first. Both were reproduced on `d353c73` with
+`remove_flagged_sentences` (no API calls):
+
+- **C.** `"Kerr says the move happened in the spring of that year. Note: the family was
+  anxious about the move to the city. …"` with the first sentence flagged: nothing is
+  removed, kept reason "deletion check failed: a claim was added or changed". The same
+  text with a name flag on the first sentence gives the same refusal, so the name stays
+  and the entity check fails the stage. Without "Note:" the name sentence is removed.
+  Cause: once the first sentence goes, "Note: the family …" starts the line, where
+  `extract_claims` and `_line_sentences` strip the label, so the check compares
+  "Note: the family …" (before) with "the family …" (after).
+- **B.** `"Zed Example spoke at length about the move. 2020 was a hard year for the whole
+  family. …"` with a name flag on Zed Example: both sentences are removed, the second
+  recorded as "name 'Zed Example'". A split before a number joins the two sentences into
+  one group, and a name takes its whole group. With an abbreviation split (`"Zed Example
+  served with Sen. Smith on the committee for years."`) both parts go, which is right,
+  but "Smith on the committee for years." is recorded under the name it does not contain.
+
+| ID | Rule | Test (`tests/test_remove_flagged_rm.py`) |
+|---|---|---|
+| RM1.g.1 (C) | Before the deletion check compares claims and body sentences, it removes from each one, before and after and in the removed set, a leading label from `config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES` ("Note:") and then a leading enumerator ("2) ", "3. "). This is what `extract_claims` does at the start of a line, so a sentence that moves to the start of its line reads the same before and after. The text itself is not changed: "Note:" stays in the artifact. | `test_rm1g1_label_after_removed_claim_removed`, `test_rm1g1_label_after_removed_name_removed`, `test_rm1g1_enumerator_after_removed_name_removed` |
+| RM1.g.1 (adversarial, P7) | A real loss is still caught: an unflagged "Note: …" sentence deleted outright is reported as lost. A sentence with a skip label (`config.FAITHFULNESS_SKIP_LINE_LABELS`, e.g. "Status:") that moves to the start of its line makes `extract_claims` drop that whole line, so the judge would stop seeing its claims; that removal is still refused. | `test_rm1g1_unflagged_label_sentence_lost_still_caught`, `test_rm1g1_skip_label_moved_to_line_start_still_refused` |
+| RM1.i.1 (B) | A split before a number marks both sentences uncertain, as now (a flagged claim on either side is kept, "sentence boundary uncertain"), but does not join them: a name takes only its own sentence. A split after an abbreviation (`_DOUBTFUL_END`) still joins them, and a name takes every part. | `test_rm1i1_name_before_number_split_takes_only_its_sentence`, `test_rm1i1_claim_before_number_split_still_kept`; existing `test_rm1i_name_in_unsure_split_takes_whole_sentence` still passes |
+| RM1.i.2 (B) | When a name takes the parts of an abbreviation split, a part without the name is recorded as "same sentence as name 'X' (uncertain split)", in the record and in the end-of-run list. | `test_rm1i2_split_part_without_name_has_own_reason` |
+
+Each new test is checked to fail with its rule reverted. Done also means:
+`python3 -m pytest tests/ -q -p no:cacheprovider` and `python3 -m pytest -q
+-p no:cacheprovider` pass; learning-qa reviews the diff before the commit; CHANGELOG.md,
+TODO.md (C and B leave the open list) and the Built table in this file are updated in the
+same commit; ARCHITECTURE_DESIGN.md §4.3 is checked (it does not describe the split rules
+now, so it probably needs no change). No API calls, no paid runs. Commit on main locally;
+no push without asking.
+
+Order: RM1.g.1 first (the enumerator test needs RM1.i.1, so it is written with RM1.i.1),
+then RM1.i.1, then RM1.i.2. Files: `flagged_removal.py` (`deletion_problems`,
+`_line_sentences`, the name branch of `remove_flagged_sentences`) and the test file.
+
+Not in this change:
+- Items A, D and E stay open in `TODO.md`.
+- Mini1's parked stash ("RM cold sweep open items A/B/C WIP") is not used. Its B and C
+  parts are superseded by this change; whether to redo A from it or drop it is Dave's call.
+- Adjacent, not fixed: one failed deletion check refuses every removal in the artifact,
+  name removals included, so a kept name can still fail the stage for another cause.
+  Retrying with the name removals alone would narrow this; it is a separate change.
+- Adjacent, not fixed: the abstract treats a judge error with a flagged name as
+  "unavailable" and keeps the name (proposed separately as its own session).
