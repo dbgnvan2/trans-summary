@@ -26,6 +26,7 @@ NOT_FOUND = "not found as a whole sentence"
 IN_SCAFFOLDING = "only in a heading, a label or the front matter"
 A_HEADING = "a heading (headings are not edited)"
 UNSURE_BOUNDARY = "sentence boundary uncertain (an abbreviation or a number at the split)"
+SAME_SENTENCE_AS_NAME = "same sentence as name '{}' (uncertain split)"
 
 _MARKERS = ("**", "__")
 _LINE_LEAD = re.compile(r"^\s*(?:[-*>]+\s*)*")       # as _clean_claim_line strips it
@@ -96,7 +97,7 @@ class _Sentence:
     start: int   # span in the raw line, bold markers around it included
     end: int
     text: str    # as extract_claims reads it
-    group: int = 0          # sentences joined by uncertain splits share a group
+    group: int = 0          # the parts of an abbreviation split share a group
     doubtful: bool = False  # a boundary with a neighbour may not be a sentence end
 
 
@@ -136,7 +137,14 @@ def _clean_with_map(raw: str, start: int) -> tuple:
 def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
     """The sentences of one body line as extract_claims splits them, each with its
     span in the raw line. A sentence that cannot be placed ends the line's list, so
-    it and the rest are not removable (they are reported as not found)."""
+    it and the rest are not removable (they are reported as not found). A split that
+    may not be a sentence end marks both sides ``doubtful``; one after an abbreviation
+    also puts them in one ``group``, which a name removes whole.
+
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.i.1
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1i1_name_before_number_split_takes_only_its_sentence,
+             tests/test_remove_flagged_rm.py::test_rm1i_name_in_unsure_split_takes_whole_sentence
+    """
     s = raw.strip()
     if not s or _is_heading(raw) or _BOLD_ONLY.match(s):
         return []
@@ -164,10 +172,15 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
                and raw[last:last + 2] == raw[first - 2:first]):
             first, last = first - 2, last + 2
         sentence = _Sentence(index, first, last, text, group=len(out))
-        if out and (_DOUBTFUL_END.search(out[-1].text) or _DOUBTFUL_START.match(text)):
+        after_abbreviation = bool(out) and bool(_DOUBTFUL_END.search(out[-1].text))
+        if out and (after_abbreviation or _DOUBTFUL_START.match(text)):
             # Removing either side would leave a fragment ("He trained with the U.S.").
             out[-1].doubtful = sentence.doubtful = True
-            sentence.group = out[-1].group
+            if after_abbreviation:
+                # One sentence cut in two: a name takes both parts. A split before a
+                # number is often a real end ("... the move. 2020 was ..."), so a name
+                # takes only its own part there (RM1.i.1).
+                sentence.group = out[-1].group
         out.append(sentence)
         cursor = at + len(text)
     return out
@@ -280,37 +293,106 @@ def _body_sentences(text: str) -> list:
             for s in _line_sentences(line, i, strip_prefixes)]
 
 
+def _without_line_label(sentence: str, strip_prefixes: set) -> str:
+    """``sentence`` without a leading label from ``strip_prefixes`` ("Note:") and then a
+    leading enumerator ("2) "), as extract_claims reads the start of a line. Removing
+    the sentence before one moves it to the start of its line (item C)."""
+    m = _LABEL_PREFIX.match(sentence)
+    if m and m.group(1).strip().lower() in strip_prefixes:
+        sentence = sentence[m.end():]
+    m = _ENUMERATOR.match(sentence)
+    return sentence[m.end():] if m else sentence
+
+
+def _without_lines(text: str, lines: list) -> str:
+    """``text`` without one body line equal to each of ``lines``."""
+    lead, head, body = _split(text)
+    body_lines = body.split("\n")
+    for line in lines:
+        if line in body_lines:
+            body_lines.remove(line)
+    return lead + head + "\n".join(body_lines)
+
+
 def _is_subsequence(short: list, long: list) -> bool:
     it = iter(long)
     return all(any(x == y for y in it) for x in short)
 
 
-def deletion_problems(before: str, after: str, removed: set, dropped_lines=()) -> list:
+def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> list:
     """What makes ``after`` more than ``before`` with sentences deleted; [] when it is
-    only that. ``removed``: the removed sentences; ``dropped_lines``: the text of lines
-    removed whole (a claim taken from such a line, e.g. a bold label, may go too).
+    only that. ``removed``: the removed sentences, a set or a Counter (how many copies of
+    each were cut); ``dropped_lines``: the text of lines removed whole. Such a line also
+    takes the claims extract_claims loses when only that line is deleted, beyond its
+    sentences (a bold label, "Kerr Agreed"), one copy each. No more copies of a claim or
+    a sentence may go than were cut.
+
+    Claims and sentences are compared without a leading "Note:"-style label or
+    enumerator (RM1.g.1): the one after a removed sentence may now start its line,
+    where extract_claims strips it. The text keeps the label.
 
     Purpose: Use a removal only when it deletes and changes nothing else.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1
     Tests:   tests/test_remove_flagged_rm.py::test_rm1g_check_names_each_problem,
-             tests/test_remove_flagged_rm.py::test_rm1g_changed_text_rejected_draft_unchanged
+             tests/test_remove_flagged_rm.py::test_rm1g_changed_text_rejected_draft_unchanged,
+             tests/test_remove_flagged_rm.py::test_rm1g1_label_after_removed_name_removed,
+             tests/test_remove_flagged_rm.py::test_rm1g1_unflagged_label_sentence_lost_still_caught,
+             tests/test_remove_flagged_rm.py::test_rm1g1_short_claim_copy_on_other_line_does_not_excuse_loss,
+             tests/test_remove_flagged_rm.py::test_rm1g1_sentence_on_line_judge_skipped_does_not_excuse_loss,
+             tests/test_remove_flagged_rm.py::test_rm1g1_dropped_line_text_does_not_excuse_loss,
+             tests/test_remove_flagged_rm.py::test_rm1g1_dropped_line_sentence_counted_once,
+             tests/test_remove_flagged_rm.py::test_rm1g1_label_claim_goes_with_its_line,
+             tests/test_remove_flagged_rm.py::test_rm1g1_label_line_under_question_heading_goes,
+             tests/test_remove_flagged_rm.py::test_rm1g1_question_tagged_short_sentence_is_a_claim
     """
+    strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
+
+    def bare(sentence):
+        return _without_line_label(sentence, strip_prefixes)
+
     problems = []
     if not _is_subsequence(_tokens(after), _tokens(before)):
         problems.append("text was added or changed, not only deleted")
-    was = [fj._claim_body(c) for c in fj.extract_claims(before)]
-    now = [fj._claim_body(c) for c in fj.extract_claims(after)]
+    cut = Counter()
+    for sentence, n in Counter(removed).items():
+        cut[bare(sentence)] += n
+    was = [bare(fj._claim_body(c)) for c in fj.extract_claims(before)]
+    now = [bare(fj._claim_body(c)) for c in fj.extract_claims(after)]
     if not _is_subsequence(now, was):
         problems.append("a claim was added or changed")
     else:
-        dropped_text = [d.replace("**", "").replace("__", "") for d in dropped_lines]
-        for claim in (Counter(was) - Counter(now)):
-            if claim not in removed and not any(claim in d for d in dropped_text):
+        # A line removed whole also takes the claims the judge loses when only that line
+        # is deleted, less its own sentences (counted as cut): its bold label, or under
+        # a question heading its label and sentence read as one claim.
+        was_n, now_n = Counter(was), Counter(now)
+        from_lines = Counter()
+        if dropped_lines:
+            rest = Counter(bare(fj._claim_body(c))
+                           for c in fj.extract_claims(_without_lines(before, dropped_lines)))
+            own = Counter(bare(s.text) for line in dropped_lines
+                          for s in _line_sentences(line, 0, strip_prefixes))
+            from_lines = was_n - rest - own
+        # A claim too short to be one without its label ("Note: Kerr agreed." ->
+        # "Kerr agreed.") is not lost while its sentence is still in the text. Only
+        # sentences that stopped being claims count: short ones in ``after`` the judge
+        # does not return as claims, less every sentence it did not return as a claim
+        # in ``before`` (too short, or on a line it skips). Both sides are counted
+        # against the judge's own claims, so a short sentence it reads as a claim
+        # (tagged with a question) is not counted. A sentence left on a line that came
+        # to be skipped keeps its text, so it is short now only if it was before. The
+        # sentence check below still catches a lost copy.
+        short_now = Counter(bare(s) for s in _body_sentences(after)
+                            if not fj._is_claim(s)) - now_n
+        unjudged_before = Counter(map(bare, _body_sentences(before))) - was_n
+        shorter = short_now - unjudged_before
+        for claim, n in (was_n - now_n).items():
+            if n > cut[claim] + shorter[claim] + from_lines[claim]:
                 problems.append(f"a claim was lost that was not flagged: {claim[:80]!r}")
         # Sentences too short to be claims are checked too: only removed ones may go.
-        lost = Counter(_body_sentences(before)) - Counter(_body_sentences(after))
-        for sentence in lost:
-            if sentence not in removed and not any(sentence in d for d in dropped_text):
+        lost = (Counter(map(bare, _body_sentences(before)))
+                - Counter(map(bare, _body_sentences(after))))
+        for sentence, n in lost.items():
+            if n > cut[sentence]:
                 problems.append(f"a sentence was lost that was not flagged: {sentence[:80]!r}")
     _, head_before, body_before = _split(before)
     _, head_after, body_after = _split(after)
@@ -348,10 +430,12 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     body's words, or when the result fails ``deletion_problems``.
 
     Purpose: Take out a sentence that is still flagged after the last revision.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2
     Tests:   tests/test_remove_flagged_rm.py::test_rm1a_flagged_sentence_removed_rest_unchanged,
              tests/test_remove_flagged_rm.py::test_rm1d_part_of_longer_sentence_not_removed,
-             tests/test_remove_flagged_rm.py::test_rm1h_cap_keeps_draft_and_announces
+             tests/test_remove_flagged_rm.py::test_rm1h_cap_keeps_draft_and_announces,
+             tests/test_remove_flagged_rm.py::test_rm1i1_name_before_number_split_takes_only_its_sentence,
+             tests/test_remove_flagged_rm.py::test_rm1i2_split_part_without_name_has_own_reason
     """
     lead, head, body = _split(text)
     lines = body.split("\n")
@@ -378,14 +462,20 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             claim = fj._claim_body(flag)
             hits = [s for s in sentences if s.text == claim]
             reason = FAITHFULNESS
+        part_reason = {}
         if getattr(flag, "kind", "claim") == "name":
             # A kept name blocks the stage (entity check): take the whole sentence, all
-            # the parts an uncertain split made of it.
+            # the parts an abbreviation split made of it. A part without the name says
+            # why it went (RM1.i.2).
+            with_name = {(s.line, s.start) for s in hits}
             groups = {(s.line, s.group) for s in hits}
             hits = [s for s in sentences if (s.line, s.group) in groups]
+            part_reason = {(s.line, s.start): SAME_SENTENCE_AS_NAME.format(flag.name)
+                           for s in hits if (s.line, s.start) not in with_name}
         sure = [s for s in hits if not s.doubtful or getattr(flag, "kind", "") == "name"]
         if sure:
-            targets.extend(_Target(s, flag, reason) for s in sure)
+            targets.extend(_Target(s, flag, part_reason.get((s.line, s.start), reason))
+                           for s in sure)
             if len(sure) < len(hits):
                 partly[flag] = UNSURE_BOUNDARY
         elif hits:
@@ -454,7 +544,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     # An answer the FAQ edit cannot read (unquoted, single-quoted, folded) keeps its copy.
     left_in_head |= {s for s in removed_text - in_head if s in new_head}
     new_text = lead + new_head + new_body
-    problems = deletion_problems(text, new_text, removed_text,
+    cut_once = {(t.sentence.line, t.sentence.start): t.sentence.text for t in targets}
+    problems = deletion_problems(text, new_text, Counter(cut_once.values()),
                                  [lines[i] for i in dropped])
     if problems:
         why = "deletion check failed: " + "; ".join(problems)
@@ -494,6 +585,10 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     reasons: dict = {}  # a sentence two flags named is one removal with both reasons
     for t in sorted(targets, key=lambda t: t.reason != FAITHFULNESS):
         reasons.setdefault((t.sentence.line, t.sentence.start), []).append(t.reason)
+    for at, why in reasons.items():
+        # A part of a split sentence with its own reason gives that reason only.
+        own = [r for r in why if not r.startswith(SAME_SENTENCE_AS_NAME.split("{")[0])]
+        reasons[at] = own or why
     removed, listed_at = [], set()
     for t in sorted(targets, key=lambda t: (order[(t.sentence.line, t.sentence.start)],
                                             t.reason != FAITHFULNESS)):

@@ -39,20 +39,49 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     (`flagged_removal.py`, the `left_in_head` line). Fix: report every copy left in the
     head with a generic reason ("still in the front matter"), and set `in_front_matter`
     only when no copy remains.
-  - **B.** A split before a number joins the two sentences into one group, so a name
-    flag also deletes the correct sentence next to it ("Zed spoke … 2020 was a hard
-    year."). Fix: a split before a number marks both sides uncertain (claims kept) but
-    does not join them; the part of an abbreviation split without the name gets its own
-    reason ("same sentence as name 'X' (uncertain split)").
-  - **C.** Not low: when the first sentence of a line is removed, a following
-    "Note: …" (any strip-prefix label, or an enumerator) becomes first on the line,
-    where the splitter strips the label, so the deletion check refuses every removal in
-    the artifact, name removals included, and the entity check can then fail the stage.
-    Fix: strip the leading label and enumerator on both sides in `deletion_problems`
-    (claims and body sentences), and keep a test that a real loss is still caught.
+  - **B, C:** fixed 2026-10-20 (RM1.i.1, RM1.i.2, RM1.g.1 in
+    `docs/plan_remove_flagged_2026-10-19.md`). The stash's B and C parts are superseded.
   - **D.** Verify with a test: when a name flag comes before a claim flag on the same
     sentence, the Removed record carries the claim's judge record (a probe looked right).
   - **E.** Latent: assert in `_cut` that spans do not overlap.
+- Adjacent, not fixed (2026-10-20, items C/B): one failed deletion check refuses every
+  removal in the artifact, name removals included, so a kept name can still fail the
+  stage for another cause. Retrying with the name removals alone would narrow this.
+- Adjacent, not fixed (2026-10-20): the abstract treats a judge error with a flagged name
+  as "unavailable" and keeps the name, so the gate blocks at publish; the summary path
+  removes it ("partial"). Proposed as its own session.
+- Known (RM1.g.1): when the sentence before "2) Then …" is removed, that line starts
+  with "2) ", which markdown renders as a numbered list item. The words are unchanged.
+- Adjacent, not fixed (learning-qa re-check, 2026-10-20): `_line_sentences` starts a
+  sentence's span inside a bold run when a bold label follows "1. ", "> ", "• " or "+ "
+  (the inline-label regex does not match there), so cutting that sentence alone leaves
+  a stray `**` and the deletion check refuses ("unpaired bold marker"). learning-qa found
+  67 real lines with this shape. Since RM1.i.1 this also refuses a name sentence followed
+  by a number sentence on such a line ("1. **Kerr Agreed:** Zed … 2020 was hard."),
+  which HEAD removed whole, number sentence included; the name is kept, so the entity
+  check fails the stage. Fix: recognise the label after a list or quote marker in
+  `_line_sentences`. Also stricter since RM1.i.1: "Status: Zed … 2020 was hard." leaves
+  "2020 was hard." on a line the judge now reads, and is refused.
+- Adjacent, not fixed (2026-10-20): `extract_claims` reads a repeated bold label
+  ("**Kerr Agreed:**" on two lines) as one claim, so when a removed line takes its label,
+  the deletion check does not see the same label deleted from a line that stays. Removal
+  never cuts labels, so only a bug in the cut would do this.
+- Known (2026-10-20): "op" in `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` also
+  matches a sentence ending in "photo op.", so a claim there is kept as uncertain.
+  Abbreviations in neither that list nor the judge's still leave a fragment when a name
+  is removed before a number split.
+- **Open, older (learning-qa, 2026-10-20), for Dave to decide:**
+  - **F6.** The FQ version of C: removing the first sentence under a question heading moves
+    the "[in answer to: …]" tag onto the next sentence, which then counts as a claim, so
+    the deletion check refuses ("a claim was added or changed") and a flagged name stays,
+    so the entity check fails the stage. Fix: a claim that was already a sentence before
+    is not "added"; the gate still judges the saved file at publish.
+  - **F7.** A line left with only a plain label ("Note:") after its sentence is removed
+    stays in the text; "**Note:**" is dropped. Fix: treat a line left with only an
+    allowlisted label as empty.
+  - **F8.** A claim whose every copy is uncertain is listed as kept although a name flag
+    removed its sentence, so the run says "still has 1 flagged claim(s)". Fix: record the
+    claim with the name removal ("faithfulness (also name …)").
 - Not fixed (cold sweep): the judge-disabled case returns "fail" with names only; the
   message now says "no claim was flagged", which does not say the judge was off.
 

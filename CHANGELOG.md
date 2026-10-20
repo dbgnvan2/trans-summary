@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: open items C and B)
+
+`docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: open items C and B".
+- **C (RM1.g.1):** removing the first sentence of a line no longer makes the deletion
+  check refuse every removal in the artifact when the next sentence starts with a label
+  such as "Note:" or an enumerator such as "2) ". The check now compares sentences without
+  that label, as `extract_claims` reads the start of a line; the text keeps the label.
+  The refusal also kept flagged names, so the entity check could fail the stage. A
+  sentence whose line would then start with a skip label ("Status:") is still refused.
+- **B (RM1.i.1, RM1.i.2):** a split before a number no longer joins the two sentences, so
+  a flagged name deletes only its own sentence ("… the move. 2020 was a hard year." keeps
+  the second). A claim at such a split is still kept as uncertain. After an abbreviation
+  split a name still takes both parts; the part without the name is recorded as "same
+  sentence as name 'X' (uncertain split)".
+- Review (learning-qa) fixes in the same change: "ch", "chap", "sec", "est", "nos",
+  "pt", "para", "op" are uncertain-split abbreviations, so a name before "ch. 4" takes
+  the whole sentence ("p" is not needed: the judge already joins after single letters);
+  the deletion check counts copies, so reading "Note: X" as "X" cannot hide a lost copy;
+  a short claim ("Note: Kerr agreed.") is exempt only when it stopped being a claim:
+  both sides are counted against the claims `extract_claims` returns, so a copy the
+  judge did not read as a claim before (too short, or on a skipped line) does not
+  count, and a short sentence it reads as a claim under a question heading is not
+  short; each part of a split with its own name gives that name only.
+- A line removed whole no longer excuses any lost sentence or claim found in its text.
+  It takes only the claims `extract_claims` loses when that line alone is deleted from
+  the document, beyond its sentences (a bold label such as "Kerr Agreed", or under a
+  question heading the label and sentence read as one claim), one copy each.
+- Known side effect of B: a name sentence followed by a number sentence on a line with
+  a bold label after "1. ", "> ", "• " or "+ " is now refused (a stray `**` would be
+  left) instead of removed with the number sentence; recorded in `TODO.md`.
+- Tests: 20 new tests (27 cases) in `tests/test_remove_flagged_rm.py`; 18 rules were
+  reverted one at a time, 17 make a test fail and the 18th gives the same results.
+
 ## [Unreleased] - 2026-10-19 (Removal: cold-sweep fixes)
 
 Cold review of the RM change on Mac mini1 (`docs/plan_remove_flagged_2026-10-19.md`,

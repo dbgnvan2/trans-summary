@@ -77,7 +77,7 @@ sentence before and after it; `kept` holds each claim not removed with the reaso
 | RM1.d | A flagged sentence that is only part of a longer, unflagged sentence is not removed (adversarial, P7): "Kerr says X." is flagged, "Michael Kerr says X." is not. |
 | RM1.e | Front matter: when a removed sentence also appears in the overview's front-matter `faq` answers, it is removed there too, so the page's FAQ data does not keep it. An answer left empty removes its `q`/`a` pair. The front matter must still parse with the same parser the page builder uses. |
 | RM1.f | The last sentence under a heading is kept (reason: "only text under heading …"), so no section is left empty. |
-| RM1.g | **Deletion-only check.** The result is used only if (1) a word-level diff of input to output has no insertions or replacements, only deletions; (2) `extract_claims(output)` equals `extract_claims(input)` minus the removed claims, in order; (3) headings and front-matter keys are unchanged. If any part fails, the input is returned unchanged, every claim goes to `kept` with "deletion check failed", and the caller warns. |
+| RM1.g | **Deletion-only check.** The result is used only if (1) a word-level diff of input to output has no insertions or replacements, only deletions; (2) `extract_claims(output)` equals `extract_claims(input)` minus the removed claims, in order (a line removed whole also takes the claims `extract_claims` loses when only that line is deleted, beyond its sentences, such as a bold label; a claim too short to count once its label is stripped at the start of its line is not lost; copies are counted, 2026-10-20); (3) headings and front-matter keys are unchanged. If any part fails, the input is returned unchanged, every claim goes to `kept` with "deletion check failed", and the caller warns. |
 | RM1.h | **Share cap.** If the removals would take out more than `config.FAITHFULNESS_REMOVE_MAX_SHARE` of the body's words (D5: 0.25; the replay's largest was 9.2%), nothing is removed and the caller warns with the count and the share it would have removed. |
 | RM1.i | With `names` (D4): each sentence of the body that contains a rejected name as a whole word is removed under the same rules. A name in a heading or the front matter cannot be removed and is kept with that reason. |
 
@@ -287,7 +287,7 @@ each with a test that fails without it:
 | Two flags on one sentence cut it twice: an unflagged neighbour deleted, or every removal refused | one span per sentence; one Removed entry naming both reasons | `test_rm1i_claim_and_name_flag_same_sentence_cut_once`, `test_rm1a_fq_tagged_and_plain_copy_section_not_emptied`, `test_rm4a_two_reasons_listed` |
 | The deletion check compared claims only, so a lost short sentence passed | every body sentence is checked | `test_rm1g_short_unflagged_sentence_lost_rejected` |
 | `_EMPTY_LINE` backtracked exponentially on a run of list markers (a hang) | one marker per repetition | `test_rm1b_marker_run_line_does_not_backtrack` (child process with a timeout) |
-| A split after "U.S.", "Ph.D.", "Sen.", "et al.", a month, or before a number left a fragment | such a split is uncertain: a claim there is kept ("sentence boundary uncertain"); a name takes the whole sentence. List: `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` | `test_rm1a_unsure_sentence_boundary_kept`, `test_rm1a_unsure_boundary_more_abbreviations`, `test_rm1a_unsure_copy_kept_other_copy_removed`, `test_rm1i_name_in_unsure_split_takes_whole_sentence` |
+| A split after "U.S.", "Ph.D.", "Sen.", "et al.", a month, or before a number left a fragment | such a split is uncertain: a claim there is kept ("sentence boundary uncertain"); a name takes the whole sentence (since 2026-10-20, RM1.i.1: only after an abbreviation; before a number a name takes its own part). List: `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` | `test_rm1a_unsure_sentence_boundary_kept`, `test_rm1a_unsure_boundary_more_abbreviations`, `test_rm1a_unsure_copy_kept_other_copy_removed`, `test_rm1i_name_in_unsure_split_takes_whole_sentence` |
 | A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "still in the front matter's FAQ answers" | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
 | Older than the sweep: a bold lead sentence ("**Kerr says X.** …") was dropped with the line, unrecorded | bold text that ends like a sentence is not a label | `test_rm1b_bold_lead_sentence_not_dropped` |
 | RM2.e: the guard skipped required items already at low keyword confidence, which the gate decides with an LLM check | such an item keeps the claim sentences ("could not place required item"); a name sentence still goes, and a claim in it is not listed as kept | `test_rm2e_item_already_low_keeps_claims_not_names`, `test_rm1i_claim_and_name_same_sentence_unplaced_item_not_kept` |
@@ -306,8 +306,9 @@ removed. How often this happens was not measured (no project data on Mini1).
 
 ## Follow-up: open items C and B (plan, 2026-10-20)
 
-Status: **plan, not approved.** Dave asked for items C and B from `TODO.md` ("Open, from
-the correctness re-review"), C first. Both were reproduced on `d353c73` with
+Status: **built 2026-10-20**. Approved 2026-10-20: "build RM1.g.1, RM1.i.1 and RM1.i.2 as
+planned." See **Built (2026-10-20)** at the end of this section. Dave asked for items C
+and B from `TODO.md` ("Open, from the correctness re-review"), C first. Both were reproduced on `d353c73` with
 `remove_flagged_sentences` (no API calls):
 
 - **C.** `"Kerr says the move happened in the spring of that year. Note: the family was
@@ -353,3 +354,59 @@ Not in this change:
   Retrying with the name removals alone would narrow this; it is a separate change.
 - Adjacent, not fixed: the abstract treats a judge error with a flagged name as
   "unavailable" and keeps the name (proposed separately as its own session).
+
+### Built (2026-10-20)
+
+All three IDs are built in `flagged_removal.py` with the tests named above, each checked
+to fail with its rule reverted. Mini1's stash tests for B and C (4 tests, 5 cases) also
+pass against the fix. Both suite runs pass. learning-qa reviewed the diff and found 5
+problems in it; all are fixed, each with a test that fails without its fix:
+
+| Finding | Fix | Test |
+|---|---|---|
+| "ch. 4", "est. 1950" were joined only by the number rule, so after RM1.i.1 a name left a fragment ("4 of the book.") | "ch", "chap", "sec", "est", "nos", "pt", "para" and (after the re-check) "op" added to `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS`; "no", "art", "ex" left out (they often end a sentence; the judge already joins after "no"); "p" not needed (the judge joins after single letters) | `test_rm1i1_name_after_abbreviation_before_number_takes_both_parts` |
+| The short-claim exemption accepted a removal whose line then starts with "Status:", which the judge skips | the exemption counts only sentences that are not claims (`fj._is_claim` on the text the judge reads); the final form is in the re-check table below | `test_rm1g1_short_claim_on_skipped_line_still_refused`, `test_rm1g1_long_claim_judge_no_longer_reads_is_lost` |
+| With "Note: X" read as "X", removing one X let an unflagged "Note: X" copy go too | `deletion_problems` counts copies: it takes a Counter of the cut sentences, and no more copies of a claim or sentence may go than were cut | `test_rm1g1_label_copy_lost_is_counted` |
+| With a name in each part of a split, a part was listed as "same sentence as" the other name | a part with its own reason gives that reason only | `test_rm1i2_two_names_each_part_gives_its_own_name` |
+| Comments in `config.py`, on `_Sentence.group` and in the cold-sweep table said a name takes the whole sentence at a number split | updated | — |
+
+Differences from the plan text: the short-claim exemption ("Note: Kerr agreed." is a
+claim, "Kerr agreed." is not) and the copy counting were not in the plan; both come from
+the same cause as C. `test_rm1g1_skip_label_moved_to_line_start_still_refused` now puts
+the rest of the paragraph on its own line, so the refusal it checks is the one for the
+"Status:" sentence.
+
+learning-qa re-checked the fixes twice. Each problem below is fixed with a test that
+fails without the fix. The last design counts from the judge's own output
+(`extract_claims`) instead of copying its line rules into removal, which is where three
+of these problems came from:
+
+| Finding | Fix | Test |
+|---|---|---|
+| Re-check 1 #1: the short-claim exemption counted a "Kerr agreed." already on another line, not a claim, so the "Note: Kerr agreed." claim lost to a "Status:" line was excused | only sentences that stopped being claims count: `shorter` = the short sentences of `after` (`_is_claim` on the text the judge reads, keyed by the text without its label) that `extract_claims(after)` does not return, less every sentence of `before` that `extract_claims(before)` does not return | `test_rm1g1_short_claim_copy_on_other_line_does_not_excuse_loss` (2 cases) |
+| Mutation run: a "Status:" line the cut makes the judge read added its short sentences to the exemption | the `before` side counts every sentence the judge did not return, including those on skipped lines (above) | `test_rm1g1_sentence_on_line_judge_skipped_does_not_excuse_loss` |
+| Re-check 1 #2: a line removed whole excused any lost sentence or claim found in its text, without counting copies | the substring exemption is gone. A removed line takes the claims `extract_claims` loses when only that line is deleted from the document, less its own sentences (counted as cut), one copy each: its bold label. Two earlier tries were dropped: passing only what is left of the line after the cut refused "1. **Kerr Agreed:** …", whose label is part of the cut sentence; reading the line alone refused the question-heading lines below | `test_rm1g1_dropped_line_text_does_not_excuse_loss`, `test_rm1g1_dropped_line_sentence_counted_once`, `test_rm1g1_label_claim_goes_with_its_line` (2 cases) |
+| Re-check 2 #1 (regression): under a question heading the judge reads the first line's label and sentence as one claim ("Kerr Agreed — Zed Example …", "• **Kerr Agreed:** …"); reading the removed line alone missed it, so the removal was refused and the name stayed | the line's claims are read in the document (above) | `test_rm1g1_label_line_under_question_heading_goes` (2 cases) |
+| Re-check 2 #2: a short first sentence under a question heading is a claim (the judge adds the question), but removal counted it as short, which excused a claim lost elsewhere | short sentences are counted less the claims `extract_claims` returns, on both sides | `test_rm1g1_question_tagged_short_sentence_is_a_claim` |
+| Re-check 1 #3: removal's `_judge_skips` and `extract_claims` disagreed on lines under a question heading (`_QA_INSERT_AT`) | `_judge_skips` and the `read_only` filter are removed: with the counts taken from the judge's claims they changed no result (a sentence left on a line that came to be skipped keeps its text, so it is short only if it was before); the TODO item is dropped | all of the above still pass |
+
+The rules of this change were reverted one at a time (18 mutations,
+`mutate_cb4.py` in the session scratchpad): 17 make a test fail. The 18th, deriving the
+`before` side from `_is_claim` instead of from `extract_claims(before)`, gives the same
+result for every deletion (a deletion cannot move a sentence off the start of its line
+or out from under its question heading); the form taken from the judge is kept.
+
+Side effect of RM1.i.1, not fixed here (in `TODO.md`): learning-qa's grid of 2,142
+synthetic line shapes, run against HEAD's module, has 126 lines that HEAD removed whole
+and this change refuses. All have a name sentence followed by a number sentence
+("… the move. 2020 was hard."), where HEAD also deleted the unflagged number sentence
+(item B). Taking only the name's sentence then trips two older problems: a bold label
+after "1. ", "> ", "• " or "+ " is inside the sentence's span, so the cut leaves a stray
+`**`; and under a question heading the question tag moves onto the next sentence (F6).
+The name is kept, so the entity check fails the stage instead of a correct sentence
+being lost unreported.
+
+Older problems learning-qa found, not fixed here (in `TODO.md`, for Dave to decide):
+the FQ version of C (a question heading's tag moves onto the next sentence, which becomes
+a claim, so the check refuses and a name stays); a line left with only "Note:" after its
+sentence goes; a claim listed as kept when a name removed its sentence.

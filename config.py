@@ -1222,13 +1222,17 @@ FAITHFULNESS_REMOVE_MAX_SHARE = 0.25
 # Abbreviations after which the judge's sentence splitter may cut a sentence in two
 # ("He served with Sen. Smith" -> "He served with Sen." + "Smith ..."). A split after
 # one of these, after a token with two periods ("U.S.", "Ph.D.") or before a number is
-# treated as uncertain: a claim there is kept, a name there takes the whole sentence.
-# Case is ignored. The splitter already joins after Dr., Mr., etc. and single initials.
+# treated as uncertain: a claim there is kept. After an abbreviation a name takes the
+# whole sentence, both parts; before a number it takes only its own part (RM1.i.1), so
+# an abbreviation that comes before numbers ("ch. 4", "est. 1950", "op. 27") must be
+# listed here. Words that often end a sentence ("no", "art", "ex") are left out. Case is
+# ignored. The splitter already joins after Dr., Mr., No., etc. and single letters
+# ("p. 12"), so those need no entry.
 FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS = (
     "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
     "sen", "gov", "rep", "lt", "col", "capt", "sgt", "mt", "ft", "ave", "univ", "corp",
     "ltd", "fig", "vol", "pp", "al", "approx", "ca", "cf", "ed", "eds", "trans", "mass",
-    "calif",
+    "calif", "ch", "chap", "sec", "est", "nos", "pt", "para", "op",
 )
 
 

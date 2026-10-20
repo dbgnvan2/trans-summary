@@ -512,6 +512,267 @@ def test_rm1a_body_copy_not_located_reason():
     assert kept == [fr.Kept(flag, "removed in part; one copy kept: " + fr.NOT_FOUND)]
 
 
+# --- Items C and B (2026-10-20): RM1.g.1, RM1.i.1, RM1.i.2 ----------------------------
+
+ZED = fr.Flag("the name 'Zed Example' does not appear in the source",
+              kind="name", name="Zed Example")
+OPENING = "### Body\n\nKerr opens with a long story about the family.\n\n"
+NOTE = "Note: the family was anxious about the move to the city."
+REST = " Kerr adds a long example about his own family.\n"
+
+
+def test_rm1g1_label_after_removed_claim_removed():
+    """Item C: removing the first sentence of a line put "Note: ..." at the start of the
+    line, where the label is stripped, so the deletion check refused the removal."""
+    flag = "Kerr says the move happened in the spring of that year."
+    text = f"{OPENING}{flag} {NOTE}{REST}"
+    out, removed, kept = _remove(text, [flag])
+    assert [r.sentence for r in removed] == [flag] and kept == []
+    assert out == f"{OPENING}{NOTE}{REST}"  # the label stays in the text
+
+
+def test_rm1g1_label_after_removed_name_removed():
+    """Item C: the refusal also kept a name, so the entity check failed the stage. A
+    short sentence that is a claim only with its label ("Note: Kerr agreed.") is not a
+    claim at the start of a line; that is not a loss either."""
+    for after in (NOTE, "Note: Kerr agreed."):
+        text = f"{OPENING}Zed Example spoke at length about the move. {after}{REST}"
+        out, removed, kept = _remove(text, [ZED])
+        assert [r.sentence for r in removed] == ["Zed Example spoke at length about the move."]
+        assert kept == [] and out == f"{OPENING}{after}{REST}"
+
+
+def test_rm1g1_enumerator_after_removed_name_removed():
+    """Item C, enumerator: "2) Then ..." starts the line once the name sentence before it
+    goes (it no longer joins that sentence, RM1.i.1)."""
+    second = "2) Then the family moved to the city."
+    text = f"{OPENING}Zed Example spoke at length about the move. {second}{REST}"
+    out, removed, kept = _remove(text, [ZED])
+    assert [r.sentence for r in removed] == ["Zed Example spoke at length about the move."]
+    assert kept == [] and out == f"{OPENING}{second}{REST}"
+
+
+def test_rm1g1_unflagged_label_sentence_lost_still_caught():
+    """RM1.g.1 adversarial (P7): reading "Note: X" as "X" must not hide a real loss. An
+    unflagged "Note: ..." sentence deleted with the flagged one is still reported."""
+    flag = "Kerr says the move happened in the spring of that year."
+    before = f"{OPENING}{flag} {NOTE}{REST}"
+    after = f"{OPENING}{REST.lstrip()}"
+    problems = fr.deletion_problems(before, after, {flag})
+    assert any("not flagged" in p and "the family was anxious" in p for p in problems)
+
+
+def test_rm1g1_skip_label_moved_to_line_start_still_refused():
+    """RM1.g.1 adversarial: a "Status:" line is skipped whole by extract_claims, so moving
+    "Status: ..." to the start of its line would hide its claims from the judge. That
+    removal is still refused, with the reason. The "Status:" sentence is the only
+    other one on its line, so it is what the refusal names."""
+    flag = "Kerr says the move happened in the spring of that year."
+    status = "Status: the family was anxious about the move."
+    text = f"{OPENING}{flag} {status}\n\n{REST.lstrip()}"
+    out, removed, kept = _remove(text, [flag])
+    assert out == text and removed == []
+    assert kept[0].claim == flag and kept[0].reason.startswith("deletion check failed")
+    assert status in kept[0].reason
+
+
+def test_rm1g1_short_claim_on_skipped_line_still_refused():
+    """learning-qa #2: "Note: Kerr agreed." is a claim, "Kerr agreed." is not. Once its
+    line starts with "Status:", the judge skips the line, so it is lost, not only
+    shorter: the removal is refused."""
+    text = (f"{OPENING}Zed Example spoke at length about the move. Status: done. "
+            f"Note: Kerr agreed.\n\n{REST.lstrip()}")
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert kept[0].reason.startswith("deletion check failed") and "Kerr agreed." in kept[0].reason
+
+
+def test_rm1g1_long_claim_judge_no_longer_reads_is_lost(monkeypatch):
+    """RM1.g.1: the exemption is for claims too short to count without their label. A
+    long claim extract_claims no longer returns is lost, even with its sentence still
+    on a line (here the second call, on ``after``, leaves it out)."""
+    x = "Kerr says the move happened in the spring of that year."
+    text = f"{OPENING}{x}{REST}"
+    real, calls = fj.extract_claims, []
+
+    def claims(t, *a, **k):
+        calls.append(t)
+        out = real(t, *a, **k)
+        return out if len(calls) == 1 else [c for c in out if c != x]
+
+    monkeypatch.setattr(fj, "extract_claims", claims)
+    problems = fr.deletion_problems(text, text, set())
+    assert any("claim was lost" in p and x[:30] in p for p in problems)
+
+
+def test_rm1g1_label_copy_lost_is_counted():
+    """learning-qa #3: with "Note: X" read as "X", removing one X must not let an
+    unflagged "Note: X" copy go too. Copies are counted; two cut copies may both go."""
+    x = "Kerr says the move happened in the spring of that year."
+    before = f"{OPENING}{x} Kerr adds a long example about his own family. Note: {x}\n"
+    after = f"{OPENING}Kerr adds a long example about his own family.\n"
+    problems = fr.deletion_problems(before, after, {x})
+    assert any("claim was lost" in p and x[:30] in p for p in problems)
+    assert any("sentence was lost" in p and x[:30] in p for p in problems)
+    from collections import Counter
+    assert fr.deletion_problems(before, after, Counter({x: 2})) == []
+
+
+@pytest.mark.parametrize("copy", ["Note: Kerr agreed.", "Kerr agreed."])
+def test_rm1g1_short_claim_copy_on_other_line_does_not_excuse_loss(copy):
+    """learning-qa re-check #1: "Kerr agreed." already on another line, read and not a
+    claim, does not make up for the "Note: Kerr agreed." claim lost when its line came
+    to start with "Status:". Only sentences that stopped being claims count."""
+    text = (f"{OPENING}Zed Example spoke at length about the move. Status: done. "
+            f"Note: Kerr agreed.\n\n{copy}\n\n{REST.lstrip()}")
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert kept[0].reason.startswith("deletion check failed") and "Kerr agreed." in kept[0].reason
+
+
+def test_rm1g1_sentence_on_line_judge_skipped_does_not_excuse_loss():
+    """RM1.g.1: "Kerr agreed." on a "Status:" line the judge skipped was never a claim.
+    When the cut makes the judge read that line, it does not make up for the "Note: Kerr
+    agreed." claim lost on the line that now starts with "Status:"."""
+    text = (f"{OPENING}Zed Example spoke at length about the move. Status: done. "
+            f"Note: Kerr agreed.\n\nStatus: Zed Example did it. Kerr agreed.\n\n"
+            f"{REST.lstrip()}")
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert kept[0].reason.startswith("deletion check failed") and "Kerr agreed." in kept[0].reason
+
+
+def test_rm1g1_dropped_line_text_does_not_excuse_loss():
+    """learning-qa re-check #2: a line removed whole excused any lost sentence found in
+    its text, without counting copies. "Kerr agreed." inside the removed sentence is not
+    the "Kerr agreed." sentence on another line."""
+    removed_line = "- Zed Example said that Kerr agreed."
+    before = (f"{OPENING}{removed_line}\n\n"
+              f"Kerr adds a long example about his own family. Kerr agreed.\n")
+    after = f"{OPENING}Kerr adds a long example about his own family.\n"
+    problems = fr.deletion_problems(before, after, {"Zed Example said that Kerr agreed."},
+                                    [removed_line])
+    assert any("sentence was lost" in p and "Kerr agreed." in p for p in problems)
+    # The same for a claim: only claims read from the removed line itself may go with it.
+    claim = "Kerr agreed to the move in the spring."
+    removed_line = f"- Zed Example said that {claim}"
+    before = f"{OPENING}{removed_line}\n\nKerr adds a long example about his own family. {claim}\n"
+    problems = fr.deletion_problems(before, after, {f"Zed Example said that {claim}"},
+                                    [removed_line])
+    assert any("claim was lost" in p and claim[:20] in p for p in problems)
+
+
+@pytest.mark.parametrize("label", ["**Kerr Agreed** —", "• **Kerr Agreed:**"])
+def test_rm1g1_label_line_under_question_heading_goes(label):
+    """learning-qa re-check 2 #1: under a question heading the judge reads the first
+    line's label and sentence as one claim ("Kerr Agreed — Zed Example ..."). The
+    line's claims are read in the document, so removing the line is not refused."""
+    question = "### Why did they move?\n\n"
+    text = (f"{question}{label} Zed Example spoke at length about the move.\n\n"
+            f"Kerr adds a long example about his own family.\n")
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and len(removed) == 1
+    assert out == f"{question}Kerr adds a long example about his own family.\n"
+
+
+def test_rm1g1_question_tagged_short_sentence_is_a_claim():
+    """learning-qa re-check 2 #2: a short first sentence under a question heading is a
+    claim (the judge adds the question). Counting it as too short excused the "Note:
+    Kerr agreed." claim lost on the line that now starts with "Status:"."""
+    text = ("### Why did they move?\n\nZed Example moved them. Note: Kerr agreed.\n\n"
+            "Kerr adds a long example about his own family.\n\n### Later\n\n"
+            "Zed Example spoke at length. Status: ok. Note: Kerr agreed.\n\n"
+            "Kerr ends with a long story about the family.\n")
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert kept[0].reason.startswith("deletion check failed") and "Kerr agreed." in kept[0].reason
+
+
+def test_rm1g1_dropped_line_sentence_counted_once():
+    """RM1.g: the sentence of a line removed whole is counted once, as cut. Its copy on a
+    line that stays is not excused by the line too."""
+    x = "Kerr says the move happened in the spring of that year."
+    before = f"{OPENING}- {x}\n\nKerr adds a long example about his own family. {x}\n"
+    after = f"{OPENING}Kerr adds a long example about his own family.\n"
+    problems = fr.deletion_problems(before, after, {x}, [f"- {x}"])
+    assert any("claim was lost" in p and x[:30] in p for p in problems)
+
+
+@pytest.mark.parametrize("label", ["1. **Kerr Agreed:**", "**Kerr Agreed:**"])
+def test_rm1g1_label_claim_goes_with_its_line(label):
+    """RM1.g: extract_claims reads a capitalised bold label ("Kerr Agreed") as a claim of
+    its own. Removing the line's only sentence removes the line and the label with it;
+    that is not a loss. After "1. " the label is part of the sentence removed."""
+    text = f"{OPENING}{label} Zed Example spoke at length about the move.\n\n{REST.lstrip()}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and len(removed) == 1 and "Zed Example" not in out
+    assert out == f"{OPENING}{REST.lstrip()}"
+
+
+def test_rm1i1_name_before_number_split_takes_only_its_sentence():
+    """Item B: a split before a number joined the two sentences, so a name also deleted
+    the correct sentence after it. The name takes only its own sentence."""
+    text = (f"{OPENING}Zed Example spoke at length about the move. "
+            f"2020 was a hard year for the whole family.{REST}")
+    out, removed, kept = _remove(text, [ZED])
+    assert [r.sentence for r in removed] == ["Zed Example spoke at length about the move."]
+    assert kept == [] and out == f"{OPENING}2020 was a hard year for the whole family.{REST}"
+
+
+def test_rm1i1_claim_before_number_split_still_kept():
+    """RM1.i.1: the split before a number is still uncertain for a claim, on either side."""
+    line = "The family moved to the city in the spring. 2020 was a hard year for them all."
+    for flag in ("The family moved to the city in the spring.",
+                 "2020 was a hard year for them all."):
+        text = f"{OPENING}{line}{REST}"
+        out, removed, kept = _remove(text, [flag])
+        assert out == text and removed == []
+        assert kept == [fr.Kept(flag, fr.UNSURE_BOUNDARY)]
+
+
+@pytest.mark.parametrize("line", [
+    "Zed Example covered this in ch. 4 of the book.",
+    "Kerr covers this in ch. 4 with Zed Example as the case.",
+    "Zed Example ran the clinic, est. 1950 in the city.",
+    "Zed Example wrote about it in sec. 3 of the report.",
+    "Zed Example played op. 27 in the spring of that year.",
+])
+def test_rm1i1_name_after_abbreviation_before_number_takes_both_parts(line):
+    """learning-qa #1: "ch. 4", "est. 1950", "op. 27" were joined only by the number rule,
+    so after RM1.i.1 a name left a fragment ("4 of the book."). They are listed
+    abbreviations."""
+    text = f"{OPENING}{line}{REST}"
+    out, removed, kept = _remove(text, [ZED])
+    assert out == f"{OPENING}{REST.lstrip()}" and kept == []
+    assert len(removed) == 2
+
+
+def test_rm1i2_two_names_each_part_gives_its_own_name():
+    """learning-qa #4: with a name in each part, each part is recorded under its own
+    name, not as "same sentence as" the other."""
+    smith = fr.Flag("the name 'Smith' does not appear in the source", kind="name",
+                    name="Smith")
+    text = f"{OPENING}Zed Example served with Sen. Smith on the committee for years.{REST}"
+    for flags in ([ZED, smith], [smith, ZED]):
+        out, removed, kept = _remove(text, flags)
+        assert [(r.sentence, r.reason) for r in removed] == [
+            ("Zed Example served with Sen.", "name 'Zed Example'"),
+            ("Smith on the committee for years.", "name 'Smith'")]
+
+
+def test_rm1i2_split_part_without_name_has_own_reason():
+    """Item B: the part of an abbreviation split without the name was recorded under the
+    name. It now says it is the same sentence, split where it may not end."""
+    text = f"{OPENING}Zed Example served with Sen. Smith on the committee for years.{REST}"
+    out, removed, kept = _remove(text, [ZED])
+    assert [(r.sentence, r.reason) for r in removed] == [
+        ("Zed Example served with Sen.", "name 'Zed Example'"),
+        ("Smith on the committee for years.",
+         "same sentence as name 'Zed Example' (uncertain split)")]
+    assert kept == [] and "Smith" not in out
+    assert rr._why({"reason": removed[1].reason}) == removed[1].reason  # the list's text
+
+
 # --- RM2: wiring into generation ----------------------------------------------------
 
 FLAG = "He says the choir will tour next spring."
