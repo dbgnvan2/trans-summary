@@ -1,6 +1,9 @@
 # Plan: the open removal items and Mini1's cold review of 813dd3c (2026-10-20)
 
-Status: **planned 2026-10-20, waiting for approval.** Nothing here is built.
+Status: **approved 2026-10-20** ("build the plan … as written, with D3 (leave the
+number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7) is
+built; commits 2–4 are not. See **Built** at the end for what was built and where it
+differs from the text below.
 
 Scope: everything still open on sentence removal (`flagged_removal.py`) after 813dd3c,
 except the work that needs a decision or paid runs (listed at the end). Sources:
@@ -142,3 +145,93 @@ carries its rule ID.
   it as a marker. No artifact has this shape. I recommend leaving it.
 - **Merging `refs/heads/claude/sad-wu-724a11`** (the abstract judge-error fix, built in
   its own session) into main.
+
+## Built
+
+### Commit 1: the deletion check (2026-10-20)
+
+| ID | Status | Where | Tests |
+|---|---|---|---|
+| RM1.g.4 | done | `flagged_removal._split_line` reads a line as the judge splits it: the sentences removal placed and, from the first one it could not place, each of the rest with no span. `_all_sentences` returns both; `own` in `deletion_problems` and `_body_sentences` use it. `_line_sentences` still returns the placed ones only, so removal is unchanged. | `test_rm1g4_unplaced_sentence_on_dropped_line_not_excused` (3 cases), `test_rm1g4_unplaced_sentence_not_excused_when_placement_fails`, `test_rm1g4_change_after_unplaced_split_seen`, `test_rm1g4_unplaced_first_sentence_read_without_its_label`, `test_rm1g4_label_line_still_goes` |
+| RM1.g.5 | done | `_sentence_marks`, `_body_marks` and the marks block in `deletion_problems`; the claim-loss and sentence-loss loops skip a number-only sentence, which the marks count. A line removed whole excuses only the marks at its start (`line_marks` of `_split_line`). | `test_rm1g5_number_sentence_moves_to_line_start` (6 cases), `test_rm1g5_label_or_number_alone_deleted_refused` (3), `test_rm1g5_label_added_refused`, `test_rm1g5_label_after_unplaced_split_counted`, `test_rm1g5_bold_only_line_deleted_refused`, `test_rm1g5_repeated_bold_label_deleted_refused`, `test_rm1g5_label_or_number_moving_to_line_start_passes` (3), `test_rm1g5_number_left_alone_on_dropped_line_refused` (6), `test_rm1g5_mark_of_cut_sentence_on_dropped_line_counted_once` (2) |
+| RM1.g.7 | done | `_cut` | `test_rm1g7_cut_refuses_overlapping_spans`, `test_rm1g7_overlap_keeps_draft` |
+
+Where it differs from the text above:
+
+- The helper is `_split_line`, not `_line_parts`. It returns the placed sentences, the
+  unplaced ones and the marks (labels, list numbers, a bold-only line). A new `_find` is
+  the one place a sentence is placed in its line; RM1.b.3 (commit 3) changes it, and the
+  RM1.g.4 tests patch it to make a sentence unplaceable.
+- An unplaced first sentence is read without the bold label the judge reads with it, as
+  a placed one is. Without this, 8 grid lines ("1. **Note:** Zed … **He met Dr. Bowen
+  …**", non-breaking space) were refused for "a label was added".
+- A bold-only line may be new after a cut (a bold lead sentence left alone on its line,
+  `test_rm1b_bold_lead_sentence_not_dropped`); it may never be lost.
+- The plan put the bold-only line and the repeated bold label in
+  `test_rm1g5_label_or_number_alone_deleted_refused`; each has its own test. The repeated
+  label is a guard: ec60324's bold-label count (`_label_runs`) already refuses it.
+- `test_rm1g5_number_sentence_moves_to_line_start` also runs after "**Kerr Agreed:** "
+  and "> **Kerr Agreed:** ". The second one fails when the marks are read from the
+  sentence with its label (the shape of 442 false refusals in the first grid run).
+- Two existing tests changed. `test_rm1g1_label_copy_lost_is_counted` now passes the
+  texts removal really cuts (the "Note: X" copy, with its label) and also checks that one
+  label too many lost is reported. `test_rm1g2_label_only_sentence_compared_as_is` now
+  also expects "a list number was lost: '1.'", which is correct for its input.
+
+learning-qa review of the commit (4 findings, all fixed before the commit except 2C):
+
+1. **A number left alone on a line removed whole went unrecorded (high, new in this
+   change).** "Zed Example founded the center that year. 1975." with a name flag: the cut
+   left "1975.", `_EMPTY_LINE` read it as a list marker and dropped the line, both loss
+   loops skip a number-only sentence, and the dropped line's marks excused it. ec60324
+   refused this removal. Fix: `_split_line` also returns `line_marks`, the label and list
+   number at the line's start (or the bold-only line), and a line removed whole excuses
+   only those. Such a removal is refused again, so the name is kept. Test:
+   `test_rm1g5_number_left_alone_on_dropped_line_refused` (6 shapes, from the review). My
+   grid missed it: every "2." body had a sentence after the number (P33).
+2. **A mark counted twice (high, reached only by calling `deletion_problems` directly).**
+   A sentence both cut and on a dropped line gave its label or number once from the line
+   and once from the cut text, and the spare one excused the same mark deleted from a
+   line that stays (cases A and B). The fix for 1 closes both. Test:
+   `test_rm1g5_mark_of_cut_sentence_on_dropped_line_counted_once`. Not fixed, case C: the
+   allowance comes from the removed list, not from what left the text, so a removed list
+   that does not match the edit could excuse a mark lost elsewhere. Removal builds the
+   list from the spans it cuts, so this needs two bugs at once; closing it needs the check
+   to match lines before and after. Recorded in TODO.md.
+3. **Two branches had no test.** "A sentence that cannot be placed ends the line's list"
+   (`test_rm1g4_sentence_after_unplaced_one_not_removable`) and the unplaced label read
+   only when the judge's text starts with it
+   (`test_rm1g4_unplaced_label_split_only_when_text_starts_with_it`).
+4. **Literal non-breaking spaces in three test lines.** They are now `\u00a0`; with a plain
+   space, `test_rm1g4_unplaced_sentence_on_dropped_line_not_excused` passes on ec60324 too.
+
+Adjacent, not fixed (pre-existing, found by the review): in "1975. Zed Example founded
+the center …" the judge strips "1975. " as a list number, so the year is never judged,
+and removal deletes it with the line. Recorded in TODO.md.
+
+Checks (scratch scripts, no API calls):
+
+- Output grid, `grid_c.py`: 6,838 lines (name and claim flags × 2 headings × 9 leads ×
+  15 labels × 13 bodies) against ec60324. 6,592 have the same output. 102 are now
+  refused, all the M1 shape: ec60324 deleted the unflagged "He met Dr. Bowen at the
+  center" with the flagged sentence. 144 now remove the flag, all "… the move. 2. The
+  group met again later." (M2), which ec60324 refused; the line becomes "2. The group met
+  again later." (D3). 18 have the same output with another refusal reason; both versions
+  refuse them. 182 had no claim to flag. None raises.
+- learning-qa's grid (`probe4.py`, 2,142 lines): all the same as ec60324. The bold-label
+  session's grids (2,080 name lines, 672 claim lines): none worse than ec60324; the 36
+  "&gt; " lines are refused by both.
+- Mutation: 22 mutants, each reverting one part of RM1.g.4, RM1.g.5, RM1.g.7 or the
+  review fixes, each fail at least one test.
+- After the review fixes: the grids above give the same numbers. learning-qa's token
+  grid (520 lines, 13 bodies, trailing numbers included): 0 removals delete a word that
+  was not flagged (ec60324: 12, the M1 shape); 366 lines removed, against 339.
+- Read-only scan of the artifacts in the three projects folders: 19 files (15
+  abstracts, 1 overview, 3 summaries), 83 body lines, 6 FAQ answers. No line has a judge
+  claim that removal cannot place, an inline number-only sentence, odd spacing after a
+  period, or an FAQ answer with an uncertain split. M1–M3 have not occurred in a real
+  artifact.
+- Suites, with `.venv/bin/python`, after the review fixes: `-m pytest tests/ -q -p
+  no:cacheprovider` 1,933 passed, 13 skipped; `-m pytest -q -p no:cacheprovider` 2,028
+  passed, 23 skipped, 1 xfailed (the tree also held commit 4's T-BE1 test). The RM test
+  file has 188 tests.

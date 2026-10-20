@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: the deletion check reads what the judge reads)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 1 of 4. Approved by Dave ("build the
+plan … as written"). Closes M1, M2 and most of M4 from Mini1's cold review of 813dd3c, and
+open item E.
+- **RM1.g.4 (M1):** the deletion check reads each line's sentences as the judge splits
+  them, including the ones removal cannot place in the raw line. The judge joins
+  "Dr." and "Bowen" with one space, so after "Dr." with a non-breaking space, a tab or
+  two spaces removal could not find "He met Dr. Bowen at the center". A name removal
+  earlier on that line then dropped the line, and the check excused the lost unflagged
+  claim (new in 813dd3c). That removal is now refused. A change after such a split is
+  now seen too (M4).
+- **RM1.g.5 (M2, M4):** the check counts what its sentence comparison leaves out: an
+  allowlisted label ("Note:"), a list number ("2)", "2."), a sentence that is only a list
+  number, and a bold-only line. None may be added, except a bold-only line that a cut
+  leaves alone; one may go only with a removed sentence that starts with it, or with its
+  line. A "2." sentence that moves to the start of its line counts as the same number,
+  so "Zed Example spoke … the move. 2. The group met again later." now loses the name
+  sentence; 813dd3c refused it, and the kept name failed the stage. Deleting a
+  mid-line "Note:" or "2)" alone, or a bold-only line, is now refused.
+- **RM1.g.7 (E):** `_cut` raises `ValueError` when two spans on a line overlap. The
+  pipeline already keeps the draft and records "removal failed".
+- **learning-qa review, fixed before the commit:** a number-only sentence the cut left
+  alone ("… that year. 1975.") dropped with its line, and the line's marks excused it, so
+  an unflagged number went with no record. A line removed whole now excuses only the
+  label and list number at its start, so that removal is refused, as at ec60324. This
+  also stops a cut sentence's label or number being counted twice. Two branches got
+  tests, and three test lines use `\u00a0` instead of a literal non-breaking space.
+- Grid check (scratch script, no API calls), 6,838 lines against ec60324: 102 now
+  refused, all removals that lost an unflagged sentence (M1); 144 now removed, all the
+  "2." case (M2); the rest unchanged. learning-qa's 2,142-line grid and the bold-label
+  grids (2,080 and 672 lines) show nothing worse. Its 520-line token grid finds no
+  removal that deletes an unflagged word (ec60324: 12). No real artifact has the M1–M3
+  shapes.
+
 ## [Unreleased] - 2026-10-20 (Removal: bold label after a list or quote marker)
 
 `docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: a bold label after a list or quote

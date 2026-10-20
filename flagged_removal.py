@@ -65,6 +65,8 @@ _DOUBTFUL_END = re.compile(
     + "|".join(map(re.escape, config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS))
     + r")\.)$", re.IGNORECASE)
 _DOUBTFUL_START = re.compile(r"^\d")
+# A sentence the judge splits off that is only a list number ("... the move. 2. The ...").
+_NUMBER_ONLY = re.compile(r"\d+[.)]")
 
 
 class Flag(str):
@@ -155,6 +157,29 @@ def _clean_with_map(raw: str, start: int) -> tuple:
     return "".join(chars), where
 
 
+def _find(body: str, text: str, cursor: int) -> Optional[tuple]:
+    """(start, end) of the sentence ``text`` in ``body`` from ``cursor``, or None."""
+    at = body.find(text, cursor)
+    return None if at < 0 else (at, at + len(text))
+
+
+def _sentence_marks(sentence: str, strip_prefixes: set) -> Counter:
+    """What ``_without_line_label`` takes off the start of ``sentence`` (an allowlisted
+    label, then a list number), or the sentence itself when it is only a list number
+    ("2."). The check compares sentences without these, so it counts them (RM1.g.5)."""
+    if _NUMBER_ONLY.fullmatch(sentence):
+        return Counter({("list number", sentence): 1})
+    out = Counter()
+    m = _LABEL_PREFIX.match(sentence)
+    if m and m.group(1).strip().lower() in strip_prefixes:
+        out[("label", m.group(1).strip().lower())] += 1
+        sentence = sentence[m.end():]
+    m = _ENUMERATOR.match(sentence)
+    if m:
+        out[("list number", m.group().strip())] += 1
+    return out
+
+
 def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
     """The sentences of one body line as extract_claims splits them, each with its
     span in the raw line. A sentence that cannot be placed ends the line's list, so
@@ -174,30 +199,65 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
              tests/test_remove_flagged_rm.py::test_rm1b1_claim_flag_after_marked_label,
              tests/test_remove_flagged_rm.py::test_rm1b1_abbreviation_in_bold_is_not_a_label
     """
+    return _split_line(raw, index, strip_prefixes)[0]
+
+
+def _split_line(raw: str, index: int, strip_prefixes: set) -> tuple:
+    """(sentences, unplaced, marks, line_marks) for one body line: the sentences
+    ``_line_sentences`` returns; each sentence from the first one that could not be
+    placed (a ``_Sentence`` with no span); the labels, list numbers and bold-only line
+    the deletion check counts (``_sentence_marks``, RM1.g.5); and of those, the ones
+    that go with the line when it is removed whole: the label and list number at its
+    start, or the bold-only line. The check reads a line's sentences as the judge
+    splits them, placed or not (RM1.g.4).
+
+    Purpose: Read one body line as extract_claims does, for removal and for the check.
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#RM1.g.4, #RM1.g.5
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_not_excused_when_placement_fails,
+             tests/test_remove_flagged_rm.py::test_rm1g5_label_or_number_alone_deleted_refused
+    """
     s = raw.strip()
-    if not s or _is_heading(raw) or _BOLD_ONLY.match(s):
-        return []
+    if not s or _is_heading(raw):
+        return [], [], Counter(), Counter()
+    if _BOLD_ONLY.match(s):
+        bold_only = Counter({("bold-only line", s): 1})
+        return [], [], bold_only, bold_only
     m = _INLINE_BOLD_LABEL.match(raw)
     clean, where = _clean_with_map(raw, m.start("rest") if m else 0)
     m_label = None if m else _MARKED_LABEL.match(raw)
     own_from = m_label.start("rest") if m_label else -1
+    marks = Counter()
     lead = _LINE_LEAD.match(clean).end()
     m_prefix = _LABEL_PREFIX.match(clean[lead:])
     if m_prefix and m_prefix.group(1).strip().lower() in strip_prefixes:
         lead += m_prefix.end()
+        marks[("label", m_prefix.group(1).strip().lower())] += 1
     m_enum = _ENUMERATOR.match(clean[lead:])
     if m_enum:
         lead += m_enum.end()
+        marks[("list number", m_enum.group().strip())] += 1
+    line_marks = Counter(marks)
     body = clean[lead:].rstrip()
-    out, cursor = [], 0
+    out, unplaced, cursor = [], [], 0
     for part in fj._split_sentences(body):
         text = part.strip()
         if not text:
             continue
-        at = body.find(text, cursor)
-        if at < 0:
-            break
-        lo, hi = lead + at, lead + at + len(text)
+        found = None if unplaced else _find(body, text, cursor)
+        if found is None:
+            # Not removable, but the check still reads it (RM1.g.4): as a first
+            # sentence, without the bold label the judge reads with it.
+            label = ""
+            if not out and not unplaced and own_from >= 0:
+                j = next((k for k in range(lead, len(clean)) if where[k] >= own_from), None)
+                if j is not None and text.startswith(clean[lead:j]):
+                    label = clean[lead:j]
+            sentence = _Sentence(index, -1, -1, text, label=label)
+            unplaced.append(sentence)
+            marks += _sentence_marks(sentence.own, strip_prefixes)
+            continue
+        at, end = found
+        lo, hi = lead + at, lead + end
         first, last = where[lo], where[hi - 1] + 1
         label = ""
         if not out and first < own_from < last:
@@ -209,6 +269,9 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
                and raw[last:last + 2] == raw[first - 2:first]):
             first, last = first - 2, last + 2
         sentence = _Sentence(index, first, last, text, group=len(out), label=label)
+        # Without a bold label the judge reads with it: after a cut, the label is read
+        # with the next sentence ("Kerr Agreed: 2.").
+        marks += _sentence_marks(sentence.own, strip_prefixes)
         after_abbreviation = bool(out) and bool(_DOUBTFUL_END.search(out[-1].text))
         if out and (after_abbreviation or _DOUBTFUL_START.match(text)):
             # Removing either side would leave a fragment ("He trained with the U.S.").
@@ -219,14 +282,25 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
                 # takes only its own part there (RM1.i.1).
                 sentence.group = out[-1].group
         out.append(sentence)
-        cursor = at + len(text)
-    return out
+        cursor = end
+    return out, unplaced, marks, line_marks
 
 
 def _cut(raw: str, spans: list) -> str:
     """``raw`` without the spans, each with the space that separated it from the next
-    sentence (or, at the end of the line, from the one before)."""
-    for start, end in sorted(spans, reverse=True):
+    sentence (or, at the end of the line, from the one before). Spans that overlap are
+    a bug in finding them: ``ValueError``, which the caller reports as a failed removal
+    (RM1.g.7).
+
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#RM1.g.7
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1g7_cut_refuses_overlapping_spans,
+             tests/test_remove_flagged_rm.py::test_rm1g7_overlap_keeps_draft
+    """
+    ordered = sorted(spans)
+    for (s1, e1), (s2, e2) in zip(ordered, ordered[1:]):
+        if s2 < e1:
+            raise ValueError(f"overlapping cut spans {s1}-{e1} and {s2}-{e2}")
+    for start, end in reversed(ordered):
         tail = raw[end:]
         if tail.strip():
             raw = raw[:start] + tail.lstrip(" \t")
@@ -324,13 +398,28 @@ def _tokens(text: str) -> list:
     return _TOKEN.findall(text)
 
 
+def _all_sentences(line: str, index: int, strip_prefixes: set) -> list:
+    """Every sentence of one body line as the judge splits it (``_Sentence``): the ones
+    removal placed, then each one it could not, with no span (RM1.g.4)."""
+    placed, unplaced, *_ = _split_line(line, index, strip_prefixes)
+    return placed + unplaced
+
+
 def _body_sentences(text: str) -> list:
-    """Every sentence of the body (``_Sentence``), short ones included, as removal reads
-    them."""
+    """Every sentence of the body (``_Sentence``), short ones included, as the judge
+    splits them, whether or not removal could place them (RM1.g.4)."""
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
     lines = _split(text)[2].split("\n")
     return [s for i, line in enumerate(lines)
-            for s in _line_sentences(line, i, strip_prefixes)]
+            for s in _all_sentences(line, i, strip_prefixes)]
+
+
+def _body_marks(lines, strip_prefixes: set, whole_lines: bool = False) -> Counter:
+    """The labels, list numbers and bold-only lines of ``lines`` (RM1.g.5); with
+    ``whole_lines``, only the ones that go with a line removed whole (``line_marks``)."""
+    at = 3 if whole_lines else 2
+    return sum((_split_line(line, i, strip_prefixes)[at] for i, line in enumerate(lines)),
+               Counter())
 
 
 def _without_line_label(sentence: str, strip_prefixes: set) -> str:
@@ -417,9 +506,26 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     ``before`` but not a claim is not an added claim (RM1.g.3): a label or a question's
     tag moved onto it.
 
+    A line's sentences are read as the judge splits them, not as removal placed them,
+    so one removal could not place is still checked (RM1.g.4). What the comparison
+    leaves out is counted instead (RM1.g.5): each allowlisted label and list number at
+    the start of a line or a sentence, each sentence that is only a list number ("2.",
+    the same item as "2. " starting a line), and each bold-only line. None may be added;
+    one may go only with a removed sentence that starts with it, or, when it starts its
+    line or is a bold-only line, with that line. A number-only sentence left on a line
+    removed whole is lost, not excused. A bold-only line may be new: a cut can leave a
+    bold lead sentence alone on its line.
+
     Purpose: Use a removal only when it deletes and changes nothing else.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1, #RM1.g.2, #RM1.g.3
-    Tests:   tests/test_remove_flagged_rm.py::test_rm1g_check_names_each_problem,
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1, #RM1.g.2, #RM1.g.3;
+             docs/plan_removal_open_items_2026-10-20.md#RM1.g.4, #RM1.g.5
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_on_dropped_line_not_excused,
+             tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_not_excused_when_placement_fails,
+             tests/test_remove_flagged_rm.py::test_rm1g4_change_after_unplaced_split_seen,
+             tests/test_remove_flagged_rm.py::test_rm1g5_number_sentence_moves_to_line_start,
+             tests/test_remove_flagged_rm.py::test_rm1g5_label_or_number_alone_deleted_refused,
+             tests/test_remove_flagged_rm.py::test_rm1g5_bold_only_line_deleted_refused,
+             tests/test_remove_flagged_rm.py::test_rm1g_check_names_each_problem,
              tests/test_remove_flagged_rm.py::test_rm1g_changed_text_rejected_draft_unchanged,
              tests/test_remove_flagged_rm.py::test_rm1g1_label_after_removed_name_removed,
              tests/test_remove_flagged_rm.py::test_rm1g1_unflagged_label_sentence_lost_still_caught,
@@ -456,8 +562,9 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     problems = []
     if not _is_subsequence(_tokens(after), _tokens(before)):
         problems.append("text was added or changed, not only deleted")
-    cut = Counter(map(bare, _unlabelled(list(Counter(removed).elements()),
-                                        _labelled_firsts(before, strip_prefixes))))
+    cut_texts = _unlabelled(list(Counter(removed).elements()),
+                            _labelled_firsts(before, strip_prefixes))
+    cut = Counter(map(bare, cut_texts))
     was, now = claims(before), claims(after)
     # A sentence the judge did not read as a claim may be one now; its words were in
     # the text before (the token check), so it is not an added claim (RM1.g.3).
@@ -474,8 +581,9 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
         from_lines = Counter()
         if dropped_lines:
             rest = Counter(claims(_without_lines(before, dropped_lines)))
+            # The judge's sentences of the line, placed or not (RM1.g.4).
             own = Counter(bare(s.own) for line in dropped_lines
-                          for s in _line_sentences(line, 0, strip_prefixes))
+                          for s in _all_sentences(line, 0, strip_prefixes))
             from_lines = was_n - rest - own
         # A claim too short to be one without its label ("Note: Kerr agreed." ->
         # "Kerr agreed.") is not lost while its sentence is still in the text. Only
@@ -489,16 +597,35 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
         short_now = sentences(after, lambda s: not fj._is_claim(s.text)) - now_n
         unjudged_before = sentences_before - was_n
         shorter = short_now - unjudged_before
+        # A sentence that is only a list number is counted with the marks below: after
+        # the sentence before it goes, it starts its line and is read as the number.
         for claim, n in (was_n - now_n).items():
-            if n > cut[claim] + shorter[claim] + from_lines[claim]:
+            if (n > cut[claim] + shorter[claim] + from_lines[claim]
+                    and not _NUMBER_ONLY.fullmatch(claim)):
                 problems.append(f"a claim was lost that was not flagged: {claim[:80]!r}")
         # Sentences too short to be claims are checked too: only removed ones may go.
         lost = sentences_before - sentences(after)
         for sentence, n in lost.items():
-            if n > cut[sentence]:
+            if n > cut[sentence] and not _NUMBER_ONLY.fullmatch(sentence):
                 problems.append(f"a sentence was lost that was not flagged: {sentence[:80]!r}")
     _, head_before, body_before = _split(before)
     _, head_after, body_after = _split(after)
+    # What the comparison leaves out is counted (RM1.g.5).
+    marks_before = _body_marks(body_before.split("\n"), strip_prefixes)
+    marks_after = _body_marks(body_after.split("\n"), strip_prefixes)
+    # A line removed whole takes only the marks at its start. A sentence left on it
+    # that is only a number ("1975.") is not excused: the cut left it alone and the
+    # line went because it looked like a list marker. Marks at the start of a sentence
+    # go only with that sentence, so none is counted twice.
+    may_go = _body_marks(dropped_lines, strip_prefixes, whole_lines=True) + sum(
+        (_sentence_marks(s, strip_prefixes) for s in cut_texts), Counter())
+    for kind, what in marks_before - marks_after - may_go:
+        problems.append(f"a {kind} was lost: {what[:80]!r}")
+    for kind, what in marks_after - marks_before:
+        # A cut can leave a bold lead sentence alone on its line ("**Kerr says X.** Y."
+        # without "Y."): a bold-only line can be new, never lost.
+        if kind != "bold-only line":
+            problems.append(f"a {kind} was added: {what[:80]!r}")
     # A cut never takes a bold label; it goes only with its line.
     labels_lost = (_label_runs(body_before.split("\n")) - _label_runs(dropped_lines)
                    - _label_runs(body_after.split("\n")))

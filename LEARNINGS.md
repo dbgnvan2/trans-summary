@@ -77,6 +77,16 @@ Pull from the global catalogue; the ones that bite this repo most:
   allowlist, and have the gate check that the `.json` and `.md` agree (or regenerate the
   `.md` from the `.json`).
 
+- ~~**A line removed whole excused every mark on it (P7/P2, learning-qa 2026-10-20, commit 1
+  of `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before the commit: the cut
+  left "1975." alone on its line, `_EMPTY_LINE` read it as a list marker and dropped the
+  line, and the deletion check let the dropped line's marks excuse the number, so an
+  unflagged number went with no record. A dropped line now excuses only the marks at its
+  start. Rule: an allowance for a removed unit covers what belongs to the unit, not what a
+  cut left on it; and a test grid must vary what follows the cut, not only what precedes
+  it (P33). Covered by `test_rm1g5_number_left_alone_on_dropped_line_refused`. Still open:
+  the allowance is counted from the removed list, not from what left the text (TODO.md).
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**

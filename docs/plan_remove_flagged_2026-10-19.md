@@ -586,3 +586,11 @@ adjacent items above are added), `ARCHITECTURE_DESIGN.md` §4.3 (the claims left
 a sentence now read as a claim), and this plan. 20 new tests (53 cases); the RM file has
 153 tests. Both suite runs pass: `python3 -m pytest tests/ -q -p no:cacheprovider` and
 `python3 -m pytest -q -p no:cacheprovider`.
+
+## Follow-up: the open items and Mini1's cold review of 813dd3c (2026-10-20)
+
+Planned, and built commit by commit, in `docs/plan_removal_open_items_2026-10-20.md`.
+RM1.g.4, RM1.g.5 and RM1.g.7 extend RM1.g (built 2026-10-20): the check reads each line's
+sentences as the judge splits them, also the ones removal cannot place; it counts the
+labels, list numbers and bold-only lines its comparison leaves out; and `_cut` refuses
+overlapping spans. The front-matter, removal-rule and PDF-test items follow there.

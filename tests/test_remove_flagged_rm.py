@@ -616,7 +616,10 @@ def test_rm1g1_label_copy_lost_is_counted():
     assert any("claim was lost" in p and x[:30] in p for p in problems)
     assert any("sentence was lost" in p and x[:30] in p for p in problems)
     from collections import Counter
-    assert fr.deletion_problems(before, after, Counter({x: 2})) == []
+    # Removal records the second copy as the judge reads it, label included; the label
+    # then goes with that sentence (RM1.g.5).
+    assert fr.deletion_problems(before, after, Counter({x: 1, f"Note: {x}": 1})) == []
+    assert "a label was lost: 'note'" in fr.deletion_problems(before, after, Counter({x: 2}))
 
 
 @pytest.mark.parametrize("copy", ["Note: Kerr agreed.", "Kerr agreed."])
@@ -970,7 +973,8 @@ def test_rm1g2_label_only_sentence_compared_as_is():
     before = f"{OPENING}1. **Key point.**\n2. **Other point:** Then he left.\n{REST.lstrip()}"
     after = f"{OPENING}2. **Other point:**\n{REST.lstrip()}"
     problems = fr.deletion_problems(before, after, {"Other point: Then he left."})
-    assert problems == ["a sentence was lost that was not flagged: 'Key point.'"]
+    assert problems == ["a sentence was lost that was not flagged: 'Key point.'",
+                        "a list number was lost: '1.'"]
 
 
 @pytest.mark.parametrize("lead,label,problem", [
@@ -1612,3 +1616,255 @@ def test_rm5_config_values():
     assert config.SUFFIX_REMOVED_SENTENCES.endswith(".json")
     assert config.FAITHFULNESS_SEVERITY_MODE == "off"  # D1
     assert config.FAITHFULNESS_SEVERITY_MODE in config.FAITHFULNESS_SEVERITY_MODES
+
+
+# --- Open items and Mini1's cold review of 813dd3c (2026-10-20) --------------------------
+# docs/plan_removal_open_items_2026-10-20.md
+
+M1_LINE = "Zed Example spoke at length about the move. **He met Dr.{sp}Bowen at the center**"
+M1_TEXT = ("## Body\n\nKerr tells a long story about the family today.\n\n{line}\n\n"
+           "Bowen founded the center in 1975.\n")
+
+
+def _unplaceable(monkeypatch, start):
+    """Removal cannot place a sentence starting with ``start`` in its line (as for a
+    shape the judge reads differently from the raw text)."""
+    real_find = fr._find
+
+    def find(body, text, cursor):
+        return None if text.startswith(start) else real_find(body, text, cursor)
+    monkeypatch.setattr(fr, "_find", find)
+
+
+@pytest.mark.parametrize("sp", ["\u00a0", "\t", "  "])
+def test_rm1g4_unplaced_sentence_on_dropped_line_not_excused(sp):
+    """Mini1 M1 (new in 813dd3c): the judge joins "Dr." and "Bowen" with one space, so
+    removal could not place that sentence; the cut left the bold run, the line went as
+    if it held only a label, and the check excused the lost claim. d353c73 refused."""
+    text = M1_TEXT.format(line=M1_LINE.format(sp=sp))
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert "a claim was lost that was not flagged: 'He met Dr. Bowen at the center'" in (
+        kept[0].reason)
+    before = text
+    after = text.replace(M1_LINE.format(sp=sp) + "\n\n", "")
+    problems = fr.deletion_problems(before, after, {ZED_SENTENCE}, [M1_LINE.format(sp=sp)])
+    assert "a claim was lost that was not flagged: 'He met Dr. Bowen at the center'" in problems
+
+
+def test_rm1g4_unplaced_sentence_not_excused_when_placement_fails(monkeypatch):
+    """RM1.g.4: the check reads a line's sentences from the judge's split, not from
+    removal's placement, so a sentence removal cannot place (any shape) is still
+    counted when its line goes."""
+    _unplaceable(monkeypatch, "He met")
+    line = "Zed Example spoke at length about the move. **He met Bowen at the center**"
+    before = M1_TEXT.format(line=line)
+    after = before.replace(line + "\n\n", "")
+    problems = fr.deletion_problems(before, after, {ZED_SENTENCE}, [line])
+    assert "a claim was lost that was not flagged: 'He met Bowen at the center'" in problems
+
+
+def test_rm1g4_change_after_unplaced_split_seen(monkeypatch):
+    """Mini1 M4: a change to a sentence after one removal could not place was not seen,
+    because the line's list stopped there."""
+    _unplaceable(monkeypatch, "He met")
+    before = (f"{OPENING}He met Dr. Kerr at the center. He was not sure. Kerr adds a "
+              "long example about his own family.\n")
+    after = before.replace("He was not sure.", "He was sure.")
+    assert "a sentence was lost that was not flagged: 'He was not sure.'" in (
+        fr.deletion_problems(before, after, set()))
+
+
+def test_rm1g4_unplaced_first_sentence_read_without_its_label():
+    """RM1.g.4 guard: after the cut, the sentence removal cannot place starts the line,
+    and the judge reads the bold label with it ("Note: He met Dr. Bowen ..."). The
+    check reads it without the label, so the label is not counted twice."""
+    line = "1. **Note:** " + M1_LINE.format(sp="\u00a0")
+    text = M1_TEXT.format(line=line)
+    out, removed, kept = _remove(text, [ZED])
+    assert [r.sentence for r in removed] == [ZED_SENTENCE] and kept == []
+    assert "\n1. **Note:** **He met Dr.\u00a0Bowen at the center**\n" in out
+
+
+def test_rm1g4_label_line_still_goes():
+    """Guard: a line whose last sentence goes still takes its bold label with it."""
+    text = f"{OPENING}- **Family triangles:** {ZED_SENTENCE}\n\nKerr adds a long example.\n"
+    out, removed, kept = _remove(text, [ZED])
+    assert [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert "Family triangles" not in out and kept == []
+
+
+M2_TEXT = ("## Body\n\nKerr tells a long story about the family today.\n\n"
+           "{lead}Zed Example spoke at length about the move. 2. The group met again later.\n\n"
+           "Bowen founded the center in 1975.\n")
+
+
+@pytest.mark.parametrize("lead", ["", "+ ", "• ", "- ", f"{LABEL} ", f"> {LABEL} "])
+def test_rm1g5_number_sentence_moves_to_line_start(lead):
+    """Mini1 M2 (new in 813dd3c): the judge reads "2." as its own sentence; after the cut
+    "2. " starts the line and is read as a list number. That is not a lost sentence."""
+    text = M2_TEXT.format(lead=lead)
+    out, removed, kept = _remove(text, [ZED])
+    # The judge reads "+ " and "• " as part of the first sentence, so they go with it.
+    in_sentence = lead in ("+ ", "• ")
+    assert [r.sentence for r in removed] == [(lead if in_sentence else "") + ZED_SENTENCE]
+    left_lead = "" if in_sentence else lead
+    assert f"\n{left_lead}2. The group met again later.\n" in out
+    assert kept == []
+
+
+@pytest.mark.parametrize("before_line, after_line, problem", [
+    # A mid-line "Note:" deleted alone (813dd3c compares both sides without it).
+    ("Kerr tells a long story. Note: Bowen agreed with it.",
+     "Kerr tells a long story. Bowen agreed with it.", "a label was lost: 'note'"),
+    # A mid-line "2)" deleted alone.
+    ("Kerr tells a long story. 2) Then the family moved away.",
+     "Kerr tells a long story. Then the family moved away.", "a list number was lost: '2)'"),
+    # A number-only sentence deleted alone.
+    ("Kerr tells a long story. 2. The group met again later.",
+     "Kerr tells a long story. The group met again later.", "a list number was lost: '2.'"),
+])
+def test_rm1g5_label_or_number_alone_deleted_refused(before_line, after_line, problem):
+    """Mini1 M4 (P7): what the check compares without (a label, a list number) may go
+    only with a removed sentence that starts with it, or with its line."""
+    before = f"{OPENING}{before_line}\n"
+    after = f"{OPENING}{after_line}\n"
+    assert problem in fr.deletion_problems(before, after, set())
+
+
+def test_rm1g5_label_added_refused():
+    """RM1.g.5: a label or list number may not be added (the comparison reads the
+    sentence without it, so only the count sees it)."""
+    before = f"{OPENING}Kerr tells a long story. Bowen agreed with it.\n"
+    after = f"{OPENING}Kerr tells a long story. Note: Bowen agreed with it.\n"
+    assert "a label was added: 'note'" in fr.deletion_problems(before, after, set())
+
+
+def test_rm1g5_label_after_unplaced_split_counted(monkeypatch):
+    """RM1.g.4 with RM1.g.5: a label deleted alone is seen on a sentence removal could
+    not place."""
+    _unplaceable(monkeypatch, "He met")
+    before = f"{OPENING}He met Dr. Kerr at the center. Note: he was not sure of it.\n"
+    after = before.replace("Note: ", "")
+    assert "a label was lost: 'note'" in fr.deletion_problems(before, after, set())
+
+
+def test_rm1g5_bold_only_line_deleted_refused():
+    """Mini1 M4 (both versions): a bold-only line deleted was not seen."""
+    before = f"{OPENING}**Family triangles**\n\nKerr adds a long example about it.\n"
+    after = f"{OPENING}Kerr adds a long example about it.\n"
+    assert "a bold-only line was lost: '**Family triangles**'" in (
+        fr.deletion_problems(before, after, set()))
+
+
+def test_rm1g5_repeated_bold_label_deleted_refused():
+    """TODO (2026-10-20): the judge reads a repeated bold label as one claim, so the
+    label deleted from a line that stays was not seen when another line took its own."""
+    keep = f"- {LABEL} the family moved to the city in the spring."
+    goes = f"- {LABEL} {ZED_SENTENCE}"
+    before = f"{OPENING}{goes}\n\n{keep}\n"
+    after = f"{OPENING}the family moved to the city in the spring.\n"
+    assert "a bold label was lost: 'Kerr Agreed:'" in (
+        fr.deletion_problems(before, after, {ZED_SENTENCE}, [goes]))
+
+
+@pytest.mark.parametrize("before_line, after_line", [
+    (f"{ZED_SENTENCE} Note: Bowen agreed with all of it.", "Note: Bowen agreed with all of it."),
+    (f"{ZED_SENTENCE} 2) Then the family moved away.", "2) Then the family moved away."),
+    (f"- {ZED_SENTENCE} 2. The group met again later.", "- 2. The group met again later."),
+])
+def test_rm1g5_label_or_number_moving_to_line_start_passes(before_line, after_line):
+    """Guard (RM1.g.1): a label or number after a removed sentence moves to the start of
+    its line; nothing is lost."""
+    before = f"{OPENING}{before_line}\n"
+    after = f"{OPENING}{after_line}\n"
+    assert fr.deletion_problems(before, after, {ZED_SENTENCE}) == []
+
+
+@pytest.mark.parametrize("line, lost", [
+    ("Zed Example founded the center that year. 1975.", ["1975."]),
+    ("Zed Example founded the center that year. 300.", ["300."]),
+    ("Zed Example founded the center that year. 2.", ["2."]),
+    ("Zed Example founded the center that year. 2)", ["2)"]),
+    ("Zed Example founded the center that year. 2. 3.", ["2.", "3."]),
+    ("Zed Example spoke at length. 1975. Zed Example left the city.", ["1975."]),
+])
+def test_rm1g5_number_left_alone_on_dropped_line_refused(line, lost):
+    """learning-qa on commit 1 (P7): the cut left a number-only sentence alone on its
+    line, the line went as if it held only a list marker, and the line's own marks
+    excused the number. A line removed whole now excuses only the marks at its start."""
+    text = f"{OPENING}{line}\n\nKerr adds a long example about his own family.\n"
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    for number in lost:
+        assert f"a list number was lost: {number!r}" in kept[0].reason
+
+
+@pytest.mark.parametrize("kept_line, goes, cut_texts, problem", [
+    ("Kerr tells a long story. Note: Bowen never agreed with it.",
+     "Zed Example spoke at length. Note: Zed Example left the city.",
+     ["Zed Example spoke at length.", "Note: Zed Example left the city."],
+     "a label was lost: 'note'"),
+    ("Kerr tells a long story. 2. The group met again later.",
+     "Zed Example spoke at length. 2. the group met again later.",
+     ["Zed Example spoke at length.", "2. the group met again later."],
+     "a list number was lost: '2.'"),
+])
+def test_rm1g5_mark_of_cut_sentence_on_dropped_line_counted_once(kept_line, goes,
+                                                                  cut_texts, problem):
+    """learning-qa on commit 1 (P7): a sentence both cut and on a line removed whole had
+    its label or number counted twice, and the spare one excused the same mark deleted
+    from a line that stays."""
+    from collections import Counter
+    before = f"{OPENING}{kept_line}\n\n{goes}\n"
+    after = f"{OPENING}{kept_line.replace('Note: ', '').replace('2. ', '')}\n"
+    assert problem in fr.deletion_problems(before, after, Counter(cut_texts), [goes])
+
+
+def test_rm1g4_sentence_after_unplaced_one_not_removable(monkeypatch):
+    """RM1.g.4: a sentence that cannot be placed ends what removal can take from its
+    line, so a name in a later sentence of that line is kept (not found)."""
+    _unplaceable(monkeypatch, "Kerr met")
+    line = f"Kerr met Dr. Bowen at the center. {ZED_SENTENCE}"
+    text = f"{OPENING}{line}\n\nKerr adds a long example about his own family.\n"
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == []
+    assert kept == [fr.Kept(ZED, fr.NOT_FOUND)]
+
+
+def test_rm1g4_unplaced_label_split_only_when_text_starts_with_it(monkeypatch):
+    """RM1.g.4 guard: an unplaced first sentence is read without the bold label only
+    when the judge's text starts with that label; otherwise all of it is the sentence."""
+    monkeypatch.setattr(fj, "_split_sentences", lambda body: ["Other words he said."])
+    _, unplaced, *_ = fr._split_line("1. **Note:** He met Bowen at the center.", 0, set())
+    assert [(s.text, s.own) for s in unplaced] == [("Other words he said.",
+                                                    "Other words he said.")]
+
+
+def test_rm1g7_cut_refuses_overlapping_spans():
+    """E (latent): two cut spans on one line must not overlap; spans that touch may."""
+    with pytest.raises(ValueError, match="overlap"):
+        fr._cut("abcdefgh", {(0, 4), (3, 6)})
+    assert fr._cut("abc def ghi", {(0, 4), (4, 8)}) == "ghi"
+
+
+def test_rm1g7_overlap_keeps_draft(monkeypatch, tmp_path):
+    """E: an overlap raises inside removal; the pipeline keeps the draft and records
+    "removal failed" (the caller catches any removal error)."""
+    _entity_pass(monkeypatch)
+    real = fr._line_sentences
+
+    def overlapping(raw, index, strip_prefixes):
+        out = real(raw, index, strip_prefixes)
+        if len(out) > 2:
+            out[2].start = out[1].end - 3
+        return out
+    monkeypatch.setattr(fr, "_line_sentences", overlapping)
+    # Two flags on the opening line's second and third sentences: two spans there.
+    third = "The first lecture traces the history of cosmology."
+    ok, path, logger, _ = _loop(monkeypatch, tmp_path,
+                                issues=[fr.Flag(FLAG, record=FLAG_RECORD), fr.Flag(third)])
+    assert ok is True
+    assert path.read_text(encoding="utf-8") == SUMMARY
+    entry = json.loads(rr.record_path("B").read_text())["artifacts"]["summary"]
+    assert entry["kept"][0]["reason"].startswith("removal failed: overlapping cut spans")

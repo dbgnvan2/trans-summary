@@ -43,15 +43,38 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     `docs/plan_remove_flagged_2026-10-19.md`). The stash's B and C parts are superseded.
   - **D.** Verify with a test: when a name flag comes before a claim flag on the same
     sentence, the Removed record carries the claim's judge record (a probe looked right).
-  - **E.** Latent: assert in `_cut` that spans do not overlap.
+  - **E.** ✅ Fixed 2026-10-20 by RM1.g.7 (`docs/plan_removal_open_items_2026-10-20.md`):
+    `_cut` raises `ValueError` on overlapping spans, and the pipeline keeps the draft
+    with "removal failed". Test: `test_rm1g7_overlap_keeps_draft`.
+- **Mini1's cold review of 813dd3c** (M1–M4, `docs/plan_removal_open_items_2026-10-20.md`):
+  - ✅ Fixed 2026-10-20 (RM1.g.4, RM1.g.5): M1, a sentence removal could not place after
+    "Dr." with a non-breaking space, a tab or two spaces, lost with its line and excused
+    by the check (new in 813dd3c); M2, "… the move. 2. The group …" refused although
+    only the name went (new in 813dd3c); and the M4 gaps for a label, list number or
+    bold-only line deleted alone and a change after such a split.
+  - Open (plan commit 2, RM1.e.2): M3, an FAQ answer split after "U.S." or "Sen." loses
+    an unflagged part, and the M4 gap for "not" deleted inside an FAQ answer.
+  - Known, not fixed (learning-qa on commit 1, case 2C): the check's allowance for a
+    label or number comes from the removed list, not from what left the text, so a
+    removed list that does not match the edit could excuse a mark lost on another line.
+    Removal builds the list from the spans it cuts, so this needs two bugs at once.
+    Closing it needs `deletion_problems` to match lines before and after.
+  - Known (learning-qa on commit 1): a name sentence followed on its line only by a
+    number ("… that year. 1975.") is not removed (the check refuses it), so the name is
+    kept and fails the stage. No artifact has this shape.
+- Adjacent, not fixed (learning-qa on commit 1, pre-existing): in "1975. Zed Example
+  founded the center …" the judge strips "1975. " as a list number, so the year is never
+  judged, and removal deletes it with the line. The cause is in `fj.extract_claims` and
+  `_EMPTY_LINE`.
 - Adjacent, not fixed (2026-10-20, items C/B): one failed deletion check refuses every
   removal in the artifact, name removals included, so a kept name can still fail the
   stage for another cause. Retrying with the name removals alone would narrow this.
 - Adjacent, not fixed (2026-10-20): the abstract treats a judge error with a flagged name
   as "unavailable" and keeps the name, so the gate blocks at publish; the summary path
   removes it ("partial"). Proposed as its own session.
-- Known (RM1.g.1): when the sentence before "2) Then …" is removed, that line starts
-  with "2) ", which markdown renders as a numbered list item. The words are unchanged.
+- Known (RM1.g.1; D3, 2026-10-20, leave it): when the sentence before "2) Then …" or
+  "2. The group …" is removed, that line starts with the number, which markdown renders
+  as a numbered list item. The words are unchanged.
 - Adjacent, not fixed (2026-10-20, bold label after a marker): a bold run that opens a
   sentence but is not a label ("**Zed Example** spoke … Then …", also after "- ") makes
   `_line_sentences` start the span inside the bold run, so the removal is refused and the
@@ -81,10 +104,10 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   with the next sentence"), and the gate judges the saved file at publish. The other
   option is to keep that sentence while its line stays, as RM1.b.2 (D1) does for a name
   in a label; that is the choice to make.
-- Adjacent, not fixed (2026-10-20): `extract_claims` reads a repeated bold label
-  ("**Kerr Agreed:**" on two lines) as one claim, so when a removed line takes its label,
-  the deletion check does not see the same label deleted from a line that stays. Removal
-  never cuts labels, so only a bug in the cut would do this.
+- ✅ Fixed 2026-10-20 (ec60324's bold-label count; guard test
+  `test_rm1g5_repeated_bold_label_deleted_refused`): `extract_claims` reads a repeated
+  bold label ("**Kerr Agreed:**" on two lines) as one claim, so the deletion check did
+  not see the same label deleted from a line that stays when a removed line took its own.
 - Known (2026-10-20): "op" in `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` also
   matches a sentence ending in "photo op.", so a claim there is kept as uncertain.
   Abbreviations in neither that list nor the judge's still leave a fragment when a name
