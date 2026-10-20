@@ -1,6 +1,7 @@
 """RM: remove sentences still flagged after revision (docs/plan_remove_flagged_2026-10-19.md)."""
 import json
 import logging
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -606,6 +607,24 @@ def test_rm2e_unplaced_item_keeps_every_sentence():
     assert kept == [fr.Kept(FLAG, "could not place required item 'Item X'")]
 
 
+def test_rm2e_item_already_low_keeps_claims_not_names(monkeypatch):
+    """Cold sweep (correctness #3 / learning-qa #2): a required item with no keyword in
+    the summary is decided by the gate's LLM check, which may rest on any sentence, so
+    claim sentences are kept. A rejected name still goes (the entity check blocks it)."""
+    import summary_validation as sv
+    item = sv.CoverageItem(category="topic", label="Sibling position", required=True,
+                           keywords=["sibling"], source_text="", expected_words=0)
+    monkeypatch.setattr(sv, "generate_coverage_items", lambda summary_input: [item])
+    guard = ep._coverage_guard(object())
+    assert guard(NAME_TEXT, NAME_TEXT) == [("Sibling position", ["sibling"])]
+    claim = "He says the family was anxious about the move."
+    out, removed, kept = _remove(NAME_TEXT, [claim, NAME_FLAG], guard=guard)
+    assert claim in out and "Ann Example" not in out
+    assert [r.sentence for r in removed] == [
+        "Kerr describes the case of Ann Example in detail here."]
+    assert kept == [fr.Kept(claim, "could not place required item 'Sibling position'")]
+
+
 def test_rm2f_no_judge_call_after_removal(monkeypatch, tmp_path):
     _entity_pass(monkeypatch)
     second = SUMMARY.replace(FLAG + " ", "")
@@ -747,8 +766,88 @@ def test_rm3b_artifact_save_fails_stage_goes_on(monkeypatch, tmp_path):
         write=write, precheck=lambda base, sfx, logger=None: ("fail", [fr.Flag(FLAG)]))
     assert ok is True
     assert path.read_text(encoding="utf-8") == SUMMARY
-    assert not rr.record_path("B").exists()
     assert any("the removal was not applied" in m for m in _warnings(logger))
+    # Cold sweep (learning-qa #3): the list names the flag left in, not "none".
+    from datetime import datetime, timedelta
+    listed = rr.format_run_removals("B", datetime.now() - timedelta(minutes=1))
+    assert "Still flagged, not removed" in listed and "saving the cleaned draft failed" in listed
+
+
+def _save_fails(monkeypatch, tmp_path, fail_resave):
+    """_generate_until_faithful whose writer saves the cleaned draft and then raises;
+    with ``fail_resave`` every later save raises too."""
+    _entity_pass(monkeypatch)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 1)
+    (tmp_path / "B").mkdir()
+    path = tmp_path / "B" / f"B{config.SUFFIX_SUMMARY_GEN}"
+    failed = []
+
+    def write(t):
+        if failed and fail_resave:
+            raise OSError("disk gone")
+        if FLAG not in t:
+            path.write_text(t[: len(t) // 2], encoding="utf-8")  # a partial write
+            failed.append(t)
+            raise OSError("disk full")
+        path.write_text(t, encoding="utf-8")
+
+    logger = MagicMock()
+    run = lambda: ep._generate_until_faithful(  # noqa: E731
+        "summary", "B", config.SUFFIX_SUMMARY_GEN, logger, generate=lambda feedback: SUMMARY,
+        write=write, precheck=lambda base, sfx, logger=None: ("fail", [fr.Flag(FLAG)]))
+    return run, path, logger
+
+
+def test_rm3b_partial_save_restores_kept_draft(monkeypatch, tmp_path):
+    """Cold sweep (learning-qa #4): the re-save of the kept draft was never exercised,
+    because the fake writer failed before writing anything."""
+    run, path, _ = _save_fails(monkeypatch, tmp_path, fail_resave=False)
+    assert run() is True
+    assert path.read_text(encoding="utf-8") == SUMMARY
+
+
+def test_rm3b_both_saves_fail_stage_fails(monkeypatch, tmp_path):
+    """Cold sweep (learning-qa #3): when the kept draft cannot be saved again either,
+    the file may be truncated, so the error goes up and the stage fails."""
+    run, _, logger = _save_fails(monkeypatch, tmp_path, fail_resave=True)
+    with pytest.raises(OSError, match="disk gone"):
+        run()
+    assert "could not be saved again" in logger.error.call_args.args[0]
+
+
+def test_rm2_removal_error_stage_goes_on(monkeypatch, tmp_path):
+    """Cold sweep (learning-qa #4): a bug in removal must not fail the stage; the draft
+    is kept as it is and the record lists the flags with the error."""
+    _entity_pass(monkeypatch)
+
+    def broken(*a, **kw):
+        raise ValueError("bug in removal")
+    monkeypatch.setattr(fr, "remove_flagged_sentences", broken)
+    ok, path, logger, _ = _loop(monkeypatch, tmp_path)
+    assert ok is True
+    assert path.read_text(encoding="utf-8") == SUMMARY
+    entry = json.loads(rr.record_path("B").read_text())["artifacts"]["summary"]
+    assert entry["kept"][0]["reason"] == "removal failed: bug in removal"
+
+
+def test_rm2_partial_check_message_says_not_checked(monkeypatch, tmp_path):
+    """Cold sweep (correctness #6): when the judge errored and only names were flagged,
+    removing them must not be reported as every flagged sentence removed."""
+    _entity_reads_file(monkeypatch, tmp_path, config.SUFFIX_SUMMARY_GEN)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setattr(config, "GENERATION_FAITHFULNESS_ATTEMPTS", 1)
+    (tmp_path / "B").mkdir()
+    path = tmp_path / "B" / f"B{config.SUFFIX_SUMMARY_GEN}"
+    logger = MagicMock()
+    ok = ep._generate_until_faithful(
+        "summary", "B", config.SUFFIX_SUMMARY_GEN, logger, generate=lambda feedback: NAME_TEXT,
+        write=lambda t: path.write_text(t, encoding="utf-8"),
+        precheck=lambda base, sfx, logger=None: ("partial", [NAME_FLAG]))
+    assert ok is True and "Ann Example" not in path.read_text(encoding="utf-8")
+    msgs = _warnings(logger)
+    assert any("faithfulness check could not run" in m for m in msgs)
+    assert not any("every sentence still flagged" in m for m in msgs)
 
 
 # --- RM4: the end-of-run list -----------------------------------------------------------
@@ -832,6 +931,39 @@ def test_rm4c_overview_cli_prints_list(monkeypatch, tmp_path, capsys):
     assert to.main([str(project)]) == 0
     out = capsys.readouterr().out
     assert "Overview (1):" in out and f'1. "{FLAG}"' in out
+
+
+def test_rm4a_unreadable_record_not_reported_as_none(monkeypatch, tmp_path):
+    """Cold sweep (learning-qa #5): a record that cannot be read said "none this run"."""
+    from datetime import datetime
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (tmp_path / "B").mkdir()
+    for bad in ("{not json", '{"artifacts": []}'):
+        rr.record_path("B").write_text(bad, encoding="utf-8")
+        text = rr.format_run_removals("B", datetime.now())
+        assert "could not be read" in text and "none this run" not in text
+
+
+def test_rm4c_list_printed_once_under_transcript_process(monkeypatch, tmp_path, capsys):
+    """Cold sweep (correctness #7): transcript_summarize, run by transcript_process,
+    printed the list and then transcript_process printed it again."""
+    import transcript_process
+    from datetime import datetime
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    monkeypatch.setenv(rr.LISTED_BY_PARENT_ENV, "1")
+    rr.print_run_removals("B", datetime.now())
+    assert capsys.readouterr().out == ""
+    monkeypatch.delenv(rr.LISTED_BY_PARENT_ENV)
+    rr.print_run_removals("B", datetime.now())
+    assert "none this run" in capsys.readouterr().out
+    # The flag goes to the scripts it runs, not to transcript_process itself.
+    assert rr.LISTED_BY_PARENT_ENV not in os.environ
+    calls = []
+    monkeypatch.setattr(transcript_process.subprocess, "run",
+                        lambda cmd, **kw: calls.append(kw) or MagicMock(returncode=0))
+    transcript_process.run_script(tmp_path / "x.py", [], "step")
+    assert calls[0]["env"][rr.LISTED_BY_PARENT_ENV] == "1"
+    assert rr.LISTED_BY_PARENT_ENV not in os.environ
 
 
 def test_rm4c_process_cli_prints_list_on_both_exits():

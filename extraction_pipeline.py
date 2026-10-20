@@ -1458,7 +1458,10 @@ def _coverage_guard(summary_input):
     """A ``guard`` for removal from the summary: the required coverage items
     (``summary_validation.generate_coverage_items``) a removal would leave at low
     keyword confidence. ``summary_coverage`` blocks publication, so a removed sentence
-    that was in fact fine must not make it fail (RM2.e).
+    that was in fact fine must not make it fail (RM2.e). An item already at low
+    confidence before the removal is decided at the gate by the LLM check, which may
+    rest on any sentence; it is returned too, so no removal is made (cold sweep
+    2026-10-19, correctness #3 / learning-qa #2).
 
     Spec:  docs/plan_remove_flagged_2026-10-19.md#RM2.e
     Tests: tests/test_remove_flagged_rm.py::test_rm2e_only_mention_of_required_item_kept
@@ -1472,8 +1475,7 @@ def _coverage_guard(summary_input):
         if not items:
             items.extend(i for i in sv.generate_coverage_items(summary_input) if i.required)
         return [(i.label, i.keywords) for i in items
-                if sv.check_keyword_coverage(before, i)[1] != "low"
-                and sv.check_keyword_coverage(after, i)[1] == "low"]
+                if sv.check_keyword_coverage(after, i)[1] == "low"]
     return guard
 
 
@@ -1536,12 +1538,17 @@ def _remove_still_flagged(what: str, base_name: str, suffix: str, text: str, iss
     except Exception as e:  # noqa: BLE001 — a failed save must not fail the stage
         logger.warning("%s: saving the draft with the sentences removed failed (%s); the "
                        "removal was not applied.", label, e)
-        removal_record.clear_entry(base_name, what, logger)
         try:
             write(text)
-        except Exception as e2:  # noqa: BLE001
+        except Exception as e2:
+            # The file may now hold neither draft: that fails the stage like any
+            # other failed save of the artifact (cold sweep, learning-qa #3).
             logger.error("%s: the kept draft could not be saved again either (%s); the "
                          "file on disk may be incomplete.", label, e2)
+            raise
+        # The flags are still in the saved draft: the list must say so (F3).
+        record_kept([flagged_removal.Kept(f, f"saving the cleaned draft failed: {e}")
+                     for f in dict.fromkeys(issues)])
         return text, len(issues)
     left = len({str(k.claim) for k in kept})
     logger.warning("⚠️ %s: removed %d sentence(s) still flagged after the last attempt; "
@@ -1651,6 +1658,13 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                      "publication until it is regenerated or edited: %s",
                      what, attempts, best_count, blocking.detail)
         return False
+    if best_count == 0 and best_rank[0]:
+        # "partial": the judge errored, so only the names were checked (cold sweep).
+        logger.warning("⚠️ %s: the flagged names were removed, but the faithfulness check "
+                       "could not run on this draft; the release gate will check it at "
+                       "publish. Removals are listed at the end of the run.",
+                       what.capitalize())
+        return True
     if best_count == 0:
         logger.warning("⚠️ %s: every sentence still flagged after %d attempt(s) was removed; "
                        "they are listed at the end of the run.", what.capitalize(), attempts)

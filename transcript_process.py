@@ -15,6 +15,7 @@ Usage:
     python transcript_process.py
 """
 
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -107,7 +108,9 @@ def run_script(script: Path, args: list[str], description: str) -> Tuple[bool, i
     print("=" * 80)
 
     cmd = [PYTHON, str(script)] + args
-    result = subprocess.run(cmd)
+    # The script would print the removed-sentences list; this one prints it once for
+    # the run (cold sweep 2026-10-19, RM4.c).
+    result = subprocess.run(cmd, env={**os.environ, removal_record.LISTED_BY_PARENT_ENV: "1"})
 
     success = result.returncode == 0
     if success:

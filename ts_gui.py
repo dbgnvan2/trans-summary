@@ -2738,7 +2738,8 @@ class TranscriptProcessorGUI:
         if not (set(selected_keys) & _REMOVAL_STAGES) or not self.base_name:
             return
         try:
-            text = removal_record.format_run_removals(self.base_name, start_time)
+            text = removal_record.format_run_removals(self.base_name, start_time,
+                                                      self.logger)
         except Exception as e:  # noqa: BLE001 — the list is a report; never fail the run
             self.log("⚠️ Could not read the removed-sentences record: %s", e)
             return

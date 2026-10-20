@@ -412,8 +412,11 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                        if any(k in t.sentence.text.lower()
                               or k in lines[t.sentence.line].lower() for k in keywords)]
                 why = f"only mention of required item '{label}'"
-                if not hit:  # cannot tell which removal drops it: keep them all
-                    hit, why = list(targets), f"could not place required item '{label}'"
+                if not hit:
+                    # Cannot tell which removal drops it: keep every claim sentence. A
+                    # name sentence still goes: the entity check blocks a kept name.
+                    hit = [t for t in targets if getattr(t.flag, "kind", "claim") != "name"]
+                    why = f"could not place required item '{label}'"
                 for t in hit:
                     _keep(t, why)
                     changed = True

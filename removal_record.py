@@ -20,6 +20,10 @@ import config
 import flagged_removal as fr
 
 
+# Set by transcript_process for the scripts it runs, so the list is printed once.
+LISTED_BY_PARENT_ENV = "TS_REMOVALS_LISTED_BY_PARENT"
+
+
 def record_path(base_name: str) -> Path:
     return config.PROJECTS_DIR / base_name / f"{base_name}{config.SUFFIX_REMOVED_SENTENCES}"
 
@@ -122,8 +126,13 @@ def format_run_removals(base_name: str, since: datetime, logger=None) -> str:
              tests/test_remove_flagged_rm.py::test_rm4a_none_says_so
     """
     path = record_path(base_name)
+    data = _load(path, logger)
+    if not data and path.exists():
+        # An unreadable record must not read as "none this run" (cold sweep, P2).
+        return (f"⚠️ Removed sentences: the record {path} could not be read, so this "
+                "run's removals cannot be listed.")
     entries = []
-    for artifact, e in _load(path, logger).get("artifacts", {}).items():
+    for artifact, e in data.get("artifacts", {}).items():
         try:
             if datetime.fromisoformat(e["removed_at"]) >= since:
                 entries.append((artifact, e))
@@ -172,6 +181,8 @@ def print_run_removals(base_name: str, since: datetime, logger=None) -> None:
     Tests:   tests/test_remove_flagged_rm.py::test_rm4c_cli_prints_list,
              tests/test_remove_flagged_rm.py::test_rm4c_overview_cli_prints_list
     """
+    if os.environ.get(LISTED_BY_PARENT_ENV):
+        return  # transcript_process prints the list once for the whole run
     try:
         text = format_run_removals(base_name, since, logger)
     except Exception as e:  # noqa: BLE001
