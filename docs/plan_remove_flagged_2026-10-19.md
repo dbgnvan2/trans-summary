@@ -410,3 +410,59 @@ Older problems learning-qa found, not fixed here (in `TODO.md`, for Dave to deci
 the FQ version of C (a question heading's tag moves onto the next sentence, which becomes
 a claim, so the check refuses and a name stays); a line left with only "Note:" after its
 sentence goes; a claim listed as kept when a name removed its sentence.
+
+----
+## Follow-up: the abstract check on a judge error (plan, 2026-10-20)
+
+Status: **plan, not approved.** Found while reviewing `b1a8b78`; listed in `TODO.md` as
+"the abstract treats a judge error with a flagged name as 'unavailable'".
+
+The problem. `_abstract_gate_precheck` returns `("unavailable", [])` whenever the
+faithfulness check or the entity check returns ERROR. When the judge errors and the
+entity check FAILs on a name, `generate_structured_abstract` logs "check unavailable at
+generation (judge off or no key)", keeps the abstract with the name and returns True.
+The release gate's entity check then BLOCKs at publish. The summary and overview
+(`_faithfulness_precheck`) return "partial" in that case: the name is fed back, and
+after the last attempt its sentence is removed (`_remove_still_flagged`). The warning
+text is also wrong: a disabled judge gives PASS, not ERROR, so "unavailable" never
+means "judge off" in this function.
+
+| ID | Rule | Test (`tests/test_remove_flagged_rm.py`) |
+|---|---|---|
+| RM2.b.1 | `_abstract_gate_precheck` collects the claim flags and the name flags first. When a check returned ERROR and the other found issues, it returns `("partial", issues)`; with nothing found it returns `("unavailable", [])`; otherwise "fail" or "pass" as now. This is the rule `_faithfulness_precheck` follows. | `test_rm2b1_judge_error_with_name_is_partial`, `test_rm2b1_entity_error_with_claim_is_partial`; existing `test_gate_precheck_classifies_pass_fail_unavailable` (judge ERROR, no names: still "unavailable") |
+| RM2.b.2 | The abstract loop treats "partial" as it treats "fail": it revises the flagged sentences, and after the last attempt removes the sentences still flagged, saves, and re-runs the entity check. A partial draft ranks after every fully judged draft when the kept draft is chosen (rank `(partial, count)`, as in `_generate_until_faithful`), so a draft with one name and unjudged claims never beats a judged draft with two claims. | `test_rm2b2_judge_error_name_sentence_removed_stage_passes` (real precheck, judge stubbed to ERROR, entity check reads the saved file: the name sentence is gone, the stage returns True, the record lists the sentence), `test_rm2b2_partial_draft_never_beats_judged_draft` |
+| RM2.b.3 | In the abstract path, `_all_removed_message(..., judge_errored=...)` gets True when the kept draft was "partial", not the fixed False. The message then says the faithfulness check could not run, not "every sentence still flagged … was removed" or "no claim was flagged". | in `test_rm2b2_judge_error_name_sentence_removed_stage_passes`; adversarial: `test_rm2b3_judged_names_only_says_no_claim_flagged` (a fully judged draft with only a name still says "no claim was flagged"; it passes before the fix and guards against passing True every time) |
+| RM2.b.4 | The "unavailable" warning is accurate. The precheck logs which check could not run and the check's own detail ("Abstract: the faithfulness check could not run at generation: timeout"). The loop's warning no longer says "judge off or no key"; it says the check could not run and that the release gate checks again at publish. | `test_rm2b4_unavailable_warning_names_the_error` (faithfulness ERROR "timeout", no names: the log has "timeout", not "judge off") |
+| RM2.b.5 (D1) | If approved: a disabled judge is not a pass. With `FAITHFULNESS_JUDGE_ENABLED = False` the precheck returns "fail" with the name flags when the entity check finds names, else "unavailable" (the guard `_faithfulness_precheck` has). The stage no longer logs "✓ Abstract passed faithfulness + grounding", and the warning says the judge is off and that the gate does not judge claims either. This closes the 2026-10-17 `TODO.md` item "The abstract stage reports 'passed faithfulness' when the judge is off" (its other half, the entity scope, was fixed by WO4). | `test_rm2b5_judge_off_is_not_a_pass` (real `check_faithfulness` with the flag off) |
+
+Each new test is checked to fail with its rule reverted. Tests use `tmp_path` and the
+fakes in `tests/test_abstract_faithful_retry.py::_setup`; no API calls, no paid runs.
+
+Files: `extraction_pipeline.py` (`_abstract_gate_precheck` and the loop in
+`generate_structured_abstract`, with their docstrings' Spec/Tests lines) and the test
+file. Done also means: `python3 -m pytest tests/ -q -p no:cacheprovider` and
+`python3 -m pytest -q -p no:cacheprovider` pass; learning-qa reviews the diff;
+`CHANGELOG.md`, `TODO.md` (the two "Adjacent, not fixed" lines about this, and the
+2026-10-17 item if D1 is approved) and a Built table here are updated in the same commit;
+`ARCHITECTURE_DESIGN.md` §4.3 is checked (it does not describe the generation checks'
+error handling, so it probably needs no change). Commit on the branch; no merge or push
+without asking.
+
+Order: RM2.b.1, then RM2.b.2 and RM2.b.3 together (one loop change), then RM2.b.4,
+then RM2.b.5 if approved.
+
+| ID | Question | Recommended |
+|---|---|---|
+| D1 | Include RM2.b.5? It is one guard, the same as the summary's, in the same function. Without it, the RM2.b.4 wording has to leave the judge-off case out, and the stage keeps logging "passed" when nothing was judged. Low impact today: the flag ships True. | Yes |
+
+Not in this change:
+- Items A, D and E and the RM2.e trade-off stay open in `TODO.md`.
+- Adjacent, not fixed: the summary/overview "unavailable" warning also says "the release
+  gate will verify it at publish" when the judge is off, and the gate does not judge
+  claims then either. Same low impact.
+- Adjacent, not fixed: on a "partial" draft both loops log "attempt N not faithful
+  (K claim(s))", though the faithfulness check did not run on it.
+- Adjacent, not fixed (already in `TODO.md`): the abstract keeps its own copy of the
+  generation loop instead of `_generate_until_faithful`.
+- The sibling session on the bold-label span also adds a section at the end of this
+  file. Merging the two branches will conflict here; keep both sections.
