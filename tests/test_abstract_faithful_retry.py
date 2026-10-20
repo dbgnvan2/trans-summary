@@ -149,6 +149,8 @@ def test_gate_precheck_classifies_pass_fail_unavailable(monkeypatch):
     def _fk(**k):
         pass
 
+    # The judge is on: with it off the precheck never calls check_faithfulness (RM2.b.5).
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
     # pass
     monkeypatch.setattr(rg, "check_faithfulness",
                         lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.PASS, ""))
@@ -163,7 +165,7 @@ def test_gate_precheck_classifies_pass_fail_unavailable(monkeypatch):
     status, issues = ep._abstract_gate_precheck("b")
     assert status == "fail" and "claim X" in issues
 
-    # ERROR (no key / disabled) -> unavailable
+    # ERROR (no key, judge error) and no names -> unavailable
     monkeypatch.setattr(rg, "check_faithfulness",
                         lambda b, l=None, suffixes=None: rg.Verdict("faithfulness", rg.Status.ERROR, "no key"))
     assert ep._abstract_gate_precheck("b")[0] == "unavailable"
@@ -297,6 +299,7 @@ def test_js2c_abstract_nqr_only_passes(monkeypatch, caplog):
         {"artifact": "abstract-generated.md",
          "not_quite_right": [{"claim": "Claim Y.", "type": "N2", "evidence": "e",
                               "first_label": "unsupported"}]}])
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
     monkeypatch.setattr(rg, "check_faithfulness", lambda b, l=None, suffixes=None: warn)
     monkeypatch.setattr(rg, "check_entity_grounding",
                         lambda b, l=None, suffixes=None: rg.Verdict("entity_grounding", rg.Status.PASS, ""))
@@ -311,6 +314,7 @@ def test_wo4_abstract_precheck_names_scoped_to_abstract(monkeypatch):
     is not fed back to the abstract (it cannot remove it). Before WO4 this cost only
     attempts; since WO4 the kept abstract would pass with another artifact's name
     counted as its flag."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
     monkeypatch.setattr(rg, "check_faithfulness", lambda b, l=None, suffixes=None:
                         rg.Verdict("faithfulness", rg.Status.PASS, ""))
     seen = []

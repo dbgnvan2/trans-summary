@@ -47,9 +47,20 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - Adjacent, not fixed (2026-10-20, items C/B): one failed deletion check refuses every
   removal in the artifact, name removals included, so a kept name can still fail the
   stage for another cause. Retrying with the name removals alone would narrow this.
-- Adjacent, not fixed (2026-10-20): the abstract treats a judge error with a flagged name
-  as "unavailable" and keeps the name, so the gate blocks at publish; the summary path
-  removes it ("partial"). Proposed as its own session.
+- Fixed 2026-10-20 (RM2.b.1–RM2.b.5, `docs/plan_remove_flagged_2026-10-19.md`): the
+  abstract treated a judge error with a flagged name as "unavailable" and kept the name,
+  so the gate blocked at publish. It now returns "partial", as the summary does, and the
+  name's sentence is removed. The abstract, summary/overview and blog prechecks now log
+  why a check did not run, with the judge's own cause.
+- Adjacent, not fixed (2026-10-20, RM2.b): on a "partial" draft both generation loops
+  log "attempt N not faithful (K claim(s))", though the faithfulness check did not run
+  on it; the precheck's warning just before says which check could not run and why.
+- Known (2026-10-20, RM2.b): when the entity check errors and the judge flags claims, the
+  draft is "partial": the claims are revised and removed, the entity check is run again,
+  and if it still errors the stage fails (the gate would block on it at publish). With no
+  claims flagged the stage succeeds and the gate blocks at publish. The summary loop
+  already did this. Not reproduced with the real checks: a missing source makes both
+  checks error, which gives "unavailable".
 - Known (RM1.g.1): when the sentence before "2) Then …" is removed, that line starts
   with "2) ", which markdown renders as a numbered list item. The words are unchanged.
 - Adjacent, not fixed (learning-qa re-check, 2026-10-20): `_line_sentences` starts a
@@ -131,8 +142,8 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   wrong or not quite right.~~ Turned off 2026-10-19 (decision D1,
   `docs/plan_remove_flagged_2026-10-19.md`).
 - **`theme_grounding` is now the only LLM judge that blocks.** It has no severity step.
-- Adjacent, not fixed: `_abstract_gate_precheck` returns "unavailable" on a judge ERROR
-  even when the name check found names; the summary path returns "partial".
+- Fixed 2026-10-20 (RM2.b.1): `_abstract_gate_precheck` returned "unavailable" on a
+  judge ERROR even when the name check found names; it now returns "partial".
 - Adjacent, not fixed: on BLOCK the GUI log shows each blocker twice (`run_gate` logs
   it through the GUI's logger, then `_publication_blocked` prints it again).
 
@@ -319,7 +330,10 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   Raise `_MAX` if any length ratio there is above 3.0.
 
 ### ⏸ Open (adjacent, found in the 2026-10-17 sweep, not fixed)
-- **The abstract stage reports "passed faithfulness" when the judge is off.**
+- ~~**The abstract stage reports "passed faithfulness" when the judge is off.**~~
+  Fixed 2026-10-20 (RM2.b.5, `docs/plan_remove_flagged_2026-10-19.md`): the precheck
+  checks the flag first, as `_faithfulness_precheck` does; the entity scope below was
+  fixed by WO4. The original entry:
   `extraction_pipeline._abstract_gate_precheck` treats the PASS that a disabled
   `release_gate.check_faithfulness` returns as a verdict: with
   `FAITHFULNESS_JUDGE_ENABLED = False` it returns "pass" and the stage logs "✓ Abstract

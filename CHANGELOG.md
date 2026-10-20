@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Abstract check on a judge error)
+
+`docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: the abstract check on a judge error".
+- **RM2.b.1–RM2.b.3:** when the faithfulness judge errored and the entity check rejected a
+  name, the abstract's generation check returned "unavailable": the abstract was kept
+  with the name, the stage succeeded, and the release gate blocked at publish. The check
+  now returns "partial", as the summary and overview check does: the name is fed back,
+  and after the last attempt its sentence is removed. The same applies when the entity
+  check errors and the judge flags claims. A partial draft ranks after every fully judged
+  draft, and the closing message says the faithfulness check could not run.
+- **RM2.b.4:** the warning said "judge off or no key" on any check error. The abstract,
+  summary and overview checks now log which check could not run and the cause the judge
+  reported ("the faithfulness check could not run at generation (judge error:
+  APITimeoutError: …)"); the gate's verdict detail says only "1 of 1 artifact(s) could
+  not be verified", so the cause is read from its items. The summary, overview and blog
+  logged no cause before; the blog check now logs the cause its check returns.
+- **RM2.b.5:** with `FAITHFULNESS_JUDGE_ENABLED = False` the abstract check read the
+  disabled judge's PASS as a pass and logged "✓ Abstract passed faithfulness +
+  grounding". It now returns "unavailable" (or "fail" on a rejected name), as the
+  summary check does. Both checks log that the judge is off, and the closing message
+  after a name removal says no claim was judged, not "no claim was flagged". The shared
+  loop's "unavailable" warning (summary, overview, blog) no longer says the gate will
+  verify it at publish; the precheck's line before it says whether the gate runs it
+  again.
+
 ## [Unreleased] - 2026-10-20 (Removal: open items C and B)
 
 `docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: open items C and B".

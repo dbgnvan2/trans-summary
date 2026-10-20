@@ -414,8 +414,10 @@ sentence goes; a claim listed as kept when a name removed its sentence.
 ----
 ## Follow-up: the abstract check on a judge error (plan, 2026-10-20)
 
-Status: **plan, not approved.** Found while reviewing `b1a8b78`; listed in `TODO.md` as
-"the abstract treats a judge error with a flagged name as 'unavailable'".
+Status: **built 2026-10-20.** Approved 2026-10-20: "build RM2.b.1 to RM2.b.5 as planned,
+D1 yes." See **Built (RM2.b, 2026-10-20)** at the end of this section. Found while
+reviewing `b1a8b78`; listed in `TODO.md` as "the abstract treats a judge error with a
+flagged name as 'unavailable'".
 
 The problem. `_abstract_gate_precheck` returns `("unavailable", [])` whenever the
 faithfulness check or the entity check returns ERROR. When the judge errors and the
@@ -433,7 +435,7 @@ means "judge off" in this function.
 | RM2.b.2 | The abstract loop treats "partial" as it treats "fail": it revises the flagged sentences, and after the last attempt removes the sentences still flagged, saves, and re-runs the entity check. A partial draft ranks after every fully judged draft when the kept draft is chosen (rank `(partial, count)`, as in `_generate_until_faithful`), so a draft with one name and unjudged claims never beats a judged draft with two claims. | `test_rm2b2_judge_error_name_sentence_removed_stage_passes` (real precheck, judge stubbed to ERROR, entity check reads the saved file: the name sentence is gone, the stage returns True, the record lists the sentence), `test_rm2b2_partial_draft_never_beats_judged_draft` |
 | RM2.b.3 | In the abstract path, `_all_removed_message(..., judge_errored=...)` gets True when the kept draft was "partial", not the fixed False. The message then says the faithfulness check could not run, not "every sentence still flagged … was removed" or "no claim was flagged". | in `test_rm2b2_judge_error_name_sentence_removed_stage_passes`; adversarial: `test_rm2b3_judged_names_only_says_no_claim_flagged` (a fully judged draft with only a name still says "no claim was flagged"; it passes before the fix and guards against passing True every time) |
 | RM2.b.4 | The "unavailable" warning is accurate. The precheck logs which check could not run and the check's own detail ("Abstract: the faithfulness check could not run at generation: timeout"). The loop's warning no longer says "judge off or no key"; it says the check could not run and that the release gate checks again at publish. | `test_rm2b4_unavailable_warning_names_the_error` (faithfulness ERROR "timeout", no names: the log has "timeout", not "judge off") |
-| RM2.b.5 (D1) | If approved: a disabled judge is not a pass. With `FAITHFULNESS_JUDGE_ENABLED = False` the precheck returns "fail" with the name flags when the entity check finds names, else "unavailable" (the guard `_faithfulness_precheck` has). The stage no longer logs "✓ Abstract passed faithfulness + grounding", and the warning says the judge is off and that the gate does not judge claims either. This closes the 2026-10-17 `TODO.md` item "The abstract stage reports 'passed faithfulness' when the judge is off" (its other half, the entity scope, was fixed by WO4). | `test_rm2b5_judge_off_is_not_a_pass` (real `check_faithfulness` with the flag off) |
+| RM2.b.5 (D1) | A disabled judge is not a pass. With `FAITHFULNESS_JUDGE_ENABLED = False` the precheck returns "fail" with the name flags when the entity check finds names, else "unavailable" (the guard `_faithfulness_precheck` has). The stage no longer logs "✓ Abstract passed faithfulness + grounding", and the warning says the judge is off and that the gate does not judge claims either. This closes the 2026-10-17 `TODO.md` item "The abstract stage reports 'passed faithfulness' when the judge is off" (its other half, the entity scope, was fixed by WO4). | `test_rm2b5_judge_off_is_not_a_pass` (real `check_faithfulness` with the flag off) |
 
 Each new test is checked to fail with its rule reverted. Tests use `tmp_path` and the
 fakes in `tests/test_abstract_faithful_retry.py::_setup`; no API calls, no paid runs.
@@ -457,12 +459,46 @@ then RM2.b.5 if approved.
 
 Not in this change:
 - Items A, D and E and the RM2.e trade-off stay open in `TODO.md`.
-- Adjacent, not fixed: the summary/overview "unavailable" warning also says "the release
+- ~~Adjacent, not fixed: the summary/overview "unavailable" warning also says "the release
   gate will verify it at publish" when the judge is off, and the gate does not judge
-  claims then either. Same low impact.
+  claims then either. Same low impact.~~ Fixed after review (#4 in the Built table).
 - Adjacent, not fixed: on a "partial" draft both loops log "attempt N not faithful
   (K claim(s))", though the faithfulness check did not run on it.
 - Adjacent, not fixed (already in `TODO.md`): the abstract keeps its own copy of the
   generation loop instead of `_generate_until_faithful`.
 - The sibling session on the bold-label span also adds a section at the end of this
   file. Merging the two branches will conflict here; keep both sections.
+
+### Built (RM2.b, 2026-10-20)
+
+All five IDs are built in `extraction_pipeline.py` (`_abstract_gate_precheck`, the loop in
+`generate_structured_abstract`, and the new `_log_checks_not_run`) with the tests named
+above. Three tests in `tests/test_abstract_faithful_retry.py` now turn the judge on: they
+stub a judged verdict, and the unit suite forces the judge off, so under RM2.b.5 the
+precheck no longer called their stub. Each rule was reverted one at a time: every
+reversion makes a test fail (`test_rm2b3_*` is the guard against passing
+`judge_errored=True` every time; it passes before the fix by design).
+
+learning-qa reviewed the diff and found 4 problems, and 1 more when it re-checked the
+fixes; all are fixed, each with a test that fails without its fix:
+
+| Finding | Fix | Test |
+|---|---|---|
+| #1 A judge error's cause is in the gate verdict's items; its detail says only "1 of 1 artifact(s) could not be verified". The RM2.b.4 log would not show the cause in a live run, and its test passed only because the stub put "timeout" in the detail | `_log_checks_not_run` reads the cause from the items (an artifact the judge could not verify is `{"artifact", "detail"}`), falling back to the detail | `test_rm2b4_unavailable_warning_names_the_error` now runs the real `check_faithfulness` with the judge call failing |
+| #2 With the judge off, an entity check that could not run was not logged | both prechecks pass the entity verdict to `_log_checks_not_run` in the judge-off branch | `test_rm2b4_judge_off_entity_error_cause_logged` (both prechecks) |
+| #3 With the judge off and a name removed, the closing message said "no claim was flagged", though no claim was judged (abstract and summary) | `_all_removed_message(..., judge_off=...)`: "the faithfulness judge is off, so no claim was judged"; the partial wording is checked first | `test_rm2b5_judge_off_is_not_a_pass` (final message), `test_rm2b5_summary_judge_off_names_message` |
+| #4 (P5) The summary and overview precheck logged no cause either | `_faithfulness_precheck` uses `_log_checks_not_run`; the summary loop's "unavailable" warning no longer says the gate will verify it at publish (the judge-off line says it will not) | `test_rm2b4_summary_precheck_names_the_error` |
+| Re-check (P5): the shared loop's new "unavailable" warning also covers the blog, whose precheck logged no cause and dropped the one `blog_ungrounded_claims` returns | `_blog_precheck` logs that cause on "unavailable" and "partial", and says the gate checks the blog again at publish (a warning only) | `test_rm2b4_blog_precheck_names_the_error` |
+
+Differences from the plan text: the summary, overview and blog changes (#3, #4, re-check) were listed
+under "Not in this change"; they are log and message text only and follow P5 (fix the
+siblings in the same change). The abstract loop's "unavailable" warning reads "Not every
+generation check ran on the abstract; keeping it", since the faithfulness check may have
+run when only the entity check errored.
+
+Known, not fixed (in `TODO.md`): when the entity check errors and the judge flags claims,
+the abstract is now "partial", so it is revised, its claims removed, and the stage fails
+if the entity check still errors (before, it passed on the first attempt and the gate
+blocked at publish). The summary loop already did this. A missing source makes both
+checks error, so the real checks give "unavailable" instead. The judge-off line is
+logged once per attempt (at most 3).

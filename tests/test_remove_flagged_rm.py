@@ -1207,6 +1207,223 @@ def test_rm2_partial_check_message_says_not_checked(monkeypatch, tmp_path):
     assert not any("every sentence still flagged" in m for m in msgs)
 
 
+# --- RM2.b.1–RM2.b.5: the abstract check on a judge error -------------------------------
+
+ABSTRACT_NAME_SENTENCE = "He describes the case of Ann Example in some detail."
+ABSTRACT_NAME = ("Michael Kerr presents two lectures on Bowen theory and its roots. "
+                 "The first traces the long history of cosmology from Aristotle onward. "
+                 f"{ABSTRACT_NAME_SENTENCE} "
+                 "The second turns to the neuroscience of differentiation of self. "
+                 "Kerr links the brain's functioning to the family emotional system. "
+                 "He closes by describing how anxiety moves through relationships. "
+                 "The talk ends with questions from the audience about practice.")
+
+
+def _judge(monkeypatch, status, detail="", claims=()):
+    """Turn the judge on and give it one fixed verdict on the abstract."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
+    items = ([{"artifact": "abstract-generated.md", "unfaithful": list(claims),
+               "wrong": [FLAG_RECORD]}] if claims else [])
+    monkeypatch.setattr(rg, "check_faithfulness", lambda *a, **k: rg.Verdict(
+        "faithfulness", status, detail, items=items))
+
+
+def _abstract_run(monkeypatch, tmp_path, text=ABSTRACT_NAME, setup=None):
+    """generate_structured_abstract with fake drafts (always ``text``), the real
+    precheck, and an entity check that reads the saved abstract. Returns (ok, saved
+    text, logger, the feedback each draft was made with, base)."""
+    from test_abstract_faithful_retry import _setup as abstract_setup
+    base, proj = setup or abstract_setup(monkeypatch, tmp_path)
+    feedback = []
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract",
+                        lambda *a, feedback_claims=None, **k: (feedback.append(feedback_claims)
+                                                               or text))
+    _entity_reads_file(monkeypatch, tmp_path, config.SUFFIX_ABSTRACT_GEN)
+    logger = MagicMock()
+    ok = ep.generate_structured_abstract(base, logger)
+    saved = (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8")
+    return ok, saved, logger, feedback, base
+
+
+def test_rm2b1_judge_error_with_name_is_partial(monkeypatch):
+    """The abstract precheck returned "unavailable" on a judge error even when the entity
+    check rejected a name, so the name was kept and the gate blocked at publish."""
+    _judge(monkeypatch, rg.Status.ERROR, "timeout")
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status.FAIL, "1 name", items=[{"names": ["Ann Example"]}]))
+    status, issues = ep._abstract_gate_precheck("B")
+    assert status == "partial"
+    assert [(f.kind, f.name) for f in issues] == [("name", "Ann Example")]
+
+
+def test_rm2b1_entity_error_with_claim_is_partial(monkeypatch):
+    _judge(monkeypatch, rg.Status.WARN, "1 wrong", claims=[FLAG])
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status.ERROR, "source transcript missing"))
+    status, issues = ep._abstract_gate_precheck("B")
+    assert status == "partial" and issues == [FLAG]
+    assert issues[0].record["rationale"] == FLAG_RECORD["rationale"]
+
+
+def test_rm2b2_judge_error_name_sentence_removed_stage_passes(monkeypatch, tmp_path):
+    """Judge ERROR and a rejected name: the name is fed back, its sentence is removed
+    after the last attempt, the stage succeeds, and the message says the faithfulness
+    check could not run (RM2.b.3)."""
+    _judge(monkeypatch, rg.Status.ERROR, "timeout")
+    ok, saved, logger, feedback, base = _abstract_run(monkeypatch, tmp_path)
+    assert ok is True
+    assert saved == ABSTRACT_NAME.replace(ABSTRACT_NAME_SENTENCE + " ", "")
+    assert len(feedback) == 3 and all("Ann Example" in str(f) for f in feedback[1])
+    record = json.loads(rr.record_path(base).read_text(encoding="utf-8"))
+    assert [r["sentence"] for r in record["artifacts"]["abstract"]["removed"]] == [
+        ABSTRACT_NAME_SENTENCE]
+    msgs = _warnings(logger)
+    assert "faithfulness check could not run" in msgs[-1]
+    assert not any("every sentence still flagged" in m or "no claim was flagged" in m
+                   for m in msgs)
+    assert not logger.error.called
+
+
+def test_rm2b2_partial_draft_never_beats_judged_draft(monkeypatch, tmp_path):
+    """A partial draft's count holds only what the working check found, so it ranks
+    after every fully judged draft, as in _generate_until_faithful (SC2 review)."""
+    from test_abstract_faithful_retry import _setup as abstract_setup
+    base, proj = abstract_setup(monkeypatch, tmp_path)
+    monkeypatch.setattr(config, "FAITHFULNESS_REMOVE_FLAGGED", False)
+    texts = iter(["draft-1", "draft-2", "draft-3"])
+    monkeypatch.setattr(ep.abstract_pipeline, "generate_abstract", lambda *a, **k: next(texts))
+    seq = iter([("fail", ["claim a", "claim b"]), ("partial", ["name x"]),
+                ("partial", ["name y"])])
+    monkeypatch.setattr(ep, "_abstract_gate_precheck", lambda b, logger=None: next(seq))
+    assert ep.generate_structured_abstract(base, MagicMock()) is True
+    assert (proj / f"{base}{config.SUFFIX_ABSTRACT_GEN}").read_text(encoding="utf-8") == "draft-1"
+
+
+def test_rm2b3_judged_names_only_says_no_claim_flagged(monkeypatch, tmp_path):
+    """Adversarial guard: when the judge ran and found nothing, removing the name's
+    sentence still says no claim was flagged, not that the check could not run."""
+    _judge(monkeypatch, rg.Status.PASS, "all narrative claims entailed by source")
+    ok, saved, logger, _, _ = _abstract_run(monkeypatch, tmp_path)
+    assert ok is True and "Ann Example" not in saved
+    msgs = _warnings(logger)
+    assert "no claim was flagged" in msgs[-1]
+    assert not any("could not run" in m for m in msgs)
+
+
+JUDGE_TIMEOUT = "judge error: APITimeoutError: Request timed out."
+
+
+def _real_judge_error(monkeypatch, proj):
+    """The gate's real check_faithfulness, with the judge call failing. The gate keeps
+    the judge's own cause in the verdict's items; its detail says only "1 of 1
+    artifact(s) could not be verified" (learning-qa #1)."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", True, raising=False)
+    (proj / f"{proj.name}{config.SUFFIX_FORMATTED}").write_text(
+        "Spoken words about family systems.", encoding="utf-8")
+    monkeypatch.setattr(rg, "_judge_cached", lambda *a, **k: fj.FaithfulnessResult(
+        status=fj.ERROR, detail=JUDGE_TIMEOUT))
+    monkeypatch.setattr("transcript_utils.resolve_anthropic_key", lambda: "k")
+    import anthropic
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **_k: object())
+
+
+def test_rm2b4_unavailable_warning_names_the_error(monkeypatch, tmp_path):
+    """The warning said "judge off or no key" on any error; a disabled judge never gets
+    there. It now gives the cause the judge reported."""
+    from test_abstract_faithful_retry import _setup as abstract_setup
+    base, proj = abstract_setup(monkeypatch, tmp_path)
+    _real_judge_error(monkeypatch, proj)
+    ok, saved, logger, feedback, _ = _abstract_run(
+        monkeypatch, tmp_path, text=ABSTRACT_NAME.replace(ABSTRACT_NAME_SENTENCE + " ", ""),
+        setup=(base, proj))
+    assert ok is True and len(feedback) == 1
+    msgs = _warnings(logger)
+    assert any("faithfulness check could not run" in m and JUDGE_TIMEOUT in m for m in msgs)
+    assert not any("judge off" in m for m in msgs)
+
+
+def test_rm2b4_summary_precheck_names_the_error(monkeypatch, tmp_path):
+    """P5 (learning-qa #4): the summary and overview precheck logged nothing about why
+    the judge did not run; it now logs the same line as the abstract's."""
+    (tmp_path / "B").mkdir()
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (tmp_path / "B" / f"B{config.SUFFIX_SUMMARY_GEN}").write_text(SUMMARY, encoding="utf-8")
+    _real_judge_error(monkeypatch, tmp_path / "B")
+    _entity_pass(monkeypatch)
+    logger = MagicMock()
+    assert ep._faithfulness_precheck("B", config.SUFFIX_SUMMARY_GEN, logger) == (
+        "unavailable", [])
+    assert any("faithfulness check could not run" in m and JUDGE_TIMEOUT in m
+               for m in _warnings(logger))
+
+
+def test_rm2b4_blog_precheck_names_the_error(monkeypatch):
+    """P5 (learning-qa re-check): the blog also goes through _generate_until_faithful,
+    whose "unavailable" warning no longer names the cause; the blog precheck dropped the
+    cause blog_ungrounded_claims returns. It now logs it, unavailable or partial."""
+    cause = "claims not verified: no Anthropic API key"
+    for hits, expected in (([], ("unavailable", [])),
+                           (["the name 'X Y' is not in the source"],
+                            ("partial", ["the name 'X Y' is not in the source"]))):
+        monkeypatch.setattr(rg, "blog_ungrounded_claims",
+                            lambda *a, hits=hits, **k: ("error", list(hits), cause))
+        logger = MagicMock()
+        assert ep._blog_precheck("B", config.SUFFIX_BLOG, logger) == expected
+        assert any(cause in m and "at publish" in m for m in _warnings(logger)), hits
+
+
+def test_rm2b4_judge_off_entity_error_cause_logged(monkeypatch, tmp_path):
+    """learning-qa #2: with the judge off, an entity check that could not run was not
+    logged; the user saw its cause only when the gate blocked at publish. Both
+    prechecks (abstract; summary and overview)."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+    monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
+    (tmp_path / "B").mkdir()
+    (tmp_path / "B" / f"B{config.SUFFIX_SUMMARY_GEN}").write_text(SUMMARY, encoding="utf-8")
+    monkeypatch.setattr(rg, "check_entity_grounding", lambda *a, **k: rg.Verdict(
+        "entity_grounding", rg.Status.ERROR, "source transcript missing or empty"))
+    for precheck in (lambda lg: ep._abstract_gate_precheck("B", lg),
+                     lambda lg: ep._faithfulness_precheck("B", config.SUFFIX_SUMMARY_GEN, lg)):
+        logger = MagicMock()
+        assert precheck(logger) == ("unavailable", [])
+        assert any("entity check could not run" in m and "source transcript missing" in m
+                   for m in _warnings(logger)), _warnings(logger)
+
+
+def test_rm2b5_judge_off_is_not_a_pass(monkeypatch, tmp_path):
+    """D1: with the judge off, the real check_faithfulness returns PASS ("judge
+    disabled"). The abstract precheck read that as a pass and the stage logged
+    "passed faithfulness + grounding" though no claim was judged."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+    text = ABSTRACT_NAME.replace(ABSTRACT_NAME_SENTENCE + " ", "")
+    ok, saved, logger, feedback, base = _abstract_run(monkeypatch, tmp_path, text=text)
+    assert ok is True and len(feedback) == 1
+    assert ep._abstract_gate_precheck(base) == ("unavailable", [])
+    infos = [str(c.args[0]) % c.args[1:] for c in logger.info.call_args_list]
+    assert not any("passed faithfulness" in m for m in infos)
+    assert any("faithfulness judge is off" in m for m in _warnings(logger))
+    # With a rejected name it is still fed back on each attempt and then removed
+    # ("fail", as in the summary's precheck).
+    ok, saved, logger, feedback, _ = _abstract_run(monkeypatch, tmp_path / "named")
+    assert ok is True and "Ann Example" not in saved
+    assert len(feedback) == 3 and all("Ann Example" in str(f) for f in feedback[1])
+    # learning-qa #3: no claim was judged, so the message must not say none was flagged.
+    msgs = _warnings(logger)
+    assert "the faithfulness judge is off, so no claim was judged" in msgs[-1]
+    assert not any("no claim was flagged" in m or "could not run" in m for m in msgs)
+
+
+def test_rm2b5_summary_judge_off_names_message(monkeypatch, tmp_path):
+    """P5 (learning-qa #3): the summary loop said "no claim was flagged" with the judge
+    off, as the abstract did."""
+    monkeypatch.setattr(config, "FAITHFULNESS_JUDGE_ENABLED", False, raising=False)
+    _entity_reads_file(monkeypatch, tmp_path, config.SUFFIX_SUMMARY_GEN)
+    ok, path, logger, _ = _loop(monkeypatch, tmp_path, drafts=[NAME_TEXT, NAME_TEXT],
+                                issues=[NAME_FLAG])
+    assert ok is True and "Ann Example" not in path.read_text(encoding="utf-8")
+    assert "the faithfulness judge is off, so no claim was judged" in _warnings(logger)[-1]
+
+
 # --- RM4: the end-of-run list -----------------------------------------------------------
 
 def _recorded_run(monkeypatch, tmp_path):

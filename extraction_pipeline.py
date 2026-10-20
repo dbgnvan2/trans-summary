@@ -1315,28 +1315,64 @@ def _faithfulness_precheck(base_name: str, suffix: str, logger=None):
     Spec:  docs/plan_run_fixes_2026-10-09.md#RF.J.2,
            docs/plan_summary_closing_2026-10-18.md#SC2,
            docs/plan_judge_severity_2026-10-19.md#JS2.c,
-           docs/plan_remove_flagged_2026-10-19.md#RM2.h
+           docs/plan_remove_flagged_2026-10-19.md#RM2.h, #RM2.b.4
     Tests: tests/test_summary_closing_sc.py::test_sc2e_judge_error_with_names_is_partial,
            tests/test_judge_severity_js.py::test_js2c_precheck_ignores_nqr,
-           tests/test_remove_flagged_rm.py::test_rm2h_record_has_judge_rationale
+           tests/test_remove_flagged_rm.py::test_rm2h_record_has_judge_rationale,
+           tests/test_remove_flagged_rm.py::test_rm2b4_summary_precheck_names_the_error
     """
     import release_gate as rg
     if not (config.PROJECTS_DIR / base_name / f"{base_name}{suffix}").exists():
         return "missing", []
     entity = rg.check_entity_grounding(base_name, logger, suffixes=[suffix])
     issues = _name_flags(entity)
+    label = suffix.strip(" -").removesuffix(".md").removesuffix("-generated").capitalize()
     if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
         # A disabled judge returns PASS ("judge disabled"); that is not a verdict.
+        _log_checks_not_run(label, logger, {"entity": entity}, judge_off=True)  # RM2.b.4
         return ("fail", issues) if issues else ("unavailable", [])
     faith = rg.check_faithfulness(base_name, logger, suffixes=[suffix])
     _warn_not_quite_right(faith, suffix.strip(" -").removesuffix(".md"), logger)
     issues.extend(_claim_flags(faith))
-    errored = rg.Status.ERROR in (faith.status, entity.status)
+    errored = _log_checks_not_run(label, logger, {"faithfulness": faith, "entity": entity})
     if issues:
         return ("partial" if errored else "fail"), issues
     if errored:
         return "unavailable", []
     return "pass", []
+
+
+def _log_checks_not_run(label: str, logger, verdicts: dict, judge_off: bool = False) -> bool:
+    """Log why a generation check did not run, and return True when one returned ERROR.
+    With the judge off it says so: claims are judged neither here nor at publish. For
+    an ERROR verdict it gives the cause. The gate keeps a judge error's own cause
+    ("judge error: APITimeoutError …") in the verdict's items, and its detail says only
+    "1 of 1 artifact(s) could not be verified", so the items' cause is used when there.
+
+    Purpose: Say why a generation check did not run, with the check's own cause.
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.b.4, #RM2.b.5
+    Tests:   tests/test_remove_flagged_rm.py::test_rm2b4_unavailable_warning_names_the_error,
+             tests/test_remove_flagged_rm.py::test_rm2b4_summary_precheck_names_the_error,
+             tests/test_remove_flagged_rm.py::test_rm2b4_judge_off_entity_error_cause_logged
+    """
+    import release_gate as rg
+    if judge_off and logger:
+        logger.warning("%s: the faithfulness judge is off (FAITHFULNESS_JUDGE_ENABLED is "
+                       "False); its claims are not judged at generation or at publish.", label)
+    errored = []
+    for what, verdict in verdicts.items():
+        if verdict.status is not rg.Status.ERROR:
+            continue
+        # release_gate.check_faithfulness: an artifact the judge could not verify is
+        # recorded as {"artifact", "detail"}; a flagged one also has "unfaithful".
+        causes = [str(i["detail"]) for i in (verdict.items or [])
+                  if isinstance(i, dict) and i.get("detail") and "unfaithful" not in i]
+        errored.append(f"the {what} check could not run at generation "
+                       f"({'; '.join(causes) or verdict.detail})")
+    if errored and logger:
+        logger.warning("%s: %s; the release gate will run it again at publish.",
+                       label, "; ".join(errored))
+    return bool(errored)
 
 
 def _name_flags(entity) -> list:
@@ -1359,12 +1395,20 @@ def _claim_flags(faith) -> list:
 
 def _blog_precheck(base_name: str, suffix: str, logger=None):
     """Generation-time blog check: the gate's two-stage blog test (RF.N.1).
-    A judge error with name hits is "partial", as in ``_faithfulness_precheck``."""
+    A judge error with name hits is "partial", as in ``_faithfulness_precheck``, and
+    its cause is logged (RM2.b.4).
+
+    Tests: tests/test_remove_flagged_rm.py::test_rm2b4_blog_precheck_names_the_error
+    """
     import release_gate as rg
-    status, ungrounded, _detail = rg.blog_ungrounded_claims(base_name, logger)
+    status, ungrounded, detail = rg.blog_ungrounded_claims(base_name, logger)
     if status == "missing":
         return "missing", []
     if status == "error":
+        if logger:
+            logger.warning("Blog: the faithfulness check could not run at generation (%s); "
+                           "the release gate checks the blog again at publish (a warning "
+                           "only).", detail)
         # Only name hits are known to be wrong; unassessed claims are not fed back.
         return ("partial", ungrounded) if ungrounded else ("unavailable", [])
     return ("fail", ungrounded) if status == "warn" else ("pass", [])
@@ -1561,15 +1605,17 @@ def _remove_still_flagged(what: str, base_name: str, suffix: str, text: str, iss
 
 
 def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: bool,
-                         cause: str = "") -> str:
+                         cause: str = "", judge_off: bool = False) -> str:
     """The warning when nothing flagged is left after removal. It says which checks the
-    removed flags came from: with names only, no claim was removed, and when the judge
-    errored ("partial") the draft's faithfulness was not checked at all.
+    removed flags came from: with names only, no claim was removed; when the judge
+    errored ("partial") the draft's faithfulness was not checked at all; and when the
+    judge is off no claim was judged.
 
     Purpose: Never report "every flagged sentence removed" for a check that did not run.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a, #RM2.b.5
     Tests:   tests/test_remove_flagged_rm.py::test_rm2_partial_check_message_says_not_checked,
-             tests/test_remove_flagged_rm.py::test_rm2_names_only_message
+             tests/test_remove_flagged_rm.py::test_rm2_names_only_message,
+             tests/test_remove_flagged_rm.py::test_rm2b5_summary_judge_off_names_message
     """
     lead = f"⚠️ {label}: " + (f"{cause}; " if cause else "")
     names_only = bool(flags) and all(getattr(f, "kind", "claim") == "name" for f in flags)
@@ -1577,6 +1623,10 @@ def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: 
         return (lead + "the sentences with the flagged names were removed, but the "
                 "faithfulness check could not run on this draft; the release gate will "
                 "check it at publish. Removals are listed at the end of the run.")
+    if names_only and judge_off:
+        return (lead + "the sentences with the flagged names were removed; the faithfulness "
+                "judge is off, so no claim was judged. Removals are listed at the end of "
+                "the run.")
     if names_only:
         return (lead + "the sentences with the flagged names were removed; no claim was "
                 "flagged. Removals are listed at the end of the run.")
@@ -1647,8 +1697,9 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                         what.capitalize(), attempt, attempts)
             return True
         if status == "unavailable":
-            logger.warning("Faithfulness check unavailable at generation; keeping the "
-                           "%s — the release gate will verify it at publish.", what)
+            # The precheck logged why the check did not run (RM2.b.4).
+            logger.warning("Faithfulness check did not run at generation; keeping the %s.",
+                           what)
             return True
         # Only a judged draft can be kept: an echo-rejected one was never judged, so
         # its count is not its real one (RS.6 review). A "partial" one (a check
@@ -1683,8 +1734,9 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
                      what, attempts, best_count, blocking.detail)
         return False
     if best_count == 0:
-        logger.warning("%s", _all_removed_message(what.capitalize(), attempts, best_issues,
-                                                  judge_errored=best_rank[0]))
+        logger.warning("%s", _all_removed_message(
+            what.capitalize(), attempts, best_issues, judge_errored=best_rank[0],
+            judge_off=not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)))
         return True
     logger.warning("⚠️ %s still has %d flagged claim(s) after %d attempt(s); kept the best "
                    "draft. Faithfulness flags are warnings: the run goes on, and the release "
@@ -1697,13 +1749,21 @@ def _abstract_gate_precheck(base_name: str, logger=None):
     abstract (the SAME functions the release gate uses, so they can't drift), and
     classify the result.
 
-    Returns (status, issues):
+    Returns (status, issues), with the rules of ``_faithfulness_precheck``:
       - "pass": both checks PASS -> the abstract is publishable.
       - "fail": at least one FAILed -> `issues` holds the specific unsupported
         claim(s) / ungrounded name(s) to feed back to the generator.
-      - "unavailable": a check ERRORed or the judge is off (no API key / disabled)
-        -> can't verify at generation time; accept and let the gate verify at
-        publish (single attempt).
+      - "partial": a check ERRORed but the other found issues -> they are fed back
+        and removed as on "fail", but the draft ranks after every fully judged one.
+      - "unavailable": a check ERRORed and nothing was found, or the judge is off
+        and the entity check found no name -> accept the abstract (single attempt).
+    The reason a check did not run is logged with the check's own detail.
+
+    Spec:  docs/plan_remove_flagged_2026-10-19.md#RM2.b.1, #RM2.b.4, #RM2.b.5
+    Tests: tests/test_remove_flagged_rm.py::test_rm2b1_judge_error_with_name_is_partial,
+           tests/test_remove_flagged_rm.py::test_rm2b1_entity_error_with_claim_is_partial,
+           tests/test_remove_flagged_rm.py::test_rm2b4_unavailable_warning_names_the_error,
+           tests/test_remove_flagged_rm.py::test_rm2b5_judge_off_is_not_a_pass
     """
     import release_gate as rg
     # Scope the GENERATION-time precheck to the abstract only — otherwise an unfaithful
@@ -1712,17 +1772,22 @@ def _abstract_gate_precheck(base_name: str, logger=None):
     # cannot remove and emitting a misleading BLOCK message (review M2). The full
     # multi-artifact faithfulness sweep stays at the publish gate. The entity check is
     # scoped the same way: a name in the summary is not the abstract's to remove (WO4).
+    entity = rg.check_entity_grounding(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
+    issues = _name_flags(entity) if entity.status is rg.Status.FAIL else []
+    if not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False):
+        # A disabled judge returns PASS ("judge disabled"); that is not a verdict (D1).
+        _log_checks_not_run("Abstract", logger, {"entity": entity}, judge_off=True)
+        return ("fail", issues) if issues else ("unavailable", [])
     faith = rg.check_faithfulness(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
     _warn_not_quite_right(faith, "abstract", logger)  # JS2.c
-    entity = rg.check_entity_grounding(base_name, logger, suffixes=[config.SUFFIX_ABSTRACT_GEN])
-    if rg.Status.ERROR in (faith.status, entity.status):
-        return "unavailable", []
     # Faithfulness flags arrive as a WARN since WO2; the flagged claims are in items.
-    issues = _claim_flags(faith)
-    if entity.status is rg.Status.FAIL:
-        issues.extend(_name_flags(entity))
+    issues = _claim_flags(faith) + issues
+    errored = _log_checks_not_run("Abstract", logger,
+                                  {"faithfulness": faith, "entity": entity})
     if issues:
-        return "fail", issues
+        return ("partial" if errored else "fail"), issues
+    if errored:
+        return "unavailable", []
     return "pass", []
 
 
@@ -1735,13 +1800,18 @@ def generate_structured_abstract(
 
     Purpose: Generate the abstract, revising flagged sentences until it passes the
              gate's faithfulness and name checks; if no try passes, keep the draft
-             with the fewest issues (on a tie the later one), remove the sentences
-             still flagged (RM2.b), and fail only on a rejected name (WO4).
+             with the fewest issues (on a tie the later one; a draft judged only in
+             part ranks last), remove the sentences still flagged (RM2.b), and fail
+             only on a rejected name (WO4).
     Spec:    docs/plan_summary_closing_2026-10-18.md#SC2, #SC3,
-             docs/plan_remove_flagged_2026-10-19.md#RM2.b
+             docs/plan_remove_flagged_2026-10-19.md#RM2.b, #RM2.b.2, #RM2.b.3, #RM2.b.4
     Tests:   tests/test_abstract_faithful_retry.py::test_sc2d_abstract_tie_keeps_the_later_draft,
              tests/test_abstract_faithful_retry.py::test_sc3b_abstract_last_try_wording,
-             tests/test_remove_flagged_rm.py::test_rm2b_abstract_sentence_removed_and_saved
+             tests/test_remove_flagged_rm.py::test_rm2b_abstract_sentence_removed_and_saved,
+             tests/test_remove_flagged_rm.py::test_rm2b2_judge_error_name_sentence_removed_stage_passes,
+             tests/test_remove_flagged_rm.py::test_rm2b2_partial_draft_never_beats_judged_draft,
+             tests/test_remove_flagged_rm.py::test_rm2b3_judged_names_only_says_no_claim_flagged,
+             tests/test_remove_flagged_rm.py::test_rm2b4_unavailable_warning_names_the_error
     """
     model = model or config.settings.AUX_MODEL  # N3: resolved per call, not at import
     if logger is None:
@@ -1827,7 +1897,7 @@ def generate_structured_abstract(
         # checks so they can't drift.
         max_attempts = max(1, int(getattr(config, "ABSTRACT_MAX_ATTEMPTS", 1)))
         feedback = None
-        best_text, best_issue_count, last_text = None, None, None
+        best_text, best_rank, last_text = None, None, None
         best_issues = []
         generation_error = None
         for attempt in range(1, max_attempts + 1):
@@ -1867,14 +1937,16 @@ def generate_structured_abstract(
                             attempt, max_attempts, output_path)
                 return True
             if status == "unavailable":
-                logger.warning("Faithfulness/grounding check unavailable at generation "
-                               "(judge off or no key); keeping abstract — the release gate "
-                               "will verify it at publish. Saved to %s", output_path)
+                # The precheck logged why the check did not run (RM2.b.4).
+                logger.warning("Not every generation check ran on the abstract; keeping "
+                               "it. Saved to %s", output_path)
                 return True
-            # status == "fail": remember the least-bad draft (on a tie the later one,
-            # SC2), feed the issues back.
-            if best_text is None or len(issues) <= best_issue_count:
-                best_text, best_issue_count, best_issues = abstract_text, len(issues), list(issues)
+            # status "fail" or "partial": remember the least-bad draft and feed the
+            # issues back. A "partial" draft (a check errored) ranks after every fully
+            # judged draft; on a tie the later draft wins (SC2, RM2.b.2).
+            rank = (status == "partial", len(issues))
+            if best_rank is None or rank <= best_rank:
+                best_text, best_rank, best_issues = abstract_text, rank, list(issues)
             feedback = issues
             logger.warning("Abstract attempt %d/%d not faithful (%d issue(s)); %s. "
                            "Issues: %s", attempt, max_attempts, len(issues),
@@ -1883,6 +1955,7 @@ def generate_structured_abstract(
                            "; ".join(issues))  # JS2.d: every claim, in full
 
         # All attempts failed — keep the least-bad draft; honest, loud status.
+        best_issue_count = best_rank[1] if best_rank else None
         if best_text is not None:
             output_path.write_text(best_text, encoding="utf-8")
             # RM2.b: the sentences still flagged are removed from the kept draft.
@@ -1904,7 +1977,10 @@ def generate_structured_abstract(
             return False
         if best_issue_count == 0:
             logger.warning("%s", _all_removed_message("Abstract", max_attempts, best_issues,
-                                                      judge_errored=False, cause=cause))
+                                                      judge_errored=best_rank[0],  # RM2.b.3
+                                                      cause=cause, judge_off=not getattr(
+                                                          config, "FAITHFULNESS_JUDGE_ENABLED",
+                                                          False)))
             return True
         logger.warning("⚠️ Abstract: %s; kept the best draft (%s flagged claim(s)). "
                        "Faithfulness flags are warnings: the run goes on, and the release "
