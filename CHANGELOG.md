@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: bold label after a list or quote marker)
+
+`docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: a bold label after a list or quote
+marker". Approved by Dave ("fix everything", D1 keep, D2 yes).
+- **RM1.b.1:** a bold label after "1. ", "1) ", "> ", "+ ", "• " or a run of markers
+  ("- 1. ", "> - ") no longer puts a sentence's span inside the bold run. The judge reads
+  that label as the start of the first sentence ("Kerr Agreed: Zed …"); removal now cuts
+  only the words after the label, so the marker and the label stay, and a line left with
+  only those goes. Before, the cut left a stray `**` and the deletion check refused every
+  removal in the artifact, so a flagged name stayed and the entity check failed the
+  stage; on "+ " lines the cut also took the marker and the label without saying so.
+  The removed-sentences record holds the sentence without the label.
+- **RM1.b.2 (D1, keep):** a name that is only in such a label is kept with the reason
+  "only in a heading, a label or the front matter" when its line has more sentences, as
+  on "- **Label:**" lines. On a one-sentence line the line goes, label included.
+- **RM1.g.2:** the deletion check compares a labelled line's first sentence, and the
+  claim the judge reads from it, without the bold label, as it does for "Note:"
+  (RM1.g.1), because after the cut the judge reads the label with the next sentence. A
+  sentence that is only a label is compared as it is.
+- **RM1.g.3 (D2):** a claim after the removal that was a sentence before, but not a claim,
+  does not count as added. The token check already proves that only deletions were made,
+  and the gate judges the saved file at publish. This fixes F6 (under a question heading
+  the "[in answer to: …]" tag moves to the next sentence) and "Status: Zed … 2020 was a
+  hard year.", where "Status:" now goes with its sentence and the judge reads "2020 was a
+  hard year." as a claim. A new claim that was not a sentence before is still refused.
+- Grid check (scratch script, no API calls): of 2,080 name-flag lines, 530 that 813dd3c
+  refused now remove the name and none is worse; of 672 claim-flag lines, 169 are fixed
+  and none is worse. 36 "&gt; " lines are still refused, as at 813dd3c.
+- `test_rm1b_marker_run_line_does_not_backtrack` runs its removal in the child process
+  too, so a backtracking `_MARKED_LABEL` fails the test instead of hanging the suite.
+- Review (learning-qa) fixes in the same change:
+  - The first build stripped every bold label of the text from the start of every
+    sentence and claim, so deleting a label ("1. **Not true:** X" to "1. X") or a plain
+    "Kerr Agreed: " prefix on another line passed the check. The label now comes off
+    only its own line's first sentence, one claim per line, and the check reports "a
+    bold label was lost" when more bold labels go than the lines removed whole had.
+  - Bold text ending in a period ("1. **Dr.** Zed …") is not a label: the judge reads
+    on past that period only when it is no sentence end. The removal is refused there,
+    as at 813dd3c.
+  - A claim flag the judge read with a bold label is also listed as kept when the label
+    stays: "removed in part; its bold label stays and is now read with the next
+    sentence". Keeping the sentence instead, as RM1.b.2 does for names, is in `TODO.md`
+    for Dave.
+  - An FAQ copy left in the front matter is listed for each flag that cut its sentence,
+    not only for the last one, and says when the flag's bold label stays.
+  - learning-qa re-check of these fixes: a number inside the bold label ("1. **2) Key
+    point:** Zed …") is read as the judge reads it ("Key point:"); the first fix refused
+    those removals. A dash is its own token in the token check, so cutting the sentence
+    after "**Kerr Agreed**—" (no space) is a deletion; it was refused, also at 813dd3c
+    except on "+ " lines, where the label was cut too.
+- Tests: 20 new tests (53 cases) in `tests/test_remove_flagged_rm.py`; 28 rules were
+  reverted one at a time and each makes a test fail.
+
 ## [Unreleased] - 2026-10-20 (Removal: open items C and B)
 
 `docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: open items C and B".

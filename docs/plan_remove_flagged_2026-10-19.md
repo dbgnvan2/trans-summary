@@ -410,3 +410,179 @@ Older problems learning-qa found, not fixed here (in `TODO.md`, for Dave to deci
 the FQ version of C (a question heading's tag moves onto the next sentence, which becomes
 a claim, so the check refuses and a name stays); a line left with only "Note:" after its
 sentence goes; a claim listed as kept when a name removed its sentence.
+
+## Follow-up: a bold label after a list or quote marker (plan, 2026-10-20)
+
+Status: **built 2026-10-20** (see "Built" at the end of this section). Approved by Dave:
+"fix everything", D1 keep, D2 yes. The `TODO.md` item "`_line_sentences`
+starts a sentence's span inside a bold run …". Reproduced on 813dd3c (no API calls):
+
+- `"1. **Kerr Agreed:** Zed Example spoke at length about the move. Then the family moved
+  …"` with a name flag on Zed Example: nothing is removed, "deletion check failed: … a
+  line was left with an unpaired bold marker". The same for "1) ", "- 1. ", "> ", "> - ",
+  and for "2020 was hard." as the second sentence (the RM1.i.1 case). The name is kept,
+  so the entity check fails the stage.
+- Cause: `_INLINE_BOLD_LABEL` matches a label only at the start of a line or after "- "
+  or "• ". After other markers the judge reads the label as the start of the first
+  sentence ("Kerr Agreed: Zed Example …"), and removal's span for that sentence starts
+  after "1. **", inside the bold run.
+- "+ " lines: the span starts at the "+", so a cut also takes the marker and the label,
+  and nothing reports the label as gone.
+- "• " lines are right outside a question heading. Under one, the judge reads the label
+  with the sentence ("• Kerr Agreed: Zed …"), so after the cut it reads "• Kerr Agreed:
+  Then …", a claim it did not have before, and the check refuses.
+- No artifact in the three projects folders has this shape today: their 190 bold-label
+  lines all start with "- ". I did not find learning-qa's 67 real lines in those folders.
+
+| ID | Rule |
+|---|---|
+| RM1.b.1 | `_line_sentences` also finds a bold label after list, quote or number markers ("- ", "* ", "+ ", "> ", "• ", "1. ", "1) ", in any order). The label shapes are those of `_INLINE_BOLD_LABEL`, less bold text that ends with a period ("**Dr.**"), which the judge reads on past only when the period is no sentence end. Where the judge reads the label as the start of the first sentence, that sentence's span starts after the label. A cut then leaves the markers and the label, and a line left with only those is removed (RM1.b, unchanged). The sentence keeps the judge's reading (label included), so a claim flag still matches it. The record holds the words that were cut, without the label. A sentence that lies wholly inside the label (`"**Kerr Agreed.**"`, which the judge splits off as its own sentence) is handled as it is now. |
+| RM1.b.2 | A name that is only in such a label, and not in the sentence after it, removes that sentence only when its line goes with it, so the label goes too (as at HEAD). Otherwise the name is kept with the reason "only in a heading, a label or the front matter", and the line is not touched, as for a "- **Label:**" line (RM1.i). Without this rule, RM1.b.1 would cut the sentence after the label even though the name is in the label, which stays. |
+| RM1.g.2 | The deletion check compares a labelled line's first sentence, and the claim the judge reads from it, without the bold label and the markers before it. RM1.g.1 does the same for "Note:". After the cut the judge reads the label with the next sentence ("Kerr Agreed: 2020 was hard."), which is the same sentence as before. Only that sentence of that line is read without the label, one claim per line; a claim that is only the label is compared as it is. No more bold labels may go than the lines removed whole had ("a bold label was lost"). *(Revised after learning-qa: the first build stripped every label of `before` from every sentence.)* |
+| RM1.g.3 (D2) | A claim in `after` that was already a sentence in `before`, not a claim, does not count as added. The judge now reads more of the text, and the token check already proves that only deletions were made. |
+
+D2 also fixes F6: under a question heading, the question tag moves to the next sentence,
+and the check then counts that sentence as a new claim.
+
+**Grid check (scratch script, HEAD against a prototype; all existing RM tests pass on
+both).** The grid has 2,080 name-flag lines: 13 leads × 8 label shapes × 2 sentence
+positions × 5 second sentences × with and without a question heading.
+
+- RM1.b.1, RM1.b.2 and RM1.g.2:
+  - 304 lines that HEAD refused now remove the name.
+  - 68 lines that HEAD refused now keep the name with the label reason (RM1.b.2).
+  - 12 lines get worse, all "+ " or "1. - " lines whose second sentence is short and not a claim ("Then he left."). HEAD removed the name there only by cutting the marker and the label with it, unreported. The fix keeps the label, the judge then reads "Key point: Then he left." as a new claim, and the check refuses.
+- With RM1.g.3 added:
+  - 530 lines that HEAD refused now remove the name.
+  - 0 lines get worse.
+  - 36 lines are still refused, all "&gt; " lines, which HEAD refuses too.
+- The 672 claim-flag lines show the same pattern:
+  - without RM1.g.3: 68 fixed, 6 worse;
+  - with RM1.g.3: 169 fixed, 0 worse.
+
+Tests (`tests/test_remove_flagged_rm.py`). Each is checked to fail on 813dd3c and with
+its rule reverted, unless it is marked as a guard:
+
+| ID | Test |
+|---|---|
+| RM1.b.1 | `test_rm1b1_name_sentence_after_marked_label_takes_own_span`: leads "1. ", "1) ", "- 1. ", "> ", "> - ", "+ ", with a second sentence that is a long claim or "2020 was hard.". The line becomes `{lead}**Kerr Agreed:** {second}`, the record holds "Zed Example spoke …", and nothing is kept. Guard cases: "• " and "- ", which already pass at HEAD. |
+| RM1.b.1 | `test_rm1b1_marked_label_under_question_heading`: "1. ", "> ", "• ", "+ " under "### What did Kerr say?". |
+| RM1.b.1 | `test_rm1b1_last_sentence_after_marked_label_line_goes`: a one-sentence line for each lead. The line goes, and the record holds the sentence without the label (at HEAD it held the label too). |
+| RM1.b.1 | `test_rm1b1_claim_flag_after_marked_label`: the judge's claim "Kerr Agreed: Zed …" as the flag. The sentence is cut and the label stays. |
+| RM1.b.1 | `test_rm1b1_marked_label_regex_does_not_backtrack`: runs of "1. ", "*", "> " in a child process with a timeout, as `test_rm1b_marker_run_line_does_not_backtrack` does. |
+| RM1.b.2 | `test_rm1b2_name_only_in_marked_label_kept`: "1. **Zed Example:** He spoke … Then …" is kept with the label reason and the line is unchanged. A name sentence elsewhere in the same text is still removed (HEAD refused everything). Guard: a one-sentence line goes. |
+| RM1.g.2 | `test_rm1g2_label_read_with_next_sentence_passes`: calls `deletion_problems` directly. Adversarial guards (P7): an unflagged sentence after the label that goes is still reported, and a changed label is still reported. |
+| RM1.g.3 | `test_rm1g3_label_makes_short_sentence_a_claim` ("+ **Key point:** Zed … Then he left."), `test_rm1g3_question_tag_moves_to_next_sentence` (F6). Adversarial guard: two sentences merged into one new claim are still refused. |
+
+Files: `flagged_removal.py` (`_line_sentences`, `_Sentence`, the name branch and the
+record fields of `remove_flagged_sentences`, `deletion_problems`) and the test file.
+`CHANGELOG.md`, `TODO.md` (the item leaves the list; F6 too with D2) and this plan go in
+the same commit. `ARCHITECTURE_DESIGN.md` §4.3 is checked. Both suite runs must pass,
+learning-qa reviews the diff, and its findings are fixed. The commit stays on main
+locally, with no push. No API calls.
+
+**Decisions for Dave**
+
+| ID | Question | Recommended |
+|---|---|---|
+| D1 | A name only in a label on a line with more sentences: keep it with the label reason (RM1.b.2, as on "- " lines), or remove the label with the first sentence? Removing them would make the stage pass, but it edits a label, which RM1.i does not do anywhere else. | Keep |
+| D2 | Include RM1.g.3? Without it, 12 grid lines get worse than at HEAD. It also fixes F6, which is in `TODO.md` as yours to decide. | Yes |
+
+Adjacent, not fixed:
+- A bold run that opens a sentence but is not a label (`"**Zed Example** spoke … Then
+  …"`, also after "- ") has the same span problem. The removal is refused and the name is
+  kept. The fix would put the opening marker inside the span; that is a separate change.
+- "&gt; " (an HTML-escaped quote marker): neither the judge nor removal treats it as a
+  marker. HEAD refuses there when the label looks like a name; otherwise it cuts the
+  marker and the label with the sentence. No artifact has this shape.
+- The judge drops a bold label after "- " or "• ", but reads it as part of the first
+  sentence after "1. ", "> " or "+ " (`abstract_validation._INLINE_BOLD_LABEL`). Making the
+  judge consistent would change what it reads, so it needs its own calibration check.
+
+**Built (2026-10-20).** Code in `flagged_removal.py`: `_MARKER_RUN`, `_MARKER_PREFIX`,
+`_MARKED_LABEL`, `_Sentence.label` and `.own`, `_line_sentences`, `_names`, `_label_runs`,
+`_labelled_firsts`, `_unlabelled`, `deletion_problems`, and in `remove_flagged_sentences`
+the record, the FAQ lookup, the label reason and `LABEL_LEFT`. The first build stripped
+labels with one pattern for the whole text (`_label_pattern`); learning-qa's finding 1
+below replaced it. Tests beyond the table above:
+
+- `test_rm1b1_faq_copy_of_sentence_after_marked_label_removed`: the FAQ copy of a sentence
+  after a marked label is found by its own words. Fails on 813dd3c.
+- `test_rm1g2_label_only_sentence_compared_as_is` (P7): added because no test needed the
+  `(?=\S)` in the first build's `_label_pattern`. A sentence that is only a label is
+  compared as it is; stripped to nothing, a lost label-only line would cancel against a
+  line the cut left with only its label. In the final code N3 fails it.
+- `test_rm1g3_name_sentence_on_skip_label_line_removed`: D2 also changes "Status: Zed …
+  2020 was a hard year." from refused to removed. "Status:" goes with its sentence, and the
+  judge then reads "2020 was a hard year." as a claim. This closes the `TODO.md` note
+  "stricter since RM1.i.1".
+- `test_rm1b_marker_run_line_does_not_backtrack` now runs its removal in the child process.
+  With a backtracking `_MARKED_LABEL` its removal in the test process hung the suite.
+
+**learning-qa (2026-10-20)** reviewed the first build. Its findings, all fixed in this
+change, each with a test that fails on the first build:
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 (medium–high, P7) | `_label_pattern` stripped every bold label of `before` from the start of every sentence and claim, so deleting a label ("1. **Not true:** X" to "1. X") or a plain "Kerr Agreed: " prefix on another line passed the check. 813dd3c caught both. | RM1.g.2 revised: `_labelled_firsts` and `_unlabelled` take the label off only a labelled line's first sentence, one claim per line; sentences compare by `.own`; the check reports "a bold label was lost" when more bold labels go than the dropped lines had. | `test_rm1g2_deleted_label_still_caught`, `test_rm1g2_label_prefix_lost_on_other_line_caught` |
+| 2 (medium, P6) | A claim flag the judge read with its label is cut; the label stays and is read with the next sentence, unjudged, and nothing said so. | The flag is also listed as kept (`LABEL_LEFT`) while the label stays. Keeping the sentence instead, as RM1.b.2 does for names, is in `TODO.md` for Dave. | `test_rm1b1_claim_flag_after_marked_label`, `test_rm1b1_faq_copy_of_sentence_after_marked_label_removed` |
+| 3 (low) | "**Dr.**" after "1. " counted as a label, so "1. **Dr.** Then …" was accepted. | `_MARKED_LABEL` no longer takes "**X.**". The removal is refused, as at 813dd3c. | `test_rm1b1_abbreviation_in_bold_is_not_a_label` |
+| 4 (low, P2) | Two labelled copies of one sentence with different flags: only one flag said its FAQ copy was left. | One `Kept` per flag. | `test_rm1e_faq_copy_left_listed_for_each_flag` |
+
+learning-qa then re-checked these fixes. Its four repro inputs give the right result, and
+nothing new hides a non-deletion change. It found:
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| R1 (medium) | `_labelled_firsts` keyed a label on its raw bold run, but the judge reads "**2) Key point:**" after "1. " as "Key point:", so those removals were refused (813dd3c made most of them). | Key on the label as `_line_sentences` read it, markers removed. | `test_rm1b1_number_inside_bold_label` |
+| R2 (low) | "**Kerr Agreed**—Zed …" (no space): the cut leaves "**Kerr Agreed**—Then", a new token, so the token check refused (also at 813dd3c, except on "+ " lines, where the label was cut too). | A dash is its own token. | `test_rm1g_dash_after_label_is_its_own_token` |
+| R3 (low) | A labelled line's first sentence pairs with the first claim that reads like it, so a plain copy above it makes a removal be refused (also at 813dd3c). | Recorded in `TODO.md` as a known limit. | none |
+| R4 (low) | A flag listed for its FAQ copy did not say its label stays. | The FAQ reason adds `LABEL_STAYS`. | `test_rm1e_faq_copy_left_listed_for_each_flag` |
+
+Not fixed, in `TODO.md`: the deletion check counts copies, so losing the plain copy of a
+sentence that is also after a bold label, instead of the cut one, is not seen (813dd3c
+has the same limit for plain duplicates); a bold label ending in a period on a "- " line
+is not counted.
+
+The grids were run again on the final code: the same numbers as the prototype (530 and
+169 fixed, 0 worse, 36 "&gt; " lines still refused).
+
+Each rule of the final code was reverted alone and `tests/test_remove_flagged_rm.py` run
+against it. All 28 make a test fail:
+
+| # | Rule reverted | Fails |
+|---|---|---|
+| M1 | RM1.b.1: the span is not moved past the label | 32 cases |
+| M2 | RM1.b.1: "+" is not a marker | 6 cases |
+| M3 | RM1.b.1: ">" is not a marker | 9 cases |
+| M4 | RM1.b.1: numbers are not markers | 21 cases |
+| M5 | RM1.b.1: a marker run that backtracks (`[-*+>•]+` inside the repeat) | both backtrack tests, in their 20 s timeout |
+| M6 | RM1.b.1: the record holds the judge's reading | 27 cases |
+| M7 | RM1.b.1: the FAQ lookup uses the judge's reading | 2 tests |
+| M8 | RM1.b.2: the name is matched on the judge's reading | `test_rm1b2_name_only_in_marked_label_kept` |
+| M9 | RM1.b.2: no one-sentence-line clause | `test_rm1b2_name_in_label_of_one_sentence_line_goes` |
+| M10 | RM1.b.2: label reason from `_INLINE_BOLD_LABEL` only | `test_rm1b2_name_only_in_marked_label_kept` |
+| M11a | RM1.g.2: claims keep their label | 27 cases |
+| M11b | RM1.g.2: sentences compared with their label | 33 cases |
+| M12 | RM1.g.2: markers not taken off a claim | 8 cases |
+| M13 | RM1.g.2: any label taken off any claim | `test_rm1g2_label_prefix_lost_on_other_line_caught` |
+| M13b | RM1.g.2: not one claim per line | `test_rm1g2_label_prefix_lost_on_other_line_caught` |
+| M14 | RM1.g.3 off | 5 cases |
+| M15 | RM1.g.3 accepts any new claim | 3 tests |
+| N1 | no label count | `test_rm1g2_deleted_label_still_caught` (2 cases) |
+| N2 | label count ignores lines removed whole | 15 cases |
+| N3 | "**X.**" is a label again | `test_rm1b1_abbreviation_in_bold_is_not_a_label`, `test_rm1g2_label_only_sentence_compared_as_is` |
+| N4 | no `LABEL_LEFT` keep | 4 cases |
+| N5 | `LABEL_LEFT` also when the line goes | 3 cases |
+| N6 | `LABEL_LEFT` for name flags too | 18 cases |
+| N7 | FAQ keep for one flag per sentence | `test_rm1e_faq_copy_left_listed_for_each_flag` |
+| R1 | the label keyed on its raw bold run | `test_rm1b1_number_inside_bold_label` (2 cases) |
+| R2 | a dash is not its own token | `test_rm1g_dash_after_label_is_its_own_token` (4 cases) |
+| R4 | the FAQ reason without the label part | `test_rm1e_faq_copy_left_listed_for_each_flag` |
+| R4b | `LABEL_LEFT` also after an FAQ keep | `test_rm1e_faq_copy_left_listed_for_each_flag` |
+
+Docs: `CHANGELOG.md`, `TODO.md` (the item leaves the list, F6 is marked fixed, the three
+adjacent items above are added), `ARCHITECTURE_DESIGN.md` §4.3 (the claims left may include
+a sentence now read as a claim), and this plan. 20 new tests (53 cases); the RM file has
+153 tests. Both suite runs pass: `python3 -m pytest tests/ -q -p no:cacheprovider` and
+`python3 -m pytest -q -p no:cacheprovider`.

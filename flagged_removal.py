@@ -27,12 +27,26 @@ IN_SCAFFOLDING = "only in a heading, a label or the front matter"
 A_HEADING = "a heading (headings are not edited)"
 UNSURE_BOUNDARY = "sentence boundary uncertain (an abbreviation or a number at the split)"
 SAME_SENTENCE_AS_NAME = "same sentence as name '{}' (uncertain split)"
+LABEL_STAYS = "its bold label stays and is now read with the next sentence"
+LABEL_LEFT = f"removed in part; {LABEL_STAYS}"
+IN_FAQ = "removed from the body; still in the front matter's FAQ answers"
 
 _MARKERS = ("**", "__")
 _LINE_LEAD = re.compile(r"^\s*(?:[-*>]+\s*)*")       # as _clean_claim_line strips it
 _ENUMERATOR = re.compile(r"^\d+[.)]\s+")
 _LABEL_PREFIX = re.compile(r"^([A-Za-z][^:\n]{0,40}):\s*")
 _BOLD_ONLY = re.compile(r"^\*\*[^*\n]+\*\*\s*$")
+# List, quote and number markers, one per repetition (no backtracking on a long run).
+_MARKER_RUN = r"(?:(?:[-*+>•]|\d+[.)])\s*)*"
+_MARKER_PREFIX = re.compile(rf"^\s*{_MARKER_RUN}")
+# A bold label after any such markers ("1. **Label:** ", "> - **Label:** "), in the
+# label shapes of _INLINE_BOLD_LABEL, which matches only after "- " or "• ". After
+# other markers the judge reads the label as the start of the first sentence. Not
+# "**X.**": the judge reads on past that period only when it is no sentence end
+# ("**Dr.** Zed ..."), and then it is part of the sentence.
+_MARKED_LABEL = re.compile(
+    rf"^(?P<lead>\s*{_MARKER_RUN})"
+    r"(?P<run>\*\*(?P<label>[^*\n]+?)(?:[:—–-]\*\*|\*\*[ \t]*[:—–-]))[ \t]*(?P<rest>.*)$")
 # A line with nothing left but a list marker and/or a bold label. Bold text that ends
 # like a sentence ("**Kerr says X.**") is a sentence, not a label: the line stays.
 _EMPTY_LINE = re.compile(
@@ -41,7 +55,7 @@ _EMPTY_LINE = re.compile(
 _FAQ_ANSWER = re.compile(
     r'^(?P<lead>\s*(?:-\s+)?a:\s*)"(?P<value>(?:[^"\\]|\\.)*)"(?P<trail>\s*)$')
 _FAQ_QUESTION = re.compile(r"^\s*-\s+q:\s*")
-_TOKEN = re.compile(r'[^\s"]+|"')
+_TOKEN = re.compile(r'[^\s"—–]+|["—–]')
 _YAML_KEY = re.compile(r"^\s*(?:-\s+)?([A-Za-z_][\w-]*):", re.MULTILINE)
 # A split the judge's splitter makes but may not be a sentence end: after a token with
 # two periods ("U.S.", "Ph.D.") or a listed abbreviation ("Sen.", "Jan."), or before a
@@ -74,8 +88,9 @@ class Flag(str):
 
 @dataclass
 class Removed:
-    """One removed sentence, as the judge read it (bold markers removed), with the
-    sentences on either side of it in the result."""
+    """One removed sentence, as the judge read it (bold markers removed) but without a
+    bold label it reads with it, which is not cut (RM1.b.1), with the sentences on
+    either side of it in the result."""
     sentence: str
     before: str
     after: str
@@ -99,6 +114,12 @@ class _Sentence:
     text: str    # as extract_claims reads it
     group: int = 0          # the parts of an abbreviation split share a group
     doubtful: bool = False  # a boundary with a neighbour may not be a sentence end
+    label: str = ""         # the start of ``text`` that is a bold label, outside the span
+
+    @property
+    def own(self) -> str:
+        """The sentence without the label the judge reads with it: the words cut."""
+        return self.text[len(self.label):]
 
 
 @dataclass
@@ -141,15 +162,25 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
     may not be a sentence end marks both sides ``doubtful``; one after an abbreviation
     also puts them in one ``group``, which a name removes whole.
 
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.i.1
+    Where the judge reads a bold label as the start of the first sentence ("1. **Kerr
+    Agreed:** Zed ..." is "Kerr Agreed: Zed ..."), that sentence keeps the judge's
+    reading as ``text``, but its span starts after the label, so a cut leaves the label
+    and its markers (RM1.b.1).
+
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.i.1, #RM1.b.1
     Tests:   tests/test_remove_flagged_rm.py::test_rm1i1_name_before_number_split_takes_only_its_sentence,
-             tests/test_remove_flagged_rm.py::test_rm1i_name_in_unsure_split_takes_whole_sentence
+             tests/test_remove_flagged_rm.py::test_rm1i_name_in_unsure_split_takes_whole_sentence,
+             tests/test_remove_flagged_rm.py::test_rm1b1_name_sentence_after_marked_label_takes_own_span,
+             tests/test_remove_flagged_rm.py::test_rm1b1_claim_flag_after_marked_label,
+             tests/test_remove_flagged_rm.py::test_rm1b1_abbreviation_in_bold_is_not_a_label
     """
     s = raw.strip()
     if not s or _is_heading(raw) or _BOLD_ONLY.match(s):
         return []
     m = _INLINE_BOLD_LABEL.match(raw)
     clean, where = _clean_with_map(raw, m.start("rest") if m else 0)
+    m_label = None if m else _MARKED_LABEL.match(raw)
+    own_from = m_label.start("rest") if m_label else -1
     lead = _LINE_LEAD.match(clean).end()
     m_prefix = _LABEL_PREFIX.match(clean[lead:])
     if m_prefix and m_prefix.group(1).strip().lower() in strip_prefixes:
@@ -166,12 +197,18 @@ def _line_sentences(raw: str, index: int, strip_prefixes: set) -> list:
         at = body.find(text, cursor)
         if at < 0:
             break
-        first, last = where[lead + at], where[lead + at + len(text) - 1] + 1
+        lo, hi = lead + at, lead + at + len(text)
+        first, last = where[lo], where[hi - 1] + 1
+        label = ""
+        if not out and first < own_from < last:
+            # The judge reads the label with this sentence; the label is not cut.
+            j = next(k for k in range(lo, hi) if where[k] >= own_from)
+            label, first = clean[lo:j], where[j]
         # A sentence wrapped in bold takes its markers with it.
         while (first >= 2 and raw[first - 2:first] in _MARKERS
                and raw[last:last + 2] == raw[first - 2:first]):
             first, last = first - 2, last + 2
-        sentence = _Sentence(index, first, last, text, group=len(out))
+        sentence = _Sentence(index, first, last, text, group=len(out), label=label)
         after_abbreviation = bool(out) and bool(_DOUBTFUL_END.search(out[-1].text))
         if out and (after_abbreviation or _DOUBTFUL_START.match(text)):
             # Removing either side would leave a fragment ("He trained with the U.S.").
@@ -281,15 +318,18 @@ def _edit_front_matter(head: str, sentences: set) -> tuple:
 
 def _tokens(text: str) -> list:
     """Words, with each double quote its own token: removing the last sentence of a
-    quoted front-matter answer moves the closing quote onto the sentence before."""
+    quoted front-matter answer moves the closing quote onto the sentence before. A dash
+    is its own token too: cutting the sentence after "**Kerr Agreed**—" joins the dash
+    to the next word."""
     return _TOKEN.findall(text)
 
 
 def _body_sentences(text: str) -> list:
-    """Every sentence of the body, short ones included, as removal reads them."""
+    """Every sentence of the body (``_Sentence``), short ones included, as removal reads
+    them."""
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
     lines = _split(text)[2].split("\n")
-    return [s.text for i, line in enumerate(lines)
+    return [s for i, line in enumerate(lines)
             for s in _line_sentences(line, i, strip_prefixes)]
 
 
@@ -302,6 +342,46 @@ def _without_line_label(sentence: str, strip_prefixes: set) -> str:
         sentence = sentence[m.end():]
     m = _ENUMERATOR.match(sentence)
     return sentence[m.end():] if m else sentence
+
+
+def _label_runs(lines) -> Counter:
+    """The bold labels at the start of ``lines`` after any markers, bold markers
+    removed ("Kerr Agreed:")."""
+    return Counter(m["run"].replace("**", "") for m in map(_MARKED_LABEL.match, lines) if m)
+
+
+def _labelled_firsts(text: str, strip_prefixes: set) -> Counter:
+    """(label, first sentence without it) for each body line of ``text`` that starts
+    with a bold label: the judge may read the label with that sentence (RM1.g.2)."""
+    out = Counter()
+    for i, line in enumerate(_split(text)[2].split("\n")):
+        m = _MARKED_LABEL.match(line)
+        first = _line_sentences(line, i, strip_prefixes) if m else []
+        if first:
+            # As the judge reads it: "**2) Key point:**" after "1. " is "Key point:".
+            read = _MARKER_PREFIX.sub("", first[0].label).strip()
+            out[(read or m["run"].replace("**", ""), first[0].own)] += 1
+    return out
+
+
+def _unlabelled(claims: list, firsts: Counter) -> list:
+    """``claims`` with the markers and bold label taken off each claim that is a
+    labelled line's first sentence read with its label ("+ Kerr Agreed: X" -> "X"), one
+    claim per line. Any other claim is left as it is, so a label or a "Label:" prefix
+    lost elsewhere still changes a claim (RM1.g.2)."""
+    left = Counter(firsts)
+    labels = sorted({label for label, _ in left}, key=len, reverse=True)
+    out = []
+    for claim in claims:
+        bare = _MARKER_PREFIX.sub("", claim, count=1)
+        for label in labels:
+            key = (label, bare[len(label):].lstrip())
+            if bare.startswith(label) and left[key] > 0:
+                left[key] -= 1
+                claim = key[1]
+                break
+        out.append(claim)
+    return out
 
 
 def _without_lines(text: str, lines: list) -> str:
@@ -329,10 +409,16 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
 
     Claims and sentences are compared without a leading "Note:"-style label or
     enumerator (RM1.g.1): the one after a removed sentence may now start its line,
-    where extract_claims strips it. The text keeps the label.
+    where extract_claims strips it. The text keeps the label. A line's first sentence
+    is also compared without the bold label it starts with (RM1.g.2): after "1. " or
+    "> " the judge reads the label with that sentence, which after a cut is the next
+    one. Only that sentence of that line is read without it, and no more bold labels
+    may go than lines removed whole had. A claim in ``after`` that was a sentence of
+    ``before`` but not a claim is not an added claim (RM1.g.3): a label or a question's
+    tag moved onto it.
 
     Purpose: Use a removal only when it deletes and changes nothing else.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1, #RM1.g.2, #RM1.g.3
     Tests:   tests/test_remove_flagged_rm.py::test_rm1g_check_names_each_problem,
              tests/test_remove_flagged_rm.py::test_rm1g_changed_text_rejected_draft_unchanged,
              tests/test_remove_flagged_rm.py::test_rm1g1_label_after_removed_name_removed,
@@ -343,22 +429,42 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
              tests/test_remove_flagged_rm.py::test_rm1g1_dropped_line_sentence_counted_once,
              tests/test_remove_flagged_rm.py::test_rm1g1_label_claim_goes_with_its_line,
              tests/test_remove_flagged_rm.py::test_rm1g1_label_line_under_question_heading_goes,
-             tests/test_remove_flagged_rm.py::test_rm1g1_question_tagged_short_sentence_is_a_claim
+             tests/test_remove_flagged_rm.py::test_rm1g1_question_tagged_short_sentence_is_a_claim,
+             tests/test_remove_flagged_rm.py::test_rm1g2_label_read_with_next_sentence_passes,
+             tests/test_remove_flagged_rm.py::test_rm1g2_label_only_sentence_compared_as_is,
+             tests/test_remove_flagged_rm.py::test_rm1g2_deleted_label_still_caught,
+             tests/test_remove_flagged_rm.py::test_rm1g2_label_prefix_lost_on_other_line_caught,
+             tests/test_remove_flagged_rm.py::test_rm1b1_number_inside_bold_label,
+             tests/test_remove_flagged_rm.py::test_rm1g_dash_after_label_is_its_own_token,
+             tests/test_remove_flagged_rm.py::test_rm1g3_label_makes_short_sentence_a_claim,
+             tests/test_remove_flagged_rm.py::test_rm1g3_name_sentence_on_skip_label_line_removed,
+             tests/test_remove_flagged_rm.py::test_rm1g3_question_tag_moves_to_next_sentence,
+             tests/test_remove_flagged_rm.py::test_rm1g3_new_claim_that_was_no_sentence_still_refused
     """
     strip_prefixes = {s.lower() for s in config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES}
 
     def bare(sentence):
         return _without_line_label(sentence, strip_prefixes)
 
+    def claims(text):
+        bodies = [fj._claim_body(c) for c in fj.extract_claims(text)]
+        return [bare(c) for c in _unlabelled(bodies, _labelled_firsts(text, strip_prefixes))]
+
+    def sentences(text, keep=lambda s: True):
+        return Counter(bare(s.own) for s in _body_sentences(text) if keep(s))
+
     problems = []
     if not _is_subsequence(_tokens(after), _tokens(before)):
         problems.append("text was added or changed, not only deleted")
-    cut = Counter()
-    for sentence, n in Counter(removed).items():
-        cut[bare(sentence)] += n
-    was = [bare(fj._claim_body(c)) for c in fj.extract_claims(before)]
-    now = [bare(fj._claim_body(c)) for c in fj.extract_claims(after)]
-    if not _is_subsequence(now, was):
+    cut = Counter(map(bare, _unlabelled(list(Counter(removed).elements()),
+                                        _labelled_firsts(before, strip_prefixes))))
+    was, now = claims(before), claims(after)
+    # A sentence the judge did not read as a claim may be one now; its words were in
+    # the text before (the token check), so it is not an added claim (RM1.g.3).
+    claims_before = set(was)
+    sentences_before = sentences(before)
+    if not _is_subsequence([c for c in now if c in claims_before
+                            or c not in sentences_before], was):
         problems.append("a claim was added or changed")
     else:
         # A line removed whole also takes the claims the judge loses when only that line
@@ -367,9 +473,8 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
         was_n, now_n = Counter(was), Counter(now)
         from_lines = Counter()
         if dropped_lines:
-            rest = Counter(bare(fj._claim_body(c))
-                           for c in fj.extract_claims(_without_lines(before, dropped_lines)))
-            own = Counter(bare(s.text) for line in dropped_lines
+            rest = Counter(claims(_without_lines(before, dropped_lines)))
+            own = Counter(bare(s.own) for line in dropped_lines
                           for s in _line_sentences(line, 0, strip_prefixes))
             from_lines = was_n - rest - own
         # A claim too short to be one without its label ("Note: Kerr agreed." ->
@@ -381,21 +486,24 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
         # (tagged with a question) is not counted. A sentence left on a line that came
         # to be skipped keeps its text, so it is short now only if it was before. The
         # sentence check below still catches a lost copy.
-        short_now = Counter(bare(s) for s in _body_sentences(after)
-                            if not fj._is_claim(s)) - now_n
-        unjudged_before = Counter(map(bare, _body_sentences(before))) - was_n
+        short_now = sentences(after, lambda s: not fj._is_claim(s.text)) - now_n
+        unjudged_before = sentences_before - was_n
         shorter = short_now - unjudged_before
         for claim, n in (was_n - now_n).items():
             if n > cut[claim] + shorter[claim] + from_lines[claim]:
                 problems.append(f"a claim was lost that was not flagged: {claim[:80]!r}")
         # Sentences too short to be claims are checked too: only removed ones may go.
-        lost = (Counter(map(bare, _body_sentences(before)))
-                - Counter(map(bare, _body_sentences(after))))
+        lost = sentences_before - sentences(after)
         for sentence, n in lost.items():
             if n > cut[sentence]:
                 problems.append(f"a sentence was lost that was not flagged: {sentence[:80]!r}")
     _, head_before, body_before = _split(before)
     _, head_after, body_after = _split(after)
+    # A cut never takes a bold label; it goes only with its line.
+    labels_lost = (_label_runs(body_before.split("\n")) - _label_runs(dropped_lines)
+                   - _label_runs(body_after.split("\n")))
+    for label in labels_lost:
+        problems.append(f"a bold label was lost: {label[:80]!r}")
     if ([ln.strip() for ln in body_before.split("\n") if _is_heading(ln)]
             != [ln.strip() for ln in body_after.split("\n") if _is_heading(ln)]):
         problems.append("a heading changed")
@@ -415,6 +523,17 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     return problems
 
 
+def _names(sentence: _Sentence, word, raw: str) -> bool:
+    """Whether removing ``sentence`` takes out the name ``word`` matches: the name is in
+    the sentence's own words, or only in the label the judge reads with it and the cut
+    leaves the line empty, so the label goes with the line. Cutting the sentence after
+    a label that keeps the name would remove a sentence and leave the name (RM1.b.2)."""
+    if word.search(sentence.own):
+        return True
+    return bool(sentence.label and word.search(sentence.label)
+                and _EMPTY_LINE.match(_cut(raw, [(sentence.start, sentence.end)])))
+
+
 def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                              guard: Optional[Callable] = None) -> tuple:
     """Remove from ``text`` each sentence a flag names, and return
@@ -429,13 +548,23 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     Nothing is removed when the removals would take more than ``max_share`` of the
     body's words, or when the result fails ``deletion_problems``.
 
+    A sentence after a bold label is cut without the label (RM1.b.1); a claim flag the
+    judge read with that label is then also listed as kept (``LABEL_LEFT``) while the
+    label stays. A name only in such a label is removed only with its line (RM1.b.2).
+    A sentence left in the FAQ answers is listed as kept for each flag that cut it.
+
     Purpose: Take out a sentence that is still flagged after the last revision.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2,
+             #RM1.b.1, #RM1.b.2
     Tests:   tests/test_remove_flagged_rm.py::test_rm1a_flagged_sentence_removed_rest_unchanged,
              tests/test_remove_flagged_rm.py::test_rm1d_part_of_longer_sentence_not_removed,
              tests/test_remove_flagged_rm.py::test_rm1h_cap_keeps_draft_and_announces,
              tests/test_remove_flagged_rm.py::test_rm1i1_name_before_number_split_takes_only_its_sentence,
-             tests/test_remove_flagged_rm.py::test_rm1i2_split_part_without_name_has_own_reason
+             tests/test_remove_flagged_rm.py::test_rm1i2_split_part_without_name_has_own_reason,
+             tests/test_remove_flagged_rm.py::test_rm1b1_last_sentence_after_marked_label_line_goes,
+             tests/test_remove_flagged_rm.py::test_rm1b1_claim_flag_after_marked_label,
+             tests/test_remove_flagged_rm.py::test_rm1e_faq_copy_left_listed_for_each_flag,
+             tests/test_remove_flagged_rm.py::test_rm1b2_name_only_in_marked_label_kept
     """
     lead, head, body = _split(text)
     lines = body.split("\n")
@@ -444,7 +573,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                  for s in _line_sentences(line, i, strip_prefixes)]
     headings = {ln.strip().lstrip("#").replace("**", "").replace("__", "").strip()
                 for ln in lines if _is_heading(ln)}
-    labels = [m.group("label") for m in map(_INLINE_BOLD_LABEL.match, lines) if m]
+    labels = [m.group("label") for line in lines
+              for m in (_INLINE_BOLD_LABEL.match(line) or _MARKED_LABEL.match(line),) if m]
     scaffolding = "\n".join([head, *labels, *(ln for ln in lines if _is_heading(ln)
                                                 or _BOLD_ONLY.match(ln.strip()))])
 
@@ -456,7 +586,7 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         seen.add(flag)
         if getattr(flag, "kind", "claim") == "name":
             word = re.compile(rf"(?<!\w){re.escape(flag.name)}(?!\w)")
-            hits = [s for s in sentences if word.search(s.text)]
+            hits = [s for s in sentences if _names(s, word, lines[s.line])]
             reason = f"name '{flag.name}'"
         else:
             claim = fj._claim_body(flag)
@@ -539,7 +669,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         flags_hit = list(dict.fromkeys(t.flag for t in targets))
         return text, [], kept + [Kept(f, why) for f in flags_hit]
 
-    removed_text = {t.sentence.text for t in targets}
+    # The words cut, without a label the judge reads with them (RM1.b.1).
+    removed_text = {t.sentence.own for t in targets}
     new_head, in_head, left_in_head = _edit_front_matter(head, removed_text)
     # An answer the FAQ edit cannot read (unquoted, single-quoted, folded) keeps its copy.
     left_in_head |= {s for s in removed_text - in_head if s in new_head}
@@ -551,9 +682,16 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         why = "deletion check failed: " + "; ".join(problems)
         flags_hit = list(dict.fromkeys(t.flag for t in targets))
         return text, [], kept + [Kept(f, why) for f in flags_hit]
-    flag_of = {t.sentence.text: t.flag for t in targets}
-    kept += [Kept(flag_of[s], "removed from the body; still in the front matter's FAQ answers")
-             for s in sorted(left_in_head)]
+    flags_of: dict = {}
+    for t in targets:
+        flags_of.setdefault(t.sentence.own, {})[t.flag] = None
+    # A claim the judge read with a bold label: the label stays on its line and is now
+    # read with the next sentence, which no judge has seen with it (RM1.b.1).
+    label_left = {t.flag: None for t in targets
+                  if getattr(t.flag, "kind", "claim") != "name" and t.sentence.label
+                  and t.sentence.line not in dropped}
+    kept += [Kept(f, IN_FAQ + (f"; {LABEL_STAYS}" if f in label_left else ""))
+             for s in sorted(left_in_head) for f in flags_of[s]]
     # A flag removed in one place may still be in another (a section's only text, a
     # bold label, a heading): it is listed as kept, so no flag goes unreported (P2).
     left_claims = {fj._claim_body(c) for c in fj.extract_claims(new_text)}
@@ -570,6 +708,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
                     else fj._claim_body(flag))
             why = partly.get(flag) or (IN_SCAFFOLDING if what in scaffolding else NOT_FOUND)
             kept.append(Kept(flag, f"removed in part; one copy kept: {why}"))
+    listed = {str(k.claim) for k in kept}
+    kept += [Kept(f, LABEL_LEFT) for f in label_left if str(f) not in listed]
 
     cut = {(t.sentence.line, t.sentence.start) for t in targets}
     order = {(s.line, s.start): n for n, s in enumerate(sentences)}
@@ -597,8 +737,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             continue
         listed_at.add(n)
         why = list(dict.fromkeys(reasons[(t.sentence.line, t.sentence.start)]))
-        removed.append(Removed(t.sentence.text, _neighbour(n, -1), _neighbour(n, 1),
+        removed.append(Removed(t.sentence.own, _neighbour(n, -1), _neighbour(n, 1),
                                why[0] + (f" (also {', '.join(why[1:])})" if why[1:] else ""),
                                dict(getattr(t.flag, "record", {}) or {}),
-                               t.sentence.text in in_head))
+                               t.sentence.own in in_head))
     return new_text, removed, kept

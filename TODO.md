@@ -52,16 +52,35 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   removes it ("partial"). Proposed as its own session.
 - Known (RM1.g.1): when the sentence before "2) Then …" is removed, that line starts
   with "2) ", which markdown renders as a numbered list item. The words are unchanged.
-- Adjacent, not fixed (learning-qa re-check, 2026-10-20): `_line_sentences` starts a
-  sentence's span inside a bold run when a bold label follows "1. ", "> ", "• " or "+ "
-  (the inline-label regex does not match there), so cutting that sentence alone leaves
-  a stray `**` and the deletion check refuses ("unpaired bold marker"). learning-qa found
-  67 real lines with this shape. Since RM1.i.1 this also refuses a name sentence followed
-  by a number sentence on such a line ("1. **Kerr Agreed:** Zed … 2020 was hard."),
-  which HEAD removed whole, number sentence included; the name is kept, so the entity
-  check fails the stage. Fix: recognise the label after a list or quote marker in
-  `_line_sentences`. Also stricter since RM1.i.1: "Status: Zed … 2020 was hard." leaves
-  "2020 was hard." on a line the judge now reads, and is refused.
+- Adjacent, not fixed (2026-10-20, bold label after a marker): a bold run that opens a
+  sentence but is not a label ("**Zed Example** spoke … Then …", also after "- ") makes
+  `_line_sentences` start the span inside the bold run, so the removal is refused and the
+  name is kept. Fix: put the opening marker inside the span.
+- Adjacent, not fixed (2026-10-20, bold label after a marker): "&gt; " (an HTML-escaped
+  quote marker) is not a marker to the judge or to removal. A name sentence after
+  "&gt; **Label:**" is refused when the label looks like a name, and otherwise cut with
+  the marker and the label. No artifact has this shape.
+- Adjacent, not fixed (2026-10-20, bold label after a marker): the judge drops a bold
+  label after "- " or "• " but reads it as part of the first sentence after "1. ", "> "
+  or "+ " (`abstract_validation._INLINE_BOLD_LABEL`). It also drops "- **Dr.**" as a
+  label, although "Dr." belongs to the sentence. Making the judge consistent changes
+  what it reads, so it needs its own calibration check.
+- Known (learning-qa, 2026-10-20): the deletion check counts copies, so when a sentence
+  is in the text twice (once after a bold label, once plain), losing the plain copy
+  instead of the cut one is not seen. 813dd3c has the same limit for plain duplicates.
+  A bold label that ends with a period ("- **Key point.** X") is not counted by the
+  label check, and the judge drops it on "- " lines, so its loss is not seen either
+  (also at 813dd3c). Removal never cuts a label, so only a bug in the cut would do this.
+  A labelled line's first sentence is paired with the first claim in the text that reads
+  like it, so a plain "Kerr Agreed: X" line above "1. **Kerr Agreed:** Zed … X" makes a
+  name removal there be refused (also at 813dd3c; learning-qa re-check R3).
+- **For Dave (learning-qa, 2026-10-20), label left after a claim flag:** a claim flag the
+  judge read with a bold label ("Kerr Disagreed: The family moved …") removes the sentence
+  and leaves the label, which the judge then reads with the next sentence, unjudged. The
+  flag is now also listed as kept ("removed in part; its bold label stays and is now read
+  with the next sentence"), and the gate judges the saved file at publish. The other
+  option is to keep that sentence while its line stays, as RM1.b.2 (D1) does for a name
+  in a label; that is the choice to make.
 - Adjacent, not fixed (2026-10-20): `extract_claims` reads a repeated bold label
   ("**Kerr Agreed:**" on two lines) as one claim, so when a removed line takes its label,
   the deletion check does not see the same label deleted from a line that stays. Removal
@@ -71,11 +90,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   Abbreviations in neither that list nor the judge's still leave a fragment when a name
   is removed before a number split.
 - **Open, older (learning-qa, 2026-10-20), for Dave to decide:**
-  - **F6.** The FQ version of C: removing the first sentence under a question heading moves
-    the "[in answer to: …]" tag onto the next sentence, which then counts as a claim, so
-    the deletion check refuses ("a claim was added or changed") and a flagged name stays,
-    so the entity check fails the stage. Fix: a claim that was already a sentence before
-    is not "added"; the gate still judges the saved file at publish.
+  - **F6.** ✅ Fixed 2026-10-20 by RM1.g.3 (`docs/plan_remove_flagged_2026-10-19.md`,
+    "Follow-up: a bold label after a list or quote marker"): a claim that was already a
+    sentence before is not "added", so moving the "[in answer to: …]" tag onto the next
+    sentence no longer refuses the removal. Test:
+    `test_rm1g3_question_tag_moves_to_next_sentence`.
   - **F7.** A line left with only a plain label ("Note:") after its sentence is removed
     stays in the text; "**Note:**" is dropped. Fix: treat a line left with only an
     allowlisted label as empty.
