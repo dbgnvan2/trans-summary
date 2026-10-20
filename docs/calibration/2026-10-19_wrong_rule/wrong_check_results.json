@@ -1,0 +1,619 @@
+[
+ {
+  "id": "D1",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kerr draws an explicit parallel: Bowen theory may currently occupy the Aristarchus-to-Copernicus phase \u2014 correct, partially validated, but not yet dominant.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": true,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D2",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Resistance signals paradigm-level threat, not error.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": true,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D3",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kerr extends the logic: family regression under stress follows the same pattern, and a paper wasp colony he describes split into two nests only after sustained internal conflict made the original homeostasis untenable \u2014 regression as both symptom and trigger for reorganization.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D4",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kent Berridge's research at Michigan then establishes that wanting (dopamine-driven motivation) and liking (opioid- and endocannabinoid-driven pleasure) are produced by distinct, dissociable brain subsystems \u2014 a finding Kerr connects to clinical observations about compulsive togetherness-seeking and the gap between stated and pursued goals.",
+  "hand": "WRONG",
+  "hand_type": "W4",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D5",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kerr's point is structural: correct ideas can face organized institutional resistance for centuries, and Bowen theory may currently occupy the Aristarchus-to-Copernicus phase \u2014 valid but not yet dominant.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": true,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D6",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kerr draws an explicit parallel to Bowen's individuality and togetherness life forces, noting that when cells are freed from multicellular coordination they reacquire ancestral proliferative and mobile properties \u2014 a regression to earlier autonomous operating modes that he links to the regression Bowen described in families under sustained stress.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D7",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Kerr notes that advertising targets wanting rather than liking, and that barriers can intensify wanting while reducing liking \u2014 observations with direct implications for understanding compulsive togetherness-seeking and overfunctioning.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": true,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D8",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "Moving the electrode millimeters in any direction eliminated the effect.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N1",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "D9",
+  "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+  "claim": "He frames this as an open question for Bowen theorists, suggesting that the neural and biological evidence reviewed points toward answers that extend well beyond the boundaries of the human species.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N3",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "C1",
+  "talk": "Why Families",
+  "claim": "His mother, convinced Billy was fragile, had protected him intensely, and this protection\u2014rooted in the mother's anxiety rather than Billy's actual condition\u2014became the crucible in which Billy's illness developed.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": true,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": null,
+  "baseline_wrong": null
+ },
+ {
+  "id": "C2",
+  "talk": "Why Families",
+  "claim": "This process is not malicious; it feels like love and protection to those generating it.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": null,
+  "baseline_wrong": null
+ },
+ {
+  "id": "C3",
+  "talk": "Why Families",
+  "claim": "This connection operates at every scale: the individual body, the nuclear family, the multigenerational system, and society itself.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": null,
+  "baseline_wrong": null
+ },
+ {
+  "id": "C4",
+  "talk": "Why Families",
+  "claim": "When Kerr considered leaving psychiatry to return home and care for his mother and brother, Bowen corrected him sharply: healing requires staying in the system that generates the wound.",
+  "hand": "WRONG",
+  "hand_type": "W2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": null,
+  "baseline_wrong": null
+ },
+ {
+  "id": "INJ-W1",
+  "talk": "Why Families",
+  "claim": "Kerr cites a 1998 Georgetown study of 400 families, which found that the most protected child was three times as likely to develop schizophrenia.",
+  "hand": "WRONG",
+  "hand_type": "W1",
+  "borderline": false,
+  "F": true,
+  "Q": false,
+  "missing_specifics": [
+   "1998",
+   "400"
+  ],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": true,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "INJ-W2",
+  "talk": "Why Families",
+  "claim": "Kerr adds that it was his father who told him, years later, \"Michael, I love you, but I love Billy the most.\"",
+  "hand": "WRONG",
+  "hand_type": "W2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "INJ-W3",
+  "talk": "Why Families",
+  "claim": "Kerr says that when family members poke him, he reacts without noticing, and two seconds later he thinks, \"Oh, I fell into that trap again.\"",
+  "hand": "WRONG",
+  "hand_type": "W3",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "INJ-W4",
+  "talk": "Why Families",
+  "claim": "Kerr announces that he will publish a third book, on societal regression, next year.",
+  "hand": "WRONG",
+  "hand_type": "W4",
+  "borderline": false,
+  "F": true,
+  "Q": false,
+  "missing_specifics": [
+   "third"
+  ],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": true,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R23",
+  "talk": "Societal Emotional Process",
+  "claim": "Dr. Kerr is explicit that no single event caused the deterioration \u2014 rather, the cluster unmasked a self-deficit accumulating since at least 2004, with hormonal symptoms traceable to age fifteen.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R24",
+  "talk": "Societal Emotional Process",
+  "claim": "Dr. Michael Kerr, psychiatrist and longtime exponent of Bowen family systems theory, presents a recorded Skype interview with a woman living in France who experienced a stage-one uterine cancer diagnosis alongside a cluster of major life stressors.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N4",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R25",
+  "talk": "Systems Biology",
+  "claim": "He proposes that chronic anxiety, as understood in Bowen theory, is precisely the variable that explains individual variability in cancer risk and progression \u2014 why similar exposures produce different outcomes across people and families.",
+  "hand": "WRONG",
+  "hand_type": "W2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R26",
+  "talk": "Systems Biology",
+  "claim": "A cancer registry study Kerr cites found that patients who genuinely believed in their chosen treatment course \u2014 whether conventional or unconventional \u2014 fared better than those who were ambivalent or passive.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N1",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R27",
+  "talk": "Systems Biology",
+  "claim": "Kerr leaves open the question of how fully Bowen theory can be integrated with systems biology's emerging frameworks.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R28",
+  "talk": "Systems Biology",
+  "claim": "The multi-scale parallel \u2014 from cell to organism to family to society \u2014 is named but not yet theorized, pointing toward future work that could formalize these connections.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R29",
+  "talk": "Systems Biology",
+  "claim": "Patient variability surfaces repeatedly as the explanatory gap that cell-focused models cannot close.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R30",
+  "talk": "Systems Biology",
+  "claim": "A cancer registry study Kerr cites found that patients who held firm confidence in their chosen treatment course \u2014 regardless of which course \u2014 showed better outcomes than those who were ambivalent or deferential.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N1",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R31",
+  "talk": "Systems Biology",
+  "claim": "Kerr closes without a formal conclusion, leaving open the question of how fully Bowen theory and systems biology can be integrated.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R32",
+  "talk": "Systems Biology",
+  "claim": "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N4",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R33",
+  "talk": "Systems Biology",
+  "claim": "Cynthia offers the lecture's sharpest conceptual synthesis, noting that the description of single cells trapped in self-promotion rather than cooperation is a precise description of societal regression \u2014 naming the multi-scale isomorphism that Kerr had assembled but not fully articulated.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N2",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R34",
+  "talk": "Systems Biology",
+  "claim": "Janice Norton raises the clinical reality of variability in patient adaptation to cancer diagnosis, and Kerr responds with a cancer-registry study finding that patients who held confident, self-directed beliefs about their treatment \u2014 regardless of which course they chose \u2014 showed better outcomes than those who mixed approaches or ceded all agency.",
+  "hand": "WRONG",
+  "hand_type": "W3",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R35",
+  "talk": "Systems Biology",
+  "claim": "Kerr closes by underscoring the importance of patient agency in cancer treatment, citing a surgeon's advice that patients either fully trust a chosen physician or become their own informed decision-maker \u2014 but that mixing the two approaches is associated with worse outcomes.",
+  "hand": "WRONG",
+  "hand_type": "W3",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R36",
+  "talk": "Systems Biology",
+  "claim": "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+  "hand": "NOT QUITE RIGHT",
+  "hand_type": "N4",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ },
+ {
+  "id": "R37",
+  "talk": "Systems Biology",
+  "claim": "Janice Norton raises the considerable variability in patients' ability to adapt to a cancer diagnosis, prompting Kerr to cite a cancer-registry study finding that patients who genuinely believed in their chosen course of treatment \u2014 and held to it \u2014 showed better long-term outcomes than those who deferred entirely to medical authority or mixed strategies.",
+  "hand": "WRONG",
+  "hand_type": "W3",
+  "borderline": false,
+  "F": false,
+  "Q": false,
+  "missing_specifics": [],
+  "J": null,
+  "votes": [],
+  "proposed_wrong": false,
+  "baseline": [
+   "wrong",
+   "wrong",
+   "wrong"
+  ],
+  "baseline_wrong": true
+ }
+]

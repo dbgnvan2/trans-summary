@@ -1,0 +1,736 @@
+{
+ "cases": [
+  {
+   "id": "D1",
+   "claim": "Kerr draws an explicit parallel: Bowen theory may currently occupy the Aristarchus-to-Copernicus phase \u2014 correct, partially validated, but not yet dominant.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D2",
+   "claim": "Resistance signals paradigm-level threat, not error.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D3",
+   "claim": "Kerr extends the logic: family regression under stress follows the same pattern, and a paper wasp colony he describes split into two nests only after sustained internal conflict made the original homeostasis untenable \u2014 regression as both symptom and trigger for reorganization.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D4",
+   "claim": "Kent Berridge's research at Michigan then establishes that wanting (dopamine-driven motivation) and liking (opioid- and endocannabinoid-driven pleasure) are produced by distinct, dissociable brain subsystems \u2014 a finding Kerr connects to clinical observations about compulsive togetherness-seeking and the gap between stated and pursued goals.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D5",
+   "claim": "Kerr's point is structural: correct ideas can face organized institutional resistance for centuries, and Bowen theory may currently occupy the Aristarchus-to-Copernicus phase \u2014 valid but not yet dominant.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D6",
+   "claim": "Kerr draws an explicit parallel to Bowen's individuality and togetherness life forces, noting that when cells are freed from multicellular coordination they reacquire ancestral proliferative and mobile properties \u2014 a regression to earlier autonomous operating modes that he links to the regression Bowen described in families under sustained stress.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D7",
+   "claim": "Kerr notes that advertising targets wanting rather than liking, and that barriers can intensify wanting while reducing liking \u2014 observations with direct implications for understanding compulsive togetherness-seeking and overfunctioning.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D8",
+   "claim": "Moving the electrode millimeters in any direction eliminated the effect.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "D9",
+   "claim": "He frames this as an open question for Bowen theorists, suggesting that the neural and biological evidence reviewed points toward answers that extend well beyond the boundaries of the human species.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/where_roots/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid/Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid - formatted.md",
+   "talk": "Where Roots Bowen Theory Reside in the Brain - Michael Kerr - 2022-02-18_valid",
+   "origin": "d"
+  },
+  {
+   "id": "C1",
+   "claim": "His mother, convinced Billy was fragile, had protected him intensely, and this protection\u2014rooted in the mother's anxiety rather than Billy's actual condition\u2014became the crucible in which Billy's illness developed.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": true,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c"
+  },
+  {
+   "id": "C2",
+   "claim": "This process is not malicious; it feels like love and protection to those generating it.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c"
+  },
+  {
+   "id": "C3",
+   "claim": "This connection operates at every scale: the individual body, the nuclear family, the multigenerational system, and society itself.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c"
+  },
+  {
+   "id": "C4",
+   "claim": "When Kerr considered leaving psychiatry to return home and care for his mother and brother, Bowen corrected him sharply: healing requires staying in the system that generates the wound.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c"
+  },
+  {
+   "id": "INJ-W1",
+   "claim": "Kerr cites a 1998 Georgetown study of 400 families, which found that the most protected child was three times as likely to develop schizophrenia.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c-injected"
+  },
+  {
+   "id": "INJ-W2",
+   "claim": "Kerr adds that it was his father who told him, years later, \"Michael, I love you, but I love Billy the most.\"",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c-injected"
+  },
+  {
+   "id": "INJ-W3",
+   "claim": "Kerr says that when family members poke him, he reacts without noticing, and two seconds later he thinks, \"Oh, I fell into that trap again.\"",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c-injected"
+  },
+  {
+   "id": "INJ-W4",
+   "claim": "Kerr announces that he will publish a third book, on societal regression, next year.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13/Why Families Repeat the Same Patterns - Michael Kerr - 2026-09-13 - formatted.md",
+   "talk": "Why Families",
+   "origin": "c-injected"
+  },
+  {
+   "id": "R23",
+   "claim": "Dr. Kerr is explicit that no single event caused the deterioration \u2014 rather, the cluster unmasked a self-deficit accumulating since at least 2004, with hormonal symptoms traceable to age fifteen.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - formatted.md",
+   "talk": "Societal Emotional Process",
+   "origin": "f"
+  },
+  {
+   "id": "R24",
+   "claim": "Dr. Michael Kerr, psychiatrist and longtime exponent of Bowen family systems theory, presents a recorded Skype interview with a woman living in France who experienced a stage-one uterine cancer diagnosis alongside a cluster of major life stressors.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N4",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid/Societal Emotional Process - Michael Kerr - 2021-12-12_v-valid - formatted.md",
+   "talk": "Societal Emotional Process",
+   "origin": "f"
+  },
+  {
+   "id": "R25",
+   "claim": "He proposes that chronic anxiety, as understood in Bowen theory, is precisely the variable that explains individual variability in cancer risk and progression \u2014 why similar exposures produce different outcomes across people and families.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R26",
+   "claim": "A cancer registry study Kerr cites found that patients who genuinely believed in their chosen treatment course \u2014 whether conventional or unconventional \u2014 fared better than those who were ambivalent or passive.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R27",
+   "claim": "Kerr leaves open the question of how fully Bowen theory can be integrated with systems biology's emerging frameworks.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R28",
+   "claim": "The multi-scale parallel \u2014 from cell to organism to family to society \u2014 is named but not yet theorized, pointing toward future work that could formalize these connections.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R29",
+   "claim": "Patient variability surfaces repeatedly as the explanatory gap that cell-focused models cannot close.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R30",
+   "claim": "A cancer registry study Kerr cites found that patients who held firm confidence in their chosen treatment course \u2014 regardless of which course \u2014 showed better outcomes than those who were ambivalent or deferential.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R31",
+   "claim": "Kerr closes without a formal conclusion, leaving open the question of how fully Bowen theory and systems biology can be integrated.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R32",
+   "claim": "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N4",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R33",
+   "claim": "Cynthia offers the lecture's sharpest conceptual synthesis, noting that the description of single cells trapped in self-promotion rather than cooperation is a precise description of societal regression \u2014 naming the multi-scale isomorphism that Kerr had assembled but not fully articulated.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R34",
+   "claim": "Janice Norton raises the clinical reality of variability in patient adaptation to cancer diagnosis, and Kerr responds with a cancer-registry study finding that patients who held confident, self-directed beliefs about their treatment \u2014 regardless of which course they chose \u2014 showed better outcomes than those who mixed approaches or ceded all agency.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R35",
+   "claim": "Kerr closes by underscoring the importance of patient agency in cancer treatment, citing a surgeon's advice that patients either fully trust a chosen physician or become their own informed decision-maker \u2014 but that mixing the two approaches is associated with worse outcomes.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R36",
+   "claim": "Michael Kerr, a psychiatrist and longtime exponent of Bowen Family Systems Theory, presents a lecture-format webcast exploring an unexpected convergence between systems biology and Bowen theory.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N4",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  },
+  {
+   "id": "R37",
+   "claim": "Janice Norton raises the considerable variability in patients' ability to adapt to a cancer diagnosis, prompting Kerr to cite a cancer-registry study finding that patients who genuinely believed in their chosen course of treatment \u2014 and held to it \u2014 showed better long-term outcomes than those who deferred entirely to medical authority or mixed strategies.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "transcript": "/Users/davemini/ProjectsMini1/trans-summary/tests/fixtures/prose_real/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038/Systems Biology Meets Bowen Theory Rethinking Cancer - Michael Kerr - 2021-06-25_20260718_155038 - formatted.md",
+   "talk": "Systems Biology",
+   "origin": "f"
+  }
+ ],
+ "missing": [
+  {
+   "id": "D10",
+   "claim": "Kerr also presents the systems biology work of Italian philosopher of science Marta Bertoloso, whose book *Philosophy of Cancer* he finds strikingly parallel to Bowen theory.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21",
+   "origin": "d"
+  },
+  {
+   "id": "D11",
+   "claim": "Bertoloso's central claim\u2014that genes are \"only like the keys on a piano; although they are essential, it is the context that makes the music\"\u2014resonates with Bowen's shift from intrapsychic traits to functioning position within a relationship system.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Jan Societal Regression - Michael Kerr - 2021-01-21",
+   "origin": "d"
+  },
+  {
+   "id": "D12",
+   "claim": "An email update confirms the daughter is enrolled, working at a bar, making friends, and functioning off psychiatric medications, which she reports had dulled her feelings and correlated with increased self-harm.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Feb - KCFC - 2021-02-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D13",
+   "claim": "Kate Beam and Carolyn Jacobs explore whether the mother must ultimately choose herself over the daughter and accept the consequences of that choice\u2014a formulation Kerr affirms from personal experience.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Feb - KCFC - 2021-02-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D14",
+   "claim": "The speaker, presenting at a Kansas City Family Center webinar in March 2021, shares a single-session clinical case to explore a central question: what threats generate anxiety in close relationships?",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webinar Mar - KCFC - 2021-03-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D15",
+   "claim": "He suggests that people who have not been heavily trained in the individual model may actually find systems thinking more accessible.",
+   "label": "WRONG",
+   "type": "W3",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webinar Mar - KCFC - 2021-03-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D16",
+   "claim": "The client is a Vermont-based counseling psychologist in her late thirties, the younger of two daughters with a sister thirteen years her senior.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webinar April - KCFC - 2021-04-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D17",
+   "claim": "She lives with her partner, Sam, in her late grandmother's house.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webinar April - KCFC - 2021-04-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D18",
+   "claim": "Her self-summary is precise: \"I'm anxious and he's anxious too, and his anxiety clearly affects mine.\" A significant early detail is that she was born without a stomach and with a very short esophagus, requiring multiple surgeries across her first five years\u2014a medical history that almost certainly intensified the family projection process, with her father taking primary responsibility for her care while her mother remained more emotionally reserved and practically oriented.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webinar April - KCFC - 2021-04-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D19",
+   "claim": "The client is a Vermont-based counseling psychologist in her late thirties, the younger of two daughters with a sister thirteen years her senior.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webinar April - KCFC - 2021-04-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D20",
+   "claim": "In a June 2021 webcast, a speaker associated with the Kansas City Family Center delivers a lecture-format presentation drawing on PowerPoint slides to explore convergences between systems biology and Bowen Family Systems Theory.",
+   "label": "WRONG",
+   "type": "W1",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Jun - KCFC - 2021-06-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D21",
+   "claim": "Philosopher Karl Popper argued that developmental processes have goal-directedness shaped by environment, making genes followers rather than leaders.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Jun - KCFC - 2021-06-xx",
+   "origin": "d"
+  },
+  {
+   "id": "D22",
+   "claim": "The speaker draws explicit parallels throughout: the identified patient in a family corresponds to the tissue niche where cancer emerges; multi-generational transmission of chronic anxiety corresponds to the systemic perturbation that prevents tissue regeneration; and the non-reductionist, bidirectional causal model Noble diagrams\u2014with arrows flowing both up and down from genes through organism\u2014maps onto Bowen theory's insistence that the family system must be added at the top of that chain.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": true,
+   "transcript": null,
+   "talk": "2021 Webcast Jun - KCFC - 2021-06-xx",
+   "origin": "d"
+  },
+  {
+   "id": "R1",
+   "claim": "A later appendix surgery in 2000 triggers a second severe episode, with intensified hallucinations and suicidality, managed through a day program rather than inpatient care.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R2",
+   "claim": "Kerr acknowledges he cannot fully explain the mechanism but notes that people can emerge from anesthesia in frankly psychotic states, and frames these biological events as amplifiers of an already chronically stressed system rather than independent causes, reinforcing the feedback loop between relational anxiety and biological vulnerability.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R3",
+   "claim": "Kerr closes without a formal conclusion, noting that a systems framework will likely require more than his lifetime to fully integrate these ideas.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R4",
+   "claim": "Kerr acknowledges the biological reality while framing these events as amplifiers of an already-stressed system rather than independent causes\u2014noting that he has observed anesthesia producing acute psychosis in other patients.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R5",
+   "claim": "The exchange reinforces the presentation's core argument that biological and relational stressors interact rather than operate separately.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R6",
+   "claim": "The case raises unresolved questions about how biological vulnerability, multigenerational emotional process, and individual agency interact across a lifetime of psychiatric illness.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R7",
+   "claim": "In the children's home, Joe describes feeling invisible\u2014not remembered by peers or staff, told by his house mother Christine that his parents did not love him, and watching his brother Jack rebel repeatedly while he remained compliant.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R8",
+   "claim": "Kerr notes that anesthesia can precipitate psychosis and frames these medical events as amplifiers of an already chronically stressed system rather than independent causes.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R9",
+   "claim": "Kerr acknowledges the observation, confirms he has seen patients emerge from anesthesia in psychotic states, and reiterates that biological stressors interact with an already-stressed system rather than acting as isolated causes.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R10",
+   "claim": "The exchange reinforces the conference's interdisciplinary framing and the presenter's argument that biological and relational variables must be held together.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R11",
+   "claim": "Joe Holt's family history is presented through a complex genogram spanning two generations.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R12",
+   "claim": "His house mother Christine told him his parents did not love him, and when he returned to the home as an adult, staff did not remember him.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R13",
+   "claim": "A later appendix surgery with anesthetics produced a second severe episode, which Kerr frames not as an independent cause but as a biological amplifier of an already chronically anxious system.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R14",
+   "claim": "He frames these events as amplifiers rather than primary causes, consistent with his systems argument.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "S1",
+   "claim": "His clearest positive memory is of an unidentified man who held him in the night during a brief foster placement\u2014a moment he describes as the best memory from those years.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N1",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "S2",
+   "claim": "Kerr acknowledges the observation directly, noting that he has seen people emerge from anesthesia in psychotic states and that individuals with already-stressed systems are likely more biologically vulnerable to such events\u2014framing medical stressors as amplifiers of existing system anxiety rather than independent causes.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "L1",
+   "claim": "He contrasts his own compliance with brother Jack's repeated runaways, framing these as distinct adaptive postures within the same anxious system.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "L2",
+   "claim": "Kerr acknowledges that anesthesia can precipitate psychosis and frames these medical events as biological amplifiers of an already chronically stressed \u2026 *(cut off in the log)*",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "L4",
+   "claim": "Kerr closes by expressing hope that Bowen theory remains open to new knowledge rather than hardening into unexamined assumption, leaving the relationship between emotional process and psychiatric diagnosis as a productive open question.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "L5",
+   "claim": "Kerr closes by noting that Murray Bowen wanted to keep his theory open to new knowledge so that it would not harden into unexamined assumptions, and expresses his own view that an interdisciplinary, systems way of thinking will eventually bring these ideas together.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "transcript": null,
+   "talk": "Holt",
+   "origin": "f"
+  },
+  {
+   "id": "R15",
+   "claim": "He mentions that the upcoming Bowen Theory Academy conference will feature a speaker who champions the view that meaningful parallels exist between systems thinking in physics and in human emotional process, signaling that this theme will receive fuller treatment in future sessions.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R16",
+   "claim": "Michael Kerr, a prominent Bowen theory clinician and educator, opens the first webcast of the 2021 academic year by grounding the session in a live clinical case that prompted him to examine a broader question: what must a person actually accomplish to gain traction in a relationship system and improve their level of differentiation of self?",
+   "label": "NOT QUITE RIGHT",
+   "type": "N4",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R17",
+   "claim": "He previews three interrelated content areas\u2014the stepfather-stepdaughter-mother triangle, the systemic rather than individual nature of triangular tension, and the coaching strategy he employed through a follow-up email intervention.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R18",
+   "claim": "Future sessions will test whether insight into triangular co-creation, combined with deliberate behavioral moves, can produce measurable change in differentiation of self.",
+   "label": "WRONG",
+   "type": "W4",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R19",
+   "claim": "His mother, who lives abroad and remains in close contact with him, made the referral to Kerr after Chris told her the situation at home had become untenable.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R20",
+   "claim": "Both spouses acknowledged that their busy schedules left little time to sit down and work through the conflict together.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R21",
+   "claim": "Kerr's email to Chris closes with the observation that the ability to think about the triangle and act accordingly can have an amazing impact \u2014 underscoring that seeing the system clearly, and then moving from that seeing, is the essential double requirement Bowen theory places on anyone seeking real change.",
+   "label": "NOT QUITE RIGHT",
+   "type": "N3",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  },
+  {
+   "id": "R22",
+   "claim": "The central tension involves Chris's sixteen-year-old stepdaughter, Sage, from his first marriage.",
+   "label": "WRONG",
+   "type": "W2",
+   "borderline": false,
+   "transcript": null,
+   "talk": "2021 Webcast Sep Part 1",
+   "origin": "f"
+  }
+ ]
+}
