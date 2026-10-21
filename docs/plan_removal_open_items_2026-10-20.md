@@ -4,7 +4,9 @@ Status: **approved 2026-10-20** ("build the plan … as written, with D3 (leave 
 number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7),
 commit 2 (RM1.e.1, RM1.e.2) and commit 3 (RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM2.h.1,
 RM1.g.6, RM2.a.1) and commit 4 (T-BE1) are built, and the findings of Mini1's cold
-reviews of 3ff21c0 and d64dc1e are fixed (F2 decided by Dave: the stage fails). See **Built** at the end for what was built and where it
+reviews of 3ff21c0 and d64dc1e are fixed (F2 decided by Dave: the stage fails). The
+review of e1b218a found two more retry gaps, recorded as known, not fixed (Dave's
+decision; see the last section). See **Built** at the end for what was built and where it
 differs from the text below.
 
 Scope: everything still open on sentence removal (`flagged_removal.py`) after 813dd3c,
@@ -722,9 +724,9 @@ All reproduced on mini2 against a worktree at 3ff21c0.
 
 | ID | Status | Where | Tests |
 |---|---|---|---|
-| RM1.g.6 (adversarial #1) | done | `spared`: the section loop records the name sentences it now lets go (3ff21c0 kept them); the retry counts them as new (`newly`), so `old` is 3ff21c0's removal. | `test_rm1g6_section_name_cut_left_out_of_retry` (deletion check, cap) |
+| RM1.g.6 (adversarial #1) | done | `spared`: the section loop records the name sentences it now lets go (3ff21c0 kept them); the retry counts them as new (`newly`), so `old` leaves them out and, in the cases tested, is 3ff21c0's removal (not in general: see the last section). | `test_rm1g6_section_name_cut_left_out_of_retry` (deletion check, cap) |
 | RM1.b.2 (adversarial #2, learning-qa #2) | done | `known` is read with one part per sentence, as before F1, so a label line F1 newly takes whole is a new cut. | `test_rm1b2_label_line_left_out_of_retry_at_cap` |
-| RM1.g.6 (learning-qa #1) | done | the retry's last set is the targets on no name's sentence. When every set with a name is over the cap or refused, the claims still go; the names are kept either way. This also covers a case older than 3ff21c0 (a plain name sentence over the cap kept the claim). | `test_rm1g6_name_over_cap_does_not_keep_removable_claim`, `test_rm1g6_name_refused_does_not_keep_removable_claim`; the section-and-cap grid now also checks that a name flag keeps a claim the claims alone remove only by the section rule or the cap |
+| RM1.g.6 (learning-qa #1) | done | the retry's last set is the targets on no name's sentence. When every set with a name is over the cap or refused, the claims still go; the names are kept either way. This also covers a case older than 3ff21c0 (a plain name sentence over the cap kept the claim). | `test_rm1g6_name_over_cap_does_not_keep_removable_claim`, `test_rm1g6_name_refused_does_not_keep_removable_claim`; the section-and-cap grid now also checks, for its own inputs, that a name flag keeps a claim the claims alone remove only by the section rule or the cap (not true in general: see the last section) |
 | RM1.i.3 (adversarial #3) | done | test only | `test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry` (2) kills `named.get(key, False) or t.new` and `named[key] = t.new` |
 
 Where it differs from the suggestions: learning-qa suggested the claims-only set alone
@@ -732,9 +734,11 @@ for all three. It does not cover #1 and #2: there the claims-only set removes th
 but not the name copy 3ff21c0 removed ("Zed Example met Kerr at the hearing."). Both
 changes are in, and each fails its test when reverted.
 
-The grid property "a name flag never keeps a claim the claim flags alone remove" holds
-except by the section rule (72 runs in a scratch grid) and the cap (260): there the name
-goes first by design, and removing both under the cap is the greedy retry in TODO.md.
+In the grid's inputs, the property "a name flag never keeps a claim the claim flags
+alone remove" holds except by the section rule (72 runs in a scratch grid) and the cap
+(260): there the name goes first by design, and removing both under the cap is the
+one-target-at-a-time retry in TODO.md. Outside the grid it also fails through a refusal (the next
+section).
 
 Not changed (low, noted by Mini1): a claim kept as the section's only text keeps that
 reason when the name released in its place is then refused, so the section was not
@@ -745,3 +749,48 @@ kept although it is gone (an over-report, the same at 3ff21c0).
 Checks: each of the three code changes, reverted, fails its test above. Suites on mini2
 (`.venv`): `tests/` 2,101 passed, 13 skipped; the root run 2,196 passed, 23 skipped,
 1 xfailed.
+
+### Mini1's review of e1b218a (2026-10-20): known gaps, not fixed
+
+Mini1's learning-qa found two more cases where the retry loses a removal an earlier
+commit made (hard rule 1). Dave decided to stop here and record them, with no retry
+code change, because the stage fails in each case at every commit: a name is kept, and
+the entity check blocks.
+
+1. When another name's new cut is refused, e1b218a keeps a name copy that d64dc1e
+   removed (probes with a `_Ann Example_ … **He spoke for an hour**` line).
+2. When 3ff21c0's removal included RM1.b.3 or RM1.b.5 cuts, no retry set is that
+   removal, so a claim it removed is kept ("Kerr met Dr. Bowen at the center." with a
+   non-breaking space; "Kerr praised _Ann Example_ warmly in the talk.").
+
+Mini1's adversarial review of e1b218a found three more cases of the same class, each
+re-run by Mini1 at e1b218a, d64dc1e and 3ff21c0:
+
+3. New in e1b218a: adding a claim that the section rule keeps can make the retry give
+   back a removal d64dc1e made, a claim and a name copy ("Zed Example spoke at length
+   about the move." beside a `_Zed Example_ … **He spoke for an hour**` line). The stage
+   fails (the name is kept).
+4. Since 3ff21c0: a name flag can make claims kept through a deletion-check refusal,
+   with no section rule or cap involved. Only the name sentence goes; the stage passes
+   and the claims stay in and warn. This also holds outside the section-and-cap grid,
+   whose docstring now says its property holds for its own inputs.
+5. Since 3ff21c0: a claim on a sentence that holds a new name makes an old name kept, so
+   nothing is removed and the stage fails.
+
+The suite lets two changes to the claims-only set pass (built from every claim flag;
+tried before `names_only ∩ old`), and
+`test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry` passes at d64dc1e
+too: it guards against the two mutants named in the table above, not a change in
+behaviour.
+
+Cause: the retry is a fixed list of sets that approximate the earlier versions, and each
+new rule adds combinations the list misses. A fix would use one rule that does not
+depend on which version made a cut, such as the one-target-at-a-time retry (TODO.md,
+"Open, for Dave"). Mini1 suggests a guard test: freeze the removals d64dc1e and
+3ff21c0 make on a grid of inputs and assert that HEAD removes a superset of each. All
+five are recorded in TODO.md as known.
+
+Docs corrected in the same commit: the lines here, in `ARCHITECTURE_DESIGN.md`,
+`CHANGELOG.md`, `docs/plan_remove_flagged_2026-10-19.md`, the
+`remove_flagged_sentences` docstring and three test docstrings that said the retry
+always contains the earlier removal now say where that holds.

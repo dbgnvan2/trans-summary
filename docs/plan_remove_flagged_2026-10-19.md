@@ -705,4 +705,6 @@ before the older cuts; and a section that would be emptied keeps its claim sente
 and loses its name sentences, keeping the names only when it has no other flagged
 sentence. A kept claim only warns; a kept name fails the stage. After Mini1's review of
 d64dc1e the retry's last set is the claims on no name's sentence, and the cuts those
-changes add count as new, so the earlier removal is still among the sets.
+changes add count as new. The retry is a fixed list of sets, so some mixes of cuts
+still keep a claim or a name copy an earlier version removed (TODO.md); a name is kept
+in each, so the stage fails either way.

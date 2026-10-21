@@ -28,10 +28,17 @@ more places did.
 - Mini1's reviews of d64dc1e: the two changes above kept claims that 3ff21c0 removed.
   The name sentences the section rule now lets go, and a label line RM1.b.2 now takes
   whole, were in every retry set; when their cut was refused or over the cap, every
-  flag was kept. They now count as new cuts, so one retry set is the 3ff21c0 removal.
+  flag was kept. They now count as new cuts, so the older-cuts set leaves them out and,
+  in the cases Mini1 found, is the 3ff21c0 removal.
   The retry's last set is the claims on no name's sentence, so a name sentence that is
   over the cap or refused alone no longer keeps the other claims (also before 3ff21c0).
   Tests for a sentence with an old and a new name and a claim on it.
+- Known, not fixed (Dave's decision; Mini1's review of e1b218a): the retry does not
+  always contain an earlier version's removal. Some mixes of refused cuts keep a claim
+  or a name copy an earlier commit removed. A name is kept in each case at every
+  commit, so the stage fails either way (TODO.md). Separately, since 3ff21c0 a name
+  flag can make claims kept through a refusal; the stage passes and those claims warn.
+  Docs that said otherwise are corrected.
 
 ## [Unreleased] - 2026-10-20 (Abstract check on a judge error)
 

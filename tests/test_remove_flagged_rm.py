@@ -3206,8 +3206,9 @@ def test_rm1g6_section_and_cap_grid_claim_never_keeps_name(max_share):
     """Mini1's cold review of 3ff21c0: the retry grid with the lines in a section the
     guard can empty, at caps that refuse some removals. P6 as above, and a claim flag
     never keeps a name that the name flag alone removes (a kept name fails the stage).
-    A name flag keeps a claim the claim flags alone remove only by the section rule or
-    the cap, where the name goes first by design."""
+    In these inputs a name flag keeps a claim the claim flags alone remove only by the
+    section rule or the cap, where the name goes first by design (not in general: a mix
+    of refused cuts can, TODO.md)."""
     claims = [fr.Flag(DR_BOWEN), fr.Flag(FLAG), fr.Flag(ZED_SENTENCE)]
     wrong = []
     for a, b in itertools.product(RETRY_LINES, repeat=2):
@@ -3266,7 +3267,7 @@ def test_rm1g6_section_name_cut_left_out_of_retry(closing, claim, cap):
     """Mini1's review of d64dc1e (#1): the name sentence the section rule now lets go
     (3ff21c0 kept it) was in every retry set. When its cut is refused (a bold-only line
     left) or takes the removal over the cap, every flag was kept. It is a new cut, so
-    the retry still makes 3ff21c0's removal."""
+    the retry makes 3ff21c0's removal here."""
     text = f"{OPEN_3FF}### Closing\n\n{closing}\n"
     out, removed, kept = _remove(text, [KERR_CLAIM, fr.Flag(claim), ZED], max_share=cap)
     assert [r.sentence for r in removed] == [str(KERR_CLAIM),
@@ -3279,7 +3280,7 @@ def test_rm1g6_section_name_cut_left_out_of_retry(closing, claim, cap):
 def test_rm1b2_label_line_left_out_of_retry_at_cap():
     """Mini1's review of d64dc1e (#2): the label line RM1.b.2 now takes whole (F1) was
     read as an old cut, so when it took the removal over the cap no retry set left it
-    out and every flag was kept. It is a new cut; 3ff21c0's removal is still made."""
+    out and every flag was kept. It is a new cut; 3ff21c0's removal is made here."""
     text = ("### Body\n\nKerr opens with a long story about the family and the move to the"
             " city.\n\n1. **Zed Example:** He met Sen. Smith at the hearing on the family"
             " bill and on the long move.\n\nKerr adds a long example about his own"

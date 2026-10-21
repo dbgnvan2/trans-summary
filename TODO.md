@@ -132,6 +132,32 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   sentence went and the stage passed only because the entity check misses names in
   underscores (the `_NAME_SPAN` item above). The stage fails, as now: a section that is
   all about a made-up name needs regenerating. No code change.
+- Known, not fixed (2026-10-20, Dave: stop, docs only; Mini1's learning-qa on e1b218a):
+  the retry is a fixed list of sets that approximate earlier versions, so some mixes of
+  refused cuts still lose a removal an earlier commit made. (1) When another name's new
+  cut is refused, e1b218a keeps a name copy that d64dc1e removed (probes with a
+  `_Ann Example_ … **He spoke for an hour**` line). (2) When 3ff21c0's removal included
+  RM1.b.3 or RM1.b.5 cuts, no retry set is that removal, so a claim it removed is kept
+  (probes: "Kerr met Dr. Bowen at the center." with a non-breaking space, and "Kerr
+  praised _Ann Example_ warmly in the talk."). In every case found a name is kept at
+  every commit, so the entity check fails the stage either way; the output is no worse
+  for a run. Mini1's adversarial review of e1b218a found three more cases of this class:
+  (3) new in e1b218a: adding a claim that the section rule keeps can make the retry give
+  back a removal d64dc1e made, a name copy and a claim ("Zed Example spoke at length
+  about the move." next to a `_Zed Example_ … **He spoke for an hour**` line); the
+  stage fails (Zed kept). (4) Since 3ff21c0: a name flag can make claims kept through a
+  deletion-check refusal, with no section rule or cap involved (two claims and a Zed
+  sentence before a "**He spoke for an hour**" rider): only the Zed sentence goes. The
+  stage passes; the two claims stay in and warn. (5) Since 3ff21c0: a claim on a
+  sentence that holds a new name ("Kerr praised _Ann Example_ …") makes an old name
+  kept, so nothing is removed and the stage fails. The suite also lets two changes to
+  the claims-only set pass (built from every claim flag; tried before
+  `names_only ∩ old`), and `test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry`
+  passes at d64dc1e too, so it guards against a regression rather than proving a fix.
+  A fix would replace the sets with one rule that does not depend on which version made
+  a cut, such as the one-target-at-a-time retry in the "Open, for Dave" item above.
+  Mini1's suggested guard: freeze the removals made at d64dc1e and 3ff21c0 for a grid of
+  inputs and assert that HEAD removes a superset of each.
 - Adjacent, not fixed (2026-10-20, Mini1 on d64dc1e, low): a name only in a list label,
   whose line goes because claim flags take every sentence of it, is listed as kept
   although it is gone (an over-report, the same at 3ff21c0). A claim kept as a section's

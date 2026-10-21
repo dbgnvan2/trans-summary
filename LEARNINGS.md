@@ -144,6 +144,14 @@ Pull from the global catalogue; the ones that bite this repo most:
   rule adds a second way to reach a state, re-check every test that relied on the state
   having one cause. Covered by
   `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`.
+  Open (2026-10-20, Mini1 on e1b218a; Dave: record, do not fix): after three more
+  rounds the retry still loses earlier removals for some mixes of refused cuts (TODO.md,
+  "Known, not fixed"). The stage fails in each case either way, since a name is kept.
+  Rule: a retry made of fixed sets that each approximate an earlier version keeps
+  missing combinations as rules are added; prefer one rule that does not depend on which
+  version made a cut (for example, retry one target at a time), or stop and accept the
+  gap. A test that would have caught each round: freeze the earlier commit's removals on
+  a grid of inputs and assert the new code removes a superset.
 
 ## Fix log
 

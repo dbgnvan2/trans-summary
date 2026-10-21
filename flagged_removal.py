@@ -1014,9 +1014,10 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     the name flags' sentences (and the claim flags on them), and last only the claims on
     no name's sentence; the first set that passes is cut and each other flag is kept
     with the first refusal's reason. A cut made only by a newer rule is left out of the
-    older sets, so the removal the code made before is among them. A section that would be emptied keeps
-    its claim sentences, and its name sentences only when it has no other flagged
-    sentence (RM1.g.6).
+    older sets. The sets are fixed, not a search, so a mix of refused cuts can keep a
+    claim or a name copy an earlier version removed (TODO.md). A section that would be
+    emptied keeps its claim sentences, and its name sentences only when it has no other
+    flagged sentence (RM1.g.6).
 
     Purpose: Take out a sentence that is still flagged after the last revision.
     Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2,
@@ -1045,7 +1046,9 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
              tests/test_remove_flagged_rm.py::test_rm1g6_section_and_cap_grid_claim_never_keeps_name,
              tests/test_remove_flagged_rm.py::test_rm1g6_section_name_cut_left_out_of_retry,
              tests/test_remove_flagged_rm.py::test_rm1b2_label_line_left_out_of_retry_at_cap,
-             tests/test_remove_flagged_rm.py::test_rm1g6_name_over_cap_does_not_keep_removable_claim
+             tests/test_remove_flagged_rm.py::test_rm1g6_name_over_cap_does_not_keep_removable_claim,
+             tests/test_remove_flagged_rm.py::test_rm1g6_name_refused_does_not_keep_removable_claim,
+             tests/test_remove_flagged_rm.py::test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry
     """
     lead, head, body = _split(text)
     lines = body.split("\n")
