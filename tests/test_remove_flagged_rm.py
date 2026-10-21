@@ -497,8 +497,7 @@ def test_rm1e_unreadable_faq_answer_listed_as_kept(answer):
     text = OVERVIEW.replace(old, answer.format(flag=flag))
     out, removed, kept = _remove(text, [flag], max_share=0.5)
     assert [r.sentence for r in removed] == [flag]
-    assert kept == [fr.Kept(flag, "removed from the body; still in the front matter's "
-                                  "FAQ answers")]
+    assert kept == [fr.Kept(flag, "removed from the body; still in the front matter")]
 
 
 def test_rm1a_body_copy_not_located_reason():
@@ -868,7 +867,7 @@ def test_rm1e_faq_copy_left_listed_for_each_flag():
     assert len(flags) == 2
     out, removed, kept = _remove(text, flags, max_share=0.5)
     assert [r.sentence for r in removed] == [sentence, sentence]
-    faq = f"{fr.IN_FAQ}; {fr.LABEL_STAYS}"
+    faq = f"{fr.STILL_IN_FRONT_MATTER}; {fr.LABEL_STAYS}"
     assert kept == [fr.Kept(flags[0], faq), fr.Kept(flags[1], faq)]
 
 
@@ -1868,3 +1867,532 @@ def test_rm1g7_overlap_keeps_draft(monkeypatch, tmp_path):
     assert path.read_text(encoding="utf-8") == SUMMARY
     entry = json.loads(rr.record_path("B").read_text())["artifacts"]["summary"]
     assert entry["kept"][0]["reason"].startswith("removal failed: overlapping cut spans")
+
+
+# RM1.e.1 and RM1.e.2: the front matter (plan commit 2)
+
+def test_rm1e1_second_unquoted_faq_copy_listed_as_kept():
+    """Mini1 (open item A): with one copy in a quoted answer and one in an unquoted
+    answer, the quoted copy was edited and the second copy stayed with no kept entry,
+    while the removal said it was taken from the front matter."""
+    flag = "Bowen theory has been part of his life for more than 60 years."
+    old = ('a: "Michael Kerr is a long-time student of Murray Bowen. Bowen theory has been '
+           'part of his life for more than 60 years."')
+    assert OVERVIEW.count(old) == 1
+    text = OVERVIEW.replace(
+        old, old + "\n  - q: How long?\n    a: He says so. " + flag)
+    out, removed, kept = _remove(text, [flag], max_share=0.5)
+    assert [r.sentence for r in removed] == [flag]
+    assert removed[0].in_front_matter is False
+    assert kept == [fr.Kept(flag, "removed from the body; still in the front matter")]
+
+
+def test_rm1e1_copy_under_other_key_listed_as_kept():
+    """Mini1 (open item A): a copy under a key that is not an FAQ answer was reported
+    as being in "the FAQ answers"."""
+    flag = "Bowen theory has been part of his life for more than 60 years."
+    text = OVERVIEW.replace("faq:\n", f"description: {flag}\nfaq:\n", 1)
+    assert text != OVERVIEW
+    out, removed, kept = _remove(text, [flag], max_share=0.5)
+    assert fr.Kept(flag, "removed from the body; still in the front matter") in kept
+    assert removed[0].in_front_matter is False
+
+
+M3_TEXT = """```yaml
+slug: "m3"
+faq:
+  - q: "What did he do?"
+    a: {answer}
+```
+
+# Title
+
+## Body
+
+Kerr tells a long story about the family today.
+
+{body}
+
+Bowen founded the center in 1975.
+"""
+M3_CASES = [
+    # (FAQ answer, body sentence with the name, its two parts as the judge splits it)
+    ("He trained in the U.S. Navy for two years. Kerr confirmed it.",
+     "He trained in the U.S. Army with Zed Example.",
+     ["He trained in the U.S.", "Army with Zed Example."]),
+    ("He met Sen. Smith at the hearing. Kerr confirmed it.",
+     "He met Sen. Jones with Zed Example.",
+     ["He met Sen.", "Jones with Zed Example."]),
+]
+
+
+@pytest.mark.parametrize("answer, body, parts", M3_CASES)
+def test_rm1e2_faq_sentence_after_abbreviation_kept(answer, body, parts):
+    """Mini1 M3 (both versions): the FAQ edit split the answer after "U.S." or "Sen."
+    and dropped the part equal to a removed part, so the answer became "Navy for two
+    years. Kerr confirmed it.". It now reads the answer's sentences joined as removal
+    groups a line, and a sentence goes only when every part of it was removed."""
+    text = M3_TEXT.format(answer=f'"{answer}"', body=body)
+    out, removed, kept = _remove(text, [ZED])
+    assert _front_matter(out)["faq"][0]["a"] == answer
+    assert "Zed Example" not in out
+    assert [r.sentence for r in removed] == parts
+    assert [r.in_front_matter for r in removed] == [False, False]
+
+
+@pytest.mark.parametrize("answer, body, parts", M3_CASES)
+def test_rm1e1_name_copy_listed_only_when_name_left(answer, body, parts):
+    """RM1.e.1: a part of a name's sentence that is in the front matter only inside a
+    longer sentence ("He trained in the U.S." in "He trained in the U.S. Navy …") does
+    not make the name flag "still in the front matter". The name itself does."""
+    out, removed, kept = _remove(M3_TEXT.format(answer=f'"{answer}"', body=body), [ZED])
+    assert kept == []
+    # The name's own sentence in an answer the edit cannot read (unquoted) stays.
+    out, removed, kept = _remove(M3_TEXT.format(answer=body, body=body), [ZED])
+    assert [r.sentence for r in removed] == parts
+    assert kept == [fr.Kept(ZED, "removed from the body; still in the front matter")]
+
+
+def test_rm1e2_whole_joined_sentence_goes_from_answer():
+    """Guard: a sentence split after "U.S." whose every part was removed from the body
+    also goes from the answer."""
+    body = "He trained in the U.S. Army with Zed Example."
+    text = M3_TEXT.format(answer=f'"{body} Kerr confirmed it."', body=body)
+    out, removed, kept = _remove(text, [ZED])
+    assert _front_matter(out)["faq"][0]["a"] == "Kerr confirmed it."
+    assert [r.in_front_matter for r in removed] == [True, True] and kept == []
+
+
+def test_rm1e2_faq_content_change_refused():
+    """Mini1 M4 (both versions), adversarial (P7): the check did not compare what an FAQ
+    answer says. "not" deleted inside an answer, and part of a sentence split after
+    "U.S." going alone, are refused."""
+    before = M3_TEXT.format(answer='"He was not sure of the date. Kerr confirmed it."',
+                            body=ZED_SENTENCE)
+    after = before.replace("He was not sure", "He was sure")
+    assert ("an FAQ answer sentence was added or changed: 'He was sure of the date.'"
+            in fr.deletion_problems(before, after, set()))
+    answer, body, parts = M3_CASES[0]
+    before = M3_TEXT.format(answer=f'"{answer}"', body=body)
+    after = before.replace(f"\n{body}\n", "\n").replace('"He trained in the U.S. ', '"')
+    problems = fr.deletion_problems(before, after, set(parts))
+    assert ("an FAQ answer sentence was lost that was not flagged: "
+            "'He trained in the U.S. Navy for two years.'") in problems
+
+
+# learning-qa on commit 2: the front matter (fixed before the commit)
+
+@pytest.mark.parametrize("answer, body, part", [
+    ("Bowen founded the center. Bowen moved to Washington, D.C.",
+     "Bowen moved to Washington, D.C. Zed Example joined him there.",
+     "Bowen moved to Washington, D.C."),
+    ("Kerr moved to the U.S.",
+     "Kerr moved to the U.S. Zed Example came later.",
+     "Kerr moved to the U.S."),
+])
+def test_rm1e2_part_split_off_with_name_stays_in_answer(answer, body, part):
+    """learning-qa on commit 2 (P2): a part cut from the body only because it shares a
+    sentence with a name went alone from an FAQ answer, where it is a whole sentence
+    without the name; an answer of only that part lost its q/a pair. The check passed
+    both. The part now stays in the answer, and the check refuses taking it out."""
+    text = M3_TEXT.format(answer=f'"{answer}"', body=body)
+    out, removed, kept = _remove(text, [ZED])
+    assert "Zed Example" not in out and kept == []
+    assert _front_matter(out)["faq"][0]["a"] == answer
+    assert removed[0].sentence == part and removed[0].in_front_matter is False
+    pair = f'  - q: "What did he do?"\n    a: "{answer}"\n'
+    rest = answer.replace(part, "").strip()
+    by_hand = (out.replace(f'"{answer}"', f'"{rest}"') if rest else out.replace(pair, ""))
+    assert by_hand != out
+    problems = fr.deletion_problems(text, by_hand, {r.sentence for r in removed}, [body],
+                                    joined={tuple((r.sentence, r.sentence != part)
+                                                  for r in removed)},
+                                    riders={part})
+    assert f"an FAQ answer sentence was lost that was not flagged: {part!r}" in problems
+
+
+ESCAPED_CLAIM = 'Kerr used the word "anxiety" often.'
+ESCAPED_CASES = [
+    # (the front matter's answer line, and any line after it; the claim)
+    ("a: 'Kerr said one''s family shapes the self.'", "Kerr said one's family shapes the self."),
+    ('a: "Kerr tells a long story."\ndescription: "Kerr used the word \\"anxiety\\" often."',
+     ESCAPED_CLAIM),
+    ("a: >\n      Kerr tells a long story. Kerr said the family\n      shapes the self.",
+     "Kerr said the family shapes the self."),
+    ('a: "He trained in the U.S. Kerr used the word \\"anxiety\\" often."', ESCAPED_CLAIM),
+    ('a: "Kerr tells a long story. Kerr said one\\u2019s family shapes the self."',
+     "Kerr said one\u2019s family shapes the self."),
+    ('a: "Kerr tells a long story. Kerr said the family \\\n      shapes the self."',
+     "Kerr said the family shapes the self."),
+]
+
+
+@pytest.mark.parametrize("answer, claim", ESCAPED_CASES)
+def test_rm1e1_escaped_or_folded_copy_listed_as_kept(answer, claim):
+    """learning-qa on commit 2 (P2/P6): a copy left in the front matter was looked for
+    as written, so one with YAML's escapes ('' or \\"), or folded onto two lines, was
+    left with no kept entry. The fourth case is new in commit 2: the answer's sentence
+    after "U.S." is now kept whole, with the copy inside it. The last two are from the
+    re-review: a \\u escape, and a line break escaped with a backslash."""
+    text = M3_TEXT.format(answer="{answer}", body=claim).replace("a: {answer}", answer)
+    out, removed, kept = _remove(text, [fr.Flag(claim)])
+    assert [r.sentence for r in removed] == [claim]
+    assert removed[0].in_front_matter is False
+    assert kept == [fr.Kept(fr.Flag(claim), fr.STILL_IN_FRONT_MATTER)]
+
+
+def test_rm1e1_faq_pair_with_other_key_kept():
+    """learning-qa on commit 2 (P6): a pair with a third key whose answer was only the
+    removed sentence lost its q and a lines, which left "source:" under "faq:" (the
+    front matter no longer parsed) or attached it to the pair before, and the check
+    passed. The pair now stays, its copy is listed as kept, and the check refuses
+    losing an FAQ item with another key."""
+    text = M3_TEXT.format(answer=f'"{ZED_SENTENCE}"\n    source: "minute 12"',
+                          body=ZED_SENTENCE)
+    out, removed, kept = _remove(text, [ZED])
+    assert _front_matter(out)["faq"] == [
+        {"q": "What did he do?", "a": ZED_SENTENCE, "source": "minute 12"}]
+    assert [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert kept == [fr.Kept(ZED, fr.STILL_IN_FRONT_MATTER)]
+    by_hand = out.replace(f'  - q: "What did he do?"\n    a: "{ZED_SENTENCE}"\n', "")
+    assert by_hand != out
+    problems = fr.deletion_problems(text, by_hand, {ZED_SENTENCE}, [ZED_SENTENCE])
+    assert any(p.startswith("an FAQ item was lost") for p in problems)
+
+
+FAQ_THREE = """```yaml
+slug: "three"
+faq:
+  - q: "Who?"
+    a: "{first}"
+  - q: "Where?"
+    a: "Bowen worked in Washington."
+  - q: "When?"
+    a: >
+      Kerr tells a long story about the family.
+      Bowen founded the center in 1975.
+```
+
+## Body
+
+Kerr tells a long story about the family today.
+
+Bowen founded the center in 1975.
+"""
+
+
+def test_rm1e2_faq_items_compared_in_order():
+    """learning-qa on commit 2 (P26), adversarial: the check compared FAQ sentences as
+    one count over all answers, so dropping the second question with the first answer
+    (the second answer now answers the first question), or deleting a line of a folded
+    answer, passed. FAQ items are now compared one by one, in order."""
+    before = FAQ_THREE.format(first=ZED_SENTENCE)
+    swapped = before.replace(f'    a: "{ZED_SENTENCE}"\n  - q: "Where?"\n', "")
+    assert swapped != before
+    problems = fr.deletion_problems(before, swapped, {ZED_SENTENCE})
+    assert "an FAQ item's answer changed: 'a: \"Bowen worked in Washington.\"'" in problems
+    assert "an FAQ item was lost: '- q: \"Where?\"'" in problems
+    folded = before.replace("      Bowen founded the center in 1975.\n", "")
+    assert folded != before
+    assert fr.deletion_problems(before, folded, set()) == [
+        "an FAQ item's lines changed: '- q: \"When?\"'"]
+    # Guard: removal's own edit (a sentence taken out of the first answer) passes.
+    text = FAQ_THREE.format(first=f"Kerr agreed with it. {ZED_SENTENCE}") + f"\n{ZED_SENTENCE}\n"
+    out, removed, kept = _remove(text, [ZED])
+    assert _front_matter(out)["faq"][0]["a"] == "Kerr agreed with it."
+    assert [r.sentence for r in removed] == [ZED_SENTENCE] and kept == []
+
+
+ANN = fr.Flag("the name 'Ann Example' does not appear in the source", kind="name",
+              name="Ann Example")
+
+
+def test_rm1e2_part_with_its_own_name_goes_from_answer():
+    """Guard on the rider rule: a part that shares a sentence with one name but holds
+    another flagged name is cut for its own flag, so it goes from an answer too."""
+    body = "Kerr met Ann Example in the U.S. Zed Example came later."
+    text = M3_TEXT.format(answer='"Kerr met Ann Example in the U.S."', body=body)
+    out, removed, kept = _remove(text, [ZED, ANN])
+    assert "Ann Example" not in out and "Zed Example" not in out and kept == []
+    assert _front_matter(out)["faq"] is None
+    assert [(r.sentence, r.in_front_matter) for r in removed] == [
+        ("Kerr met Ann Example in the U.S.", True), ("Zed Example came later.", False)]
+
+
+@pytest.mark.parametrize("answer, reason", [
+    (">\n      Zed\n      Example spoke at length about the move.", fr.STILL_IN_FRONT_MATTER),
+    (">\n      Kerr met Zed\n      Example there.",
+     f"removed in part; one copy kept: {fr.IN_SCAFFOLDING}"),
+])
+def test_rm1e1_folded_name_in_front_matter_listed_as_kept(answer, reason):
+    """learning-qa on commit 2 (P5, the siblings of the escaped copy): a name that a
+    folded answer breaks onto two lines was not found in the front matter, so a name
+    there in another sentence was not reported."""
+    out, removed, kept = _remove(M3_TEXT.format(answer=answer, body=ZED_SENTENCE), [ZED])
+    assert [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert kept == [fr.Kept(ZED, reason)]
+
+
+def test_rm1e1_escaped_claim_only_in_front_matter_reason():
+    """learning-qa on commit 2 (P5): a claim found only in the front matter, written
+    there with YAML's escapes, is listed as "only in … the front matter", not as not
+    found."""
+    head = '"Kerr tells a long story."\ndescription: "Kerr used the word \\"anxiety\\" often."'
+    out, removed, kept = _remove(M3_TEXT.format(answer=head, body=ZED_SENTENCE),
+                                 [fr.Flag(ESCAPED_CLAIM)])
+    assert removed == [] and kept == [fr.Kept(fr.Flag(ESCAPED_CLAIM), fr.IN_SCAFFOLDING)]
+
+
+# learning-qa re-review of the commit-2 fixes (fixed before the commit)
+
+@pytest.mark.parametrize("lead", ["1. ", "+ ", "&gt; "])
+def test_rm1e2_name_only_in_label_sentence_stays_in_answer(lead):
+    """learning-qa re-review of commit 2 (P2/P5, a sibling of the rider rule): a sentence
+    cut because the name is only in the bold label the judge reads with it (RM1.b.2)
+    went from an FAQ answer, where it has no name, and the check passed. It now stays.
+    The "&gt; " case already stayed before the fix; it is kept as a control."""
+    sentence = "Kerr agreed with the point about the move."
+    text = M3_TEXT.format(answer=f'"{sentence}"', body=f"{lead}**Zed Example:** {sentence}")
+    out, removed, kept = _remove(text, [ZED])
+    assert "Zed Example" not in out and kept == []
+    assert _front_matter(out)["faq"][0]["a"] == sentence
+    assert [r.in_front_matter for r in removed] == [False]
+
+
+THREE_PARTS = "The U.S. Navy sent Zed Example to Washington, D.C. Bowen met him there."
+
+
+@pytest.mark.parametrize("answer, goes", [
+    ("The U.S. Navy sent Zed Example to Washington, D.C.", True),
+    ("Navy sent Zed Example to Washington, D.C. Bowen met him there.", True),
+    ("Bowen met him there.", False),
+])
+def test_rm1e2_run_of_cut_sentence_with_name_goes_from_answer(answer, goes):
+    """learning-qa re-review of commit 2 (P7, a regression of the rider rule): an
+    answer's sentence made of some of the parts of one cut sentence, the name's part
+    among them, stayed with the name in it, which fails the stage. It now goes. A part
+    without the name, alone, still stays."""
+    text = M3_TEXT.format(answer=f'"{answer}"', body=THREE_PARTS)
+    out, removed, kept = _remove(text, [ZED])
+    assert "Zed Example" not in out and kept == []
+    assert len(removed) == 3 and any(r.in_front_matter for r in removed) == goes
+    assert _front_matter(out)["faq"] == (None if goes else [
+        {"q": "What did he do?", "a": answer}])
+
+
+@pytest.mark.parametrize("first, second", [
+    (ZED_SENTENCE, "Bowen founded the center in 1975."),
+    ("Bowen founded the center in 1975.", ZED_SENTENCE),
+])
+def test_rm1e2_same_question_twice_either_item_may_go(first, second):
+    """learning-qa re-review of commit 2 (P7, a false refusal): the check matched each
+    item left to the first item before with the same question, so when two items ask
+    the same question and the first one's answer was removed, the removal was refused.
+    The check now tries the next item with that question."""
+    head = f'"{first}"\n  - q: "What did he do?"\n    a: "{second}"'
+    out, removed, kept = _remove(M3_TEXT.format(answer=head, body=ZED_SENTENCE), [ZED])
+    assert [(r.sentence, r.in_front_matter) for r in removed] == [(ZED_SENTENCE, True)]
+    assert kept == []
+    assert _front_matter(out)["faq"] == [
+        {"q": "What did he do?", "a": "Bowen founded the center in 1975."}]
+
+
+def test_rm1e2_blank_line_between_faq_items():
+    """learning-qa re-review of commit 2 (checklist 10c): no test had a blank line
+    between FAQ items, so reading it as part of the item before, which makes an emptied
+    item more than a q/a pair and the removal refused, passed every test."""
+    head = f'"{ZED_SENTENCE}"\n\n  - q: "When?"\n    a: "Bowen founded the center in 1975."'
+    out, removed, kept = _remove(M3_TEXT.format(answer=head, body=ZED_SENTENCE), [ZED])
+    assert [(r.sentence, r.in_front_matter) for r in removed] == [(ZED_SENTENCE, True)]
+    assert kept == []
+    assert _front_matter(out)["faq"] == [
+        {"q": "When?", "a": "Bowen founded the center in 1975."}]
+
+
+def test_rm1e2_item_check_refuses_answer_sentence_that_may_not_go():
+    """learning-qa re-review of commit 2 (checklist 10c): each sentence gone from a kept
+    answer must be one that may go. The count over all answers checks this too, so no
+    test failed without it; this tests the item check alone."""
+    before = 'faq:\n  - q: "Who?"\n    a: "Kerr agreed. Bowen left."\n'
+    after = before.replace("Kerr agreed. ", "")
+    assert fr._faq_item_problems(before, after, lambda parts: True) == []
+    assert fr._faq_item_problems(before, after, lambda parts: False) == [
+        "an FAQ item's answer changed: 'a: \"Bowen left.\"'"]
+
+
+@pytest.mark.parametrize("raw, plain", [
+    ('one\\u2019s family', "one\u2019s family"),
+    ('the family \\\n      shapes', "the family shapes"),
+    ('the word \\"anxiety\\"', 'the word "anxiety"'),
+    ('a path C:\\\\x and \\\\"', 'a path C:\\x and \\"'),
+    ("one''s family", "one's family"),
+    ("tab\\there", "tab here"),
+    ("too big \\UFFFFFFFF, \\d stays", "too big \\UFFFFFFFF, \\d stays"),
+    ("fami\\\n      ly", "family"),
+    ("fami\\\r\n      ly", "family"),
+    ("smile \\ud83d\\ude00", "smile \U0001F600"),
+    ("lone \\ud83d here", "lone \ud83d here"),
+])
+def test_rm1e1_yaml_plain_undoes_escapes_in_one_pass(raw, plain):
+    """learning-qa re-review of commit 2 (P2): the front matter is searched for copies
+    left with YAML's escapes undone, in one pass, so an escaped backslash before a quote
+    stays a backslash and an escape out of range is left as written, not raised."""
+    assert fr._yaml_plain(raw) == plain
+
+
+@pytest.mark.parametrize("escape", ["\\0", "\\a", "\\b", "\\t", "\\\t", "\\n", "\\v",
+                                    "\\f", "\\r", "\\e", "\\ ", '\\"', "\\/", "\\\\", "\\N",
+                                    "\\_", "\\L", "\\P", "\\x41", "\\u00e9", "\\U0001F600"])
+def test_rm1e1_yaml_plain_matches_yaml(escape):
+    """learning-qa third review of commit 2 (P2): some of YAML's escapes were left as
+    written ("\\_", "\\N", "\\e" ...), so a copy with one had no kept entry. Each
+    escape now reads as ``yaml.safe_load`` reads it in a double-quoted value."""
+    raw = f"Kerr said{escape}it twice."
+    assert fr._yaml_plain(raw) == " ".join(yaml.safe_load(f'"{raw}"').split())
+
+
+def test_rm1e1_yaml_plain_never_raises():
+    """``_yaml_plain`` reads every front matter: it must not raise on any text, and what
+    it returns is spaced (one space between words, none at the ends)."""
+    import random
+    rng = random.Random(20261020)
+    pool = "\\uUxX0123456789abcdefABCDEF\"' \n\t\r_NLPe"
+    for _ in range(5000):
+        plain = fr._yaml_plain("".join(rng.choice(pool) for _ in range(rng.randint(0, 24))))
+        assert isinstance(plain, str) and plain == " ".join(plain.split())
+
+
+C_TEMP = "Kerr saved the notes in C:\\temp folder."
+
+
+@pytest.mark.parametrize("value", [
+    '"Kerr saved the notes in C:\\\\temp folder."',   # double-quoted: the backslash escaped
+    "'Kerr saved the notes in C:\\temp folder.'",      # single-quoted: as written
+    "Kerr saved the notes in C:\\temp folder.",        # plain: as written
+])
+def test_rm1e1_body_sentence_with_backslash_copy_listed(value):
+    """learning-qa third review of commit 2 (P2): YAML's escapes were undone in the body
+    sentence too, which is markdown, so "C:\\temp" became "C:" and a tab, and its copy
+    in the front matter was not found. The body sentence is now only spaced, and the
+    front matter is read with its escapes undone and as written."""
+    text = ('```yaml\nslug: "x"\n'
+            f"description: {value}\n"
+            "```\n\n# Title\n\n## Body\n\n"
+            "Kerr tells a long story about the family today.\n\n"
+            f"{C_TEMP}\n\nBowen founded the center in 1975.\n")
+    assert yaml.safe_load(text.split("```yaml\n")[1].split("```")[0])["description"] == C_TEMP
+    out, removed, kept = _remove(text, [fr.Flag(C_TEMP)])
+    assert [r.sentence for r in removed] == [C_TEMP]
+    assert kept == [fr.Kept(fr.Flag(C_TEMP), fr.STILL_IN_FRONT_MATTER)]
+
+
+def test_rm1e1_single_quoted_copy_with_quote_and_backslash_listed():
+    """The as-written reading undoes '' too: a single-quoted copy with both an
+    apostrophe and a backslash matches neither the escaped reading nor the raw text."""
+    sentence = "Kerr's notes are in C:\\temp folder."
+    text = ('```yaml\nslug: "x"\n'
+            "description: 'Kerr''s notes are in C:\\temp folder.'\n"
+            "```\n\n# Title\n\n## Body\n\n"
+            "Kerr tells a long story about the family today.\n\n"
+            f"{sentence}\n\nBowen founded the center in 1975.\n")
+    assert yaml.safe_load(text.split("```yaml\n")[1].split("```")[0])["description"] == sentence
+    out, removed, kept = _remove(text, [fr.Flag(sentence)])
+    assert kept == [fr.Kept(fr.Flag(sentence), fr.STILL_IN_FRONT_MATTER)]
+
+
+def test_rm1e1_claim_with_backslash_only_in_front_matter_reason():
+    """learning-qa fourth review of commit 2: the scaffolding test reads both readings
+    too. A claim with a backslash, not in the body and escaped in a double-quoted value,
+    is "only in … the front matter", not "not found"."""
+    head = '"Kerr tells a long story."\ndescription: "Kerr saved the notes in C:\\\\temp folder."'
+    out, removed, kept = _remove(M3_TEXT.format(answer=head, body=ZED_SENTENCE),
+                                 [fr.Flag(C_TEMP)])
+    assert removed == [] and kept == [fr.Kept(fr.Flag(C_TEMP), fr.IN_SCAFFOLDING)]
+
+
+YAN = fr.Flag("the name 'Yan Other' does not appear in the source", kind="name",
+              name="Yan Other")
+
+
+@pytest.mark.parametrize("first", ["zed", "yan"])
+@pytest.mark.parametrize("answer", [
+    "Zed Example went to the U.S. Navy staff met him in Washington, D.C.",
+    "Navy staff met him in Washington, D.C. Yan Other stayed.",
+])
+def test_rm1e2_part_marked_by_any_name_cut_there(first, answer):
+    """learning-qa fourth review of commit 2: two name flags cut the same sentence; a
+    part is marked when either name is in its words, in either flag order, so an answer
+    sentence holding one of the names goes."""
+    body = "Zed Example went to the U.S. Navy staff met him in Washington, D.C. Yan Other stayed."
+    flags = [ZED, YAN] if first == "zed" else [YAN, ZED]
+    out, removed, kept = _remove(M3_TEXT.format(answer=f'"{answer}"', body=body), flags)
+    assert "Zed Example" not in out and "Yan Other" not in out and kept == []
+
+
+def test_rm1e2_part_cut_for_itself_elsewhere_is_still_a_rider_in_answer():
+    """learning-qa third review of commit 2 (P7): whether a part was cut for its own
+    flag was read by its text, so a part split off the name's sentence that is also a
+    claim cut on another line counted as cut for itself, and an answer of that part and
+    another rider went, the rider with it. It now stays, and the claim's copy is
+    listed."""
+    claim = fr.Flag("Kerr visited Washington, D.C.")
+    body = ("Zed Example moved to the U.S. Kerr visited Washington, D.C. Bowen met him"
+            " there.\n\nKerr visited Washington, D.C.")
+    answer = "Kerr visited Washington, D.C. Bowen met him there."
+    out, removed, kept = _remove(M3_TEXT.format(answer=f'"{answer}"', body=body),
+                                 [ZED, claim])
+    assert "Zed Example" not in out and "Bowen met him there." not in out.split("```")[2]
+    assert _front_matter(out)["faq"] == [{"q": "What did he do?", "a": answer}]
+    assert kept == [fr.Kept(claim, fr.STILL_IN_FRONT_MATTER)]
+
+
+def test_rm1e2_part_cut_for_itself_elsewhere_goes_alone_in_answer():
+    """The other side of the test above: a claim cut for its own flag on one line is not
+    a rider, though it is also split off the name's sentence on another, so an answer's
+    sentence that is that claim alone goes with it (mutation check on the third-review
+    fixes). The claim is still listed as kept with the uncertain boundary of its part on
+    the first line, though that part went with the name: an over-report, not a drop,
+    which RM1.i.3 (commit 3) fixes."""
+    claim = fr.Flag("Kerr visited Washington, D.C.")
+    body = ("Zed Example moved to the U.S. Kerr visited Washington, D.C. Bowen met him"
+            " there.\n\nKerr visited Washington, D.C.")
+    answer = "He stayed a week. Kerr visited Washington, D.C."
+    out, removed, kept = _remove(M3_TEXT.format(answer=f'"{answer}"', body=body),
+                                 [ZED, claim])
+    assert "Zed Example" not in out and "Kerr visited" not in out
+    assert _front_matter(out)["faq"] == [{"q": "What did he do?", "a": "He stayed a week."}]
+    assert kept == [fr.Kept(claim, f"removed in part; one copy kept: {fr.UNSURE_BOUNDARY}")]
+
+
+def test_rm1e2_parts_not_next_to_each_other_stay_in_answer():
+    """learning-qa third review of commit 2 (checklist 10c): an answer's sentence of the
+    name's part and a later part of the same body sentence, without the part between, is
+    not a copy of it, so it stays and the name is listed as kept (the stage fails
+    loudly)."""
+    body = "Zed Example went to the U.S. Navy bases in Washington, D.C. Bowen met him there."
+    answer = "Zed Example went to the U.S. Bowen met him there."
+    out, removed, kept = _remove(M3_TEXT.format(answer=f'"{answer}"', body=body), [ZED])
+    assert len(removed) == 3 and not any(r.in_front_matter for r in removed)
+    assert _front_matter(out)["faq"] == [{"q": "What did he do?", "a": answer}]
+    assert kept == [fr.Kept(ZED, fr.STILL_IN_FRONT_MATTER)]
+
+
+@pytest.mark.parametrize("parts, goes", [
+    (("A",), True),                 # cut for its own flag
+    (("C",), False),                # not cut
+    (("B",), False),                # a rider alone
+    (("A", "B"), True),             # a run of a cut sentence, A cut for itself
+    (("B", "A"), False),            # not in the cut sentence's order
+    (("B", "D"), False),            # riders only, though a run of a cut sentence
+    (("E", "B"), False),            # E cut for itself elsewhere, a rider in this sentence
+    (("A", "F"), False),            # parts of one cut sentence, not next to each other
+])
+def test_rm1e2_faq_goes_rules(parts, goes):
+    """The rule shared by the FAQ edit and the check (learning-qa re-reviews of
+    RM1.e.2), with cut sentences ("A", "B"), ("B", "D") and ("A", "E", "B", "F"). Each
+    part is marked with whether it was cut there for its own flag: only A is. E is also
+    cut for itself on another line, so it is not a rider."""
+    cut, riders = {"A", "B", "D", "E", "F"}, {"B", "D", "F"}
+    joined = {(("A", True), ("B", False)), (("B", False), ("D", False)),
+              (("A", True), ("E", False), ("B", False), ("F", False))}
+    assert fr._faq_goes(parts, cut, joined, riders) is goes

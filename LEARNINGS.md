@@ -87,6 +87,35 @@ Pull from the global catalogue; the ones that bite this repo most:
   it (P33). Covered by `test_rm1g5_number_left_alone_on_dropped_line_refused`. Still open:
   the allowance is counted from the removed list, not from what left the text (TODO.md).
 
+- ~~**The FAQ edit and the check shared one flat set of cut parts (P2/P26, learning-qa
+  2026-10-20, commit 2 of `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before
+  the commit: a part cut from the body only because it shares a sentence with a name
+  ("Bowen moved to Washington, D.C." before "Zed Example joined him there.") went alone
+  from an FAQ answer, where it is a whole sentence without the name, and the check passed
+  it because it read the same set. The check also compared FAQ sentences as one count
+  over all answers, so two answers swapped between questions passed. Both now read which
+  parts were cut together and why (`_faq_goes`), and FAQ items are compared one by one.
+  Rule: when an edit and its safety check both work from one summary of the change, the
+  check cannot see what that summary drops; give it the structure (groups, reasons,
+  items), not a flattened set. Covered by
+  `test_rm1e2_part_split_off_with_name_stays_in_answer` and
+  `test_rm1e2_faq_items_compared_in_order`. The first fix keyed "cut only for a name" on
+  one reason string, so the second review found the sibling that reaches the same state
+  by another path (the name only in the label, RM1.b.2), and a regression for a name
+  sentence of three parts. Rule: classify by the property that matters (is the name in
+  this part's own words?), not by the reason one code path wrote. Covered by
+  `test_rm1e2_name_only_in_label_sentence_stays_in_answer` and
+  `test_rm1e2_run_of_cut_sentence_with_name_goes_from_answer`. The third review found
+  the same mistake one level down: "cut for its own flag" was looked up by a part's
+  text, and the same text was cut for a claim on another line. Rule: a fact about one
+  place (this part of this sentence) is keyed by that place, never by text that can
+  occur twice. Covered by
+  `test_rm1e2_part_cut_for_itself_elsewhere_is_still_a_rider_in_answer`. It also found
+  that undoing YAML escapes on both sides of a comparison changed the body side, which
+  is markdown ("C:\temp" lost its "\t"). Rule: undo a format's escapes only on the text
+  written in that format; to match text whose format is unknown, compare against each
+  reading. Covered by `test_rm1e1_body_sentence_with_backslash_copy_listed`.
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**

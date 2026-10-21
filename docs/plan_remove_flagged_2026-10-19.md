@@ -236,7 +236,9 @@ Tests: `python3 -m pytest tests/test_remove_flagged_rm.py tests/test_ts_gui_run_
   must still be one double-quoted value, and the keys must be unchanged. PyYAML is a
   dev-only dependency, so runtime code does not import it; the tests parse the result
   with `yaml.safe_load`. When the FAQ copy cannot be removed, the body sentence is still
-  removed and the kept reason says "still in the front matter's FAQ answers".
+  removed and the kept reason says "removed from the body; still in the front matter"
+  (since 2026-10-20, RM1.e.1 of `docs/plan_removal_open_items_2026-10-20.md`; before, it
+  said "still in the front matter's FAQ answers").
 - **RM2.a log line.** "⚠️ Summary: removed N sentence(s) still flagged after the last
   attempt; K of M flagged item(s) left in. Record: … Removed: …", then "Summary: not
   removed: …" with each kept claim and its reason.
@@ -288,7 +290,7 @@ each with a test that fails without it:
 | The deletion check compared claims only, so a lost short sentence passed | every body sentence is checked | `test_rm1g_short_unflagged_sentence_lost_rejected` |
 | `_EMPTY_LINE` backtracked exponentially on a run of list markers (a hang) | one marker per repetition | `test_rm1b_marker_run_line_does_not_backtrack` (child process with a timeout) |
 | A split after "U.S.", "Ph.D.", "Sen.", "et al.", a month, or before a number left a fragment | such a split is uncertain: a claim there is kept ("sentence boundary uncertain"); a name takes the whole sentence (since 2026-10-20, RM1.i.1: only after an abbreviation; before a number a name takes its own part). List: `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` | `test_rm1a_unsure_sentence_boundary_kept`, `test_rm1a_unsure_boundary_more_abbreviations`, `test_rm1a_unsure_copy_kept_other_copy_removed`, `test_rm1i_name_in_unsure_split_takes_whole_sentence` |
-| A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "still in the front matter's FAQ answers" | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
+| A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "removed from the body; still in the front matter" (wording since RM1.e.1, 2026-10-20) | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
 | Older than the sweep: a bold lead sentence ("**Kerr says X.** …") was dropped with the line, unrecorded | bold text that ends like a sentence is not a label | `test_rm1b_bold_lead_sentence_not_dropped` |
 | RM2.e: the guard skipped required items already at low keyword confidence, which the gate decides with an LLM check | such an item keeps the claim sentences ("could not place required item"); a name sentence still goes, and a claim in it is not listed as kept | `test_rm2e_item_already_low_keeps_claims_not_names`, `test_rm1i_claim_and_name_same_sentence_unplaced_item_not_kept` |
 | F5: a failed save cleared the record (list said "none"); a failed re-save returned success over a possibly truncated file | flags recorded as kept; a failed re-save fails the stage | `test_rm3b_artifact_save_fails_stage_goes_on`, `test_rm3b_partial_save_restores_kept_draft`, `test_rm3b_both_saves_fail_stage_fails` |
@@ -593,4 +595,7 @@ Planned, and built commit by commit, in `docs/plan_removal_open_items_2026-10-20
 RM1.g.4, RM1.g.5 and RM1.g.7 extend RM1.g (built 2026-10-20): the check reads each line's
 sentences as the judge splits them, also the ones removal cannot place; it counts the
 labels, list numbers and bold-only lines its comparison leaves out; and `_cut` refuses
-overlapping spans. The front-matter, removal-rule and PDF-test items follow there.
+overlapping spans. RM1.e.1 and RM1.e.2 extend RM1.e (built 2026-10-20): every copy of a
+removed sentence left in the front matter is listed as kept, and an FAQ answer is split
+and checked as the judge splits a line, so a sentence cut after "U.S." stays whole. The
+removal-rule and PDF-test items follow there.

@@ -33,12 +33,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - **Open, from the correctness re-review of the cold-sweep fixes** (work in progress
   parked on Mac mini1 as `git stash` "RM cold sweep open items A/B/C WIP"; its tests for
   A–C fail without the fixes):
-  - **A.** A removed sentence with one copy in a quoted FAQ answer and another in an
-    unquoted answer, or under another key (`description:`), keeps the second copy with
-    no Kept entry, and its Removed entry says `in_front_matter=True`
-    (`flagged_removal.py`, the `left_in_head` line). Fix: report every copy left in the
-    head with a generic reason ("still in the front matter"), and set `in_front_matter`
-    only when no copy remains.
+  - **A.** ✅ Fixed 2026-10-20 by RM1.e.1 (`docs/plan_removal_open_items_2026-10-20.md`):
+    every copy of a removed sentence left in the front matter (an unquoted answer,
+    another key) is listed as kept, "removed from the body; still in the front matter";
+    a name flag only while its name is there. `in_front_matter` is true only when no
+    copy is left. The stash's A part is superseded, so the stash can be dropped.
   - **B, C:** fixed 2026-10-20 (RM1.i.1, RM1.i.2, RM1.g.1 in
     `docs/plan_remove_flagged_2026-10-19.md`). The stash's B and C parts are superseded.
   - **D.** Verify with a test: when a name flag comes before a claim flag on the same
@@ -52,13 +51,22 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     by the check (new in 813dd3c); M2, "… the move. 2. The group …" refused although
     only the name went (new in 813dd3c); and the M4 gaps for a label, list number or
     bold-only line deleted alone and a change after such a split.
-  - Open (plan commit 2, RM1.e.2): M3, an FAQ answer split after "U.S." or "Sen." loses
-    an unflagged part, and the M4 gap for "not" deleted inside an FAQ answer.
+  - ✅ Fixed 2026-10-20 (RM1.e.2): M3, an FAQ answer split after "U.S." or "Sen." lost
+    an unflagged part; the answer is now split as the judge splits a line. The M4 gap
+    for "not" deleted inside an FAQ answer: the check compares answers sentence by
+    sentence.
   - Known, not fixed (learning-qa on commit 1, case 2C): the check's allowance for a
     label or number comes from the removed list, not from what left the text, so a
     removed list that does not match the edit could excuse a mark lost on another line.
     Removal builds the list from the spans it cuts, so this needs two bugs at once.
     Closing it needs `deletion_problems` to match lines before and after.
+  - Known (learning-qa on commit 2, low): a claim is listed as still in the front
+    matter when it is there only inside a longer sentence ("Bowen agreed." in "Murray
+    Bowen agreed."). This over-reports, the safe direction; a tighter match could miss
+    a copy in a form the FAQ edit cannot read.
+  - Known (learning-qa re-review of commit 2, low): an FAQ written with q and a as
+    separate list items ("- q: …" then "- a: …") makes the check refuse a removal there,
+    so the name is kept and fails the stage. The overview prompt never writes that shape.
   - Known (learning-qa on commit 1): a name sentence followed on its line only by a
     number ("… that year. 1975.") is not removed (the check refuses it), so the name is
     kept and fails the stage. No artifact has this shape.

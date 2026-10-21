@@ -29,7 +29,7 @@ UNSURE_BOUNDARY = "sentence boundary uncertain (an abbreviation or a number at t
 SAME_SENTENCE_AS_NAME = "same sentence as name '{}' (uncertain split)"
 LABEL_STAYS = "its bold label stays and is now read with the next sentence"
 LABEL_LEFT = f"removed in part; {LABEL_STAYS}"
-IN_FAQ = "removed from the body; still in the front matter's FAQ answers"
+STILL_IN_FRONT_MATTER = "removed from the body; still in the front matter"
 
 _MARKERS = ("**", "__")
 _LINE_LEAD = re.compile(r"^\s*(?:[-*>]+\s*)*")       # as _clean_claim_line strips it
@@ -272,7 +272,7 @@ def _split_line(raw: str, index: int, strip_prefixes: set) -> tuple:
         # Without a bold label the judge reads with it: after a cut, the label is read
         # with the next sentence ("Kerr Agreed: 2.").
         marks += _sentence_marks(sentence.own, strip_prefixes)
-        after_abbreviation = bool(out) and bool(_DOUBTFUL_END.search(out[-1].text))
+        after_abbreviation = bool(out) and _joined_to_previous(out[-1].text)
         if out and (after_abbreviation or _DOUBTFUL_START.match(text)):
             # Removing either side would leave a fragment ("He trained with the U.S.").
             out[-1].doubtful = sentence.doubtful = True
@@ -363,26 +363,178 @@ def _emptied_sections(lines: list, targets: list, sentences: list) -> list:
     return emptied
 
 
-def _edit_front_matter(head: str, sentences: set) -> tuple:
+def _joined_to_previous(previous: str) -> bool:
+    """Whether the judge's split after ``previous`` may be inside one sentence: after a
+    token with two periods ("U.S.") or a listed abbreviation ("Sen."). Removal groups the
+    two parts of a line (a name takes both), and FAQ answers are read the same way
+    (RM1.e.2)."""
+    return bool(_DOUBTFUL_END.search(previous))
+
+
+def _answer_sentences(value: str) -> list:
+    """The sentences of a double-quoted FAQ answer, each a list of the judge's parts as
+    ``(as written, unescaped)``, with a part after an abbreviation joined to the one
+    before it (``_joined_to_previous``).
+
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#RM1.e.2
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1e2_faq_sentence_after_abbreviation_kept
+    """
+    sentences = []
+    for part in fj._split_sentences(value):
+        part = part.strip()
+        if not part:
+            continue
+        pair = (part, part.replace('\\"', '"').replace("\\\\", "\\"))
+        if sentences and _joined_to_previous(sentences[-1][-1][1]):
+            sentences[-1].append(pair)
+        else:
+            sentences.append([pair])
+    return sentences
+
+
+def _faq_sentences(head: str) -> Counter:
+    """Each sentence of the front matter's double-quoted FAQ answers, as the tuple of
+    its parts, unescaped (``_answer_sentences``)."""
+    return Counter(tuple(plain for _, plain in sentence)
+                   for line in head.split("\n") if (m := _FAQ_ANSWER.match(line))
+                   for sentence in _answer_sentences(m["value"]))
+
+
+_YAML_ESCAPE = re.compile(r"\\(\r?\n[ \t]*|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|x[0-9a-fA-F]{2}|.)|''",
+                          re.DOTALL)
+# Every escape of a double-quoted YAML value (YAML 1.1, as yaml.safe_load reads it).
+_YAML_ESCAPED = {"0": "\0", "a": "\a", "b": "\b", "t": "\t", "\t": "\t", "n": "\n",
+                 "v": "\v", "f": "\f", "r": "\r", "e": "\x1b", " ": " ", '"': '"',
+                 "/": "/", "\\": "\\", "N": "\x85", "_": "\xa0", "L": "\u2028",
+                 "P": "\u2029"}
+
+
+def _yaml_unescape(m: re.Match) -> str:
+    code = m.group(1)
+    if code is None:  # '' in a single-quoted value
+        return "'"
+    if code[0] in "\r\n":  # a line break escaped at the end of a line
+        return ""
+    if code[0] in "uUx" and len(code) > 1:
+        value = int(code[1:], 16)
+        return chr(value) if value <= 0x10FFFF else m.group()
+    return _YAML_ESCAPED.get(code, m.group())
+
+
+def _yaml_plain(text: str) -> str:
+    """Front matter ``text`` as a double-quoted value reads: YAML's escapes undone in one
+    pass (\\", \\\\, \\u2019, a backslash at a line's end, '') and each run of
+    whitespace one space (learning-qa on RM1.e.1). An escaped surrogate pair is one
+    character, as in the body. Used only to find copies left, never in the deletion
+    check, and only on the front matter: a body sentence is markdown, not YAML
+    (``_head_readings``)."""
+    plain = _spaced(_YAML_ESCAPE.sub(_yaml_unescape, text))
+    return plain.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "surrogatepass")
+
+
+def _spaced(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _head_readings(head: str) -> tuple:
+    """The front matter read two ways, to find a copy left there however it is quoted:
+    with YAML's escapes undone (``_yaml_plain``, a double-quoted value), and as written
+    with only '' undone (a plain or single-quoted value), each spaced. A body sentence
+    with a backslash may match the as-written reading of a double-quoted value that YAML
+    reads otherwise ("C:\\temp" there is a tab): that lists a copy as kept that is not
+    there, an over-report."""
+    return _yaml_plain(head), _spaced(head.replace("''", "'"))
+
+
+def _copy_in(sentence: str, readings: tuple) -> bool:
+    """Whether a body sentence, only spaced, is in either reading of the front matter."""
+    return any(_spaced(sentence) in reading for reading in readings)
+
+
+def _is_run(parts: tuple, whole: tuple) -> bool:
+    """Whether ``parts`` are some of ``whole``'s parts, next to each other and in order,
+    one of them cut there for its own flag. ``whole`` is the cut sentence's parts as
+    (text, cut there for its own flag) pairs (``_cut_groups``)."""
+    n = len(parts)
+    return any(tuple(text for text, _ in whole[i:i + n]) == parts
+               and any(mine for _, mine in whole[i:i + n])
+               for i in range(len(whole) - n + 1))
+
+
+def _faq_goes(parts: tuple, cut, joined, riders) -> bool:
+    """Whether an FAQ answer's sentence (its parts, ``_answer_sentences``) may go: each
+    part was cut for its own flag; or its parts run on in one sentence cut whole from the
+    body (``joined``: the parts of a sentence split after an abbreviation) and one of
+    them was cut there for its own flag ("The U.S. Navy sent Zed Example to Washington,
+    D.C." from a body sentence that goes on after "D.C."). A part cut only for a name
+    that is not in its own words (``riders``: split off the name's sentence, or after a
+    label that holds the name) is, alone in an answer, a sentence without the name, so
+    it stays (learning-qa on RM1.e.2). Whether a part of a joined sentence was cut for
+    itself is read at its place in that sentence, not by its text, which may be cut for
+    itself on another line (learning-qa third review)."""
+    if not all(p in cut for p in parts):
+        return False
+    if not any(p in riders for p in parts):
+        return True
+    return any(_is_run(parts, whole) for whole in joined)
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
+def _faq_items(head: str) -> list:
+    """Each FAQ item of the front matter as the list of its lines: a "- q:" line and the
+    lines indented under it (blank lines inside it included)."""
+    lines, items, i = head.split("\n"), [], 0
+    while i < len(lines):
+        if not _FAQ_QUESTION.match(lines[i]):
+            i += 1
+            continue
+        j = i + 1
+        while j < len(lines) and (not lines[j].strip() or _indent(lines[j]) > _indent(lines[i])):
+            j += 1
+        while j > i + 1 and not lines[j - 1].strip():
+            j -= 1
+        items.append(lines[i:j])
+        i = j
+    return items
+
+
+def _edit_front_matter(head: str, sentences: set, joined=frozenset(),
+                       riders=frozenset()) -> tuple:
     """(new head, sentences removed from it, sentences left in it): a removed
     sentence is also removed from the front matter's FAQ answers; an answer left
-    empty removes its q/a pair. An answer whose pair cannot be found is left as is."""
+    empty removes its q/a pair. An answer whose pair cannot be found, or whose item has
+    another key ("source:"), is left as is. An answer's sentence goes as ``_faq_goes``
+    says: one split after an abbreviation goes only when every part of it was removed
+    (RM1.e.2).
+
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#RM1.e.2
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1e2_faq_sentence_after_abbreviation_kept,
+             tests/test_remove_flagged_rm.py::test_rm1e2_whole_joined_sentence_goes_from_answer,
+             tests/test_remove_flagged_rm.py::test_rm1e2_part_split_off_with_name_stays_in_answer,
+             tests/test_remove_flagged_rm.py::test_rm1e1_faq_pair_with_other_key_kept
+    """
     lines = head.split("\n")
     drop, found, left = set(), set(), set()
     for i, line in enumerate(lines):
         m = _FAQ_ANSWER.match(line)
         if not m:
             continue
-        parts = [p.strip() for p in fj._split_sentences(m["value"]) if p.strip()]
-        plain = [p.replace('\\"', '"').replace("\\\\", "\\") for p in parts]
-        hit = {p for p in plain if p in sentences}
+        answer = _answer_sentences(m["value"])
+        goes = [_faq_goes(tuple(plain for _, plain in sentence), sentences, joined, riders)
+                for sentence in answer]
+        hit = {plain for sentence, g in zip(answer, goes) if g for _, plain in sentence}
         if not hit:
             continue
-        rest = [p for p, q in zip(parts, plain) if q not in hit]
+        rest = [raw for sentence, g in zip(answer, goes) if not g for raw, _ in sentence]
+        nxt = next((ln for ln in lines[i + 1:] if ln.strip()), "")
         if rest:
             lines[i] = f'{m["lead"]}"{" ".join(rest)}"{m["trail"]}'
             found |= hit
-        elif i > 0 and _FAQ_QUESTION.match(lines[i - 1]):
+        elif (i > 0 and _FAQ_QUESTION.match(lines[i - 1])
+              and _indent(nxt) <= _indent(lines[i - 1])):
             drop |= {i - 1, i}
             found |= hit
         else:
@@ -488,7 +640,8 @@ def _is_subsequence(short: list, long: list) -> bool:
     return all(any(x == y for y in it) for x in short)
 
 
-def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> list:
+def deletion_problems(before: str, after: str, removed, dropped_lines=(), *,
+                      joined=frozenset(), riders=frozenset()) -> list:
     """What makes ``after`` more than ``before`` with sentences deleted; [] when it is
     only that. ``removed``: the removed sentences, a set or a Counter (how many copies of
     each were cut); ``dropped_lines``: the text of lines removed whole. Such a line also
@@ -516,10 +669,24 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     removed whole is lost, not excused. A bold-only line may be new: a cut can leave a
     bold lead sentence alone on its line.
 
+    The front matter's double-quoted FAQ answers are compared sentence by sentence, a
+    part after an abbreviation joined to the one before (RM1.e.2): no sentence may be
+    added or changed, and one may go only as ``_faq_goes`` says, with ``joined`` (the
+    parts of each sentence cut whole, each marked with whether it was cut there for its
+    own flag) and ``riders`` (parts cut only for a name that is not in their own words:
+    split off the name's sentence, or after a label that holds the name). FAQ items are
+    also compared one by one, in order: an item keeps its lines, except an answer that
+    loses whole sentences, and an item may go only when it is a question and a
+    double-quoted answer whose every sentence may go.
+
     Purpose: Use a removal only when it deletes and changes nothing else.
     Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.g, #RM1.g.1, #RM1.g.2, #RM1.g.3;
-             docs/plan_removal_open_items_2026-10-20.md#RM1.g.4, #RM1.g.5
-    Tests:   tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_on_dropped_line_not_excused,
+             docs/plan_removal_open_items_2026-10-20.md#RM1.g.4, #RM1.g.5, #RM1.e.2
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1e2_faq_content_change_refused,
+             tests/test_remove_flagged_rm.py::test_rm1e2_faq_items_compared_in_order,
+             tests/test_remove_flagged_rm.py::test_rm1e2_part_split_off_with_name_stays_in_answer,
+             tests/test_remove_flagged_rm.py::test_rm1e1_faq_pair_with_other_key_kept,
+             tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_on_dropped_line_not_excused,
              tests/test_remove_flagged_rm.py::test_rm1g4_unplaced_sentence_not_excused_when_placement_fails,
              tests/test_remove_flagged_rm.py::test_rm1g4_change_after_unplaced_split_seen,
              tests/test_remove_flagged_rm.py::test_rm1g5_number_sentence_moves_to_line_start,
@@ -639,6 +806,20 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     if (not _is_subsequence(keys_after, keys_before) or set(lost_keys) - {"q", "a"}
             or lost_keys["q"] != lost_keys["a"]):
         problems.append("the front matter's keys changed")
+    # FAQ answers, sentence by sentence and joined as the FAQ edit reads them (RM1.e.2):
+    # none may be added or changed, and one goes only as ``_faq_goes`` says.
+    faq_before, faq_after = _faq_sentences(head_before), _faq_sentences(head_after)
+    for parts in faq_after - faq_before:
+        problems.append(f"an FAQ answer sentence was added or changed: {' '.join(parts)[:80]!r}")
+    cut_set = set(cut_texts)
+
+    def _may_go(parts):
+        return _faq_goes(parts, cut_set, joined, riders)
+    for parts in faq_before - faq_after:
+        if not _may_go(parts):
+            problems.append("an FAQ answer sentence was lost that was not flagged: "
+                            f"{' '.join(parts)[:80]!r}")
+    problems += _faq_item_problems(head_before, head_after, _may_go)
     old_head_lines = set(head_before.split("\n"))
     for line in head_after.split("\n"):
         if line not in old_head_lines and not _FAQ_ANSWER.match(line):
@@ -647,6 +828,65 @@ def deletion_problems(before: str, after: str, removed, dropped_lines=()) -> lis
     for line in body_after.split("\n"):
         if line not in old_lines and any(line.count(m) % 2 for m in _MARKERS):
             problems.append(f"a line was left with an unpaired bold marker: {line[:80]!r}")
+    return problems
+
+
+def _answer_parts(line: str):
+    """The sentences of a double-quoted answer line, each the tuple of its unescaped
+    parts, or None when the line is not one."""
+    m = _FAQ_ANSWER.match(line)
+    return ([tuple(plain for _, plain in s) for s in _answer_sentences(m["value"])]
+            if m else None)
+
+
+def _item_may_go(item: list, may_go) -> bool:
+    """Whether a whole FAQ item may go: a question and a double-quoted answer only, and
+    every sentence of the answer may go."""
+    parts = _answer_parts(item[1]) if len(item) == 2 else None
+    return parts is not None and all(may_go(p) for p in parts)
+
+
+def _faq_item_problems(head_before: str, head_after: str, may_go) -> list:
+    """The FAQ items of ``head_before`` and ``head_after``, compared in order (learning-qa
+    on RM1.e.2): the questions left are the same and in order; a kept item has the same
+    lines, except a double-quoted answer whose sentences are the old ones in order with
+    some gone, each as ``may_go`` allows; an item that goes is a question and a
+    double-quoted answer only, whose every sentence may go."""
+    problems, before = [], _faq_items(head_before)
+    k = 0
+    for item in _faq_items(head_after):
+        same_q = [j for j in range(k, len(before)) if before[j][0] == item[0]]
+        if not same_q:
+            problems.append(f"an FAQ item was added or changed: {item[0].strip()[:80]!r}")
+            continue
+        # Two items may ask the same question: the item left is the first of them it
+        # matches (learning-qa re-review of RM1.e.2).
+        j = next((j for j in same_q if not _item_changes(before[j], item, may_go)),
+                 same_q[0])
+        problems += [f"an FAQ item was lost: {old[0].strip()[:80]!r}"
+                     for old in before[k:j] if not _item_may_go(old, may_go)]
+        problems += _item_changes(before[j], item, may_go)
+        k = j + 1
+    problems += [f"an FAQ item was lost: {old[0].strip()[:80]!r}"
+                 for old in before[k:] if not _item_may_go(old, may_go)]
+    return problems
+
+
+def _item_changes(old: list, item: list, may_go) -> list:
+    """What is wrong with ``item`` as ``old`` after removal: the same lines, except a
+    double-quoted answer whose sentences are the old ones in order with some gone, each
+    as ``may_go`` allows."""
+    if len(old) != len(item):
+        return [f"an FAQ item's lines changed: {item[0].strip()[:80]!r}"]
+    problems = []
+    for was, now in zip(old, item):
+        if was == now:
+            continue
+        was_parts, now_parts = _answer_parts(was), _answer_parts(now)
+        if (was_parts is None or now_parts is None
+                or not _is_subsequence(now_parts, was_parts)
+                or not all(may_go(p) for p in Counter(was_parts) - Counter(now_parts))):
+            problems.append(f"an FAQ item's answer changed: {now.strip()[:80]!r}")
     return problems
 
 
@@ -659,6 +899,38 @@ def _names(sentence: _Sentence, word, raw: str) -> bool:
         return True
     return bool(sentence.label and word.search(sentence.label)
                 and _EMPTY_LINE.match(_cut(raw, [(sentence.start, sentence.end)])))
+
+
+def _cut_for_itself(target: _Target) -> bool:
+    """Whether a target's own words hold what it was cut for: a claim, or the name of a
+    name flag. A part split off a name's sentence (RM1.i.2), or a sentence whose name
+    is only in the label the judge reads with it (RM1.b.2), was not."""
+    if getattr(target.flag, "kind", "claim") != "name":
+        return True
+    return bool(re.search(rf"(?<!\w){re.escape(target.flag.name)}(?!\w)",
+                          target.sentence.own))
+
+
+def _cut_groups(targets: list) -> tuple:
+    """(joined, riders) for the FAQ edit and the check (``_faq_goes``): the parts of each
+    sentence split after an abbreviation that is cut whole, as a tuple in line order of
+    (text, cut there for its own flag) pairs; and the parts cut only for a name that is
+    not in their own words.
+
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#RM1.e.2
+    Tests:   tests/test_remove_flagged_rm.py::test_rm1e2_part_split_off_with_name_stays_in_answer,
+             tests/test_remove_flagged_rm.py::test_rm1e2_name_only_in_label_sentence_stays_in_answer,
+             tests/test_remove_flagged_rm.py::test_rm1e2_run_of_cut_sentence_with_name_goes_from_answer
+    """
+    groups: dict = {}
+    for t in sorted(targets, key=lambda t: (t.sentence.line, t.sentence.start)):
+        parts = groups.setdefault((t.sentence.line, t.sentence.group), {})
+        mine = parts.get(t.sentence.start, ("", False))[1] or _cut_for_itself(t)
+        parts[t.sentence.start] = (t.sentence.own, mine)
+    joined = frozenset(tuple(parts.values()) for parts in groups.values() if len(parts) > 1)
+    own = {t.sentence.own for t in targets if _cut_for_itself(t)}
+    riders = frozenset(t.sentence.own for t in targets) - own
+    return joined, riders
 
 
 def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
@@ -678,11 +950,14 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     A sentence after a bold label is cut without the label (RM1.b.1); a claim flag the
     judge read with that label is then also listed as kept (``LABEL_LEFT``) while the
     label stays. A name only in such a label is removed only with its line (RM1.b.2).
-    A sentence left in the FAQ answers is listed as kept for each flag that cut it.
+    Every copy of a removed sentence left in the front matter is listed as kept
+    (``STILL_IN_FRONT_MATTER``) for each flag that cut it, a name flag only while its
+    name is there; ``Removed.in_front_matter`` is true only when the sentence was taken
+    from an FAQ answer and no copy is left (RM1.e.1).
 
     Purpose: Take out a sentence that is still flagged after the last revision.
     Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2,
-             #RM1.b.1, #RM1.b.2
+             #RM1.b.1, #RM1.b.2; docs/plan_removal_open_items_2026-10-20.md#RM1.e.1
     Tests:   tests/test_remove_flagged_rm.py::test_rm1a_flagged_sentence_removed_rest_unchanged,
              tests/test_remove_flagged_rm.py::test_rm1d_part_of_longer_sentence_not_removed,
              tests/test_remove_flagged_rm.py::test_rm1h_cap_keeps_draft_and_announces,
@@ -691,6 +966,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
              tests/test_remove_flagged_rm.py::test_rm1b1_last_sentence_after_marked_label_line_goes,
              tests/test_remove_flagged_rm.py::test_rm1b1_claim_flag_after_marked_label,
              tests/test_remove_flagged_rm.py::test_rm1e_faq_copy_left_listed_for_each_flag,
+             tests/test_remove_flagged_rm.py::test_rm1e1_second_unquoted_faq_copy_listed_as_kept,
+             tests/test_remove_flagged_rm.py::test_rm1e1_name_copy_listed_only_when_name_left,
              tests/test_remove_flagged_rm.py::test_rm1b2_name_only_in_marked_label_kept
     """
     lead, head, body = _split(text)
@@ -704,6 +981,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
               for m in (_INLINE_BOLD_LABEL.match(line) or _MARKED_LABEL.match(line),) if m]
     scaffolding = "\n".join([head, *labels, *(ln for ln in lines if _is_heading(ln)
                                                 or _BOLD_ONLY.match(ln.strip()))])
+    # A copy in the front matter may be escaped or folded there (``_head_readings``).
+    scaffolding_readings = _head_readings(scaffolding)
 
     targets, kept, seen = [], [], set()
     partly = {}  # flag -> why one of its sentences was kept while others go
@@ -739,8 +1018,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             kept.append(Kept(flag, UNSURE_BOUNDARY))
         elif getattr(flag, "kind", "claim") != "name" and fj._claim_body(flag) in headings:
             kept.append(Kept(flag, A_HEADING))
-        elif (flag.name if getattr(flag, "kind", "") == "name"
-              else fj._claim_body(flag)) in scaffolding:
+        elif _copy_in(flag.name if getattr(flag, "kind", "") == "name"
+                      else fj._claim_body(flag), scaffolding_readings):
             kept.append(Kept(flag, IN_SCAFFOLDING))
         else:
             kept.append(Kept(flag, NOT_FOUND))
@@ -798,13 +1077,19 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
 
     # The words cut, without a label the judge reads with them (RM1.b.1).
     removed_text = {t.sentence.own for t in targets}
-    new_head, in_head, left_in_head = _edit_front_matter(head, removed_text)
-    # An answer the FAQ edit cannot read (unquoted, single-quoted, folded) keeps its copy.
-    left_in_head |= {s for s in removed_text - in_head if s in new_head}
+    joined, riders = _cut_groups(targets)
+    new_head, in_head, left_in_head = _edit_front_matter(head, removed_text, joined, riders)
+    # Every copy left in the front matter is reported (RM1.e.1): in an answer the FAQ
+    # edit cannot read (unquoted, single-quoted, folded), under another key, or inside
+    # an answer's sentence that the edit kept whole (RM1.e.2), also when a quoted copy
+    # was taken out. It is looked for with YAML's escapes undone and as written
+    # (``_head_readings``).
+    head_readings = _head_readings(new_head)
+    left_in_head |= {s for s in removed_text if _copy_in(s, head_readings)}
     new_text = lead + new_head + new_body
     cut_once = {(t.sentence.line, t.sentence.start): t.sentence.text for t in targets}
     problems = deletion_problems(text, new_text, Counter(cut_once.values()),
-                                 [lines[i] for i in dropped])
+                                 [lines[i] for i in dropped], joined=joined, riders=riders)
     if problems:
         why = "deletion check failed: " + "; ".join(problems)
         flags_hit = list(dict.fromkeys(t.flag for t in targets))
@@ -817,8 +1102,16 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     label_left = {t.flag: None for t in targets
                   if getattr(t.flag, "kind", "claim") != "name" and t.sentence.label
                   and t.sentence.line not in dropped}
-    kept += [Kept(f, IN_FAQ + (f"; {LABEL_STAYS}" if f in label_left else ""))
-             for s in sorted(left_in_head) for f in flags_of[s]]
+
+    def _left_in_head(flag):
+        # A name flag's part ("He trained in the U.S.") may be in the front matter only
+        # inside a longer sentence; the flag is kept there only if its name is (RM1.e.1).
+        return (getattr(flag, "kind", "claim") != "name"
+                or any(re.search(rf"(?<!\w){re.escape(flag.name)}(?!\w)", reading)
+                       for reading in head_readings))
+    kept += [Kept(f, STILL_IN_FRONT_MATTER + (f"; {LABEL_STAYS}" if f in label_left else ""))
+             for f in dict.fromkeys(f for s in sorted(left_in_head) for f in flags_of[s])
+             if _left_in_head(f)]
     # A flag removed in one place may still be in another (a section's only text, a
     # bold label, a heading): it is listed as kept, so no flag goes unreported (P2).
     left_claims = {fj._claim_body(c) for c in fj.extract_claims(new_text)}
@@ -827,13 +1120,16 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         if str(flag) in listed:
             continue
         if getattr(flag, "kind", "claim") == "name":
-            still = re.search(rf"(?<!\w){re.escape(flag.name)}(?!\w)", new_text)
+            name = re.compile(rf"(?<!\w){re.escape(flag.name)}(?!\w)")
+            # A folded answer may break the name onto two lines (``_head_readings``).
+            still = name.search(new_text) or any(name.search(r) for r in head_readings)
         else:
             still = fj._claim_body(flag) in left_claims or flag in partly
         if still:
             what = (flag.name if getattr(flag, "kind", "claim") == "name"
                     else fj._claim_body(flag))
-            why = partly.get(flag) or (IN_SCAFFOLDING if what in scaffolding else NOT_FOUND)
+            why = partly.get(flag) or (IN_SCAFFOLDING if _copy_in(what, scaffolding_readings)
+                                       else NOT_FOUND)
             kept.append(Kept(flag, f"removed in part; one copy kept: {why}"))
     listed = {str(k.claim) for k in kept}
     kept += [Kept(f, LABEL_LEFT) for f in label_left if str(f) not in listed]
@@ -867,5 +1163,5 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         removed.append(Removed(t.sentence.own, _neighbour(n, -1), _neighbour(n, 1),
                                why[0] + (f" (also {', '.join(why[1:])})" if why[1:] else ""),
                                dict(getattr(t.flag, "record", {}) or {}),
-                               t.sentence.own in in_head))
+                               t.sentence.own in in_head - left_in_head))
     return new_text, removed, kept

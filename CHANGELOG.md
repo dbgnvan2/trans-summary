@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: the front matter)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 2 of 4. Closes open item A and
+Mini1's M3 and the FAQ part of M4.
+- **RM1.e.1 (A):** every copy of a removed sentence left in the front matter, in an
+  unquoted FAQ answer or under another key such as `description:`, is listed as kept
+  with the reason "removed from the body; still in the front matter" (it said "still
+  in the front matter's FAQ answers"). A name flag is listed only while its name is in
+  the front matter. The removal record's `in_front_matter` is true only when the
+  sentence was taken from an FAQ answer and no copy is left.
+- **RM1.e.2 (M3, M4):** an FAQ answer is split as the judge splits a line: a part after
+  "U.S.", "Sen." or another listed abbreviation joins the part before it, and a joined
+  sentence goes only when all of it was removed. Before, removing "He trained in the
+  U.S." from the body left the answer "Navy for two years.". The deletion check compares
+  FAQ answers sentence by sentence, so a word deleted inside an answer is refused.
+- **learning-qa review, fixed before the commit:** a part cut from the body only because
+  it shares a sentence with a name ("Bowen moved to Washington, D.C." before "Zed
+  Example joined him there.") went alone from an FAQ answer, where it is a whole
+  sentence without the name; it now stays. A copy left in the front matter with YAML
+  escapes (`''`, `\"`) or folded onto two lines had no kept entry; copies are now found
+  with the escapes undone. A q/a pair with another key ("source:") lost its q and a
+  lines; it now stays whole. The deletion check compares FAQ items one by one, in
+  order, so a swapped answer or a deleted line of a folded answer is refused.
+- **Second learning-qa review, of those fixes, fixed before the commit:** a sentence cut
+  only because the name is in the bold label read with it ("1. **Zed Example:** Kerr
+  agreed …") went from an FAQ answer where it has no name; it now stays. An answer
+  sentence holding the name and part of a sentence split after "U.S." ("The U.S. Navy
+  sent Zed Example to Washington, D.C.") stayed with the name, a regression of the first
+  fix; it now goes. Copies with a `\u` escape or an escaped line break are found. Two
+  FAQ items with the same question no longer make the check refuse.
+- **Third learning-qa review, fixed before the commit:** whether a part of a joined
+  sentence was cut for its own flag is now read at its place in that sentence, not by
+  its text, so a claim cut on another line no longer lets a part without the name take
+  an unflagged part out of an answer with it. A body sentence is no longer read as YAML
+  ("C:\temp" kept its "\t"); it is looked for in the front matter read with YAML's
+  escapes undone and as written. Every YAML escape is undone (`\_`, `\N`, `\L`, `\P`,
+  `\a`, `\b`, `\e`, `\f`, `\v`), an escaped surrogate pair is one character, and an
+  escaped line break may end in CRLF.
+- Front-matter grid (scratch script, no API calls), 648 texts against commit 1: none
+  refused; 12 other outputs, all M3; 140 other reports, the new reason. The review's
+  392-text grid: 63 problem rows before the fixes, none after.
+
 ## [Unreleased] - 2026-10-20 (Removal: the deletion check reads what the judge reads)
 
 `docs/plan_removal_open_items_2026-10-20.md`, commit 1 of 4. Approved by Dave ("build the
