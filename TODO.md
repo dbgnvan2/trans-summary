@@ -132,6 +132,10 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   sentence went and the stage passed only because the entity check misses names in
   underscores (the `_NAME_SPAN` item above). The stage fails, as now: a section that is
   all about a made-up name needs regenerating. No code change.
+- Adjacent, not fixed (2026-10-20, Mini1 on d64dc1e, low): a name only in a list label,
+  whose line goes because claim flags take every sentence of it, is listed as kept
+  although it is gone (an over-report, the same at 3ff21c0). A claim kept as a section's
+  only text keeps that reason when the name released in its place is then refused.
 - Adjacent, not fixed (2026-10-20, noted by Mini1, the same at 813dd3c): `_cut` leaves a
   non-breaking space where it cuts; two claim flags that differ only in their FQ tag give
   one Removed record; a name sentence the judge reads with a plain label that is not

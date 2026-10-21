@@ -2956,7 +2956,7 @@ def test_rm1g6_cap_refusal_names_over_cap_keep_everything():
                for k in kept)
 
 
-@pytest.mark.parametrize("sp", [" ", "\t"])
+@pytest.mark.parametrize("sp", ["\u00a0", "\t"])
 def test_rm1g6_cap_refusal_from_newly_placed_sentence_keeps_old_removal(sp):
     """Hard rule 1 at the cap: the sentence only RM1.b.3 places takes the removal over
     the cap. Commit 2 removed the other claim, so it still goes; the new one is kept
@@ -2971,7 +2971,7 @@ def test_rm1g6_cap_refusal_from_newly_placed_sentence_keeps_old_removal(sp):
 CLOSING = "### Closing\n\n{}\n\n### End\n\nKerr adds a long example about his own family.\n"
 
 
-@pytest.mark.parametrize("sp", [" ", "\t"])
+@pytest.mark.parametrize("sp", ["\u00a0", "\t"])
 def test_rm1g6_names_only_tried_before_older_cuts(sp):
     """Found by the grid below: the name's sentence is one only RM1.b.3 places, and the
     claim and the name each fit under the cap but not both. The older cuts (the claim)
@@ -3107,6 +3107,26 @@ def test_rm1i3_claim_riding_old_name_sentence_stays_in_retry():
     assert kept[0].reason.startswith("removed in part; one copy kept: deletion check failed")
 
 
+ANN = fr.Flag("the name 'Ann Example' does not appear in the source",
+              kind="name", name="Ann Example")
+
+
+@pytest.mark.parametrize("order", ["ann_first", "zed_first"])
+def test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry(order):
+    """Mini1's review of d64dc1e (#3): a sentence is old when any name on it is matched
+    by the old pattern ("Ann Example"), not only when all are ("_Zed Example_" is new).
+    The claim riding it goes with it, whatever the order of the name flags."""
+    rider = fr.Flag("Army with Kerr in 1990.")
+    text = (f"{OPENING}Ann Example and _Zed Example_ trained in the U.S. Army with Kerr in"
+            f" 1990.\n\nKerr praised _Zed Example_ warmly in the talk.{STAYS_BOLD}{AFTER}")
+    names = [ANN, ZED] if order == "ann_first" else [ZED, ANN]
+    out, removed, kept = _remove(text, [rider, *names])
+    assert [(r.sentence, r.reason) for r in removed] == [
+        ("Ann Example and _Zed Example_ trained in the U.S.", "name 'Ann Example'"),
+        ("Army with Kerr in 1990.", fr.FAITHFULNESS)]
+    assert [k.claim for k in kept] == [ZED]
+
+
 def test_rm1i3_claim_riding_newly_named_sentence_left_out_of_retry():
     """The sibling: a claim on an uncertain split goes with a name's sentence (RM1.i.3).
     Where that name was first matched by ``_name_word``, the claim's cut is new too, so
@@ -3185,11 +3205,13 @@ def test_rm1g6_retry_grid_report_matches_output():
 def test_rm1g6_section_and_cap_grid_claim_never_keeps_name(max_share):
     """Mini1's cold review of 3ff21c0: the retry grid with the lines in a section the
     guard can empty, at caps that refuse some removals. P6 as above, and a claim flag
-    never keeps a name that the name flag alone removes (a kept name fails the stage)."""
+    never keeps a name that the name flag alone removes (a kept name fails the stage).
+    A name flag keeps a claim the claim flags alone remove only by the section rule or
+    the cap, where the name goes first by design."""
     claims = [fr.Flag(DR_BOWEN), fr.Flag(FLAG), fr.Flag(ZED_SENTENCE)]
     wrong = []
     for a, b in itertools.product(RETRY_LINES, repeat=2):
-        for sp in (" ", "\t"):
+        for sp in ("\u00a0", "\t"):
             text = OPENING + CLOSING.format(f"{a.format(sp=sp)}\n\n{b.format(sp=sp)}")
             alone, _, _ = _remove(text, [ZED], max_share=max_share)
             for n in range(1, 5):
@@ -3200,6 +3222,18 @@ def test_rm1g6_section_and_cap_grid_claim_never_keeps_name(max_share):
                         expected = _still_in(f, out) or not _still_in(f, text)
                         if (str(f) in listed) != expected:
                             wrong.append((a, b, repr(sp), str(f)[:30], "report"))
+                    if ZED in flags and len(flags) > 1:
+                        # learning-qa on d64dc1e: a name keeps a claim the claims alone
+                        # remove only by the section rule or the cap (the trade-offs).
+                        no_name, _, _ = _remove(text, [f for f in flags if f != ZED],
+                                                max_share=max_share)
+                        for k in kept:
+                            if (k.claim != ZED and "Zed Example" not in str(k.claim)
+                                    and _still_in(k.claim, text)
+                                    and not _still_in(k.claim, no_name)
+                                    and not k.reason.startswith(("only text under heading",
+                                                                 "would remove"))):
+                                wrong.append((a, b, repr(sp), str(k.claim)[:30], k.reason))
                     if ZED in flags and _still_in(ZED, out) and not _still_in(ZED, alone):
                         wrong.append((a, b, repr(sp), flags, "name kept by a claim"))
                     allowed = Counter()
@@ -3211,3 +3245,71 @@ def test_rm1g6_section_and_cap_grid_claim_never_keeps_name(max_share):
                     if (_words(text) - _words(out)) - allowed:
                         wrong.append((a, b, repr(sp), flags, "unflagged word"))
     assert wrong == []
+
+
+# Mini1's review of d64dc1e: hard rule 1 through the retry
+
+OPEN_3FF = ("### Opening\n\nKerr opens with a long story about the family and the move to"
+            " the city.\n\nKerr adds a long example about his own family.\n\n"
+            "Zed Example met Kerr at the hearing.\n\n")
+KERR_CLAIM = fr.Flag("Kerr adds a long example about his own family.")
+
+
+@pytest.mark.parametrize("closing, claim, cap", [
+    ("Zed Example spoke at length about the move. **He met Dr. Bowen at the center.**",
+     "He met Dr. Bowen at the center.", 0.9),
+    ("He says the choir will tour next spring. Zed Example spoke at length about the move"
+     " to the city and about the long hard years in the family.",
+     "He says the choir will tour next spring.", 0.3),
+], ids=["deletion_check", "cap"])
+def test_rm1g6_section_name_cut_left_out_of_retry(closing, claim, cap):
+    """Mini1's review of d64dc1e (#1): the name sentence the section rule now lets go
+    (3ff21c0 kept it) was in every retry set. When its cut is refused (a bold-only line
+    left) or takes the removal over the cap, every flag was kept. It is a new cut, so
+    the retry still makes 3ff21c0's removal."""
+    text = f"{OPEN_3FF}### Closing\n\n{closing}\n"
+    out, removed, kept = _remove(text, [KERR_CLAIM, fr.Flag(claim), ZED], max_share=cap)
+    assert [r.sentence for r in removed] == [str(KERR_CLAIM),
+                                             "Zed Example met Kerr at the hearing."]
+    assert kept[0] == fr.Kept(fr.Flag(claim), "only text under heading 'Closing'")
+    assert [k.claim for k in kept] == [fr.Flag(claim), ZED]
+    assert kept[1].reason.startswith("removed in part; one copy kept: ")
+
+
+def test_rm1b2_label_line_left_out_of_retry_at_cap():
+    """Mini1's review of d64dc1e (#2): the label line RM1.b.2 now takes whole (F1) was
+    read as an old cut, so when it took the removal over the cap no retry set left it
+    out and every flag was kept. It is a new cut; 3ff21c0's removal is still made."""
+    text = ("### Body\n\nKerr opens with a long story about the family and the move to the"
+            " city.\n\n1. **Zed Example:** He met Sen. Smith at the hearing on the family"
+            " bill and on the long move.\n\nKerr adds a long example about his own"
+            " family.\n\nZed Example met Kerr at the hearing.\n\n"
+            "Bowen founded the center in 1975.\n")
+    out, removed, kept = _remove(text, [KERR_CLAIM, ZED], max_share=0.3)
+    assert [r.sentence for r in removed] == [str(KERR_CLAIM),
+                                             "Zed Example met Kerr at the hearing."]
+    assert [k.claim for k in kept] == [ZED]
+    assert kept[0].reason.startswith("removed in part; one copy kept: would remove")
+
+
+def test_rm1g6_name_over_cap_does_not_keep_removable_claim():
+    """learning-qa on d64dc1e (#1, older than 3ff21c0): the name's sentence alone is over
+    the cap, so every set with a name fails and the claim was kept. The last retry is
+    the claims on no name's sentence: the claim goes, the name is kept with the cap's
+    reason (the stage fails either way)."""
+    long_name = ("Zed Example met Smith at the hearing and then spoke for an hour about the"
+                 " family and its long move.")
+    text = f"{OPENING}{long_name}\n\n{FLAG}{AFTER}"
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED], max_share=0.25)
+    assert [r.sentence for r in removed] == [FLAG] and _still_in(ZED, out)
+    assert [k.claim for k in kept] == [ZED] and kept[0].reason.startswith("would remove")
+
+
+def test_rm1g6_name_refused_does_not_keep_removable_claim():
+    """The same through the deletion check: the name's cut leaves a bold-only line, so
+    every set with the name is refused. The claim on another line still goes."""
+    text = f"{OPENING}{ZED_SENTENCE}{STAYS_BOLD}\n\n{FLAG}{AFTER}"
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED])
+    assert [r.sentence for r in removed] == [FLAG] and _still_in(ZED, out)
+    assert [k.claim for k in kept] == [ZED]
+    assert kept[0].reason.startswith("deletion check failed")

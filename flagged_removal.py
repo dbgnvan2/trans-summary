@@ -1010,9 +1010,11 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     A claim's copy on an uncertain split goes only where a name flag takes its whole
     sentence; the removal then gives both reasons and the claim's record, and a claim
     with a copy left is listed as removed in part (RM1.i.3). When the deletion check
-    or the cap refuses the removal, it is tried once more with only the name flags'
-    sentences (and the claim flags on them); if that passes, the names go and each other
-    flag is kept with the first refusal's reason. A section that would be emptied keeps
+    or the cap refuses the removal, it is tried again with smaller sets, among them only
+    the name flags' sentences (and the claim flags on them), and last only the claims on
+    no name's sentence; the first set that passes is cut and each other flag is kept
+    with the first refusal's reason. A cut made only by a newer rule is left out of the
+    older sets, so the removal the code made before is among them. A section that would be emptied keeps
     its claim sentences, and its name sentences only when it has no other flagged
     sentence (RM1.g.6).
 
@@ -1040,7 +1042,10 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
              tests/test_remove_flagged_rm.py::test_rm1g6_cap_refusal_retries_names_only,
              tests/test_remove_flagged_rm.py::test_rm1g6_names_only_tried_before_older_cuts,
              tests/test_remove_flagged_rm.py::test_rm1g6_section_guard_keeps_claim_not_name,
-             tests/test_remove_flagged_rm.py::test_rm1g6_section_and_cap_grid_claim_never_keeps_name
+             tests/test_remove_flagged_rm.py::test_rm1g6_section_and_cap_grid_claim_never_keeps_name,
+             tests/test_remove_flagged_rm.py::test_rm1g6_section_name_cut_left_out_of_retry,
+             tests/test_remove_flagged_rm.py::test_rm1b2_label_line_left_out_of_retry_at_cap,
+             tests/test_remove_flagged_rm.py::test_rm1g6_name_over_cap_does_not_keep_removable_claim
     """
     lead, head, body = _split(text)
     lines = body.split("\n")
@@ -1072,11 +1077,13 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             hits = [s for s in sentences
                     if _names(s, word, lines[s.line], spans[(s.line, s.group)])]
             reason = f"name '{flag.name}'"
-            # The name pattern before RM1.b.5 read "_" as part of a word; a sentence
-            # only it missed is newly cut, which the retry needs to know (RM1.g.6).
+            # The name pattern before RM1.b.5 read "_" as part of a word, and a label
+            # line was read one part at a time before RM1.b.2 took the whole sentence; a
+            # sentence only the new rules take is newly cut, which the retry needs to
+            # know (RM1.g.6).
             was = re.compile(rf"(?<!\w){re.escape(flag.name)}(?!\w)")
             known = {(s.line, s.group) for s in hits
-                     if _names(s, was, lines[s.line], spans[(s.line, s.group)])}
+                     if _names(s, was, lines[s.line], [(s.start, s.end)])}
         else:
             claim = fj._claim_body(flag)
             hits = [s for s in sentences if s.text == claim]
@@ -1133,6 +1140,7 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             partly.pop(target.flag, None)
             kept.append(Kept(target.flag, reason))
 
+    spared = set()  # name sentences the section rule cuts since RM1.g.6, for the retry
     while targets:
         changed = False
         for heading, section_lines in _emptied_sections(lines, targets, sentences):
@@ -1143,8 +1151,11 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
             # in a section with no other flagged sentence (RM1.g.6).
             named = {(t.sentence.line, t.sentence.start) for t in here
                      if getattr(t.flag, "kind", "claim") == "name"}
-            here = ([t for t in here if (t.sentence.line, t.sentence.start) not in named]
-                    or here)
+            claims = [t for t in here if (t.sentence.line, t.sentence.start) not in named]
+            if claims:
+                spared |= {(t.sentence.line, t.sentence.group) for t in here
+                           if t not in claims}
+                here = claims
             for t in here:
                 _keep(t, f"only text under heading '{heading}'" if heading
                       else "only text before the first heading")
@@ -1218,17 +1229,21 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         # refused or takes the removal over the cap does not keep what was removed
         # before; then the names without the new cuts. The names-only set comes before
         # the older cuts, so a claim never keeps a name the name's own cut would remove.
-        # A sentence split after an abbreviation is left out whole, so a name takes
-        # both parts or neither (RM1.i).
+        # Last, the claims on no name's sentence: when no set with a name passes, the
+        # names are kept either way, and a name sentence over the cap or refused does
+        # not keep the claims. A sentence split after an abbreviation is left out whole,
+        # so a name takes both parts or neither (RM1.i).
         named = {(t.sentence.line, t.sentence.start) for t in targets
                  if getattr(t.flag, "kind", "claim") == "name"}
         names_only = [t for t in targets if (t.sentence.line, t.sentence.start) in named]
-        newly = {(t.sentence.line, t.sentence.group) for t in targets if t.sentence.loose}
+        newly = {(t.sentence.line, t.sentence.group) for t in targets
+                 if t.sentence.loose} | spared
         old = [t for t in targets
                if not t.new and (t.sentence.line, t.sentence.group) not in newly]
         tried = []
         for chosen in ([t for t in targets if t in old or t in names_only], names_only, old,
-                       [t for t in names_only if t in old]):
+                       [t for t in names_only if t in old],
+                       [t for t in targets if t not in names_only]):
             if not chosen or len(chosen) == len(targets) or chosen in tried:
                 continue
             tried.append(chosen)

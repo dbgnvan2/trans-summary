@@ -703,4 +703,6 @@ there. After Mini1's cold review of 3ff21c0, RM1.g.6 also changes RM1.f and RM1.
 over the cap is tried again the same way, held to the cap, with the names-only set
 before the older cuts; and a section that would be emptied keeps its claim sentences
 and loses its name sentences, keeping the names only when it has no other flagged
-sentence. A kept claim only warns; a kept name fails the stage.
+sentence. A kept claim only warns; a kept name fails the stage. After Mini1's review of
+d64dc1e the retry's last set is the claims on no name's sentence, and the cuts those
+changes add count as new, so the earlier removal is still among the sets.
