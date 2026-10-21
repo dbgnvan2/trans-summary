@@ -994,7 +994,8 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     ``guard(before, after)`` returns ``[(label, keywords)]`` for each item the
     removal would leave uncovered; the removed sentences with those keywords are kept.
     Nothing is removed when the removals would take more than ``max_share`` of the
-    body's words, or when the result fails ``deletion_problems``.
+    body's words, or when the result fails ``deletion_problems``, except by the retry
+    below.
 
     A sentence after a bold label is cut without the label (RM1.b.1); a claim flag the
     judge read with that label is then also listed as kept (``LABEL_LEFT``) while the
@@ -1007,9 +1008,11 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     A claim's copy on an uncertain split goes only where a name flag takes its whole
     sentence; the removal then gives both reasons and the claim's record, and a claim
     with a copy left is listed as removed in part (RM1.i.3). When the deletion check
-    refuses the removal, it is tried once more with only the name flags' sentences (and
-    the claim flags on them); if that passes, the names go and each other flag is kept
-    with the first refusal's reason (RM1.g.6).
+    or the cap refuses the removal, it is tried once more with only the name flags'
+    sentences (and the claim flags on them); if that passes, the names go and each other
+    flag is kept with the first refusal's reason. A section that would be emptied keeps
+    its claim sentences, and its name sentences only when it has no other flagged
+    sentence (RM1.g.6).
 
     Purpose: Take out a sentence that is still flagged after the last revision.
     Spec:    docs/plan_remove_flagged_2026-10-19.md#RM1.a-#RM1.i, #RM1.i.1, #RM1.i.2,
@@ -1030,7 +1033,11 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
              tests/test_remove_flagged_rm.py::test_rm1i3_unsure_claim_partly_removed_listed,
              tests/test_remove_flagged_rm.py::test_rm2h1_name_flag_first_claim_record_kept,
              tests/test_remove_flagged_rm.py::test_rm1g6_name_removed_when_claim_removal_refused,
-             tests/test_remove_flagged_rm.py::test_rm1g6_nothing_removed_when_name_attempt_also_refused
+             tests/test_remove_flagged_rm.py::test_rm1g6_nothing_removed_when_name_attempt_also_refused,
+             tests/test_remove_flagged_rm.py::test_rm1g6_cap_refusal_retries_names_only,
+             tests/test_remove_flagged_rm.py::test_rm1g6_names_only_tried_before_older_cuts,
+             tests/test_remove_flagged_rm.py::test_rm1g6_section_guard_keeps_claim_not_name,
+             tests/test_remove_flagged_rm.py::test_rm1g6_section_and_cap_grid_claim_never_keeps_name
     """
     lead, head, body = _split(text)
     lines = body.split("\n")
@@ -1120,7 +1127,16 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     while targets:
         changed = False
         for heading, section_lines in _emptied_sections(lines, targets, sentences):
-            for t in [t for t in targets if t.sentence.line in section_lines]:
+            here = [t for t in targets if t.sentence.line in section_lines]
+            # Keeping the claim sentences is enough to leave the section with text, and
+            # a kept claim is only a warning, while a kept name fails the stage (entity
+            # check). A claim in a name's sentence goes with it. The names are kept only
+            # in a section with no other flagged sentence (RM1.g.6).
+            named = {(t.sentence.line, t.sentence.start) for t in here
+                     if getattr(t.flag, "kind", "claim") == "name"}
+            here = ([t for t in here if (t.sentence.line, t.sentence.start) not in named]
+                    or here)
+            for t in here:
                 _keep(t, f"only text under heading '{heading}'" if heading
                       else "only text before the first heading")
                 changed = True
@@ -1182,16 +1198,19 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         return (new_text, dropped, new_head, in_head, left_in_head), ""
 
     result, why = _attempt(targets)
-    if result is None and why.startswith("deletion check failed"):
-        # One refused removal kept every flag, and a kept name fails the stage (entity
-        # check). Try again, and cut the first set the check passes. The cuts made only
-        # since RM1.b.3 and RM1.b.5 (a sentence placed with other spacing, a name in
-        # "_…_") were never made before, so they are left out first, except a name
-        # flag's; then
-        # without any of them; then the name flags' sentences only, and the claim flags
-        # on those sentences (RM1.g.6), with and without them. A kept claim is only a
-        # warning. A sentence split after an abbreviation is left out whole, so a name
-        # takes both parts or neither (RM1.i).
+    if result is None and why.startswith(("deletion check failed", "would remove")):
+        # One refused removal (the deletion check or the cap) kept every flag, and a kept
+        # name fails the stage (entity check), while a kept claim is only a warning. Try
+        # again, and cut the first set that passes, each held to the same cap. The cuts
+        # made only since RM1.b.3 and RM1.b.5 (a sentence placed with other spacing, a
+        # name in "_…_") were never made before, so they are left out first, except a
+        # name flag's; then the name flags' sentences only, and the claim flags on those
+        # sentences (RM1.g.6); then without any of the new cuts, so a new cut that is
+        # refused or takes the removal over the cap does not keep what was removed
+        # before; then the names without the new cuts. The names-only set comes before
+        # the older cuts, so a claim never keeps a name the name's own cut would remove.
+        # A sentence split after an abbreviation is left out whole, so a name takes
+        # both parts or neither (RM1.i).
         named = {(t.sentence.line, t.sentence.start) for t in targets
                  if getattr(t.flag, "kind", "claim") == "name"}
         names_only = [t for t in targets if (t.sentence.line, t.sentence.start) in named]
@@ -1199,7 +1218,7 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         old = [t for t in targets
                if not t.new and (t.sentence.line, t.sentence.group) not in newly]
         tried = []
-        for chosen in ([t for t in targets if t in old or t in names_only], old, names_only,
+        for chosen in ([t for t in targets if t in old or t in names_only], names_only, old,
                        [t for t in names_only if t in old]):
             if not chosen or len(chosen) == len(targets) or chosen in tried:
                 continue

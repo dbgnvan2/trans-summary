@@ -157,6 +157,13 @@ into the key-terms, topics, and emphasis validators.
 
 ---
 
+**A rule was fixed at one refusal and not at its siblings (2026-10-20, Mini1 on 3ff21c0).**
+- Issue: RM1.g.6 made a refused removal retry with the name flags alone, so a kept claim (a warning) would not keep a name (which fails the stage). It was applied to the deletion check only. The emptied-section guard and the share cap still kept every flag, so a claim flag decided whether the stage failed.
+- Root cause: P5. The rule was written for the refusal that was reported, not for every place a removal is refused. The test for the cap pinned the gap ("no retry after the cap") instead of asking whether it should be closed.
+- What would have caught it: listing every exit that keeps a flag (section guard, required-item guard, cap, deletion check) when the rule was made, and a grid property across all of them: a claim flag never keeps a name the name flag alone removes. That grid also found a third case, the retry order.
+- Fix: the section guard keeps claim sentences first; the cap refusal is retried; names-only comes before the older cuts. Tests `test_rm1g6_section_guard_keeps_claim_not_name`, `test_rm1g6_cap_refusal_retries_names_only`, `test_rm1g6_section_and_cap_grid_claim_never_keeps_name`.
+- Rule: a rule about which refusal wins applies at every exit that refuses. A test that pins an "untested condition" records a decision; if nobody made the decision, it goes in TODO, not in a test.
+
 **A warm review passed fixes that a cold one broke (2026-10-19, RM cold sweep).**
 - Issue: the RM change shipped with an in-session learning-qa pass and 5 fixes (F1–F5), not re-reviewed. A cold sweep on another machine found 17 more, including a double cut that deleted an unflagged sentence, a regex that could hang the run, and F5 clearing the record that F3 had added. The first round of cold fixes then needed a third round: the uncertain-split rule missed most abbreviations and made a kept name fail the stage, and silencing a child script lost the list on Ctrl-C.
 - Root cause: P26/P27. Each fix was checked against its own finding only. Interactions (F3 vs F5; a claim rule applied to name flags; a print moved from child to parent) were not checked, and some tests could not fail (a fake writer that raised before writing; a timing assert after a call that hangs).

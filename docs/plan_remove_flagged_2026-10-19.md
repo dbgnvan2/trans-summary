@@ -699,4 +699,8 @@ placed; a line left with only an allowlisted plain label goes; a bold run that o
 sentence is cut with both markers; a claim on an uncertain split goes with a name
 removal of its sentence; a refused removal is tried again with smaller sets, the name
 removals alone among them; and the names-only message says when the judge is off. The PDF-test item follows
-there.
+there. After Mini1's cold review of 3ff21c0, RM1.g.6 also changes RM1.f and RM1.h: a removal
+over the cap is tried again the same way, held to the cap, with the names-only set
+before the older cuts; and a section that would be emptied keeps its claim sentences
+and loses its name sentences, keeping the names only when it has no other flagged
+sentence. A kept claim only warns; a kept name fails the stage.

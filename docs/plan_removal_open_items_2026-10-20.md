@@ -3,8 +3,9 @@
 Status: **approved 2026-10-20** ("build the plan … as written, with D3 (leave the
 number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7),
 commit 2 (RM1.e.1, RM1.e.2) and commit 3 (RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM2.h.1,
-RM1.g.6, RM2.a.1) and commit 4 (T-BE1) are built. See **Built** at the end for what was
-built and where it differs from the text below.
+RM1.g.6, RM2.a.1) and commit 4 (T-BE1) are built, and the two findings of Mini1's cold
+review of 3ff21c0 are fixed. See **Built** at the end for what was built and where it
+differs from the text below.
 
 Scope: everything still open on sentence removal (`flagged_removal.py`) after 813dd3c,
 except the work that needs a decision or paid runs (listed at the end). Sources:
@@ -479,7 +480,7 @@ did, and that the two readings change only the report). Its test gaps, fixed:
 | RM1.b.5 | done | `_split_line`: after the wrap loop, the bold marker before a sentence is taken into its span when the run closes inside the sentence (an odd count of that marker in it). `_name_word` does not read "_" as part of a word, so a name in "__…__" or "_…_" is matched; it replaces the four copies of the name pattern. | `test_rm1b5_bold_run_opening_sentence_cut_whole` (3), `test_rm1b5_opening_marker_taken_only_when_run_closes_inside` (2), `test_rm1b5_name_in_underscores_left_in_heading_listed`, `test_rm1b5_name_in_italics_removed`, `test_rm1b5_newly_named_refused_sentence_keeps_other_removals` |
 | RM1.i.3 | done | `remove_flagged_sentences`: a claim's copies on an uncertain split are set aside (`unsure`). After the flag loop, each copy on a sentence a name flag removes becomes a target of the claim, so the removal carries both reasons and the claim's record. If a copy is left, the claim is listed as removed in part when another copy goes, and as kept (`UNSURE_BOUNDARY`) when none does. `_cut_groups` marks a part of a split sentence for the FAQ run rule only when it holds the name it was cut for, so such a claim does not take a rider out of an answer. | `test_rm1i3_unsure_claim_removed_by_name_not_kept` (2), `test_rm1i3_unsure_claim_partly_removed_listed`, `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`; `test_rm1e2_part_cut_for_itself_elsewhere_goes_alone_in_answer` now expects nothing kept |
 | RM2.h.1 | done (guard) | already worked at 813dd3c | `test_rm2h1_name_flag_first_claim_record_kept` |
-| RM1.g.6 | done | `remove_flagged_sentences`: `_attempt` runs the cap, the FAQ edit and the deletion check for a set of targets. When the check refuses (not the cap), it tries in order: the targets that are not new (`old`: not in a sentence with a `loose` part, where a sentence split after an abbreviation counts whole, and not `_Target.new`, a name the pattern before RM1.b.5 did not match, or a claim riding only such a name's sentence), with the targets on sentences a name flag names (`names_only`) added; `old` alone; `names_only`; `names_only` within `old`. Empty, full-size and repeated sets are skipped, and the first set that passes is cut. Each other flag is kept with the first attempt's reason, or listed as removed in part when some of its targets were cut. | `test_rm1g6_name_removed_when_claim_removal_refused`, `test_rm1g6_nothing_removed_when_name_attempt_also_refused`, `test_rm1g6_claim_with_name_removed_in_part_after_retry`, `test_rm1g6_no_retry_after_cap_refusal`, `test_rm1g6_names_kept_in_first_retry` (2), `test_rm1g6_retry_keeps_abbreviation_split_whole` (2), `test_rm1i3_claim_riding_newly_named_sentence_left_out_of_retry`, `test_rm1g6_retry_grid_report_matches_output` |
+| RM1.g.6 | done | `remove_flagged_sentences`: `_attempt` runs the cap, the FAQ edit and the deletion check for a set of targets. When the check refuses (since Mini1's review of 3ff21c0, the cap too; see the last section), it tries in order: the targets that are not new (`old`: not in a sentence with a `loose` part, where a sentence split after an abbreviation counts whole, and not `_Target.new`, a name the pattern before RM1.b.5 did not match, or a claim riding only such a name's sentence), with the targets on sentences a name flag names (`names_only`) added; `names_only` (before `old` since that review); `old` alone; `names_only` within `old`. Empty, full-size and repeated sets are skipped, and the first set that passes is cut. Each other flag is kept with the first attempt's reason, or listed as removed in part when some of its targets were cut. | `test_rm1g6_name_removed_when_claim_removal_refused`, `test_rm1g6_nothing_removed_when_name_attempt_also_refused`, `test_rm1g6_claim_with_name_removed_in_part_after_retry`, `test_rm1g6_cap_refusal_retries_names_only` (replaces `test_rm1g6_no_retry_after_cap_refusal`), `test_rm1g6_names_kept_in_first_retry` (2), `test_rm1g6_retry_keeps_abbreviation_split_whole` (2), `test_rm1i3_claim_riding_newly_named_sentence_left_out_of_retry`, `test_rm1g6_retry_grid_report_matches_output` |
 | RM2.a.1 | done | `extraction_pipeline._all_removed_message` | `test_rm2a1_names_only_message_says_judge_off` |
 
 Where it differs from the text above:
@@ -600,7 +601,8 @@ learning-qa review (2026-10-20), fixed before the commit, tests first:
   `test_rm1b5_name_in_italics_removed`.
 - Untested branches: a claim removed in part after the retry, and no retry after the
   cap. `test_rm1g6_claim_with_name_removed_in_part_after_retry`,
-  `test_rm1g6_no_retry_after_cap_refusal`.
+  `test_rm1g6_no_retry_after_cap_refusal` (the cap is retried since Mini1's review of
+  3ff21c0; that test is replaced).
 
 Its three re-reviews of those fixes, each fixed the same way:
 
@@ -651,3 +653,39 @@ returning False. Recorded in TODO.md.
 Checks: with the helper reverted to `pytest.importorskip`, the T-BE1 test fails. On mini2
 (`.venv`, WeasyPrint loads) the three PDF tests still pass. Suites: the commit-3 runs above
 had this file in the tree (`tests/` 2,065 passed, 13 skipped; the root run 2,160 passed).
+
+### Mini1's cold review of 3ff21c0 (2026-10-20)
+
+Mini1's learning-qa sweep of 813dd3c...3ff21c0 found two places where a claim flag kept
+a name. That broke RM1.g.6's rule that a kept claim (a warning) must not keep a name (a
+kept name fails the stage at the entity check). Both reproduced on mini2 before the fix.
+
+| ID | Status | Where | Tests |
+|---|---|---|---|
+| RM1.g.6 (section) | done | `remove_flagged_sentences`, the emptied-section loop: in a section that would be emptied, only the targets on sentences no name flag names are kept; the name sentences, and the claims on them, still go. When the section has no such target, all its targets are kept, as before. | `test_rm1g6_section_guard_keeps_claim_not_name`, `test_rm1g6_section_guard_keeps_name_alone_in_section`, `test_rm1g6_section_guard_claim_in_name_sentence_goes_with_it` |
+| RM1.g.6 (cap) | done | `remove_flagged_sentences`: a "would remove" refusal is retried like a deletion-check refusal; `_attempt` holds each set to the same cap. | `test_rm1g6_cap_refusal_retries_names_only`, `test_rm1g6_cap_refusal_names_over_cap_keep_everything`, `test_rm1g6_cap_refusal_from_newly_placed_sentence_keeps_old_removal` (2) |
+| RM1.g.6 (order) | done | the retry tries `names_only` before `old` | `test_rm1g6_names_only_tried_before_older_cuts` (2), `test_rm1g6_section_and_cap_grid_claim_never_keeps_name` (3) |
+
+Where it differs from Mini1's suggestions:
+
+- The cap retry runs the whole retry list, not names only. With names only, a sentence
+  only RM1.b.3 places could take the removal over the cap and keep a claim commit 2
+  removed (hard rule 1). `test_rm1g6_cap_refusal_from_newly_placed_sentence_keeps_old_removal`.
+- The order change was found by the new grid, not by Mini1: at cap 0.3, 48 runs kept a
+  name that the name flag alone removes. The name's sentence was one only RM1.b.3 places,
+  so it was not in `old`; the claim and the name each fit under the cap but not both, and
+  `old` (the claim) was tried first. With `names_only` first the name goes and the claim
+  is kept. This differs from commit 2 only where `names_only` holds a target not in `old`,
+  a cut commit 2 did not make, so commit 2 left that name and its stage failed. Hard
+  rule 1 is kept in that sense: no stage that passed before now fails.
+
+Checks: each new test except the two guard tests (`…_names_over_cap_keep_everything`,
+`…_keeps_name_alone_in_section`, which pin unchanged behavior) fails on 3ff21c0's
+`flagged_removal.py`; the order test and the grid at cap 0.3 fail with `old` before
+`names_only`.
+Suites on mini2 (`.venv`): `tests/` 2,087 passed, 13 skipped; the root run 2,182 passed,
+23 skipped, 1 xfailed.
+
+Not changed (adjacent, for Dave, in TODO.md): the required-item guard keeps a name
+sentence that holds the only mention of a required item, so the entity check fails the
+stage. Both checks block there.

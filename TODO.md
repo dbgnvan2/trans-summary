@@ -111,6 +111,21 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
 - Known (RM1.g.1; D3, 2026-10-20, leave it): when the sentence before "2) Then …" or
   "2. The group …" is removed, that line starts with the number, which markdown renders
   as a numbered list item. The words are unchanged.
+- ✅ Fixed 2026-10-20 after Mini1's cold review of 3ff21c0 (RM1.g.6,
+  `docs/plan_removal_open_items_2026-10-20.md`): a claim flag kept a name in two more
+  places, and a kept name fails the stage. A section whose only sentences were a claim
+  and a name kept both; it now keeps the claim and the name goes. A removal over the cap
+  kept every flag; it is now retried like a deletion-check refusal, held to the cap, with
+  the names-only set before the older cuts. Tests:
+  `test_rm1g6_section_guard_keeps_claim_not_name`,
+  `test_rm1g6_cap_refusal_retries_names_only`,
+  `test_rm1g6_names_only_tried_before_older_cuts`,
+  `test_rm1g6_section_and_cap_grid_claim_never_keeps_name`.
+- Adjacent, not fixed (2026-10-20, for Dave): the required-item guard keeps a name
+  sentence that holds the only mention of a required coverage item ("only mention of
+  required item …"), so the entity check fails the stage. Both checks block here, so
+  which one wins is a decision. Checked with a probe guard on one sentence; not seen in
+  a real run.
 - ✅ Fixed 2026-10-20 by RM1.b.5 (`docs/plan_removal_open_items_2026-10-20.md`): a bold
   run that opens a sentence and closes inside it ("**Zed Example** spoke … Then …", also
   after "- ") is cut with both markers. Before, the cut left a stray "**", so the removal

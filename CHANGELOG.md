@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: a claim no longer keeps a name)
+
+`docs/plan_removal_open_items_2026-10-20.md`, "Mini1's cold review of 3ff21c0". RM1.g.6
+says a kept claim (a warning) must not keep a name (a kept name fails the stage); two
+more places did.
+- A section whose only sentences were a claim and a name kept both. It now keeps the
+  claim's sentence, which leaves the section with text, and the name's goes. A section
+  whose only flagged sentences hold the name still keeps them, as before.
+- A removal over the cap kept every flag. It is now retried like a deletion-check
+  refusal, each set held to the same cap, so the name's sentences can go alone.
+- The retry tries the names-only set before the older cuts. Before, a claim that fit
+  under the cap was cut first and the name, whose sentence only RM1.b.3 places, was kept.
+- Not changed (adjacent, for Dave): the required-item guard keeps a name sentence that
+  holds the only mention of a required item.
+
 ## [Unreleased] - 2026-10-20 (Abstract check on a judge error)
 
 `docs/plan_remove_flagged_2026-10-19.md`, "Follow-up: the abstract check on a judge error".

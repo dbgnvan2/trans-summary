@@ -2888,17 +2888,91 @@ def test_rm1g6_claim_with_name_removed_in_part_after_retry():
     assert kept[0].reason.startswith("removed in part; one copy kept: deletion check failed")
 
 
-def test_rm1g6_no_retry_after_cap_refusal():
-    """learning-qa on commit 3 (untested condition): the retry runs only after the
-    deletion check refuses, not after the cap: a removal over the cap keeps every flag,
-    though the name's sentence alone would be under it."""
-    long_claim = ("He says the choir will tour the whole country next spring and then "
-                  "go on to sing in many other places for a long time.")
-    text = f"{OPENING}{long_claim}\n\nZed Example spoke.{AFTER}"
-    out, removed, kept = _remove(text, [fr.Flag(long_claim), ZED], max_share=0.4)
+LONG_CLAIM = ("He says the choir will tour the whole country next spring and then "
+              "go on to sing in many other places for a long time.")
+
+
+def test_rm1g6_cap_refusal_retries_names_only():
+    """Mini1's cold review of 3ff21c0 (P5): the retry ran only after the deletion check
+    refused, so a removal over the cap kept the name, and a claim flag failed the stage.
+    It is retried after the cap too, and the name's sentence alone is under it."""
+    text = f"{OPENING}{LONG_CLAIM}\n\nZed Example spoke.{AFTER}"
+    out, removed, kept = _remove(text, [fr.Flag(LONG_CLAIM), ZED], max_share=0.4)
+    assert [r.sentence for r in removed] == ["Zed Example spoke."]
+    assert LONG_CLAIM in out and "Zed Example" not in out
+    assert kept == [fr.Kept(fr.Flag(LONG_CLAIM), "would remove 58% of the words (cap 40%)")]
+
+
+def test_rm1g6_cap_refusal_names_over_cap_keep_everything():
+    """The retry is held to the same cap: when the name's sentence alone is over it,
+    nothing is removed and every flag has the first refusal's reason."""
+    text = f"{OPENING}{LONG_CLAIM}\n\n{ZED_SENTENCE}{AFTER}"
+    out, removed, kept = _remove(text, [fr.Flag(LONG_CLAIM), ZED], max_share=0.1)
     assert out == text and removed == []
-    assert [k.claim for k in kept] == [fr.Flag(long_claim), ZED]
-    assert all(k.reason.startswith("would remove") for k in kept)
+    assert [k.claim for k in kept] == [fr.Flag(LONG_CLAIM), ZED]
+    assert all(k.reason == kept[0].reason and k.reason.startswith("would remove")
+               for k in kept)
+
+
+@pytest.mark.parametrize("sp", [" ", "\t"])
+def test_rm1g6_cap_refusal_from_newly_placed_sentence_keeps_old_removal(sp):
+    """Hard rule 1 at the cap: the sentence only RM1.b.3 places takes the removal over
+    the cap. Commit 2 removed the other claim, so it still goes; the new one is kept
+    with the cap's reason."""
+    text = f"{OPENING}Kerr met Dr.{sp}Bowen at the center.\n\n{FLAG}{AFTER}"
+    out, removed, kept = _remove(text, [fr.Flag(DR_BOWEN), fr.Flag(FLAG)], max_share=0.3)
+    assert [r.sentence for r in removed] == [FLAG]
+    assert [k.claim for k in kept] == [fr.Flag(DR_BOWEN)]
+    assert kept[0].reason.startswith("would remove")
+
+
+CLOSING = "### Closing\n\n{}\n\n### End\n\nKerr adds a long example about his own family.\n"
+
+
+@pytest.mark.parametrize("sp", [" ", "\t"])
+def test_rm1g6_names_only_tried_before_older_cuts(sp):
+    """Found by the grid below: the name's sentence is one only RM1.b.3 places, and the
+    claim and the name each fit under the cap but not both. The older cuts (the claim)
+    were tried first and passed, so the claim kept the name. Commit 2 kept that name
+    too, so its stage failed: the name now goes and the claim is kept."""
+    text = OPENING + CLOSING.format(f"Zed Example met Dr.{sp}Bowen at the center.\n\n"
+                                    f"{CHOIR_LINE}")
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED], max_share=0.3)
+    assert "Zed Example" not in out and FLAG in out
+    assert [r.sentence for r in removed] == ["Zed Example met Dr. Bowen at the center."]
+    assert [k.claim for k in kept] == [fr.Flag(FLAG)]
+    assert kept[0].reason.startswith("would remove")
+
+
+def test_rm1g6_section_guard_keeps_claim_not_name():
+    """Mini1's cold review of 3ff21c0 (P5): a section whose only sentences are a claim
+    and a name kept both, so the claim flag kept the name and failed the stage. The
+    claim's sentence is kept, which leaves the section with text, and the name's goes."""
+    text = OPENING + CLOSING.format(f"{FLAG} Zed Example spoke about the move.")
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED])
+    assert [r.sentence for r in removed] == ["Zed Example spoke about the move."]
+    assert FLAG in out and "Zed Example" not in out
+    assert kept == [fr.Kept(fr.Flag(FLAG), "only text under heading 'Closing'")]
+
+
+def test_rm1g6_section_guard_keeps_name_alone_in_section():
+    """The guard still holds where the name's sentence is the section's only flagged
+    one: the section is not emptied, so the name is kept (the stage fails, as before)."""
+    text = OPENING + CLOSING.format(ZED_SENTENCE)
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED])
+    assert out == text and removed == []
+    assert kept == [fr.Kept(fr.Flag(FLAG), fr.NOT_FOUND),
+                    fr.Kept(ZED, "only text under heading 'Closing'")]
+
+
+def test_rm1g6_section_guard_claim_in_name_sentence_goes_with_it():
+    """A claim in the name's sentence is not kept to fill the section: it goes with the
+    name, and the other claim's sentence is kept."""
+    text = OPENING + CLOSING.format(f"{FLAG} {ZED_SENTENCE}")
+    out, removed, kept = _remove(text, [fr.Flag(FLAG), fr.Flag(ZED_SENTENCE), ZED])
+    assert [r.sentence for r in removed] == [ZED_SENTENCE]
+    assert FLAG in out and "Zed Example" not in out
+    assert kept == [fr.Kept(fr.Flag(FLAG), "only text under heading 'Closing'")]
 
 
 @pytest.mark.parametrize("sp", ["\u00a0", "\t"])
@@ -3038,6 +3112,38 @@ def test_rm1g6_retry_grid_report_matches_output():
                             - Counter(fj._claim_body(c) for c in fj.extract_claims(out)))
                     if Counter(r.sentence for r in removed) - gone:
                         wrong.append((a, b, repr(sp), flags, "listed as removed, still there"))
+                    allowed = Counter()
+                    for r in removed:
+                        allowed += _words(r.sentence)
+                        if (fr.Flag(r.sentence) not in flags
+                                and not (ZED in flags and "Zed Example" in a + b)):
+                            wrong.append((a, b, repr(sp), r.sentence, "not flagged"))
+                    if (_words(text) - _words(out)) - allowed:
+                        wrong.append((a, b, repr(sp), flags, "unflagged word"))
+    assert wrong == []
+
+
+@pytest.mark.parametrize("max_share", [0.9, 0.3, 0.12])
+def test_rm1g6_section_and_cap_grid_claim_never_keeps_name(max_share):
+    """Mini1's cold review of 3ff21c0: the retry grid with the lines in a section the
+    guard can empty, at caps that refuse some removals. P6 as above, and a claim flag
+    never keeps a name that the name flag alone removes (a kept name fails the stage)."""
+    claims = [fr.Flag(DR_BOWEN), fr.Flag(FLAG), fr.Flag(ZED_SENTENCE)]
+    wrong = []
+    for a, b in itertools.product(RETRY_LINES, repeat=2):
+        for sp in (" ", "\t"):
+            text = OPENING + CLOSING.format(f"{a.format(sp=sp)}\n\n{b.format(sp=sp)}")
+            alone, _, _ = _remove(text, [ZED], max_share=max_share)
+            for n in range(1, 5):
+                for flags in itertools.combinations(claims + [ZED], n):
+                    out, removed, kept = _remove(text, list(flags), max_share=max_share)
+                    listed = {str(k.claim) for k in kept}
+                    for f in flags:
+                        expected = _still_in(f, out) or not _still_in(f, text)
+                        if (str(f) in listed) != expected:
+                            wrong.append((a, b, repr(sp), str(f)[:30], "report"))
+                    if ZED in flags and _still_in(ZED, out) and not _still_in(ZED, alone):
+                        wrong.append((a, b, repr(sp), flags, "name kept by a claim"))
                     allowed = Counter()
                     for r in removed:
                         allowed += _words(r.sentence)
