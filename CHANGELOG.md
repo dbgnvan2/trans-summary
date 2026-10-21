@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Tests: the WeasyPrint skip guard)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 4 of 4. Closes Mini1's report on the
+PDF tests.
+- **T-BE1:** the three WeasyPrint tests in `tests/test_bundle_export.py` (be7, be11,
+  be12) skip when `import weasyprint` raises `ImportError` or `OSError`, with the error
+  in the skip reason. On Mini1 the import raises `OSError` (uv's Python cannot find
+  Homebrew's `libgobject`), and `pytest.importorskip` catches only `ImportError`, so the
+  tests failed instead of skipping.
+- Not changed (adjacent, for Dave): `bundle_export._render_pdf_weasyprint` catches only
+  `ModuleNotFoundError` on the import, so on such a machine a PDF bundle export raises
+  `OSError` instead of logging that WeasyPrint cannot be used.
+
 ## [Unreleased] - 2026-10-20 (Removal: the rules for names, labels and bold runs)
 
 `docs/plan_removal_open_items_2026-10-20.md`, commit 3 of 4. Closes open items D, F7 and

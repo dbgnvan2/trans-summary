@@ -961,6 +961,12 @@ Flagged during the bundle-export + selective-re-run work (see CHANGELOG
 
 ---
 
+5. Adjacent, not fixed (T-BE2, 2026-10-20, for Dave): `bundle_export._render_pdf_weasyprint`
+   catches only `ModuleNotFoundError` on the WeasyPrint import. On a machine where the
+   import raises `OSError` (Mini1: uv's Python cannot find Homebrew's `libgobject`), a PDF
+   bundle export raises instead of logging the error and returning False. Fix: catch
+   `(ImportError, OSError)` there too.
+
 ## M2 faithfulness judge — ARMED (2026-07-15), follow-ups
 
 **ARMED** (`FAITHFULNESS_JUDGE_ENABLED = True`, prose only). Hard BLOCK until

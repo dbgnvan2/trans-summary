@@ -3,8 +3,8 @@
 Status: **approved 2026-10-20** ("build the plan … as written, with D3 (leave the
 number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7),
 commit 2 (RM1.e.1, RM1.e.2) and commit 3 (RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM2.h.1,
-RM1.g.6, RM2.a.1) are built; commit 4 is not. See **Built** at the end for what was built and where it
-differs from the text below.
+RM1.g.6, RM2.a.1) and commit 4 (T-BE1) are built. See **Built** at the end for what was
+built and where it differs from the text below.
 
 Scope: everything still open on sentence removal (`flagged_removal.py`) after 813dd3c,
 except the work that needs a decision or paid runs (listed at the end). Sources:
@@ -628,3 +628,23 @@ Found when merging onto commit 2 as committed, fixed before the commit, test fir
   the same way after the merge. RM1.i.3 also fixes commit 2's recorded over-report: the
   claim in `test_rm1e2_part_cut_for_itself_elsewhere_goes_alone_in_answer` is no longer
   listed as kept.
+
+### Commit 4: the PDF tests (2026-10-20)
+
+| ID | Status | Where | Tests |
+|---|---|---|---|
+| T-BE1 | done | `tests/test_bundle_export.py::_weasyprint_or_skip`, used by be7, be11 and be12 | `test_tbe1_weasyprint_guard_skips_on_oserror` |
+
+Where it differs from the text above: the test is named
+`test_tbe1_weasyprint_guard_skips_on_oserror` (the plan said `test_be_…`), so its name
+carries the rule ID. It patches `builtins.__import__` to raise `OSError` for
+`weasyprint` and checks that the helper skips with the error in the reason.
+
+Adjacent, not fixed (T-BE2, for Dave): `bundle_export._render_pdf_weasyprint` catches
+only `ModuleNotFoundError` on `from weasyprint import HTML`. Where the import raises
+`OSError`, as on Mini1, a PDF bundle export raises instead of logging an error and
+returning False. Recorded in TODO.md.
+
+Checks: with the helper reverted to `pytest.importorskip`, the T-BE1 test fails. On mini2
+(`.venv`, WeasyPrint loads) the three PDF tests still pass. Suites: the commit-3 runs above
+had this file in the tree (`tests/` 2,065 passed, 13 skipped; the root run 2,160 passed).
