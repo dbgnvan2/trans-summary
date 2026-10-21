@@ -77,6 +77,74 @@ Pull from the global catalogue; the ones that bite this repo most:
   allowlist, and have the gate check that the `.json` and `.md` agree (or regenerate the
   `.md` from the `.json`).
 
+- ~~**A line removed whole excused every mark on it (P7/P2, learning-qa 2026-10-20, commit 1
+  of `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before the commit: the cut
+  left "1975." alone on its line, `_EMPTY_LINE` read it as a list marker and dropped the
+  line, and the deletion check let the dropped line's marks excuse the number, so an
+  unflagged number went with no record. A dropped line now excuses only the marks at its
+  start. Rule: an allowance for a removed unit covers what belongs to the unit, not what a
+  cut left on it; and a test grid must vary what follows the cut, not only what precedes
+  it (P33). Covered by `test_rm1g5_number_left_alone_on_dropped_line_refused`. Still open:
+  the allowance is counted from the removed list, not from what left the text (TODO.md).
+
+- ~~**The FAQ edit and the check shared one flat set of cut parts (P2/P26, learning-qa
+  2026-10-20, commit 2 of `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before
+  the commit: a part cut from the body only because it shares a sentence with a name
+  ("Bowen moved to Washington, D.C." before "Zed Example joined him there.") went alone
+  from an FAQ answer, where it is a whole sentence without the name, and the check passed
+  it because it read the same set. The check also compared FAQ sentences as one count
+  over all answers, so two answers swapped between questions passed. Both now read which
+  parts were cut together and why (`_faq_goes`), and FAQ items are compared one by one.
+  Rule: when an edit and its safety check both work from one summary of the change, the
+  check cannot see what that summary drops; give it the structure (groups, reasons,
+  items), not a flattened set. Covered by
+  `test_rm1e2_part_split_off_with_name_stays_in_answer` and
+  `test_rm1e2_faq_items_compared_in_order`. The first fix keyed "cut only for a name" on
+  one reason string, so the second review found the sibling that reaches the same state
+  by another path (the name only in the label, RM1.b.2), and a regression for a name
+  sentence of three parts. Rule: classify by the property that matters (is the name in
+  this part's own words?), not by the reason one code path wrote. Covered by
+  `test_rm1e2_name_only_in_label_sentence_stays_in_answer` and
+  `test_rm1e2_run_of_cut_sentence_with_name_goes_from_answer`. The third review found
+  the same mistake one level down: "cut for its own flag" was looked up by a part's
+  text, and the same text was cut for a claim on another line. Rule: a fact about one
+  place (this part of this sentence) is keyed by that place, never by text that can
+  occur twice. Covered by
+  `test_rm1e2_part_cut_for_itself_elsewhere_is_still_a_rider_in_answer`. It also found
+  that undoing YAML escapes on both sides of a comparison changed the body side, which
+  is markdown ("C:\temp" lost its "\t"). Rule: undo a format's escapes only on the text
+  written in that format; to match text whose format is unknown, compare against each
+  reading. Covered by `test_rm1e1_body_sentence_with_backslash_copy_listed`.
+
+- ~~**A wider placement rule made an all-or-nothing check refuse what it passed before
+  (P2/P6, learning-qa 2026-10-20, commit 3 of
+  `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before the commit: RM1.b.3
+  places a sentence written with a tab or a non-breaking space after "Dr.". Where cutting
+  that sentence leaves a bold-only line, the deletion check refuses, and one refusal
+  keeps every flag in the artifact, so a claim that commit 2 removed was kept. The output
+  grid showed 0 now refused: none of its texts put such a sentence next to another
+  removal. Removal now retries without the newly placed sentences first. Rule: when a
+  change widens what one stage accepts and a later gate refuses the whole batch, test the
+  widened inputs next to inputs that passed before; one new refusal becomes a regression
+  for everything else in the batch. Covered by
+  `test_rm1b3_newly_placed_refused_sentence_keeps_other_removals`. The first fix left out
+  only the newly placed sentence; commit 2 had also left the rest of its line unplaced,
+  so a sentence after it still made the retry refuse, as the re-review found. Rule: to
+  keep what the old code did, take what it did (here, the rest of the line), not the one
+  case a review showed; then compare old and new output over combinations of the inputs.
+  The next review found a second source of new cuts, a name first matched in "_…_"
+  (RM1.b.5), so list every rule in the change that makes a new cut, not only the one
+  under review. A grid comparing old and new output (`grid_retry.py`, scratch) found
+  1,800, 656 and 2,052 rows in the three drafts, and 0 now. Covered by
+  `test_rm1b3_sentence_after_newly_placed_one_left_out_of_retry` and
+  `test_rm1b5_newly_named_refused_sentence_keeps_other_removals`.
+  Merging onto commit 2's last fixes showed the same class once more: commit 2 marked a
+  part "cut for its own flag", which inside a split sentence meant "holds the name"
+  only because claims never cut there; RM1.i.3 made claims cut there. Rule: when a new
+  rule adds a second way to reach a state, re-check every test that relied on the state
+  having one cause. Covered by
+  `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`.
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**

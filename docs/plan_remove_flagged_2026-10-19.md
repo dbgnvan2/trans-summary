@@ -236,7 +236,9 @@ Tests: `python3 -m pytest tests/test_remove_flagged_rm.py tests/test_ts_gui_run_
   must still be one double-quoted value, and the keys must be unchanged. PyYAML is a
   dev-only dependency, so runtime code does not import it; the tests parse the result
   with `yaml.safe_load`. When the FAQ copy cannot be removed, the body sentence is still
-  removed and the kept reason says "still in the front matter's FAQ answers".
+  removed and the kept reason says "removed from the body; still in the front matter"
+  (since 2026-10-20, RM1.e.1 of `docs/plan_removal_open_items_2026-10-20.md`; before, it
+  said "still in the front matter's FAQ answers").
 - **RM2.a log line.** "⚠️ Summary: removed N sentence(s) still flagged after the last
   attempt; K of M flagged item(s) left in. Record: … Removed: …", then "Summary: not
   removed: …" with each kept claim and its reason.
@@ -288,7 +290,7 @@ each with a test that fails without it:
 | The deletion check compared claims only, so a lost short sentence passed | every body sentence is checked | `test_rm1g_short_unflagged_sentence_lost_rejected` |
 | `_EMPTY_LINE` backtracked exponentially on a run of list markers (a hang) | one marker per repetition | `test_rm1b_marker_run_line_does_not_backtrack` (child process with a timeout) |
 | A split after "U.S.", "Ph.D.", "Sen.", "et al.", a month, or before a number left a fragment | such a split is uncertain: a claim there is kept ("sentence boundary uncertain"); a name takes the whole sentence (since 2026-10-20, RM1.i.1: only after an abbreviation; before a number a name takes its own part). List: `config.FAITHFULNESS_REMOVE_UNSURE_ABBREVIATIONS` | `test_rm1a_unsure_sentence_boundary_kept`, `test_rm1a_unsure_boundary_more_abbreviations`, `test_rm1a_unsure_copy_kept_other_copy_removed`, `test_rm1i_name_in_unsure_split_takes_whole_sentence` |
-| A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "still in the front matter's FAQ answers" | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
+| A removed sentence in an FAQ answer that is not one double-quoted line stayed, unreported | listed as kept, "removed from the body; still in the front matter" (wording since RM1.e.1, 2026-10-20) | `test_rm1e_unreadable_faq_answer_listed_as_kept` |
 | Older than the sweep: a bold lead sentence ("**Kerr says X.** …") was dropped with the line, unrecorded | bold text that ends like a sentence is not a label | `test_rm1b_bold_lead_sentence_not_dropped` |
 | RM2.e: the guard skipped required items already at low keyword confidence, which the gate decides with an LLM check | such an item keeps the claim sentences ("could not place required item"); a name sentence still goes, and a claim in it is not listed as kept | `test_rm2e_item_already_low_keeps_claims_not_names`, `test_rm1i_claim_and_name_same_sentence_unplaced_item_not_kept` |
 | F5: a failed save cleared the record (list said "none"); a failed re-save returned success over a possibly truncated file | flags recorded as kept; a failed re-save fails the stage | `test_rm3b_artifact_save_fails_stage_goes_on`, `test_rm3b_partial_save_restores_kept_draft`, `test_rm3b_both_saves_fail_stage_fails` |
@@ -634,7 +636,8 @@ then RM2.b.5 if approved.
 | D1 | Include RM2.b.5? It is one guard, the same as the summary's, in the same function. Without it, the RM2.b.4 wording has to leave the judge-off case out, and the stage keeps logging "passed" when nothing was judged. Low impact today: the flag ships True. | Yes |
 
 Not in this change:
-- Items A, D and E and the RM2.e trade-off stay open in `TODO.md`.
+- Items A, D and E and the RM2.e trade-off stay open in `TODO.md` (main later closed D
+  and E; see the open-items section below).
 - ~~Adjacent, not fixed: the summary/overview "unavailable" warning also says "the release
   gate will verify it at publish" when the judge is off, and the gate does not judge
   claims then either. Same low impact.~~ Fixed after review (#4 in the Built table).
@@ -643,7 +646,9 @@ Not in this change:
 - Adjacent, not fixed (already in `TODO.md`): the abstract keeps its own copy of the
   generation loop instead of `_generate_until_faithful`.
 - The sibling session on the bold-label span also added a section to the end of this
-  file; both sections were kept when this branch was merged into main (2026-10-20).
+  file; both sections were kept when this branch was merged into main (2026-10-20). The
+  open-items section below came from main at the second merge (2026-10-20); both were
+  kept.
 
 ### Built (RM2.b, 2026-10-20)
 
@@ -662,7 +667,7 @@ fixes; all are fixed, each with a test that fails without its fix:
 |---|---|---|
 | #1 A judge error's cause is in the gate verdict's items; its detail says only "1 of 1 artifact(s) could not be verified". The RM2.b.4 log would not show the cause in a live run, and its test passed only because the stub put "timeout" in the detail | `_log_checks_not_run` reads the cause from the items (an artifact the judge could not verify is `{"artifact", "detail"}`), falling back to the detail | `test_rm2b4_unavailable_warning_names_the_error` now runs the real `check_faithfulness` with the judge call failing |
 | #2 With the judge off, an entity check that could not run was not logged | both prechecks pass the entity verdict to `_log_checks_not_run` in the judge-off branch | `test_rm2b4_judge_off_entity_error_cause_logged` (both prechecks) |
-| #3 With the judge off and a name removed, the closing message said "no claim was flagged", though no claim was judged (abstract and summary) | `_all_removed_message(..., judge_off=...)`: "the faithfulness judge is off, so no claim was judged"; the partial wording is checked first | `test_rm2b5_judge_off_is_not_a_pass` (final message), `test_rm2b5_summary_judge_off_names_message` |
+| #3 With the judge off and a name removed, the closing message said "no claim was flagged", though no claim was judged (abstract and summary) | `_all_removed_message` says "the faithfulness judge is off, so no claim was checked"; the partial wording is checked first. RM2.a.1 on main made the same change by reading `config.FAITHFULNESS_JUDGE_ENABLED`; the second merge with main kept that version and dropped this branch's `judge_off` parameter | `test_rm2b5_judge_off_is_not_a_pass` (final message), `test_rm2b5_summary_judge_off_names_message` |
 | #4 (P5) The summary and overview precheck logged no cause either | `_faithfulness_precheck` uses `_log_checks_not_run`; the summary loop's "unavailable" warning no longer says the gate will verify it at publish (the judge-off line says it will not) | `test_rm2b4_summary_precheck_names_the_error` |
 | Re-check (P5): the shared loop's new "unavailable" warning also covers the blog, whose precheck logged no cause and dropped the one `blog_ungrounded_claims` returns | `_blog_precheck` logs that cause on "unavailable" and "partial", and says the gate checks the blog again at publish (a warning only) | `test_rm2b4_blog_precheck_names_the_error` |
 
@@ -678,3 +683,20 @@ if the entity check still errors (before, it passed on the first attempt and the
 blocked at publish). The summary loop already did this. A missing source makes both
 checks error, so the real checks give "unavailable" instead. The judge-off line is
 logged once per attempt (at most 3).
+
+## Follow-up: the open items and Mini1's cold review of 813dd3c (2026-10-20)
+
+Planned, and built commit by commit, in `docs/plan_removal_open_items_2026-10-20.md`.
+RM1.g.4, RM1.g.5 and RM1.g.7 extend RM1.g (built 2026-10-20): the check reads each line's
+sentences as the judge splits them, also the ones removal cannot place; it counts the
+labels, list numbers and bold-only lines its comparison leaves out; and `_cut` refuses
+overlapping spans. RM1.e.1 and RM1.e.2 extend RM1.e (built 2026-10-20): every copy of a
+removed sentence left in the front matter is listed as kept, and an FAQ answer is split
+and checked as the judge splits a line, so a sentence cut after "U.S." stays whole.
+RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM1.g.6 and RM2.a.1 extend RM1.b, RM1.i, RM1.g and
+RM2.a (built 2026-10-20): a sentence the judge joined after "Dr." with odd spacing is
+placed; a line left with only an allowlisted plain label goes; a bold run that opens a
+sentence is cut with both markers; a claim on an uncertain split goes with a name
+removal of its sentence; a refused removal is tried again with smaller sets, the name
+removals alone among them; and the names-only message says when the judge is off. The PDF-test item follows
+there.

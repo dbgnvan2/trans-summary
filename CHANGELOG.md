@@ -22,10 +22,154 @@ All notable changes to this project will be documented in this file.
   disabled judge's PASS as a pass and logged "✓ Abstract passed faithfulness +
   grounding". It now returns "unavailable" (or "fail" on a rejected name), as the
   summary check does. Both checks log that the judge is off, and the closing message
-  after a name removal says no claim was judged, not "no claim was flagged". The shared
+  after a name removal says no claim was checked, not "no claim was flagged". RM2.a.1
+  on main made the same message change by reading the config; the merge kept main's
+  version and dropped this branch's `judge_off` parameter. The shared
   loop's "unavailable" warning (summary, overview, blog) no longer says the gate will
   verify it at publish; the precheck's line before it says whether the gate runs it
   again.
+
+## [Unreleased] - 2026-10-20 (Tests: the WeasyPrint skip guard)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 4 of 4. Closes Mini1's report on the
+PDF tests.
+- **T-BE1:** the three WeasyPrint tests in `tests/test_bundle_export.py` (be7, be11,
+  be12) skip when `import weasyprint` raises `ImportError` or `OSError`, with the error
+  in the skip reason. On Mini1 the import raises `OSError` (uv's Python cannot find
+  Homebrew's `libgobject`), and `pytest.importorskip` catches only `ImportError`, so the
+  tests failed instead of skipping.
+- Not changed (adjacent, for Dave): `bundle_export._render_pdf_weasyprint` catches only
+  `ModuleNotFoundError` on the import, so on such a machine a PDF bundle export raises
+  `OSError` instead of logging that WeasyPrint cannot be used.
+
+## [Unreleased] - 2026-10-20 (Removal: the rules for names, labels and bold runs)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 3 of 4. Closes open items D, F7 and
+F8, and the adjacent items on a failed check refusing every removal, a bold run that
+opens a sentence, and the names-only message with the judge off.
+- **RM1.g.6:** when the deletion check refuses a removal, removal is tried again through
+  the same cap, front-matter edit and check: first without the sentences only RM1.b.3
+  places (the name flags' kept in), then without any of them, then with only the
+  sentences a name flag names (and the claims on them), then those without the RM1.b.3
+  sentences. A sentence split after an abbreviation is left out whole. The first set the check passes is cut, and each
+  other flag is kept with the first reason, or listed as removed in part when some of
+  its copies went. Before, one refused claim removal kept every name too, and a kept
+  name fails the stage.
+- **RM1.b.3:** removal finds a sentence the judge joined with one space after "Dr." or
+  another abbreviation when the line has a tab, a non-breaking space or two spaces there,
+  so a name inside that sentence can be removed. The first copy in the line is found,
+  with the judge's spacing or not. On Mini1's M1 line the check still refuses the
+  removal: the bold sentence left alone would be a line the judge does not read.
+- **RM1.b.4 (F7):** a line left with only an allowlisted plain label ("Note:",
+  "- Summary:") after its sentence is removed goes, as "**Note:**" does.
+- **RM1.b.5:** a bold run that opens a sentence and closes inside it ("**Zed Example**
+  spoke at length.") is cut with both markers. Before, the cut left a stray "**", so
+  the check refused it and the name was kept. A name in "__…__" or "_…_" is now found
+  as a name, so its sentence goes and a copy left elsewhere is listed as kept.
+- **RM1.i.3 (F8):** a claim whose copies are all on an uncertain split ("… in the U.S.
+  Army …") is no longer listed as kept when a name flag removes its sentence. The
+  removal carries both reasons and the claim's judge record; if a copy is left, the
+  claim is listed as removed in part.
+- **RM2.h.1 (D):** a guard test: with the name flag before the claim flag on one
+  sentence, the removal carries the claim's record.
+- **RM2.a.1:** with the faithfulness judge off, the names-only message says the judge is
+  off and no claim was checked (it said "no claim was flagged").
+- learning-qa review, fixed before the commit: a sentence RM1.b.3 newly places whose cut
+  the check refuses kept every other removal too, and a claim commit 2 removed was kept;
+  a sentence with odd spacing was placed at a later copy written with one space; a name
+  in "__…__" or "_…_" was not matched, so a copy left in a heading was not listed. Its
+  re-reviews: the retry still cut a sentence after a newly placed one in its line, ran
+  in an order that kept a name it could remove, cut one part of a sentence split after
+  "U.S.", and still cut a sentence first named in "_…_" whose cut the check refuses.
+- Found when merging onto commit 2's last fixes: a claim on an uncertain part of a
+  name's sentence (RM1.i.3) marked that part as cut for its own flag, so an FAQ answer
+  of that claim and an unflagged sentence after it ("Kerr visited Washington, D.C. Bowen
+  met him there.") went whole. Only a part that holds the name marks such an answer
+  sentence now; the answer stays and the claim's copy there is listed as kept.
+- Retry grid (65,340 runs, no API calls): against commit 2, nothing commit 2 removed is
+  now kept, and every flag is listed as kept exactly when it is still in the output.
+- Grid check (scratch script, no API calls), 6,838 lines against commit 2: 1,302 now
+  removed (RM1.b.5 620, RM1.b.3 526, and 156 M1 lines with a bold label before them), 160
+  lines now drop their "Note:" or "Summary:" label (RM1.b.4), 0 now refused. The token
+  check finds no removal that deletes an unflagged word. No real artifact line is placed
+  differently.
+
+## [Unreleased] - 2026-10-20 (Removal: the front matter)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 2 of 4. Closes open item A and
+Mini1's M3 and the FAQ part of M4.
+- **RM1.e.1 (A):** every copy of a removed sentence left in the front matter, in an
+  unquoted FAQ answer or under another key such as `description:`, is listed as kept
+  with the reason "removed from the body; still in the front matter" (it said "still
+  in the front matter's FAQ answers"). A name flag is listed only while its name is in
+  the front matter. The removal record's `in_front_matter` is true only when the
+  sentence was taken from an FAQ answer and no copy is left.
+- **RM1.e.2 (M3, M4):** an FAQ answer is split as the judge splits a line: a part after
+  "U.S.", "Sen." or another listed abbreviation joins the part before it, and a joined
+  sentence goes only when all of it was removed. Before, removing "He trained in the
+  U.S." from the body left the answer "Navy for two years.". The deletion check compares
+  FAQ answers sentence by sentence, so a word deleted inside an answer is refused.
+- **learning-qa review, fixed before the commit:** a part cut from the body only because
+  it shares a sentence with a name ("Bowen moved to Washington, D.C." before "Zed
+  Example joined him there.") went alone from an FAQ answer, where it is a whole
+  sentence without the name; it now stays. A copy left in the front matter with YAML
+  escapes (`''`, `\"`) or folded onto two lines had no kept entry; copies are now found
+  with the escapes undone. A q/a pair with another key ("source:") lost its q and a
+  lines; it now stays whole. The deletion check compares FAQ items one by one, in
+  order, so a swapped answer or a deleted line of a folded answer is refused.
+- **Second learning-qa review, of those fixes, fixed before the commit:** a sentence cut
+  only because the name is in the bold label read with it ("1. **Zed Example:** Kerr
+  agreed …") went from an FAQ answer where it has no name; it now stays. An answer
+  sentence holding the name and part of a sentence split after "U.S." ("The U.S. Navy
+  sent Zed Example to Washington, D.C.") stayed with the name, a regression of the first
+  fix; it now goes. Copies with a `\u` escape or an escaped line break are found. Two
+  FAQ items with the same question no longer make the check refuse.
+- **Third learning-qa review, fixed before the commit:** whether a part of a joined
+  sentence was cut for its own flag is now read at its place in that sentence, not by
+  its text, so a claim cut on another line no longer lets a part without the name take
+  an unflagged part out of an answer with it. A body sentence is no longer read as YAML
+  ("C:\temp" kept its "\t"); it is looked for in the front matter read with YAML's
+  escapes undone and as written. Every YAML escape is undone (`\_`, `\N`, `\L`, `\P`,
+  `\a`, `\b`, `\e`, `\f`, `\v`), an escaped surrogate pair is one character, and an
+  escaped line break may end in CRLF.
+- Front-matter grid (scratch script, no API calls), 648 texts against commit 1: none
+  refused; 12 other outputs, all M3; 140 other reports, the new reason. The review's
+  392-text grid: 63 problem rows before the fixes, none after.
+
+## [Unreleased] - 2026-10-20 (Removal: the deletion check reads what the judge reads)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 1 of 4. Approved by Dave ("build the
+plan … as written"). Closes M1, M2 and most of M4 from Mini1's cold review of 813dd3c, and
+open item E.
+- **RM1.g.4 (M1):** the deletion check reads each line's sentences as the judge splits
+  them, including the ones removal cannot place in the raw line. The judge joins
+  "Dr." and "Bowen" with one space, so after "Dr." with a non-breaking space, a tab or
+  two spaces removal could not find "He met Dr. Bowen at the center". A name removal
+  earlier on that line then dropped the line, and the check excused the lost unflagged
+  claim (new in 813dd3c). That removal is now refused. A change after such a split is
+  now seen too (M4).
+- **RM1.g.5 (M2, M4):** the check counts what its sentence comparison leaves out: an
+  allowlisted label ("Note:"), a list number ("2)", "2."), a sentence that is only a list
+  number, and a bold-only line. None may be added, except a bold-only line that a cut
+  leaves alone; one may go only with a removed sentence that starts with it, or with its
+  line. A "2." sentence that moves to the start of its line counts as the same number,
+  so "Zed Example spoke … the move. 2. The group met again later." now loses the name
+  sentence; 813dd3c refused it, and the kept name failed the stage. Deleting a
+  mid-line "Note:" or "2)" alone, or a bold-only line, is now refused.
+- **RM1.g.7 (E):** `_cut` raises `ValueError` when two spans on a line overlap. The
+  pipeline already keeps the draft and records "removal failed".
+- **learning-qa review, fixed before the commit:** a number-only sentence the cut left
+  alone ("… that year. 1975.") dropped with its line, and the line's marks excused it, so
+  an unflagged number went with no record. A line removed whole now excuses only the
+  label and list number at its start, so that removal is refused, as at ec60324. This
+  also stops a cut sentence's label or number being counted twice. Two branches got
+  tests, and three test lines use `\u00a0` instead of a literal non-breaking space.
+- Grid check (scratch script, no API calls), 6,838 lines against ec60324: 102 now
+  refused, all removals that lost an unflagged sentence (M1); 144 now removed, all the
+  "2." case (M2); the rest unchanged. learning-qa's 2,142-line grid and the bold-label
+  grids (2,080 and 672 lines) show nothing worse. Its 520-line token grid finds no
+  removal that deletes an unflagged word (ec60324: 12). No real artifact has the M1–M3
+  shapes.
 
 ## [Unreleased] - 2026-10-20 (Removal: bold label after a list or quote marker)
 

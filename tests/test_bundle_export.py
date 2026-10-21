@@ -21,6 +21,21 @@ FIRST_ATTRS = [s["suffix_attrs"][0] for s in config.BUNDLE_SECTIONS]
 HEADINGS = [s["heading"] for s in config.BUNDLE_SECTIONS]
 
 
+def _weasyprint_or_skip():
+    """The weasyprint module, or a skip when it cannot be used here.
+
+    Purpose: Skip, not fail, where WeasyPrint is installed but cannot load its native
+             libraries: the import then raises OSError, which importorskip does not catch.
+    Spec:    docs/plan_removal_open_items_2026-10-20.md#T-BE1
+    Tests:   tests/test_bundle_export.py::test_tbe1_weasyprint_guard_skips_on_oserror
+    """
+    try:
+        import weasyprint
+    except (ImportError, OSError) as e:
+        pytest.skip(f"weasyprint unusable: {e}")
+    return weasyprint
+
+
 def _make_project(tmp_path, suffix_attrs, base=BASE):
     proj = tmp_path / base
     proj.mkdir(parents=True, exist_ok=True)
@@ -221,7 +236,7 @@ def test_be7_pdf_written_via_weasyprint(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     _make_project(tmp_path, SECTION_ATTRS)
     fake_html = MagicMock()
-    weasy = pytest.importorskip("weasyprint")
+    weasy = _weasyprint_or_skip()
     with patch("bundle_export.release_gate.publish_allowed", return_value=True), \
          patch.object(weasy, "HTML", return_value=fake_html) as mHTML:
         ok = bundle_export.export_bundle(BASE, fmt="pdf")
@@ -319,7 +334,7 @@ def test_be12_no_trailing_page_break_when_break_section_is_last(tmp_path, monkey
 def test_be12_pdf_translates_page_break(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     _make_project(tmp_path, SECTION_ATTRS)
-    weasy = pytest.importorskip("weasyprint")
+    weasy = _weasyprint_or_skip()
     captured = {}
 
     class FakeHTML:
@@ -374,7 +389,7 @@ def test_be11_title_is_h1_sections_are_h2(tmp_path, monkeypatch):
 def test_be11_pdf_injects_reduced_heading_css(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "PROJECTS_DIR", tmp_path)
     _make_project(tmp_path, SECTION_ATTRS)
-    weasy = pytest.importorskip("weasyprint")
+    weasy = _weasyprint_or_skip()
     captured = {}
 
     class FakeHTML:
@@ -426,3 +441,21 @@ def test_be10_stage_outputs_bundle_tracks_default_format():
     }[config.BUNDLE_DEFAULT_FORMAT]
     assert ts_gui.STAGE_OUTPUTS["bundle"] == expected
     assert ts_gui._bundle_output_suffix_attrs() == expected
+
+
+# --- T-BE1: the WeasyPrint skip guard ------------------------------------------
+
+def test_tbe1_weasyprint_guard_skips_on_oserror():
+    """T-BE1 (Mini1, 2026-10-20): WeasyPrint that cannot load libgobject raises OSError
+    on import; the PDF tests must skip there, not fail."""
+    import builtins
+    real_import = builtins.__import__
+
+    def no_native_libs(name, *args, **kwargs):
+        if name == "weasyprint":
+            raise OSError("cannot load library 'libgobject-2.0-0'")
+        return real_import(name, *args, **kwargs)
+
+    with patch("builtins.__import__", side_effect=no_native_libs):
+        with pytest.raises(pytest.skip.Exception, match="weasyprint unusable: cannot load"):
+            _weasyprint_or_skip()

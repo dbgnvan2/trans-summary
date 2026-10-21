@@ -1605,16 +1605,20 @@ def _remove_still_flagged(what: str, base_name: str, suffix: str, text: str, iss
 
 
 def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: bool,
-                         cause: str = "", judge_off: bool = False) -> str:
+                         cause: str = "") -> str:
     """The warning when nothing flagged is left after removal. It says which checks the
     removed flags came from: with names only, no claim was removed; when the judge
-    errored ("partial") the draft's faithfulness was not checked at all; and when the
-    judge is off no claim was judged.
+    errored ("partial") the draft's faithfulness was not checked at all.
+
+    With the faithfulness judge off (config.FAITHFULNESS_JUDGE_ENABLED false), it says
+    no claim was checked, not that none was flagged (RM2.a.1).
 
     Purpose: Never report "every flagged sentence removed" for a check that did not run.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a, #RM2.b.5
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a, #RM2.b.5;
+             docs/plan_removal_open_items_2026-10-20.md#RM2.a.1
     Tests:   tests/test_remove_flagged_rm.py::test_rm2_partial_check_message_says_not_checked,
              tests/test_remove_flagged_rm.py::test_rm2_names_only_message,
+             tests/test_remove_flagged_rm.py::test_rm2a1_names_only_message_says_judge_off,
              tests/test_remove_flagged_rm.py::test_rm2b5_summary_judge_off_names_message
     """
     lead = f"⚠️ {label}: " + (f"{cause}; " if cause else "")
@@ -1623,10 +1627,10 @@ def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: 
         return (lead + "the sentences with the flagged names were removed, but the "
                 "faithfulness check could not run on this draft; the release gate will "
                 "check it at publish. Removals are listed at the end of the run.")
-    if names_only and judge_off:
-        return (lead + "the sentences with the flagged names were removed; the faithfulness "
-                "judge is off, so no claim was judged. Removals are listed at the end of "
-                "the run.")
+    if names_only and not config.FAITHFULNESS_JUDGE_ENABLED:
+        return (lead + "the sentences with the flagged names were removed; the "
+                "faithfulness judge is off, so no claim was checked. Removals are listed "
+                "at the end of the run.")
     if names_only:
         return (lead + "the sentences with the flagged names were removed; no claim was "
                 "flagged. Removals are listed at the end of the run.")
@@ -1735,8 +1739,7 @@ def _generate_until_faithful(what: str, base_name: str, suffix: str, logger,
         return False
     if best_count == 0:
         logger.warning("%s", _all_removed_message(
-            what.capitalize(), attempts, best_issues, judge_errored=best_rank[0],
-            judge_off=not getattr(config, "FAITHFULNESS_JUDGE_ENABLED", False)))
+            what.capitalize(), attempts, best_issues, judge_errored=best_rank[0]))
         return True
     logger.warning("⚠️ %s still has %d flagged claim(s) after %d attempt(s); kept the best "
                    "draft. Faithfulness flags are warnings: the run goes on, and the release "
@@ -1978,9 +1981,7 @@ def generate_structured_abstract(
         if best_issue_count == 0:
             logger.warning("%s", _all_removed_message("Abstract", max_attempts, best_issues,
                                                       judge_errored=best_rank[0],  # RM2.b.3
-                                                      cause=cause, judge_off=not getattr(
-                                                          config, "FAITHFULNESS_JUDGE_ENABLED",
-                                                          False)))
+                                                      cause=cause))
             return True
         logger.warning("⚠️ Abstract: %s; kept the best draft (%s flagged claim(s)). "
                        "Faithfulness flags are warnings: the run goes on, and the release "
