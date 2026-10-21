@@ -40,8 +40,10 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     copy is left. The stash's A part is superseded, so the stash can be dropped.
   - **B, C:** fixed 2026-10-20 (RM1.i.1, RM1.i.2, RM1.g.1 in
     `docs/plan_remove_flagged_2026-10-19.md`). The stash's B and C parts are superseded.
-  - **D.** Verify with a test: when a name flag comes before a claim flag on the same
-    sentence, the Removed record carries the claim's judge record (a probe looked right).
+  - **D.** ✅ Verified 2026-10-20 by RM2.h.1 (`docs/plan_removal_open_items_2026-10-20.md`):
+    when a name flag comes before a claim flag on the same sentence, the Removed record
+    carries the claim's judge record. Guard test:
+    `test_rm2h1_name_flag_first_claim_record_kept`.
   - **E.** ✅ Fixed 2026-10-20 by RM1.g.7 (`docs/plan_removal_open_items_2026-10-20.md`):
     `_cut` raises `ValueError` on overlapping spans, and the pipeline keeps the draft
     with "removal failed". Test: `test_rm1g7_overlap_keeps_draft`.
@@ -51,6 +53,11 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     by the check (new in 813dd3c); M2, "… the move. 2. The group …" refused although
     only the name went (new in 813dd3c); and the M4 gaps for a label, list number or
     bold-only line deleted alone and a change after such a split.
+  - ✅ Fixed 2026-10-20 (RM1.b.3): removal now places a sentence the judge joined after
+    "Dr." with a tab, a non-breaking space or two spaces. On M1's own line the check
+    still refuses the removal: the bold sentence left alone would be a line the judge
+    does not read. Tests: `test_rm1b3_name_in_sentence_with_odd_space_removed`,
+    `test_rm1b3_m1_line_still_refused`.
   - ✅ Fixed 2026-10-20 (RM1.e.2): M3, an FAQ answer split after "U.S." or "Sen." lost
     an unflagged part; the answer is now split as the judge splits a line. The M4 gap
     for "not" deleted inside an FAQ answer: the check compares answers sentence by
@@ -74,19 +81,44 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   founded the center …" the judge strips "1975. " as a list number, so the year is never
   judged, and removal deletes it with the line. The cause is in `fj.extract_claims` and
   `_EMPTY_LINE`.
-- Adjacent, not fixed (2026-10-20, items C/B): one failed deletion check refuses every
-  removal in the artifact, name removals included, so a kept name can still fail the
-  stage for another cause. Retrying with the name removals alone would narrow this.
+- ✅ Fixed 2026-10-20 by RM1.g.6 (`docs/plan_removal_open_items_2026-10-20.md`): one
+  failed deletion check refused every removal in the artifact, name removals included.
+  Removal now tries again: without the sentences only RM1.b.3 places (the name
+  removals kept in), then without any of them, then with the name removals alone, then
+  those without the RM1.b.3 sentences; the first set the check passes is cut and the
+  other flags are kept. A name is still kept when every retry is
+  refused. Tests: `test_rm1g6_name_removed_when_claim_removal_refused`,
+  `test_rm1g6_nothing_removed_when_name_attempt_also_refused`,
+  `test_rm1b3_newly_placed_refused_sentence_keeps_other_removals`.
+- Open, for Dave (2026-10-20, commit 3): when every retry is refused, every flag is kept,
+  even where one claim alone causes the refusal. Trying the targets one at a time would
+  keep only the cause, at one more deletion check per target. Decide whether that run
+  time is worth it.
 - Adjacent, not fixed (2026-10-20): the abstract treats a judge error with a flagged name
   as "unavailable" and keeps the name, so the gate blocks at publish; the summary path
   removes it ("partial"). Proposed as its own session.
 - Known (RM1.g.1; D3, 2026-10-20, leave it): when the sentence before "2) Then …" or
   "2. The group …" is removed, that line starts with the number, which markdown renders
   as a numbered list item. The words are unchanged.
-- Adjacent, not fixed (2026-10-20, bold label after a marker): a bold run that opens a
-  sentence but is not a label ("**Zed Example** spoke … Then …", also after "- ") makes
-  `_line_sentences` start the span inside the bold run, so the removal is refused and the
-  name is kept. Fix: put the opening marker inside the span.
+- ✅ Fixed 2026-10-20 by RM1.b.5 (`docs/plan_removal_open_items_2026-10-20.md`): a bold
+  run that opens a sentence and closes inside it ("**Zed Example** spoke … Then …", also
+  after "- ") is cut with both markers. Before, the cut left a stray "**", so the removal
+  was refused and the name kept. Test: `test_rm1b5_bold_run_opening_sentence_cut_whole`.
+- Adjacent, not fixed (2026-10-20, commit 3): the mirror of RM1.b.5. A bold run that
+  opens inside a sentence and closes at its end ("Zed spoke **at length.** Then …")
+  leaves a stray "**" when the sentence is cut. The check refuses it, so the name is
+  kept.
+- Adjacent, not fixed (2026-10-20, commit 3): a claim flag on a bold label after a list
+  marker ("- **Kerr Agreed:** Zed …", flag "Kerr Agreed") is listed as kept "only in a
+  heading, a label or the front matter" although the label went with its line. This
+  over-reports (48 texts in a scratch report grid; also at commit 2).
+- Adjacent, not fixed (2026-10-20, commit 3 review): the entity check does not see a name
+  in underscores. `abstract_validation._NAME_SPAN` starts and ends with ``, and "_" is
+  a word character, so "Kerr praised _Zed Example_ warmly." and "__Zed Example__" give no
+  name, where "**Zed Example**" does. A made-up name written that way is not flagged.
+  Removal matches such a name since RM1.b.5 (`flagged_removal._name_word`). Fix: the same
+  boundary in `_NAME_SPAN`, with a test; it changes what the entity check flags, so it
+  needs its own grid over real abstracts.
 - Adjacent, not fixed (2026-10-20, bold label after a marker): "&gt; " (an HTML-escaped
   quote marker) is not a marker to the judge or to removal. A name sentence after
   "&gt; **Label:**" is refused when the label looks like a name, and otherwise cut with
@@ -126,14 +158,17 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
     sentence before is not "added", so moving the "[in answer to: …]" tag onto the next
     sentence no longer refuses the removal. Test:
     `test_rm1g3_question_tag_moves_to_next_sentence`.
-  - **F7.** A line left with only a plain label ("Note:") after its sentence is removed
-    stays in the text; "**Note:**" is dropped. Fix: treat a line left with only an
-    allowlisted label as empty.
-  - **F8.** A claim whose every copy is uncertain is listed as kept although a name flag
-    removed its sentence, so the run says "still has 1 flagged claim(s)". Fix: record the
-    claim with the name removal ("faithfulness (also name …)").
-- Not fixed (cold sweep): the judge-disabled case returns "fail" with names only; the
-  message now says "no claim was flagged", which does not say the judge was off.
+  - **F7.** ✅ Fixed 2026-10-20 by RM1.b.4 (`docs/plan_removal_open_items_2026-10-20.md`):
+    a line left with only an allowlisted plain label ("Note:") after its sentence is
+    removed now goes, as "**Note:**" does. Test:
+    `test_rm1b4_plain_label_left_alone_line_goes`.
+  - **F8.** ✅ Fixed 2026-10-20 by RM1.i.3: a claim whose every copy is uncertain is no
+    longer listed as kept when a name flag removes its sentence; the removal carries both
+    reasons and the claim's record. Test:
+    `test_rm1i3_unsure_claim_removed_by_name_not_kept`.
+- ✅ Fixed 2026-10-20 by RM2.a.1 (`docs/plan_removal_open_items_2026-10-20.md`): with the
+  judge off, the names-only message says the judge is off and no claim was checked (it
+  said "no claim was flagged"). Test: `test_rm2a1_names_only_message_says_judge_off`.
 
 ## 2026-10-19 — Format stopped on heading timestamps without brackets
 

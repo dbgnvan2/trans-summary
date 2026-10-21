@@ -597,5 +597,11 @@ sentences as the judge splits them, also the ones removal cannot place; it count
 labels, list numbers and bold-only lines its comparison leaves out; and `_cut` refuses
 overlapping spans. RM1.e.1 and RM1.e.2 extend RM1.e (built 2026-10-20): every copy of a
 removed sentence left in the front matter is listed as kept, and an FAQ answer is split
-and checked as the judge splits a line, so a sentence cut after "U.S." stays whole. The
-removal-rule and PDF-test items follow there.
+and checked as the judge splits a line, so a sentence cut after "U.S." stays whole.
+RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM1.g.6 and RM2.a.1 extend RM1.b, RM1.i, RM1.g and
+RM2.a (built 2026-10-20): a sentence the judge joined after "Dr." with odd spacing is
+placed; a line left with only an allowlisted plain label goes; a bold run that opens a
+sentence is cut with both markers; a claim on an uncertain split goes with a name
+removal of its sentence; a refused removal is tried again with smaller sets, the name
+removals alone among them; and the names-only message says when the judge is off. The PDF-test item follows
+there.

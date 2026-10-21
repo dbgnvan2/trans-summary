@@ -116,6 +116,35 @@ Pull from the global catalogue; the ones that bite this repo most:
   written in that format; to match text whose format is unknown, compare against each
   reading. Covered by `test_rm1e1_body_sentence_with_backslash_copy_listed`.
 
+- ~~**A wider placement rule made an all-or-nothing check refuse what it passed before
+  (P2/P6, learning-qa 2026-10-20, commit 3 of
+  `docs/plan_removal_open_items_2026-10-20.md`).**~~ Fixed before the commit: RM1.b.3
+  places a sentence written with a tab or a non-breaking space after "Dr.". Where cutting
+  that sentence leaves a bold-only line, the deletion check refuses, and one refusal
+  keeps every flag in the artifact, so a claim that commit 2 removed was kept. The output
+  grid showed 0 now refused: none of its texts put such a sentence next to another
+  removal. Removal now retries without the newly placed sentences first. Rule: when a
+  change widens what one stage accepts and a later gate refuses the whole batch, test the
+  widened inputs next to inputs that passed before; one new refusal becomes a regression
+  for everything else in the batch. Covered by
+  `test_rm1b3_newly_placed_refused_sentence_keeps_other_removals`. The first fix left out
+  only the newly placed sentence; commit 2 had also left the rest of its line unplaced,
+  so a sentence after it still made the retry refuse, as the re-review found. Rule: to
+  keep what the old code did, take what it did (here, the rest of the line), not the one
+  case a review showed; then compare old and new output over combinations of the inputs.
+  The next review found a second source of new cuts, a name first matched in "_…_"
+  (RM1.b.5), so list every rule in the change that makes a new cut, not only the one
+  under review. A grid comparing old and new output (`grid_retry.py`, scratch) found
+  1,800, 656 and 2,052 rows in the three drafts, and 0 now. Covered by
+  `test_rm1b3_sentence_after_newly_placed_one_left_out_of_retry` and
+  `test_rm1b5_newly_named_refused_sentence_keeps_other_removals`.
+  Merging onto commit 2's last fixes showed the same class once more: commit 2 marked a
+  part "cut for its own flag", which inside a split sentence meant "holds the name"
+  only because claims never cut there; RM1.i.3 made claims cut there. Rule: when a new
+  rule adds a second way to reach a state, re-check every test that relied on the state
+  having one cause. Covered by
+  `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`.
+
 ## Fix log
 
 Newest first. Format: **Issue → Root cause (Pn) → What would have caught it → Fix → Rule.**

@@ -1,8 +1,9 @@
 # Plan: the open removal items and Mini1's cold review of 813dd3c (2026-10-20)
 
 Status: **approved 2026-10-20** ("build the plan … as written, with D3 (leave the
-number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7) and
-commit 2 (RM1.e.1, RM1.e.2) are built; commits 3 and 4 are not. See **Built** at the end for what was built and where it
+number) and D4 (do RM1.g.6) as recommended"). Commit 1 (RM1.g.4, RM1.g.5, RM1.g.7),
+commit 2 (RM1.e.1, RM1.e.2) and commit 3 (RM1.b.3, RM1.b.4, RM1.b.5, RM1.i.3, RM2.h.1,
+RM1.g.6, RM2.a.1) are built; commit 4 is not. See **Built** at the end for what was built and where it
 differs from the text below.
 
 Scope: everything still open on sentence removal (`flagged_removal.py`) after 813dd3c,
@@ -465,3 +466,165 @@ did, and that the two readings change only the report). Its test gaps, fixed:
   run failed the vacuous-test gate (`test_m6b1_no_new_vacuous_tests`):
   `test_rm1e1_yaml_plain_never_raises` had no assertion. It now asserts that each result
   is a spaced string.
+
+### Commit 3: removal rules (2026-10-20)
+
+| ID | Status | Where | Tests |
+|---|---|---|---|
+| RM1.b.3 | done | `_find`: any run of whitespace in the judge's text matches any run in the line, and the first copy is found. `_Sentence.loose` marks a sentence placed with other spacing than the judge's, and every later sentence in its line (commit 2 placed none of them). | `test_rm1b3_name_in_sentence_with_odd_space_removed` (3 cases), `test_rm1b3_m1_line_still_refused` (3), `test_rm1b3_sentence_placed_at_first_copy`, `test_rm1b3_newly_placed_refused_sentence_keeps_other_removals` (3), `test_rm1b3_newly_placed_refused_name_copy_keeps_other_removals` (3), `test_rm1b3_name_removed_without_newly_placed_copy` (2), `test_rm1b3_sentence_after_newly_placed_one_left_out_of_retry` (2) |
+| RM1.b.4 | done | `_build` drops a line left with only list markers and an allowlisted plain label (`_LABEL_ONLY`, the labels in `config.FAITHFULNESS_STRIP_LINE_LABEL_PREFIXES`). | `test_rm1b4_plain_label_left_alone_line_goes` (3), `test_rm1b4_label_not_allowlisted_unchanged`, `test_rm1b4_only_allowlisted_label_line_dropped` (2) |
+| RM1.b.5 | done | `_split_line`: after the wrap loop, the bold marker before a sentence is taken into its span when the run closes inside the sentence (an odd count of that marker in it). `_name_word` does not read "_" as part of a word, so a name in "__…__" or "_…_" is matched; it replaces the four copies of the name pattern. | `test_rm1b5_bold_run_opening_sentence_cut_whole` (3), `test_rm1b5_opening_marker_taken_only_when_run_closes_inside` (2), `test_rm1b5_name_in_underscores_left_in_heading_listed`, `test_rm1b5_name_in_italics_removed`, `test_rm1b5_newly_named_refused_sentence_keeps_other_removals` |
+| RM1.i.3 | done | `remove_flagged_sentences`: a claim's copies on an uncertain split are set aside (`unsure`). After the flag loop, each copy on a sentence a name flag removes becomes a target of the claim, so the removal carries both reasons and the claim's record. If a copy is left, the claim is listed as removed in part when another copy goes, and as kept (`UNSURE_BOUNDARY`) when none does. `_cut_groups` marks a part of a split sentence for the FAQ run rule only when it holds the name it was cut for, so such a claim does not take a rider out of an answer. | `test_rm1i3_unsure_claim_removed_by_name_not_kept` (2), `test_rm1i3_unsure_claim_partly_removed_listed`, `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`; `test_rm1e2_part_cut_for_itself_elsewhere_goes_alone_in_answer` now expects nothing kept |
+| RM2.h.1 | done (guard) | already worked at 813dd3c | `test_rm2h1_name_flag_first_claim_record_kept` |
+| RM1.g.6 | done | `remove_flagged_sentences`: `_attempt` runs the cap, the FAQ edit and the deletion check for a set of targets. When the check refuses (not the cap), it tries in order: the targets that are not new (`old`: not in a sentence with a `loose` part, where a sentence split after an abbreviation counts whole, and not `_Target.new`, a name the pattern before RM1.b.5 did not match, or a claim riding only such a name's sentence), with the targets on sentences a name flag names (`names_only`) added; `old` alone; `names_only`; `names_only` within `old`. Empty, full-size and repeated sets are skipped, and the first set that passes is cut. Each other flag is kept with the first attempt's reason, or listed as removed in part when some of its targets were cut. | `test_rm1g6_name_removed_when_claim_removal_refused`, `test_rm1g6_nothing_removed_when_name_attempt_also_refused`, `test_rm1g6_claim_with_name_removed_in_part_after_retry`, `test_rm1g6_no_retry_after_cap_refusal`, `test_rm1g6_names_kept_in_first_retry` (2), `test_rm1g6_retry_keeps_abbreviation_split_whole` (2), `test_rm1i3_claim_riding_newly_named_sentence_left_out_of_retry`, `test_rm1g6_retry_grid_report_matches_output` |
+| RM2.a.1 | done | `extraction_pipeline._all_removed_message` | `test_rm2a1_names_only_message_says_judge_off` |
+
+Where it differs from the text above:
+
+- RM1.b.3 does not close M1 on Mini1's line itself. "Zed Example spoke … **He met Dr.
+  Bowen at the center**": the bold sentence is now placed, but cutting the name sentence
+  leaves a bold-only line, which the judge does not read, so the unflagged claim would
+  be lost and the check still refuses. `test_rm1b3_m1_line_still_refused` is a guard for
+  that, and the RM1.g.4 test that used this line now calls `deletion_problems` directly.
+  With a bold label before the sentence ("**Note:** Zed … **He met Dr. Bowen …**"), the
+  judge reads the bold sentence with the label, so the name sentence is now removed (156
+  grid lines).
+- `test_rm1a_body_copy_not_located_reason` and
+  `test_rm1g4_unplaced_first_sentence_read_without_its_label` used a sentence with two
+  spaces after "Dr." to make it unplaceable. RM1.b.3 places it now, so both tests patch
+  `_find` instead. `test_rm1b1_abbreviation_in_bold_is_not_a_label` now expects the
+  removal ("1. **Dr.** Zed …" loses "Dr. Zed …"), because RM1.b.5 takes the opening
+  marker.
+- The plan said to extend `test_rm2_names_only_message`. RM2.a.1 has its own test, and
+  `test_rm2_names_only_message` now sets the judge on, since the suite runs with it off.
+- Two guard tests were added after the mutation check (`…_only_allowlisted_label_line_dropped`,
+  `…_opening_marker_taken_only_when_run_closes_inside`): without them, dropping any plain
+  label line, and taking the opening marker of a run that closes after the sentence,
+  passed every test. The second is also refused by the check (a stray marker), so it was
+  a gap in the tests, not in the output.
+
+- The plan's RM1.g.6 tries once more with the names alone. The review showed that a
+  sentence RM1.b.3 newly places can make the check refuse a set that commit 2 passed
+  (the cut leaves a bold-only line), and then every other flag was kept, a claim commit
+  2 removed among them. So the retries leave out the sentences only RM1.b.3 places
+  (and the rest of their line, which commit 2 could not place either). The first retry
+  keeps the name flags' sentences in, so a name whose cut passes still goes; a sentence
+  split after an abbreviation is left out whole, so a name takes both parts or neither
+  (RM1.i). Then come `old` alone, the names alone, and the names within `old`. A name
+  first matched by `_name_word` ("_Zed Example_") is new in the same way, and so is a
+  claim on an uncertain split that rides only such a name's sentence.
+- `_name_word` also matches a name in "_…_" (italics). That was never matched before
+  commit 3 either; it is the sibling of the "__…__" case the review found (P5).
+
+Adjacent, not fixed:
+
+- The mirror of RM1.b.5: a bold run that opens inside a sentence and closes at its end
+  ("Zed spoke **at length.** Then …") leaves a stray "**" when the sentence is cut. The
+  check refuses it, so the name is kept.
+- A claim flag on a bold label after a list marker ("- **Kerr Agreed:** Zed …", flag
+  "Kerr Agreed") is listed as kept "only in a heading, a label or the front matter"
+  although the label went with its line. This over-reports (48 texts in the report grid;
+  also at commit 2).
+- When every retry is refused, every flag is kept, even where one claim alone causes
+  the refusal. Trying the targets one at a time would keep only the cause, at the cost of
+  one more check per target. Recorded in TODO for Dave.
+- The entity check (`abstract_validation._NAME_SPAN`, bounded by `\b`) does not see a name
+  in "_…_" or "__…__", so such a name is never flagged; removal now matches it. Recorded
+  in TODO.
+
+Checks (scratch scripts, no API calls). Commit 3 was first built on commit 2 before its
+review fixes, then merged onto the fixed commit 2, and again onto commit 2 as committed
+(80d1d48, after its third and fourth reviews); every check below was run again after
+each merge and after the review fixes, and gave the same numbers.
+
+- Output grid, `grid_c.py`, 6,838 lines against commit 2: 5,376 the same output. 1,302
+  now removed: RM1.b.5 620 ("**Zed Example** spoke …" 424; "__Kerr Agreed:__ Zed …"
+  196, where the judge reads the label inside the sentence and the run closes in it);
+  RM1.b.3 526 ("Kerr met Dr.  Bowen there. Zed …"); 156 M1 lines with a bold label
+  before them. 160 other output, all RM1.b.4 ("Note:" and "Summary:" lines now go). 0
+  now refused (on these lines; the first retry cuts the targets commit 2 could place,
+  but RM1.b.5 and RM1.i.3 change spans and targets in that set too, so this is a
+  measured result, not a proof for every text). 28 the same output with another refusal reason (the M1 line after
+  "__Kerr Agreed:__", refused by both). The token check finds no removal that deletes an
+  unflagged word.
+- learning-qa's grid (`probe4.py`, 2,142 lines): 1,808 the same, 334 newly removed, 0
+  worse. The bold-label grids (2,080 name lines, 672 claim lines): none worse.
+- Report grid (P6, 288 texts with several flags, each with and without a forced check
+  failure): a flag listed as kept must still be in the output, and one not listed must
+  be gone. Commit 2: 256 mismatches; commit 3: 48, all the adjacent "Kerr Agreed" item
+  above.
+- Retry grid (`grid_retry.py`, 65,340 runs: two or three lines from 11 kinds, repeats
+  included, mixing sentences RM1.b.3 newly places and names in "_…_" with plain ones,
+  and cuts the check refuses with cuts it passes, under every set of four flags, with a
+  non-breaking space, a tab and two spaces): against commit 2, 0 sentences commit 2
+  removed are now kept; 0 removals delete a word outside a removed sentence; every
+  removed sentence was flagged or on a line with the name, and is gone; every flag is
+  listed as kept exactly when it is still in the output. 20,664 runs remove more. 2,688
+  differ because commit 2 cut one part of a sentence split after "U.S." and left the
+  fragment ("Army with Dr. Bowen in 1990."), and commit 3 keeps the split whole. Run on
+  the three earlier drafts of this commit, the grid finds rows where commit 2 removed a
+  sentence and the draft did not (on the first two drafts' grid of 17,280 runs: 1,800
+  and 656; on the third, with the italic lines: 2,052). The suite holds a smaller copy
+  of its rule-2 and P6 checks (`test_rm1g6_retry_grid_report_matches_output`, 3,630
+  runs); rule 1 needs commit 2's code, so it stays a scratch check.
+- The same grid with a second name flag ("Ann Example", 14 line kinds, pairs, 18,228
+  runs): 0 violations.
+- No real artifact in the three projects folders has a name in single underscores, so
+  the "_…_" cases occur only in the grids.
+- Front-matter grids against commit 2: `grid_fm3.py` (648 texts), the same output and
+  report in every text; `qa_c3g/grid2b.py` (392 texts), no problem rows, 84 unchanged.
+- Mutation: 26 mutants, each reverting one part of the commit, of its review fixes, or of
+  the merge fix below, each fail at least one test. Commit 2's 44 mutants, run on commit
+  3 (two rewritten for `_name_word`), each fail one.
+- Read-only scan of the artifacts in the three projects folders: 19 files, 83 body
+  lines. None is placed differently by commit 3. No line starts with a plain label. 18
+  lines open with a bold sentence ("**Bowen's Family Systems approach versus Freudian
+  thinking.** Kerr recounts …"); its run closes at the sentence's end, which the wrap
+  rule already handled.
+- Suites, with `.venv/bin/python`: `tests/` 2,065 passed, 13 skipped; the root run 2,160 passed, 23 skipped, 1 xfailed (both with the commit-4 test file in the tree). The RM test file has 320 tests.
+
+learning-qa review (2026-10-20), fixed before the commit, tests first:
+
+- A sentence RM1.b.3 newly placed, whose cut the check refuses (it leaves a bold-only
+  line), refused every other removal with it, so a claim commit 2 removed was kept.
+  `test_rm1b3_newly_placed_refused_sentence_keeps_other_removals`, and the name version
+  `…_name_copy_keeps_other_removals`.
+- The exact search ran first, so a sentence with a non-breaking space was placed at a
+  later copy written with one space, and the check refused.
+  `test_rm1b3_sentence_placed_at_first_copy`.
+- A name in "__…__" left in a heading was not listed as kept, and a name in "_…_" was
+  never matched. `test_rm1b5_name_in_underscores_left_in_heading_listed`,
+  `test_rm1b5_name_in_italics_removed`.
+- Untested branches: a claim removed in part after the retry, and no retry after the
+  cap. `test_rm1g6_claim_with_name_removed_in_part_after_retry`,
+  `test_rm1g6_no_retry_after_cap_refusal`.
+
+Its three re-reviews of those fixes, each fixed the same way:
+
+- The retry kept a sentence after a newly placed one in its line, which commit 2 had
+  not placed either (rule 1 again). `test_rm1b3_sentence_after_newly_placed_one_left_out_of_retry`.
+- The retry order kept a name whose cut passes. `test_rm1g6_names_kept_in_first_retry`.
+- A retry cut one part of a sentence split after "U.S.".
+  `test_rm1g6_retry_keeps_abbreviation_split_whole`.
+- A sentence first named in "_…_" whose cut is refused was in every retry (rule 1).
+  `test_rm1b5_newly_named_refused_sentence_keeps_other_removals`, and the claim riding
+  it, `test_rm1i3_claim_riding_newly_named_sentence_left_out_of_retry`.
+- The last re-review found nothing. It ran its own grids over RM1.b.4 labels, RM1.b.5
+  bold runs, italic names and FAQ copies (46,900 runs, 0 rows where commit 2 removed a
+  sentence and commit 3 does not). Not covered by it: the emptied-section and
+  required-item guards and the cap together with the retry.
+
+Found when merging onto commit 2 as committed, fixed before the commit, test first:
+
+- Commit 2's last fixes mark each part of a split sentence with whether it was cut there
+  for its own flag. In commit 2 only a name cuts there, so the mark meant "holds the
+  name". RM1.i.3 cuts a claim on an uncertain part of the name's sentence there too, so
+  that part was marked, and the FAQ answer "Kerr visited Washington, D.C. Bowen met him
+  there." went whole with the unflagged "Bowen met him there." (hard rule 2). Fix: only a
+  part that holds the name it was cut for is marked. The answer stays and the claim's
+  copy there is listed as kept. Tests:
+  `test_rm1i3_claim_on_name_sentence_does_not_take_rider_from_answer`, and
+  `test_rm1e2_part_cut_for_itself_elsewhere_is_still_a_rider_in_answer`, which failed in
+  the same way after the merge. RM1.i.3 also fixes commit 2's recorded over-report: the
+  claim in `test_rm1e2_part_cut_for_itself_elsewhere_goes_alone_in_answer` is no longer
+  listed as kept.

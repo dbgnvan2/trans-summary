@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-10-20 (Removal: the rules for names, labels and bold runs)
+
+`docs/plan_removal_open_items_2026-10-20.md`, commit 3 of 4. Closes open items D, F7 and
+F8, and the adjacent items on a failed check refusing every removal, a bold run that
+opens a sentence, and the names-only message with the judge off.
+- **RM1.g.6:** when the deletion check refuses a removal, removal is tried again through
+  the same cap, front-matter edit and check: first without the sentences only RM1.b.3
+  places (the name flags' kept in), then without any of them, then with only the
+  sentences a name flag names (and the claims on them), then those without the RM1.b.3
+  sentences. A sentence split after an abbreviation is left out whole. The first set the check passes is cut, and each
+  other flag is kept with the first reason, or listed as removed in part when some of
+  its copies went. Before, one refused claim removal kept every name too, and a kept
+  name fails the stage.
+- **RM1.b.3:** removal finds a sentence the judge joined with one space after "Dr." or
+  another abbreviation when the line has a tab, a non-breaking space or two spaces there,
+  so a name inside that sentence can be removed. The first copy in the line is found,
+  with the judge's spacing or not. On Mini1's M1 line the check still refuses the
+  removal: the bold sentence left alone would be a line the judge does not read.
+- **RM1.b.4 (F7):** a line left with only an allowlisted plain label ("Note:",
+  "- Summary:") after its sentence is removed goes, as "**Note:**" does.
+- **RM1.b.5:** a bold run that opens a sentence and closes inside it ("**Zed Example**
+  spoke at length.") is cut with both markers. Before, the cut left a stray "**", so
+  the check refused it and the name was kept. A name in "__…__" or "_…_" is now found
+  as a name, so its sentence goes and a copy left elsewhere is listed as kept.
+- **RM1.i.3 (F8):** a claim whose copies are all on an uncertain split ("… in the U.S.
+  Army …") is no longer listed as kept when a name flag removes its sentence. The
+  removal carries both reasons and the claim's judge record; if a copy is left, the
+  claim is listed as removed in part.
+- **RM2.h.1 (D):** a guard test: with the name flag before the claim flag on one
+  sentence, the removal carries the claim's record.
+- **RM2.a.1:** with the faithfulness judge off, the names-only message says the judge is
+  off and no claim was checked (it said "no claim was flagged").
+- learning-qa review, fixed before the commit: a sentence RM1.b.3 newly places whose cut
+  the check refuses kept every other removal too, and a claim commit 2 removed was kept;
+  a sentence with odd spacing was placed at a later copy written with one space; a name
+  in "__…__" or "_…_" was not matched, so a copy left in a heading was not listed. Its
+  re-reviews: the retry still cut a sentence after a newly placed one in its line, ran
+  in an order that kept a name it could remove, cut one part of a sentence split after
+  "U.S.", and still cut a sentence first named in "_…_" whose cut the check refuses.
+- Found when merging onto commit 2's last fixes: a claim on an uncertain part of a
+  name's sentence (RM1.i.3) marked that part as cut for its own flag, so an FAQ answer
+  of that claim and an unflagged sentence after it ("Kerr visited Washington, D.C. Bowen
+  met him there.") went whole. Only a part that holds the name marks such an answer
+  sentence now; the answer stays and the claim's copy there is listed as kept.
+- Retry grid (65,340 runs, no API calls): against commit 2, nothing commit 2 removed is
+  now kept, and every flag is listed as kept exactly when it is still in the output.
+- Grid check (scratch script, no API calls), 6,838 lines against commit 2: 1,302 now
+  removed (RM1.b.5 620, RM1.b.3 526, and 156 M1 lines with a bold label before them), 160
+  lines now drop their "Note:" or "Summary:" label (RM1.b.4), 0 now refused. The token
+  check finds no removal that deletes an unflagged word. No real artifact line is placed
+  differently.
+
 ## [Unreleased] - 2026-10-20 (Removal: the front matter)
 
 `docs/plan_removal_open_items_2026-10-20.md`, commit 2 of 4. Closes open item A and

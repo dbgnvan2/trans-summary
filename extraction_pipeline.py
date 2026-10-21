@@ -1566,10 +1566,15 @@ def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: 
     removed flags came from: with names only, no claim was removed, and when the judge
     errored ("partial") the draft's faithfulness was not checked at all.
 
+    With the faithfulness judge off (config.FAITHFULNESS_JUDGE_ENABLED false), it says
+    no claim was checked, not that none was flagged (RM2.a.1).
+
     Purpose: Never report "every flagged sentence removed" for a check that did not run.
-    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a
+    Spec:    docs/plan_remove_flagged_2026-10-19.md#RM2.a;
+             docs/plan_removal_open_items_2026-10-20.md#RM2.a.1
     Tests:   tests/test_remove_flagged_rm.py::test_rm2_partial_check_message_says_not_checked,
-             tests/test_remove_flagged_rm.py::test_rm2_names_only_message
+             tests/test_remove_flagged_rm.py::test_rm2_names_only_message,
+             tests/test_remove_flagged_rm.py::test_rm2a1_names_only_message_says_judge_off
     """
     lead = f"⚠️ {label}: " + (f"{cause}; " if cause else "")
     names_only = bool(flags) and all(getattr(f, "kind", "claim") == "name" for f in flags)
@@ -1577,6 +1582,10 @@ def _all_removed_message(label: str, attempts: int, flags: list, judge_errored: 
         return (lead + "the sentences with the flagged names were removed, but the "
                 "faithfulness check could not run on this draft; the release gate will "
                 "check it at publish. Removals are listed at the end of the run.")
+    if names_only and not config.FAITHFULNESS_JUDGE_ENABLED:
+        return (lead + "the sentences with the flagged names were removed; the "
+                "faithfulness judge is off, so no claim was checked. Removals are listed "
+                "at the end of the run.")
     if names_only:
         return (lead + "the sentences with the flagged names were removed; no claim was "
                 "flagged. Removals are listed at the end of the run.")
