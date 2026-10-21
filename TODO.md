@@ -145,11 +145,12 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   (3) new in e1b218a: adding a claim that the section rule keeps can make the retry give
   back a removal d64dc1e made, a name copy and a claim ("Zed Example spoke at length
   about the move." next to a `_Zed Example_ … **He spoke for an hour**` line); the
-  stage fails (Zed kept). (4) Since 3ff21c0: a name flag can make claims kept through a
-  deletion-check refusal, with no section rule or cap involved (two claims and a Zed
-  sentence before a "**He spoke for an hour**" rider): only the Zed sentence goes. The
-  stage passes; the two claims stay in and warn. (5) Since 3ff21c0: a claim on a
-  sentence that holds a new name ("Kerr praised _Ann Example_ …") makes an old name
+  stage fails (Zed kept). (4) Since at least 813dd3c: a name flag can make claims kept
+  through a deletion-check refusal, with no section rule or cap involved (two claims and
+  a Zed sentence before a "**He spoke for an hour**" rider). At 813dd3c the name is kept
+  too and the stage fails; since 3ff21c0 the Zed sentence goes, so the stage passes and
+  the two claims stay in and warn. (5) Since at least 813dd3c: a claim on a sentence
+  that holds a new name ("Kerr praised _Ann Example_ …") makes an old name
   kept, so nothing is removed and the stage fails. The suite also lets two changes to
   the claims-only set pass (built from every claim flag; tried before
   `names_only ∩ old`), and `test_rm1i3_claim_on_sentence_with_old_and_new_name_stays_in_retry`

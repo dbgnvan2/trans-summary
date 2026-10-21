@@ -36,8 +36,9 @@ more places did.
 - Known, not fixed (Dave's decision; Mini1's review of e1b218a): the retry does not
   always contain an earlier version's removal. Some mixes of refused cuts keep a claim
   or a name copy an earlier commit removed. A name is kept in each case at every
-  commit, so the stage fails either way (TODO.md). Separately, since 3ff21c0 a name
-  flag can make claims kept through a refusal; the stage passes and those claims warn.
+  commit, so the stage fails either way (TODO.md). Separately, since at least 813dd3c
+  a name flag can make claims kept through a refusal; since 3ff21c0 the name goes, so
+  the stage passes and those claims warn.
   Docs that said otherwise are corrected.
 
 ## [Unreleased] - 2026-10-20 (Abstract check on a judge error)
