@@ -931,15 +931,17 @@ def _item_changes(old: list, item: list, may_go) -> list:
     return problems
 
 
-def _names(sentence: _Sentence, word, raw: str) -> bool:
+def _names(sentence: _Sentence, word, raw: str, spans: list) -> bool:
     """Whether removing ``sentence`` takes out the name ``word`` matches: the name is in
     the sentence's own words, or only in the label the judge reads with it and the cut
     leaves the line empty, so the label goes with the line. Cutting the sentence after
-    a label that keeps the name would remove a sentence and leave the name (RM1.b.2)."""
+    a label that keeps the name would remove a sentence and leave the name (RM1.b.2).
+    ``spans`` are the parts of the sentence split after an abbreviation, which a name
+    takes together (RM1.i), so the line empties only when all of them are cut."""
     if word.search(sentence.own):
         return True
     return bool(sentence.label and word.search(sentence.label)
-                and _EMPTY_LINE.match(_cut(raw, [(sentence.start, sentence.end)])))
+                and _EMPTY_LINE.match(_cut(raw, spans)))
 
 
 def _name_word(name: str) -> re.Pattern:
@@ -1029,6 +1031,7 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
              tests/test_remove_flagged_rm.py::test_rm1e1_second_unquoted_faq_copy_listed_as_kept,
              tests/test_remove_flagged_rm.py::test_rm1e1_name_copy_listed_only_when_name_left,
              tests/test_remove_flagged_rm.py::test_rm1b2_name_only_in_marked_label_kept,
+             tests/test_remove_flagged_rm.py::test_rm1b2_name_label_line_split_after_abbreviation_goes,
              tests/test_remove_flagged_rm.py::test_rm1i3_unsure_claim_removed_by_name_not_kept,
              tests/test_remove_flagged_rm.py::test_rm1i3_unsure_claim_partly_removed_listed,
              tests/test_remove_flagged_rm.py::test_rm2h1_name_flag_first_claim_record_kept,
@@ -1053,6 +1056,10 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
     # A copy in the front matter may be escaped or folded there (``_head_readings``).
     scaffolding_readings = _head_readings(scaffolding)
 
+    spans = {}  # a sentence split after an abbreviation -> its parts, cut together
+    for s in sentences:
+        spans.setdefault((s.line, s.group), []).append((s.start, s.end))
+
     targets, kept, seen = [], [], set()
     partly = {}  # flag -> why one of its sentences was kept while others go
     unsure = []  # (claim flag, its copies on an uncertain split), settled below
@@ -1062,12 +1069,14 @@ def remove_flagged_sentences(text: str, flags: list, *, max_share: float,
         seen.add(flag)
         if getattr(flag, "kind", "claim") == "name":
             word = _name_word(flag.name)
-            hits = [s for s in sentences if _names(s, word, lines[s.line])]
+            hits = [s for s in sentences
+                    if _names(s, word, lines[s.line], spans[(s.line, s.group)])]
             reason = f"name '{flag.name}'"
             # The name pattern before RM1.b.5 read "_" as part of a word; a sentence
             # only it missed is newly cut, which the retry needs to know (RM1.g.6).
             was = re.compile(rf"(?<!\w){re.escape(flag.name)}(?!\w)")
-            known = {(s.line, s.group) for s in hits if _names(s, was, lines[s.line])}
+            known = {(s.line, s.group) for s in hits
+                     if _names(s, was, lines[s.line], spans[(s.line, s.group)])}
         else:
             claim = fj._claim_body(flag)
             hits = [s for s in sentences if s.text == claim]

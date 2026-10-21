@@ -233,6 +233,22 @@ def _front_matter(text):
     return yaml.safe_load(text.split("```yaml\n", 1)[1].split("\n```", 1)[0])
 
 
+def test_rm1e2_escaped_quote_faq_copy_removed():
+    """Mini1's review of 3ff21c0 (F4, a surviving mutant): an FAQ answer is read with
+    YAML's escapes undone, so a copy with an escaped quote is found and taken out, not
+    listed as kept."""
+    old = "Bowen theory has been part of his life for more than 60 years."
+    flag = 'He calls Bowen theory "the work of his life" in the talk.'
+    text = (OVERVIEW.replace(f"{old}\"", flag.replace('"', '\\"') + '"', 1)
+            .replace(old, flag))
+    assert '\\"the work of his life\\"' in text.split("```", 2)[1]
+    out, removed, kept = _remove(text, [flag], max_share=0.5)
+    assert kept == [] and "the work of his life" not in out
+    assert [(r.sentence, r.in_front_matter) for r in removed] == [(flag, True)]
+    assert _front_matter(out)["faq"][0]["a"] == (
+        "Michael Kerr is a long-time student of Murray Bowen.")
+
+
 def test_rm1e_faq_copy_removed_front_matter_parses():
     flag = "Bowen theory has been part of his life for more than 60 years."
     out, removed, kept = _remove(OVERVIEW, [flag], max_share=0.5)
@@ -953,6 +969,30 @@ def test_rm1b2_name_in_label_of_one_sentence_line_goes():
     assert kept == [] and out == f"{OPENING}{REST.lstrip()}"
     assert [(r.sentence, r.reason) for r in removed] == [
         ("He spoke at length about the move.", "name 'Zed Example'")]
+
+
+@pytest.mark.parametrize("marker", ["1. ", "> "])
+@pytest.mark.parametrize("abbr", ["Sen. Smith", "U.S. Army"])
+def test_rm1b2_name_label_line_split_after_abbreviation_goes(marker, abbr):
+    """Mini1's adversarial review of 3ff21c0 (F1, a regression from ec60324): a
+    one-sentence line with the name only in its label, which the judge splits after an
+    abbreviation, was kept. Each part was checked alone, and cutting the first part does
+    not empty the line. The whole sentence is cut, so the line goes, as at 813dd3c."""
+    text = f"{OPENING}{marker}**Zed Example:** He met {abbr} at the hearing.{AFTER}"
+    out, removed, kept = _remove(text, [ZED])
+    assert kept == [] and out == f"{OPENING}{REST.lstrip()}"
+    first, second = abbr.split(" ")
+    assert [r.sentence for r in removed] == [f"He met {first}", f"{second} at the hearing."]
+
+
+def test_rm1b2_name_label_line_with_second_sentence_still_kept():
+    """The other side (P7): the parts after the abbreviation end the sentence, but a
+    second sentence follows, so cutting the name's sentence leaves the label with it.
+    The line stays and the name is kept with the label reason, as before."""
+    text = (f"{OPENING}1. **Zed Example:** He met Sen. Smith at the hearing. Then the family"
+            f" moved to the city.{AFTER}")
+    out, removed, kept = _remove(text, [ZED])
+    assert out == text and removed == [] and kept == [fr.Kept(ZED, fr.IN_SCAFFOLDING)]
 
 
 def test_rm1g2_label_read_with_next_sentence_passes():
@@ -1851,8 +1891,8 @@ M1_TEXT = ("## Body\n\nKerr tells a long story about the family today.\n\n{line}
 
 
 def _unplaceable(monkeypatch, start):
-    """Removal cannot place a sentence starting with ``start`` in its line (as for a
-    shape the judge reads differently from the raw text)."""
+    """Removal cannot place a sentence starting with ``start`` (a string or a tuple of
+    them) in its line (as for a shape the judge reads differently from the raw text)."""
     real_find = fr._find
 
     def find(body, text, cursor):
@@ -1900,8 +1940,10 @@ def test_rm1g4_change_after_unplaced_split_seen(monkeypatch):
 def test_rm1g4_unplaced_first_sentence_read_without_its_label(monkeypatch):
     """RM1.g.4 guard: after the cut, the sentence removal cannot place starts the line,
     and the judge reads the bold label with it ("Note: He met Dr. Bowen ..."). The
-    check reads it without the label, so the label is not counted twice."""
-    _unplaceable(monkeypatch, "He met")
+    check reads it without the label, so the label is not counted twice. After the cut
+    the judge's sentence starts with the label, so that reading is unplaceable too
+    (Mini1's review of 3ff21c0, F3: with "He met" alone the branch was never reached)."""
+    _unplaceable(monkeypatch, ("He met", "Note: He met"))
     line = "1. **Note:** " + M1_LINE.format(sp="\u00a0")
     text = M1_TEXT.format(line=line)
     out, removed, kept = _remove(text, [ZED])
@@ -3045,6 +3087,22 @@ def test_rm1b5_newly_named_refused_sentence_keeps_other_removals():
             f"{CHOIR_LINE}\n\n{ZED_SENTENCE}{AFTER}")
     out, removed, kept = _remove(text, [fr.Flag(FLAG), ZED])
     assert [r.sentence for r in removed] == [FLAG, ZED_SENTENCE]
+    assert [k.claim for k in kept] == [ZED]
+    assert kept[0].reason.startswith("removed in part; one copy kept: deletion check failed")
+
+
+def test_rm1i3_claim_riding_old_name_sentence_stays_in_retry():
+    """Mini1's review of 3ff21c0 (F4, a surviving mutant): the mirror of the test below.
+    A claim on an uncertain split rides a name sentence the old pattern matched, so it
+    is in the older cuts with the name. When the retry cuts them, the claim goes with
+    its own reason, and is not listed as kept."""
+    rider = fr.Flag("Army with Kerr in 1990.")
+    text = (f"{OPENING}Zed Example trained in the U.S. Army with Kerr in 1990.\n\n"
+            f"Kerr praised _Zed Example_ warmly in the talk.{STAYS_BOLD}{AFTER}")
+    out, removed, kept = _remove(text, [rider, ZED])
+    assert [(r.sentence, r.reason) for r in removed] == [
+        ("Zed Example trained in the U.S.", "name 'Zed Example'"),
+        ("Army with Kerr in 1990.", fr.FAITHFULNESS)]
     assert [k.claim for k in kept] == [ZED]
     assert kept[0].reason.startswith("removed in part; one copy kept: deletion check failed")
 

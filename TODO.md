@@ -126,6 +126,16 @@ Fixed items live in CHANGELOG.md; recurring lessons in LEARNINGS.md.
   required item …"), so the entity check fails the stage. Both checks block here, so
   which one wins is a decision. Checked with a probe guard on one sentence; not seen in
   a real run.
+- Decided 2026-10-20 (Dave: "Fail the stage"; Mini1's F2 on 3ff21c0): a section whose only sentences all
+  hold a rejected name (one plain, one in "_…_") is kept whole ("only text under heading
+  …"), so the name is kept and the entity check fails the stage. At 813dd3c the plain
+  sentence went and the stage passed only because the entity check misses names in
+  underscores (the `_NAME_SPAN` item above). The stage fails, as now: a section that is
+  all about a made-up name needs regenerating. No code change.
+- Adjacent, not fixed (2026-10-20, noted by Mini1, the same at 813dd3c): `_cut` leaves a
+  non-breaking space where it cuts; two claim flags that differ only in their FQ tag give
+  one Removed record; a name sentence the judge reads with a plain label that is not
+  allowlisted ("- Status: Zed Example met Kerr …") is cut with that label.
 - ✅ Fixed 2026-10-20 by RM1.b.5 (`docs/plan_removal_open_items_2026-10-20.md`): a bold
   run that opens a sentence and closes inside it ("**Zed Example** spoke … Then …", also
   after "- ") is cut with both markers. Before, the cut left a stray "**", so the removal

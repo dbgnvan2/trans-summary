@@ -16,6 +16,15 @@ more places did.
   under the cap was cut first and the name, whose sentence only RM1.b.3 places, was kept.
 - Not changed (adjacent, for Dave): the required-item guard keeps a name sentence that
   holds the only mention of a required item.
+- **RM1.b.2 (Mini1's F1, a regression from ec60324):** a one-sentence line with a name
+  only in its bold label after "1. " or "> ", which the judge splits after "Sen." or
+  "U.S.", was kept; each part was checked alone. The whole sentence is checked, so the
+  line goes, as at 813dd3c.
+- Tests for three code paths the suite did not catch (Mini1's F3, F4): the label of an
+  unplaced first sentence, a claim riding an older name sentence in the retry, and an
+  FAQ copy with an escaped quote.
+- Not changed (Mini1's F2, decided by Dave): a section whose only sentences all hold the
+  name is kept, so the stage fails.
 
 ## [Unreleased] - 2026-10-20 (Abstract check on a judge error)
 

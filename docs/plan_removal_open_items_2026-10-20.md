@@ -689,3 +689,26 @@ Suites on mini2 (`.venv`): `tests/` 2,087 passed, 13 skipped; the root run 2,182
 Not changed (adjacent, for Dave, in TODO.md): the required-item guard keeps a name
 sentence that holds the only mention of a required item, so the entity check fails the
 stage. Both checks block there.
+
+Mini1's adversarial correctness review of the same range, fixed in a second commit:
+
+| ID | Status | Where | Tests |
+|---|---|---|---|
+| RM1.b.2 (F1) | done | `_names` takes the spans of every part of the sentence (`spans`, by line and group): a name only in a line's label is taken when cutting the whole sentence, all its parts, empties the line. Before, each part was checked alone, so a one-sentence line after "1. " or "> " that the judge splits after "Sen." or "U.S." was kept, where 813dd3c removed it (a regression from ec60324). | `test_rm1b2_name_label_line_split_after_abbreviation_goes` (4), `test_rm1b2_name_label_line_with_second_sentence_still_kept` |
+| RM1.g.4 (F3) | done | test only: `_unplaceable` takes a tuple, and the test also makes "Note: He met" unplaceable, which is what the judge reads after the cut. With "He met" alone the label branch in `_split_line` was never reached. | `test_rm1g4_unplaced_first_sentence_read_without_its_label` now fails with the branch disabled |
+| RM1.i.3, RM1.e.2 (F4) | done | tests only, for two code changes the suite did not catch | `test_rm1i3_claim_riding_old_name_sentence_stays_in_retry` (fails with `or` in the `named` update), `test_rm1e2_escaped_quote_faq_copy_removed` (fails without the unescape in `_answer_sentences`) |
+
+Not changed, decided by Dave (F2, "Fail the stage"): a section whose only sentences all hold the name, one of them
+in "_…_", is kept whole, so the name is kept and the stage fails. At 813dd3c the plain
+sentence went and the italic one stayed, which passed only because the entity check
+does not see names in underscores (the `_NAME_SPAN` item in TODO.md). The stage fails,
+as now.
+
+Not changed (the same at 813dd3c, noted by Mini1): `_cut` leaves a non-breaking space
+where it cuts; two claim flags that differ only in their FQ tag give one Removed record;
+a name sentence the judge reads with a plain label that is not allowlisted ("- Status:
+Zed Example met Kerr …") is cut with that label.
+
+Checks: each new test fails on the code before its fix (F1) or with the mutant it was
+written for (F3, F4). Suites on mini2 (`.venv`): `tests/` 2,094 passed, 13 skipped; the
+root run 2,189 passed, 23 skipped, 1 xfailed.
